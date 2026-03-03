@@ -1,0 +1,639 @@
+openapi: 3.1.0
+info:
+  title: Prisma AIRS API
+  description: >-
+    AI Runtime Security (AIRS) API for securing generative AI applications.
+    Provides real-time scanning of AI prompts and responses to detect threats
+    including prompt injection attacks, data leakage, toxic content generation,
+    and model abuse. Enables organizations to enforce security policies on
+    LLM-powered applications by inspecting input/output pairs against
+    configurable security profiles. Supports both synchronous and asynchronous
+    scan workflows for integration into AI application pipelines.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  - url: https://service.api.aisecurity.paloaltonetworks.com
+    description: United States (US) production server.
+  - url: https://service-de.api.aisecurity.paloaltonetworks.com
+    description: Europe (Germany) production server.
+  - url: https://service-sg.api.aisecurity.paloaltonetworks.com
+    description: Asia-Pacific (Singapore) production server.
+security:
+  - apiKeyAuth: []
+  - oauth2Bearer: []
+tags:
+  - name: Scan
+    description: >-
+      Scan AI prompts and responses for security threats. Supports asynchronous
+      scans that return a scan ID for later retrieval and synchronous scans
+      that block until analysis is complete.
+  - name: Profiles
+    description: >-
+      Manage security profiles that define which detection categories are
+      enabled, sensitivity thresholds, and actions to take when threats are
+      detected.
+  - name: Reports
+    description: >-
+      Retrieve aggregated threat intelligence reports and summary statistics
+      across scans.
+paths:
+  /v1/scan:
+    post:
+      operationId: submitScanAsync
+      summary: Submit an asynchronous AI security scan
+      description: >-
+        Submits a prompt/response pair for asynchronous security analysis.
+        Returns a scan ID immediately that can be used to poll for results
+        via the GET /v1/scan/{scan_id} endpoint. Use this endpoint for
+        non-blocking integration where latency is not critical. The scan
+        evaluates the content against the specified security profile and
+        checks for prompt injection, data leakage, toxic content, malicious
+        URLs, and other AI-specific threats.
+      tags:
+        - Scan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScanRequest'
+      responses:
+        '202':
+          description: Scan accepted for asynchronous processing.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  scan_id:
+                    type: string
+                    format: uuid
+                    description: Unique identifier for retrieving scan results.
+                  status:
+                    type: string
+                    enum:
+                      - queued
+                      - processing
+                    description: Current status of the scan.
+                  created_at:
+                    type: string
+                    format: date-time
+                    description: Timestamp when the scan was submitted.
+        '400':
+          description: Invalid request body or missing required fields.
+        '401':
+          description: Invalid or missing authentication credentials.
+        '403':
+          description: Insufficient permissions or subscription.
+        '422':
+          description: Content exceeds maximum allowed token length.
+        '429':
+          description: Rate limit exceeded.
+  /v1/scan/sync:
+    post:
+      operationId: submitScanSync
+      summary: Submit a synchronous AI security scan
+      description: >-
+        Submits a prompt/response pair for synchronous security analysis.
+        Blocks until the scan is complete and returns the full result in
+        the response. Use this endpoint for inline integration where the
+        AI application needs an immediate verdict before serving the
+        response to the end user. Typical response time is 200-800ms
+        depending on content length and enabled detections.
+      tags:
+        - Scan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScanRequest'
+      responses:
+        '200':
+          description: Scan completed with results.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanResult'
+        '400':
+          description: Invalid request body or missing required fields.
+        '401':
+          description: Invalid or missing authentication credentials.
+        '408':
+          description: Scan timed out before completion.
+        '422':
+          description: Content exceeds maximum allowed token length.
+        '429':
+          description: Rate limit exceeded.
+  /v1/scan/{scan_id}:
+    get:
+      operationId: getScanResult
+      summary: Get scan result by ID
+      description: >-
+        Retrieves the result of a previously submitted asynchronous scan.
+        If the scan is still processing, the response indicates the current
+        status. Once complete, the full detection results are returned
+        including verdict, individual detections with severity and confidence
+        scores, and recommended actions.
+      tags:
+        - Scan
+      parameters:
+        - name: scan_id
+          in: path
+          required: true
+          description: Unique scan identifier returned by the POST /v1/scan endpoint.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Scan result returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanResult'
+        '202':
+          description: Scan is still processing.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  scan_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum:
+                      - queued
+                      - processing
+                  progress:
+                    type: number
+                    format: float
+                    description: Estimated completion progress from 0.0 to 1.0.
+        '401':
+          description: Invalid or missing authentication credentials.
+        '404':
+          description: Scan ID not found or has expired.
+  /v1/profiles:
+    get:
+      operationId: listSecurityProfiles
+      summary: List security profiles
+      description: >-
+        Returns all AI security profiles configured for the tenant. Security
+        profiles define which detection categories are active, their
+        sensitivity levels, and the action to take when a threat is detected
+        (alert, block, or log). Every scan references a profile by name to
+        determine evaluation behavior.
+      tags:
+        - Profiles
+      parameters:
+        - name: offset
+          in: query
+          description: Pagination offset.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of profiles to return.
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+      responses:
+        '200':
+          description: List of security profiles.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of profiles.
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SecurityProfile'
+        '401':
+          description: Invalid or missing authentication credentials.
+    post:
+      operationId: createSecurityProfile
+      summary: Create a security profile
+      description: >-
+        Creates a new AI security profile. The profile defines which threat
+        detection categories are enabled (e.g., prompt injection, data
+        leakage, toxic content), their sensitivity thresholds, and the
+        enforcement action. Profiles are referenced by name in scan requests.
+      tags:
+        - Profiles
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecurityProfileCreate'
+      responses:
+        '201':
+          description: Security profile created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityProfile'
+        '400':
+          description: Invalid profile configuration.
+        '401':
+          description: Invalid or missing authentication credentials.
+        '409':
+          description: A profile with this name already exists.
+  /v1/reports/summary:
+    get:
+      operationId: getThreatSummary
+      summary: Get threat summary report
+      description: >-
+        Returns an aggregated summary of AI security threats detected across
+        all scans within the specified time range. Includes total scan counts,
+        threat breakdowns by category and severity, top triggered detection
+        rules, and trend data. Useful for dashboards and compliance reporting.
+      tags:
+        - Reports
+      parameters:
+        - name: start_time
+          in: query
+          description: >-
+            Start of the reporting period in ISO 8601 format. Defaults to
+            24 hours ago if not specified.
+          schema:
+            type: string
+            format: date-time
+        - name: end_time
+          in: query
+          description: >-
+            End of the reporting period in ISO 8601 format. Defaults to the
+            current time if not specified.
+          schema:
+            type: string
+            format: date-time
+        - name: profile_name
+          in: query
+          description: Filter results to a specific security profile.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Threat summary report returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThreatSummary'
+        '400':
+          description: Invalid time range or query parameters.
+        '401':
+          description: Invalid or missing authentication credentials.
+components:
+  securitySchemes:
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-pan-token
+      description: >-
+        API key for authenticating requests. Generate keys in the Palo Alto
+        Networks AIRS console under Settings > API Keys.
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        OAuth 2.0 bearer token obtained from the Palo Alto Networks identity
+        service. Use the client_credentials grant type with your service
+        account credentials.
+  schemas:
+    ScanRequest:
+      type: object
+      required:
+        - prompt
+        - profile_name
+      properties:
+        prompt:
+          type: string
+          description: >-
+            The user prompt or input text sent to the AI model. This is the
+            content that will be evaluated for prompt injection, jailbreak
+            attempts, and other input-side threats.
+          maxLength: 32000
+        response:
+          type: string
+          description: >-
+            The AI model response or output text. When provided, the scan
+            also evaluates for data leakage, toxic content generation,
+            hallucination indicators, and other output-side threats. May be
+            omitted to scan only the prompt before sending it to the model.
+          maxLength: 64000
+        model_name:
+          type: string
+          description: >-
+            Name or identifier of the AI model that generated the response.
+            Used for model-specific detection tuning and reporting. Examples
+            include gpt-4, claude-3-opus, gemini-pro.
+        profile_name:
+          type: string
+          description: >-
+            Name of the security profile to use for this scan. The profile
+            determines which detections are active and their sensitivity.
+        metadata:
+          type: object
+          description: >-
+            Optional key-value metadata to attach to the scan for tracking
+            and correlation purposes.
+          additionalProperties:
+            type: string
+    ScanResult:
+      type: object
+      properties:
+        scan_id:
+          type: string
+          format: uuid
+          description: Unique identifier of the scan.
+        status:
+          type: string
+          enum:
+            - completed
+            - error
+          description: Final status of the scan.
+        verdict:
+          type: string
+          enum:
+            - safe
+            - suspicious
+            - malicious
+          description: >-
+            Overall verdict for the scanned content. A value of safe means
+            no threats were detected. Suspicious indicates low-confidence
+            detections that may warrant review. Malicious indicates
+            high-confidence threats that should be blocked.
+        risk_score:
+          type: number
+          format: float
+          description: Aggregate risk score from 0.0 (no risk) to 1.0 (critical).
+        detections:
+          type: array
+          description: Individual threat detections found during the scan.
+          items:
+            $ref: '#/components/schemas/Detection'
+        profile_name:
+          type: string
+          description: Name of the security profile used for this scan.
+        model_name:
+          type: string
+          description: AI model name provided in the scan request.
+        scanned_at:
+          type: string
+          format: date-time
+          description: Timestamp when the scan was completed.
+        latency_ms:
+          type: integer
+          description: Total scan processing time in milliseconds.
+    Detection:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - prompt_injection
+            - jailbreak
+            - data_leakage
+            - toxic_content
+            - malicious_url
+            - pii_exposure
+            - model_abuse
+            - hallucination
+          description: Category of the detected threat.
+        severity:
+          type: string
+          enum:
+            - informational
+            - low
+            - medium
+            - high
+            - critical
+          description: Severity level of the detection.
+        confidence:
+          type: number
+          format: float
+          description: Detection confidence score from 0.0 to 1.0.
+        description:
+          type: string
+          description: Human-readable explanation of the detection.
+        location:
+          type: string
+          enum:
+            - prompt
+            - response
+          description: Whether the threat was found in the prompt or response.
+        evidence:
+          type: string
+          description: >-
+            Excerpt from the scanned content that triggered the detection.
+            May be truncated for privacy.
+        action_taken:
+          type: string
+          enum:
+            - alert
+            - block
+            - log
+          description: Action taken based on the security profile configuration.
+    SecurityProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier of the profile.
+        name:
+          type: string
+          description: Profile name used to reference this profile in scan requests.
+        description:
+          type: string
+          description: Human-readable description of the profile purpose.
+        detections:
+          type: array
+          description: List of detection categories and their configuration.
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum:
+                  - prompt_injection
+                  - jailbreak
+                  - data_leakage
+                  - toxic_content
+                  - malicious_url
+                  - pii_exposure
+                  - model_abuse
+                  - hallucination
+              enabled:
+                type: boolean
+                description: Whether this detection category is active.
+              sensitivity:
+                type: string
+                enum:
+                  - low
+                  - medium
+                  - high
+                description: >-
+                  Sensitivity threshold. Higher sensitivity catches more
+                  threats but may increase false positives.
+              action:
+                type: string
+                enum:
+                  - alert
+                  - block
+                  - log
+                description: Action to take when this threat type is detected.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+          description: Email or identifier of the user who created the profile.
+    SecurityProfileCreate:
+      type: object
+      required:
+        - name
+        - detections
+      properties:
+        name:
+          type: string
+          description: >-
+            Unique name for the profile. Used to reference the profile in
+            scan requests. Must be between 1 and 128 characters.
+          minLength: 1
+          maxLength: 128
+        description:
+          type: string
+          description: Optional description of the profile purpose.
+          maxLength: 1024
+        detections:
+          type: array
+          description: Detection categories to enable and their configuration.
+          items:
+            type: object
+            required:
+              - type
+              - enabled
+            properties:
+              type:
+                type: string
+                enum:
+                  - prompt_injection
+                  - jailbreak
+                  - data_leakage
+                  - toxic_content
+                  - malicious_url
+                  - pii_exposure
+                  - model_abuse
+                  - hallucination
+              enabled:
+                type: boolean
+              sensitivity:
+                type: string
+                enum:
+                  - low
+                  - medium
+                  - high
+                default: medium
+              action:
+                type: string
+                enum:
+                  - alert
+                  - block
+                  - log
+                default: alert
+    ThreatSummary:
+      type: object
+      properties:
+        time_range:
+          type: object
+          properties:
+            start:
+              type: string
+              format: date-time
+            end:
+              type: string
+              format: date-time
+        total_scans:
+          type: integer
+          description: Total number of scans performed in the time range.
+        total_threats:
+          type: integer
+          description: Total number of threats detected.
+        verdicts:
+          type: object
+          description: Breakdown of scan verdicts.
+          properties:
+            safe:
+              type: integer
+            suspicious:
+              type: integer
+            malicious:
+              type: integer
+        threats_by_category:
+          type: array
+          description: Threat counts grouped by detection category.
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              count:
+                type: integer
+              percentage:
+                type: number
+                format: float
+        threats_by_severity:
+          type: array
+          description: Threat counts grouped by severity level.
+          items:
+            type: object
+            properties:
+              severity:
+                type: string
+              count:
+                type: integer
+        top_triggered_rules:
+          type: array
+          description: Most frequently triggered detection rules.
+          items:
+            type: object
+            properties:
+              rule_name:
+                type: string
+              category:
+                type: string
+              count:
+                type: integer
+        trend:
+          type: array
+          description: >-
+            Time-series data showing threat counts over the reporting period.
+            Each entry represents one time bucket.
+          items:
+            type: object
+            properties:
+              timestamp:
+                type: string
+                format: date-time
+              scans:
+                type: integer
+              threats:
+                type: integer

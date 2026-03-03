@@ -1,0 +1,717 @@
+openapi: 3.1.0
+info:
+  title: Prisma Access Browser API
+  description: >-
+    REST API for the Prisma Access Browser secure enterprise browser
+    providing programmatic access to browser policy management, user
+    enrollment, deployment tracking, and usage reporting. Prisma Access
+    Browser delivers a hardened Chromium-based browser with built-in
+    data loss prevention, threat protection, and visibility into user
+    web activity. Policies control clipboard operations, file downloads,
+    screenshot capture, and access to sensitive web applications.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  - url: https://api.sase.paloaltonetworks.com
+    description: Prisma Access Browser SASE API server.
+security:
+  - oauth2: []
+tags:
+  - name: BrowserPolicies
+    description: >-
+      Browser policy management for controlling data protection rules,
+      access restrictions, and security settings in the enterprise browser.
+  - name: Users
+    description: >-
+      User enrollment and management for tracking browser adoption and
+      user-level settings.
+  - name: Deployments
+    description: >-
+      Deployment tracking for monitoring browser rollout across the
+      organization including version distribution and installation status.
+  - name: Reports
+    description: >-
+      Usage reporting and analytics for browser activity, policy
+      enforcement events, and security incidents.
+paths:
+  /browser/v1/policies:
+    get:
+      operationId: listBrowserPolicies
+      summary: List browser policies
+      description: >-
+        Returns a list of all browser policies configured in the tenant.
+        Browser policies define data protection controls, access
+        restrictions, and security settings applied to users of the
+        Prisma Access Browser. Policies can target specific user groups,
+        URL categories, or application domains. Policies are evaluated
+        in priority order with the first matching policy applied.
+      tags:
+        - BrowserPolicies
+      parameters:
+        - name: enabled
+          in: query
+          description: Filter by policy enabled state.
+          schema:
+            type: boolean
+        - name: policy_type
+          in: query
+          description: Filter by policy type.
+          schema:
+            type: string
+            enum:
+              - dlp
+              - access
+              - security
+              - extension
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            maximum: 500
+      responses:
+        '200':
+          description: Browser policies returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BrowserPolicy'
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      operationId: createBrowserPolicy
+      summary: Create a browser policy
+      description: >-
+        Creates a new browser policy for controlling user behavior and
+        data protection in the Prisma Access Browser. Policies can
+        restrict clipboard copy and paste, file downloads and uploads,
+        screenshot capture, printing, and access to specific web
+        applications or URL categories. Each policy can target specific
+        user groups and define actions including allow, block, warn,
+        and watermark.
+      tags:
+        - BrowserPolicies
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BrowserPolicy'
+      responses:
+        '201':
+          description: Browser policy created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrowserPolicy'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /browser/v1/users:
+    get:
+      operationId: listBrowserUsers
+      summary: List browser users
+      description: >-
+        Returns a list of users enrolled in the Prisma Access Browser
+        program. Each user record includes enrollment status, browser
+        version, last active timestamp, device information, and applied
+        policy details. Useful for tracking browser adoption and
+        identifying users who need to upgrade.
+      tags:
+        - Users
+      parameters:
+        - name: status
+          in: query
+          description: Filter by enrollment status.
+          schema:
+            type: string
+            enum:
+              - active
+              - inactive
+              - pending
+              - revoked
+        - name: group
+          in: query
+          description: Filter by user group name.
+          schema:
+            type: string
+        - name: search
+          in: query
+          description: >-
+            Search users by email address or display name. Supports
+            partial matching.
+          schema:
+            type: string
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Browser users returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BrowserUser'
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /browser/v1/deployments:
+    get:
+      operationId: listDeployments
+      summary: List browser deployments
+      description: >-
+        Returns a list of browser deployment records showing the rollout
+        status across the organization. Each deployment record tracks
+        a specific browser version release including the number of users
+        updated, pending installations, and failed deployments. Provides
+        visibility into the browser update lifecycle.
+      tags:
+        - Deployments
+      parameters:
+        - name: status
+          in: query
+          description: Filter by deployment status.
+          schema:
+            type: string
+            enum:
+              - active
+              - completed
+              - scheduled
+              - cancelled
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Deployments returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Deployment'
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /browser/v1/reports/usage:
+    get:
+      operationId: getBrowserUsageReport
+      summary: Get browser usage report
+      description: >-
+        Returns aggregated usage statistics for the Prisma Access Browser
+        including active user counts, session durations, top accessed
+        domains, policy enforcement events, and data protection metrics.
+        Supports time range filtering for trend analysis and compliance
+        reporting. Data is aggregated at the specified granularity
+        (hourly, daily, or weekly).
+      tags:
+        - Reports
+      parameters:
+        - name: start_time
+          in: query
+          required: true
+          description: >-
+            Start of the reporting period in ISO 8601 format
+            (e.g., 2025-01-01T00:00:00Z).
+          schema:
+            type: string
+            format: date-time
+        - name: end_time
+          in: query
+          required: true
+          description: End of the reporting period in ISO 8601 format.
+          schema:
+            type: string
+            format: date-time
+        - name: granularity
+          in: query
+          description: Time granularity for data aggregation.
+          schema:
+            type: string
+            enum:
+              - hourly
+              - daily
+              - weekly
+            default: daily
+        - name: group_by
+          in: query
+          description: Dimension to group results by.
+          schema:
+            type: string
+            enum:
+              - user
+              - group
+              - policy
+              - domain
+      responses:
+        '200':
+          description: Usage report returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageReport'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      description: >-
+        OAuth 2.0 client credentials flow for obtaining an access token.
+        Requires a client ID and client secret from the Palo Alto Networks
+        SASE identity provider. The access token must be included as a
+        Bearer token in the Authorization header.
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
+          scopes: {}
+  responses:
+    Unauthorized:
+      description: Missing or invalid OAuth2 access token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Invalid request parameters or body.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    BrowserPolicy:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the policy.
+          readOnly: true
+        name:
+          type: string
+          description: Display name of the browser policy.
+        description:
+          type: string
+        enabled:
+          type: boolean
+          description: Whether the policy is active.
+          default: true
+        priority:
+          type: integer
+          description: >-
+            Policy evaluation priority. Lower numbers are evaluated
+            first. Must be unique across all policies.
+          minimum: 1
+        policy_type:
+          type: string
+          enum:
+            - dlp
+            - access
+            - security
+            - extension
+          description: >-
+            Category of the policy. DLP policies control data
+            movement; access policies restrict URL and application
+            access; security policies configure threat protection;
+            extension policies manage browser extensions.
+        target_users:
+          type: object
+          description: User targeting criteria for the policy.
+          properties:
+            groups:
+              type: array
+              description: User group names the policy applies to.
+              items:
+                type: string
+            users:
+              type: array
+              description: >-
+                Specific user email addresses the policy applies to.
+              items:
+                type: string
+                format: email
+            exclude_groups:
+              type: array
+              description: User groups excluded from the policy.
+              items:
+                type: string
+        conditions:
+          type: object
+          description: Conditions that trigger the policy.
+          properties:
+            url_categories:
+              type: array
+              description: URL categories to match.
+              items:
+                type: string
+            domains:
+              type: array
+              description: Specific domains to match.
+              items:
+                type: string
+            applications:
+              type: array
+              description: SaaS application names to match.
+              items:
+                type: string
+        actions:
+          type: object
+          description: Actions enforced when the policy matches.
+          properties:
+            clipboard_copy:
+              type: string
+              enum:
+                - allow
+                - block
+                - warn
+              description: Control clipboard copy operations.
+            clipboard_paste:
+              type: string
+              enum:
+                - allow
+                - block
+                - warn
+              description: Control clipboard paste operations.
+            file_download:
+              type: string
+              enum:
+                - allow
+                - block
+                - warn
+                - scan
+              description: Control file downloads.
+            file_upload:
+              type: string
+              enum:
+                - allow
+                - block
+                - warn
+                - scan
+              description: Control file uploads.
+            printing:
+              type: string
+              enum:
+                - allow
+                - block
+              description: Control printing from the browser.
+            screenshot:
+              type: string
+              enum:
+                - allow
+                - block
+              description: Control screenshot capture.
+            watermark:
+              type: boolean
+              description: >-
+                Apply a visible watermark overlay showing user identity
+                on sensitive pages.
+              default: false
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+        - name
+        - policy_type
+        - actions
+    BrowserUser:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the user record.
+          readOnly: true
+        email:
+          type: string
+          format: email
+          description: User email address.
+        display_name:
+          type: string
+          description: User display name.
+        status:
+          type: string
+          enum:
+            - active
+            - inactive
+            - pending
+            - revoked
+          description: Current enrollment status.
+        groups:
+          type: array
+          description: User group memberships.
+          items:
+            type: string
+        browser_version:
+          type: string
+          description: >-
+            Version of the Prisma Access Browser installed by the user.
+          readOnly: true
+        os:
+          type: string
+          enum:
+            - windows
+            - macos
+            - linux
+            - chromeos
+          description: Operating system of the user device.
+          readOnly: true
+        device_name:
+          type: string
+          description: Name of the device running the browser.
+          readOnly: true
+        last_active:
+          type: string
+          format: date-time
+          description: Timestamp of the last browser session.
+          readOnly: true
+        total_sessions:
+          type: integer
+          description: Total number of browser sessions for this user.
+          readOnly: true
+        policies_applied:
+          type: array
+          description: List of policy IDs currently applied to this user.
+          items:
+            type: string
+          readOnly: true
+        enrolled_at:
+          type: string
+          format: date-time
+          readOnly: true
+    Deployment:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the deployment.
+          readOnly: true
+        version:
+          type: string
+          description: Browser version being deployed.
+        status:
+          type: string
+          enum:
+            - active
+            - completed
+            - scheduled
+            - cancelled
+          description: Current status of the deployment.
+        release_notes:
+          type: string
+          description: Summary of changes in this browser version.
+        target_groups:
+          type: array
+          description: User groups targeted by this deployment.
+          items:
+            type: string
+        rollout_strategy:
+          type: string
+          enum:
+            - immediate
+            - staged
+            - manual
+          description: >-
+            Deployment strategy. Immediate pushes to all users at once;
+            staged rolls out in phases; manual requires user action.
+        rollout_percentage:
+          type: integer
+          description: >-
+            Current rollout percentage for staged deployments. Ranges
+            from 0 to 100.
+          minimum: 0
+          maximum: 100
+        total_users:
+          type: integer
+          description: Total number of users targeted by the deployment.
+          readOnly: true
+        updated_users:
+          type: integer
+          description: Number of users who have received the update.
+          readOnly: true
+        pending_users:
+          type: integer
+          description: Number of users with pending installations.
+          readOnly: true
+        failed_users:
+          type: integer
+          description: Number of users where installation failed.
+          readOnly: true
+        scheduled_at:
+          type: string
+          format: date-time
+          description: Scheduled start time for the deployment.
+        started_at:
+          type: string
+          format: date-time
+          readOnly: true
+        completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+    UsageReport:
+      type: object
+      properties:
+        start_time:
+          type: string
+          format: date-time
+          description: Start of the reporting period.
+        end_time:
+          type: string
+          format: date-time
+          description: End of the reporting period.
+        granularity:
+          type: string
+          description: Time granularity of the data points.
+        summary:
+          type: object
+          description: Aggregated summary statistics for the period.
+          properties:
+            total_active_users:
+              type: integer
+              description: Total unique active users during the period.
+            total_sessions:
+              type: integer
+              description: Total browser sessions during the period.
+            avg_session_duration_minutes:
+              type: number
+              description: Average session duration in minutes.
+            total_policy_events:
+              type: integer
+              description: Total policy enforcement events triggered.
+            total_blocked_actions:
+              type: integer
+              description: Total user actions blocked by policies.
+            total_data_transfer_mb:
+              type: number
+              description: Total data transferred through the browser in MB.
+        time_series:
+          type: array
+          description: >-
+            Time-bucketed data points at the specified granularity.
+          items:
+            type: object
+            properties:
+              timestamp:
+                type: string
+                format: date-time
+              active_users:
+                type: integer
+              sessions:
+                type: integer
+              policy_events:
+                type: integer
+              blocked_actions:
+                type: integer
+        top_domains:
+          type: array
+          description: Most visited domains during the period.
+          items:
+            type: object
+            properties:
+              domain:
+                type: string
+              visit_count:
+                type: integer
+              unique_users:
+                type: integer
+        top_policy_events:
+          type: array
+          description: Most frequently triggered policy rules.
+          items:
+            type: object
+            properties:
+              policy_id:
+                type: string
+              policy_name:
+                type: string
+              event_count:
+                type: integer
+              action:
+                type: string
+    ErrorResponse:
+      type: object
+      properties:
+        _errors:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+              message:
+                type: string
+              details:
+                type: object
+        _request_id:
+          type: string

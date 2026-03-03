@@ -1,0 +1,216 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/api-evangelist/palo-alto-networks/refs/heads/main/json-schema/cortex-xdr-incident-schema.json",
+  "title": "Cortex XDR Incident",
+  "description": "Schema for a Cortex XDR incident object returned by the Cortex XDR API. Incidents are aggregated collections of related alerts that represent a potential security threat. They are automatically created by Cortex XDR's analytics engine when correlated alerts meet grouping criteria, or manually created by analysts. The incident object provides a unified view of the attack story, including affected hosts, users, alert severity breakdown, and investigation status.",
+  "type": "object",
+  "required": ["incident_id"],
+  "properties": {
+    "incident_id": {
+      "type": "string",
+      "description": "Unique identifier for the incident, assigned by Cortex XDR upon creation. This ID is used to reference the incident in all API operations including updates, status changes, and alert associations."
+    },
+    "incident_name": {
+      "type": "string",
+      "description": "Human-readable name of the incident, typically auto-generated from the correlated alerts or assigned by an analyst. Provides a concise summary of the detected threat activity."
+    },
+    "creation_time": {
+      "type": "integer",
+      "description": "Timestamp of when the incident was first created, expressed as Unix epoch time in milliseconds. This corresponds to the time the first correlated alert triggered incident creation."
+    },
+    "modification_time": {
+      "type": "integer",
+      "description": "Timestamp of the last modification to the incident, expressed as Unix epoch time in milliseconds. Updated whenever incident properties change, new alerts are added, or the status is modified."
+    },
+    "status": {
+      "type": "string",
+      "description": "Current investigation status of the incident. 'new' indicates an untriaged incident, 'under_investigation' means an analyst is actively working on it, and the resolved statuses indicate the final determination and closure reason.",
+      "enum": [
+        "new",
+        "under_investigation",
+        "resolved_threat_handled",
+        "resolved_known_issue",
+        "resolved_duplicate",
+        "resolved_false_positive",
+        "resolved_other"
+      ]
+    },
+    "severity": {
+      "type": "string",
+      "description": "Overall severity of the incident, determined by the highest severity alert or manually set by an analyst. Severity drives prioritization in the incident queue and can trigger automated response actions.",
+      "enum": ["informational", "low", "medium", "high", "critical"]
+    },
+    "assigned_user_mail": {
+      "type": "string",
+      "description": "Email address of the analyst or user currently assigned to investigate the incident. Null or empty when the incident is unassigned.",
+      "format": "email"
+    },
+    "assigned_user_pretty_name": {
+      "type": "string",
+      "description": "Display name of the assigned analyst, as configured in their Cortex XDR user profile. Provides a human-friendly label for the assignee."
+    },
+    "alert_count": {
+      "type": "integer",
+      "description": "Total number of alerts correlated and grouped into this incident. Includes alerts of all severity levels and from all detection sources.",
+      "minimum": 0
+    },
+    "low_severity_alert_count": {
+      "type": "integer",
+      "description": "Number of alerts within the incident that have a low severity rating. Low severity alerts typically indicate suspicious but low-risk activity.",
+      "minimum": 0
+    },
+    "med_severity_alert_count": {
+      "type": "integer",
+      "description": "Number of alerts within the incident that have a medium severity rating. Medium severity alerts indicate potentially harmful activity that warrants investigation.",
+      "minimum": 0
+    },
+    "high_severity_alert_count": {
+      "type": "integer",
+      "description": "Number of alerts within the incident that have a high severity rating. High severity alerts indicate likely malicious activity requiring prompt response.",
+      "minimum": 0
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description of the incident providing context about the detected threat, affected systems, and attack techniques. May be auto-generated or manually authored by an analyst."
+    },
+    "hosts": {
+      "type": "array",
+      "description": "List of hostnames of endpoints involved in the incident. Includes both source and target hosts identified across all correlated alerts.",
+      "items": {
+        "type": "string",
+        "description": "Hostname of an affected endpoint."
+      }
+    },
+    "users": {
+      "type": "array",
+      "description": "List of user accounts associated with the incident. Includes users whose credentials or sessions were involved in the detected activity across all correlated alerts.",
+      "items": {
+        "type": "string",
+        "description": "Username or user principal name of an involved user account."
+      }
+    },
+    "incident_sources": {
+      "type": "array",
+      "description": "List of detection sources that contributed alerts to the incident. Sources identify the Cortex XDR module or integrated product that generated each alert.",
+      "items": {
+        "type": "string",
+        "description": "Name of the detection source (e.g., 'XDR Agent', 'XDR Analytics', 'XDR BIOC', 'Cortex XDR - IOC', 'XDR Analytics BIOC')."
+      }
+    },
+    "rule_based_score": {
+      "type": ["number", "null"],
+      "description": "Calculated incident score based on Cortex XDR scoring rules. This numeric score is derived from rule-based analysis of alert attributes, indicators, and behavioral patterns. Null when no scoring rules apply."
+    },
+    "manual_severity": {
+      "type": ["string", "null"],
+      "description": "Severity level manually overridden by an analyst, if applicable. When set, this takes precedence over the automatically calculated severity for display and prioritization.",
+      "enum": ["informational", "low", "medium", "high", "critical", null]
+    },
+    "manual_description": {
+      "type": ["string", "null"],
+      "description": "Description manually provided by an analyst to supplement or replace the auto-generated incident description. Used to document investigation findings or provide additional context."
+    },
+    "xdr_url": {
+      "type": "string",
+      "description": "Direct URL link to the incident detail page in the Cortex XDR management console. Provides one-click access for analysts to view the full incident investigation interface.",
+      "format": "uri"
+    },
+    "starred": {
+      "type": "boolean",
+      "description": "Whether the incident has been starred (bookmarked) by an analyst for quick reference. Starred incidents can be filtered in the incident queue for prioritized attention.",
+      "default": false
+    },
+    "alerts": {
+      "type": "array",
+      "description": "List of individual alert objects that have been correlated into this incident. Each alert represents a discrete detection event from a Cortex XDR module or integrated data source.",
+      "items": {
+        "$ref": "#/$defs/Alert"
+      }
+    }
+  },
+  "$defs": {
+    "Alert": {
+      "type": "object",
+      "description": "An individual alert within a Cortex XDR incident. Alerts are discrete detection events generated by Cortex XDR analytics, BIOC rules, IOC matches, or endpoint agent detections. Multiple related alerts are correlated into a single incident to provide a unified attack story.",
+      "required": ["alert_id"],
+      "properties": {
+        "alert_id": {
+          "type": "string",
+          "description": "Unique identifier for the alert, assigned by Cortex XDR. Used to reference the specific alert in API operations and correlate with raw event data."
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable name of the alert describing the detected threat or suspicious activity. Derived from the detection rule, analytics model, or IOC match that triggered the alert."
+        },
+        "category": {
+          "type": "string",
+          "description": "Threat category classification for the alert, aligned with the MITRE ATT&CK framework where applicable. Examples include 'Malware', 'Exploitation', 'Credential Access', 'Lateral Movement', 'Command and Control', and 'Exfiltration'."
+        },
+        "action": {
+          "type": "string",
+          "description": "The response action taken by the detecting agent or module when the alert was generated. Indicates whether the threat was blocked, allowed, or partially mitigated.",
+          "enum": [
+            "BLOCKED",
+            "DETECTED",
+            "PREVENTED",
+            "REPORTED",
+            "BLOCKED_POST_DETECTED"
+          ]
+        },
+        "severity": {
+          "type": "string",
+          "description": "Severity level of the individual alert, indicating the assessed risk and potential impact of the detected activity.",
+          "enum": ["informational", "low", "medium", "high", "critical"]
+        },
+        "host_name": {
+          "type": "string",
+          "description": "Hostname of the endpoint where the alert was triggered. Identifies the specific machine involved in the detected activity."
+        },
+        "host_ip": {
+          "type": "string",
+          "description": "IP address of the endpoint where the alert was triggered. May be an IPv4 or IPv6 address, representing the primary network interface of the affected host.",
+          "format": "ipv4"
+        },
+        "user_name": {
+          "type": "string",
+          "description": "Username of the account associated with the process or session that triggered the alert. Identifies the user context under which the detected activity occurred."
+        },
+        "source": {
+          "type": "string",
+          "description": "Detection source that generated the alert. Identifies which Cortex XDR engine, module, or integrated product produced the detection.",
+          "enum": [
+            "XDR Agent",
+            "XDR Analytics",
+            "XDR Analytics BIOC",
+            "XDR BIOC",
+            "Cortex XDR - IOC",
+            "Cortex XDR - XQL",
+            "3rd Party"
+          ]
+        },
+        "detection_timestamp": {
+          "type": "integer",
+          "description": "Timestamp of when the alert was detected, expressed as Unix epoch time in milliseconds. Represents the moment the detection engine identified the suspicious or malicious activity."
+        },
+        "mitre_technique_id": {
+          "type": "string",
+          "description": "MITRE ATT&CK technique identifier associated with the detected activity, if applicable. Format is 'T' followed by a four-digit number and optional sub-technique suffix (e.g., 'T1059.001').",
+          "pattern": "^T\\d{4}(\\.\\d{3})?$"
+        },
+        "mitre_tactic_id": {
+          "type": "string",
+          "description": "MITRE ATT&CK tactic identifier associated with the detected activity, if applicable. Format is 'TA' followed by a four-digit number (e.g., 'TA0002').",
+          "pattern": "^TA\\d{4}$"
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description of the alert providing context about the detected activity, including relevant process information, file details, or network connection data."
+        },
+        "event_timestamp": {
+          "type": "integer",
+          "description": "Timestamp of the underlying event that triggered the alert, expressed as Unix epoch time in milliseconds. May differ from detection_timestamp when alerts are generated from historical event analysis."
+        }
+      }
+    }
+  }
+}

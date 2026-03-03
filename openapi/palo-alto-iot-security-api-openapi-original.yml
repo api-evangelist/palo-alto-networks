@@ -1,0 +1,631 @@
+openapi: 3.1.0
+info:
+  title: IoT Security API
+  description: >-
+    REST API for managing IoT and OT device security through Palo Alto
+    Networks IoT Security cloud service. Provides device discovery and
+    profiling, risk assessment, alert management, vulnerability tracking,
+    and policy recommendation capabilities. Enables integration with
+    third-party SIEM, SOAR, CMDB, and NAC platforms for automated
+    security workflows. Rate limited to 60 requests per minute. Requires
+    an active IoT Security subscription.
+  version: '4.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  - url: https://{customer}.iot.paloaltonetworks.com/pub/v4.0
+    description: IoT Security API production server.
+    variables:
+      customer:
+        description: Customer-specific tenant identifier.
+        default: customer-tenant
+security:
+  - keyId: []
+    accessKey: []
+tags:
+  - name: Devices
+    description: IoT and OT device discovery and profiling operations.
+  - name: Alerts
+    description: Security alert management operations.
+  - name: Vulnerabilities
+    description: Device vulnerability tracking operations.
+  - name: Policies
+    description: Security policy recommendation operations.
+paths:
+  /device:
+    get:
+      operationId: listDevices
+      summary: List devices
+      description: >-
+        Returns a paginated list of IoT and OT devices discovered on the
+        network. Supports filtering by device profile, category, risk
+        score, subnet, and other attributes. Each device record includes
+        identification details, network information, risk assessment,
+        and classification metadata.
+      tags:
+        - Devices
+      parameters:
+        - name: stime
+          in: query
+          description: >-
+            Start time filter as a Unix epoch timestamp in seconds.
+            Returns devices active since this time.
+          schema:
+            type: string
+        - name: offset
+          in: query
+          description: Pagination offset for results.
+          schema:
+            type: integer
+            default: 0
+        - name: pagelength
+          in: query
+          description: Number of devices to return per page.
+          schema:
+            type: integer
+            default: 100
+            maximum: 1000
+        - name: filter_monitored
+          in: query
+          description: Filter for monitored or unmonitored devices.
+          schema:
+            type: string
+            enum:
+              - 'yes'
+              - 'no'
+        - name: detail
+          in: query
+          description: Level of detail to include in the response.
+          schema:
+            type: string
+            enum:
+              - full
+              - summary
+            default: summary
+      responses:
+        '200':
+          description: Device list returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of devices matching the query.
+                  devices:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Device'
+        '400':
+          description: Invalid query parameters.
+        '401':
+          description: Invalid or missing API keys.
+        '429':
+          description: Rate limit exceeded (60 requests per minute).
+  /device/ip/{ip}:
+    get:
+      operationId: getDeviceByIp
+      summary: Get device by IP address
+      description: >-
+        Returns detailed information for the device associated with the
+        specified IP address. Includes full device profile, risk score
+        breakdown, network activity summary, and classification details.
+      tags:
+        - Devices
+      parameters:
+        - name: ip
+          in: path
+          required: true
+          description: IPv4 address of the device.
+          schema:
+            type: string
+            format: ipv4
+      responses:
+        '200':
+          description: Device information returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  device:
+                    $ref: '#/components/schemas/Device'
+        '400':
+          description: Invalid IP address format.
+        '401':
+          description: Invalid or missing API keys.
+        '404':
+          description: No device found with the specified IP address.
+        '429':
+          description: Rate limit exceeded (60 requests per minute).
+  /device/mac/{mac}:
+    get:
+      operationId: getDeviceByMac
+      summary: Get device by MAC address
+      description: >-
+        Returns detailed information for the device associated with the
+        specified MAC address. The MAC address format should use colons
+        as separators (e.g., AA:BB:CC:DD:EE:FF).
+      tags:
+        - Devices
+      parameters:
+        - name: mac
+          in: path
+          required: true
+          description: MAC address of the device (colon-separated format).
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Device information returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  device:
+                    $ref: '#/components/schemas/Device'
+        '400':
+          description: Invalid MAC address format.
+        '401':
+          description: Invalid or missing API keys.
+        '404':
+          description: No device found with the specified MAC address.
+        '429':
+          description: Rate limit exceeded (60 requests per minute).
+  /alert:
+    get:
+      operationId: listAlerts
+      summary: List security alerts
+      description: >-
+        Returns a paginated list of security alerts generated by the
+        IoT Security service. Alerts are triggered by anomalous device
+        behavior, policy violations, known vulnerability exploitation,
+        and communication with suspicious destinations.
+      tags:
+        - Alerts
+      parameters:
+        - name: stime
+          in: query
+          description: Start time filter as a Unix epoch timestamp in seconds.
+          schema:
+            type: string
+        - name: offset
+          in: query
+          description: Pagination offset for results.
+          schema:
+            type: integer
+            default: 0
+        - name: pagelength
+          in: query
+          description: Number of alerts to return per page.
+          schema:
+            type: integer
+            default: 100
+            maximum: 1000
+        - name: type
+          in: query
+          description: Alert type filter.
+          schema:
+            type: string
+            enum:
+              - policy_alert
+              - anomaly
+              - vulnerability
+              - spyware
+        - name: resolved
+          in: query
+          description: Filter by alert resolution status.
+          schema:
+            type: string
+            enum:
+              - 'yes'
+              - 'no'
+      responses:
+        '200':
+          description: Alert list returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  alerts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Alert'
+        '400':
+          description: Invalid query parameters.
+        '401':
+          description: Invalid or missing API keys.
+        '429':
+          description: Rate limit exceeded (60 requests per minute).
+  /alert/resolve:
+    post:
+      operationId: resolveAlerts
+      summary: Resolve security alerts
+      description: >-
+        Marks one or more security alerts as resolved. Accepts a list of
+        alert identifiers and an optional resolution reason. Resolved
+        alerts are retained for historical analysis but no longer appear
+        in active alert views.
+      tags:
+        - Alerts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ids
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+                  description: List of alert IDs to resolve.
+                reason:
+                  type: string
+                  description: Resolution reason or comment.
+                reason_type:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - No Action Needed
+                      - Issue Addressed
+                      - Duplicate
+                      - False Positive
+                  description: Resolution reason categories.
+      responses:
+        '200':
+          description: Alerts resolved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  resolved_count:
+                    type: integer
+        '400':
+          description: Invalid request body.
+        '401':
+          description: Invalid or missing API keys.
+        '429':
+          description: Rate limit exceeded (60 requests per minute).
+  /vulnerability/device:
+    get:
+      operationId: listDeviceVulnerabilities
+      summary: List device vulnerabilities
+      description: >-
+        Returns a paginated list of known vulnerabilities affecting
+        discovered devices. Vulnerability data is correlated from device
+        profiles, firmware versions, and known CVEs. Includes severity
+        ratings, affected device counts, and remediation guidance.
+      tags:
+        - Vulnerabilities
+      parameters:
+        - name: stime
+          in: query
+          description: Start time filter as a Unix epoch timestamp in seconds.
+          schema:
+            type: string
+        - name: offset
+          in: query
+          description: Pagination offset for results.
+          schema:
+            type: integer
+            default: 0
+        - name: pagelength
+          in: query
+          description: Number of vulnerability records to return per page.
+          schema:
+            type: integer
+            default: 100
+            maximum: 1000
+        - name: severity
+          in: query
+          description: Filter by vulnerability severity.
+          schema:
+            type: string
+            enum:
+              - critical
+              - high
+              - medium
+              - low
+              - info
+        - name: deviceip
+          in: query
+          description: Filter vulnerabilities by specific device IP.
+          schema:
+            type: string
+            format: ipv4
+      responses:
+        '200':
+          description: Vulnerability list returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  vulnerabilities:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Vulnerability'
+        '400':
+          description: Invalid query parameters.
+        '401':
+          description: Invalid or missing API keys.
+        '429':
+          description: Rate limit exceeded (60 requests per minute).
+  /policy/recommendation:
+    get:
+      operationId: listPolicyRecommendations
+      summary: List policy recommendations
+      description: >-
+        Returns policy recommendations generated by the IoT Security
+        service based on observed device behavior and communication
+        patterns. Recommendations include suggested security rules,
+        microsegmentation policies, and access control configurations
+        that can be applied to Palo Alto Networks firewalls.
+      tags:
+        - Policies
+      parameters:
+        - name: offset
+          in: query
+          description: Pagination offset for results.
+          schema:
+            type: integer
+            default: 0
+        - name: pagelength
+          in: query
+          description: Number of recommendations to return per page.
+          schema:
+            type: integer
+            default: 100
+            maximum: 1000
+        - name: profile
+          in: query
+          description: Filter recommendations by device profile.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Policy recommendations returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  recommendations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PolicyRecommendation'
+        '400':
+          description: Invalid query parameters.
+        '401':
+          description: Invalid or missing API keys.
+        '429':
+          description: Rate limit exceeded (60 requests per minute).
+components:
+  securitySchemes:
+    keyId:
+      type: apiKey
+      in: header
+      name: X-Key-Id
+      description: >-
+        IoT Security API key identifier. Generated from the IoT Security
+        portal under Settings > API Keys.
+    accessKey:
+      type: apiKey
+      in: header
+      name: X-Access-Key
+      description: >-
+        IoT Security API access key. Generated alongside the key
+        identifier from the IoT Security portal.
+  schemas:
+    Device:
+      type: object
+      properties:
+        ip:
+          type: string
+          format: ipv4
+          description: IPv4 address of the device.
+        mac:
+          type: string
+          description: MAC address of the device.
+        hostname:
+          type: string
+          description: Hostname or NetBIOS name of the device.
+        profile:
+          type: string
+          description: Device profile classification (e.g., IP Camera, Infusion Pump).
+        category:
+          type: string
+          description: Device category (e.g., IoT, OT, IT).
+        risk_score:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Aggregate risk score from 0 (lowest) to 100 (highest).
+        os:
+          type: string
+          description: Detected operating system.
+        os_version:
+          type: string
+          description: Detected operating system version.
+        vendor:
+          type: string
+          description: Device manufacturer or vendor.
+        model:
+          type: string
+          description: Device model identifier.
+        site:
+          type: string
+          description: Network site where the device was discovered.
+        subnet:
+          type: string
+          description: Subnet the device belongs to.
+        first_seen:
+          type: string
+          format: date-time
+          description: Timestamp when the device was first discovered.
+        last_seen:
+          type: string
+          format: date-time
+          description: Timestamp when the device was last active.
+        confidence_score:
+          type: integer
+          description: Confidence level of the device profile classification.
+        tags:
+          type: array
+          items:
+            type: string
+          description: User-defined or system-assigned tags.
+    Alert:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique alert identifier.
+        type:
+          type: string
+          enum:
+            - policy_alert
+            - anomaly
+            - vulnerability
+            - spyware
+          description: Alert type classification.
+        severity:
+          type: string
+          enum:
+            - critical
+            - high
+            - medium
+            - low
+            - info
+          description: Alert severity level.
+        description:
+          type: string
+          description: Human-readable alert description.
+        device_ip:
+          type: string
+          format: ipv4
+          description: IP address of the affected device.
+        device_mac:
+          type: string
+          description: MAC address of the affected device.
+        device_profile:
+          type: string
+          description: Profile of the affected device.
+        resolved:
+          type: boolean
+          description: Whether the alert has been resolved.
+        resolved_reason:
+          type: string
+          description: Resolution reason if resolved.
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp when the alert was generated.
+        details:
+          type: object
+          description: Additional alert-specific details.
+    Vulnerability:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique vulnerability record identifier.
+        cve:
+          type: string
+          description: CVE identifier (e.g., CVE-2023-12345).
+        name:
+          type: string
+          description: Vulnerability name.
+        severity:
+          type: string
+          enum:
+            - critical
+            - high
+            - medium
+            - low
+            - info
+          description: Vulnerability severity rating.
+        cvss_score:
+          type: number
+          format: float
+          description: CVSS v3 base score.
+        affected_device_count:
+          type: integer
+          description: Number of devices affected by this vulnerability.
+        affected_profiles:
+          type: array
+          items:
+            type: string
+          description: Device profiles affected by this vulnerability.
+        description:
+          type: string
+          description: Vulnerability description.
+        remediation:
+          type: string
+          description: Recommended remediation steps.
+        first_detected:
+          type: string
+          format: date-time
+          description: Timestamp when the vulnerability was first detected.
+    PolicyRecommendation:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique recommendation identifier.
+        profile:
+          type: string
+          description: Device profile the recommendation applies to.
+        source_zone:
+          type: string
+          description: Recommended source security zone.
+        destination_zone:
+          type: string
+          description: Recommended destination security zone.
+        applications:
+          type: array
+          items:
+            type: string
+          description: Recommended allowed applications.
+        services:
+          type: array
+          items:
+            type: string
+          description: Recommended allowed services and ports.
+        action:
+          type: string
+          enum:
+            - allow
+            - deny
+            - alert
+          description: Recommended policy action.
+        device_count:
+          type: integer
+          description: Number of devices this recommendation covers.
+        confidence:
+          type: number
+          format: float
+          description: Confidence score for the recommendation.
+        description:
+          type: string
+          description: Human-readable recommendation description.

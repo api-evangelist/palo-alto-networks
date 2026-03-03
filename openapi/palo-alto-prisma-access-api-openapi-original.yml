@@ -1,0 +1,674 @@
+openapi: 3.1.0
+info:
+  title: Prisma Access Configuration API
+  description: >-
+    REST API for the Prisma Access SASE platform providing programmatic
+    access to remote network configuration, service connections, mobile
+    user agent profiles, and security policy management. Prisma Access
+    delivers cloud-delivered security for branch offices, retail locations,
+    and mobile users. All configuration changes are staged in a candidate
+    configuration and must be explicitly pushed to take effect.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  - url: https://api.sase.paloaltonetworks.com
+    description: Prisma Access SASE API server.
+security:
+  - oauth2: []
+tags:
+  - name: RemoteNetworks
+    description: >-
+      Remote network configuration for connecting branch offices and
+      data centers to Prisma Access via IPSec tunnels.
+  - name: ServiceConnections
+    description: >-
+      Service connection management for providing access to internal
+      resources through Prisma Access.
+  - name: MobileUsers
+    description: >-
+      Mobile user agent profile configuration for GlobalProtect
+      remote user connectivity.
+  - name: SecurityPolicies
+    description: >-
+      Security policy rule management for controlling traffic
+      flowing through Prisma Access.
+paths:
+  /sse/config/v1/remote-networks:
+    get:
+      operationId: listRemoteNetworks
+      summary: List remote networks
+      description: >-
+        Returns a list of all configured remote networks in the Prisma
+        Access tenant. Each remote network represents a branch or data
+        center site connected via IPSec tunnel. Supports filtering by
+        name and folder, with pagination through offset and limit
+        query parameters.
+      tags:
+        - RemoteNetworks
+      parameters:
+        - name: folder
+          in: query
+          description: >-
+            Filter remote networks by folder (e.g., Remote Networks,
+            Shared).
+          schema:
+            type: string
+        - name: name
+          in: query
+          description: Filter by remote network name.
+          schema:
+            type: string
+        - name: offset
+          in: query
+          description: Starting offset for pagination.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of results to return.
+          schema:
+            type: integer
+            default: 200
+            maximum: 5000
+      responses:
+        '200':
+          description: Remote networks returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RemoteNetwork'
+                  offset:
+                    type: integer
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      operationId: createRemoteNetwork
+      summary: Create a remote network
+      description: >-
+        Creates a new remote network configuration in the candidate
+        configuration. The remote network defines an IPSec tunnel
+        endpoint for connecting a branch office or data center to
+        Prisma Access. The configuration must be pushed using the
+        candidate push endpoint to take effect.
+      tags:
+        - RemoteNetworks
+      parameters:
+        - name: folder
+          in: query
+          required: true
+          description: Target folder for the remote network (e.g., Remote Networks).
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemoteNetwork'
+      responses:
+        '201':
+          description: Remote network created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: Unique identifier for the created remote network.
+                  name:
+                    type: string
+                  message:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /sse/config/v1/service-connections:
+    get:
+      operationId: listServiceConnections
+      summary: List service connections
+      description: >-
+        Returns a list of all configured service connections. Service
+        connections provide access to internal data center resources
+        from Prisma Access. Each service connection represents a
+        dedicated IPSec tunnel between Prisma Access and the
+        corporate network.
+      tags:
+        - ServiceConnections
+      parameters:
+        - name: folder
+          in: query
+          description: Filter by folder.
+          schema:
+            type: string
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 200
+      responses:
+        '200':
+          description: Service connections returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ServiceConnection'
+                  offset:
+                    type: integer
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /sse/config/v1/mobile-users/agent-profiles:
+    get:
+      operationId: listAgentProfiles
+      summary: List mobile user agent profiles
+      description: >-
+        Returns a list of GlobalProtect agent profiles configured for
+        mobile users. Agent profiles define connection settings, split
+        tunnel configuration, and authentication options for remote
+        users connecting through the GlobalProtect client.
+      tags:
+        - MobileUsers
+      parameters:
+        - name: folder
+          in: query
+          description: Filter by folder (e.g., Mobile Users).
+          schema:
+            type: string
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 200
+      responses:
+        '200':
+          description: Agent profiles returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AgentProfile'
+                  offset:
+                    type: integer
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /sse/config/v1/security-rules:
+    get:
+      operationId: listSecurityRules
+      summary: List security rules
+      description: >-
+        Returns a list of security policy rules configured in Prisma
+        Access. Security rules control traffic flowing through the
+        SASE platform by specifying source, destination, application,
+        and action criteria. Rules are evaluated in order from top
+        to bottom.
+      tags:
+        - SecurityPolicies
+      parameters:
+        - name: folder
+          in: query
+          required: true
+          description: >-
+            The folder containing the security rules (e.g., Shared,
+            Mobile Users, Remote Networks).
+          schema:
+            type: string
+        - name: position
+          in: query
+          description: Filter by rule position (pre or post).
+          schema:
+            type: string
+            enum:
+              - pre
+              - post
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 200
+      responses:
+        '200':
+          description: Security rules returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SecurityRule'
+                  offset:
+                    type: integer
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /sse/config/v1/config-versions/candidate:push:
+    post:
+      operationId: pushCandidateConfig
+      summary: Push candidate configuration
+      description: >-
+        Pushes the current candidate configuration to the running
+        configuration, activating all staged changes. This operation
+        applies changes across remote networks, service connections,
+        security policies, and all other configuration elements that
+        have been modified since the last push. The push is
+        asynchronous and returns a job ID for tracking progress.
+      tags:
+        - SecurityPolicies
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                folders:
+                  type: array
+                  description: >-
+                    List of folders to push. If empty, all folders
+                    with pending changes are pushed.
+                  items:
+                    type: string
+                description:
+                  type: string
+                  description: Description of the configuration push.
+      responses:
+        '200':
+          description: Configuration push initiated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  job_id:
+                    type: string
+                    description: >-
+                      Job identifier for tracking the push operation
+                      status.
+                  message:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      description: >-
+        OAuth 2.0 client credentials flow for obtaining an access token.
+        Requires a client ID and client secret from the Palo Alto Networks
+        SASE identity provider. The access token must be included as a
+        Bearer token in the Authorization header.
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
+          scopes: {}
+  responses:
+    Unauthorized:
+      description: Missing or invalid OAuth2 access token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Invalid request parameters or body.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    RemoteNetwork:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the remote network.
+          readOnly: true
+        name:
+          type: string
+          description: Name of the remote network.
+        region:
+          type: string
+          description: >-
+            Prisma Access compute region for this remote network
+            (e.g., us-east-1, eu-west-1).
+        license_type:
+          type: string
+          description: License type assigned to this remote network.
+          enum:
+            - FWAAS-AGGREGATE
+            - FWAAS-BYOL
+        spn_name:
+          type: string
+          description: >-
+            Service provider node name for the Prisma Access gateway
+            location.
+        ipsec_tunnel:
+          type: object
+          description: IPSec tunnel configuration.
+          properties:
+            name:
+              type: string
+            auto_key:
+              type: object
+              properties:
+                ike_gateway:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    peer_address:
+                      type: object
+                      properties:
+                        ip:
+                          type: string
+                          format: ipv4
+                    authentication:
+                      type: object
+                      properties:
+                        pre_shared_key:
+                          type: string
+                          description: Pre-shared key for IKE authentication.
+                ipsec_crypto_profile:
+                  type: string
+            tunnel_interface:
+              type: string
+        ecmp_load_balancing:
+          type: string
+          enum:
+            - enable
+            - disable
+          description: Enable or disable ECMP load balancing.
+        folder:
+          type: string
+          description: Folder containing this remote network.
+          readOnly: true
+      required:
+        - name
+        - region
+    ServiceConnection:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the service connection.
+          readOnly: true
+        name:
+          type: string
+          description: Name of the service connection.
+        region:
+          type: string
+          description: Prisma Access compute region.
+        ipsec_tunnel:
+          type: string
+          description: Name of the associated IPSec tunnel.
+        onboarding_type:
+          type: string
+          description: Type of onboarding for the service connection.
+          enum:
+            - classic
+        subnets:
+          type: array
+          description: List of internal subnets accessible through this connection.
+          items:
+            type: string
+        nat_pool:
+          type: string
+          description: NAT pool CIDR for source translation.
+        primary_wan_interface:
+          type: string
+          description: Primary WAN interface for the service connection.
+        secondary_wan_interface:
+          type: string
+          description: Secondary WAN interface for redundancy.
+        qos_enabled:
+          type: boolean
+          description: Whether QoS is enabled on this connection.
+          default: false
+        folder:
+          type: string
+          readOnly: true
+      required:
+        - name
+        - region
+        - ipsec_tunnel
+    AgentProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          description: Name of the agent profile.
+        authentication:
+          type: object
+          description: Authentication configuration for the agent.
+          properties:
+            saml_idp:
+              type: string
+              description: SAML identity provider profile name.
+            client_certificate:
+              type: boolean
+              description: Whether client certificate authentication is required.
+            mfa_enabled:
+              type: boolean
+              description: Whether multi-factor authentication is enabled.
+        agent_user_override:
+          type: object
+          properties:
+            allowed:
+              type: boolean
+            with_ticket:
+              type: boolean
+        split_tunneling:
+          type: object
+          description: Split tunnel configuration.
+          properties:
+            include_domains:
+              type: array
+              items:
+                type: string
+            exclude_domains:
+              type: array
+              items:
+                type: string
+            include_applications:
+              type: array
+              items:
+                type: string
+        connect_method:
+          type: string
+          enum:
+            - pre-logon
+            - on-demand
+            - user-logon
+          description: Method used for establishing the VPN connection.
+        gp_app_config:
+          type: object
+          properties:
+            portal_address:
+              type: string
+              description: GlobalProtect portal FQDN or IP address.
+            connect_timeout:
+              type: integer
+              description: Connection timeout in seconds.
+        folder:
+          type: string
+          readOnly: true
+      required:
+        - name
+    SecurityRule:
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          description: Name of the security rule.
+        description:
+          type: string
+        disabled:
+          type: boolean
+          default: false
+        from:
+          type: array
+          description: Source security zones.
+          items:
+            type: string
+        to:
+          type: array
+          description: Destination security zones.
+          items:
+            type: string
+        source:
+          type: array
+          description: Source addresses or address groups.
+          items:
+            type: string
+        destination:
+          type: array
+          description: Destination addresses or address groups.
+          items:
+            type: string
+        source_user:
+          type: array
+          description: Source user or user group names.
+          items:
+            type: string
+        application:
+          type: array
+          description: Applications to match.
+          items:
+            type: string
+        service:
+          type: array
+          description: Services or service groups to match.
+          items:
+            type: string
+        category:
+          type: array
+          description: URL categories to match.
+          items:
+            type: string
+        action:
+          type: string
+          enum:
+            - allow
+            - deny
+            - drop
+            - reset-client
+            - reset-server
+            - reset-both
+          description: Action to take when the rule matches.
+        profile_setting:
+          type: object
+          properties:
+            group:
+              type: array
+              items:
+                type: string
+              description: Security profile group names.
+        log_setting:
+          type: string
+          description: Log forwarding profile name.
+        tag:
+          type: array
+          items:
+            type: string
+        folder:
+          type: string
+          readOnly: true
+        position:
+          type: string
+          enum:
+            - pre
+            - post
+          readOnly: true
+      required:
+        - name
+        - from
+        - to
+        - source
+        - destination
+        - application
+        - action
+    ErrorResponse:
+      type: object
+      properties:
+        _errors:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+              message:
+                type: string
+              details:
+                type: object
+        _request_id:
+          type: string

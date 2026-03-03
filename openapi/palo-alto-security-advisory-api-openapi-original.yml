@@ -1,0 +1,313 @@
+openapi: 3.1.0
+info:
+  title: Security Advisory API
+  description: >-
+    Public REST API for querying Palo Alto Networks Product Security
+    Incident Response Team (PSIRT) security advisories. Provides access
+    to published vulnerability advisories including CVE identifiers,
+    severity ratings, CVSS scores, affected products and versions, fixed
+    versions, and remediation guidance. This is a public beta API that
+    does not require authentication. Advisory data covers PAN-OS, Cortex
+    XDR, Prisma Cloud, GlobalProtect, and other Palo Alto Networks
+    products.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  - url: https://security.paloaltonetworks.com
+    description: Palo Alto Networks Security Advisory API (public beta).
+security: []
+tags:
+  - name: Advisories
+    description: Security advisory queries and retrieval.
+paths:
+  /api/v1/advisories:
+    get:
+      operationId: listAdvisories
+      summary: List security advisories
+      description: >-
+        Returns a paginated list of published security advisories. Supports
+        filtering by severity, product, date range, and CVSS score
+        threshold. Results are sorted by publication date in descending
+        order by default. This endpoint is publicly accessible and does
+        not require authentication.
+      tags:
+        - Advisories
+      parameters:
+        - name: severity
+          in: query
+          description: Filter advisories by severity level.
+          schema:
+            type: string
+            enum:
+              - NONE
+              - LOW
+              - MEDIUM
+              - HIGH
+              - CRITICAL
+        - name: product
+          in: query
+          description: >-
+            Filter by affected product name (e.g., PAN-OS, Cortex XDR
+            Agent, Prisma Cloud, GlobalProtect, Cortex XSOAR).
+          schema:
+            type: string
+        - name: sort
+          in: query
+          description: Sort field and direction.
+          schema:
+            type: string
+            enum:
+              - -publishedDate
+              - publishedDate
+              - -cvssScore
+              - cvssScore
+            default: -publishedDate
+        - name: publishedDateFrom
+          in: query
+          description: Filter advisories published on or after this date.
+          schema:
+            type: string
+            format: date
+        - name: publishedDateTo
+          in: query
+          description: Filter advisories published on or before this date.
+          schema:
+            type: string
+            format: date
+        - name: cvssScoreMin
+          in: query
+          description: Minimum CVSS v3.1 base score filter.
+          schema:
+            type: number
+            minimum: 0.0
+            maximum: 10.0
+        - name: offset
+          in: query
+          description: Pagination offset.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of advisories to return.
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+      responses:
+        '200':
+          description: Advisories returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  total:
+                    type: integer
+                    description: Total number of advisories matching the query.
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Advisory'
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded. Retry after the specified delay.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Number of seconds to wait before retrying.
+  /api/v1/advisories/{cveId}:
+    get:
+      operationId: getAdvisory
+      summary: Get advisory by CVE ID
+      description: >-
+        Returns detailed information about a specific security advisory
+        identified by its CVE identifier. Includes full description,
+        severity details, CVSS vector string, affected product versions,
+        fixed versions, workarounds, and references to external
+        resources.
+      tags:
+        - Advisories
+      parameters:
+        - name: cveId
+          in: path
+          required: true
+          description: CVE identifier (e.g., CVE-2024-3400).
+          schema:
+            type: string
+            pattern: '^CVE-\d{4}-\d{4,}$'
+      responses:
+        '200':
+          description: Advisory returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Advisory'
+        '404':
+          description: No advisory found for the specified CVE ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    Advisory:
+      type: object
+      description: >-
+        A PSIRT security advisory describing a vulnerability in a Palo
+        Alto Networks product.
+      properties:
+        cveId:
+          type: string
+          description: CVE identifier (e.g., CVE-2024-3400).
+        title:
+          type: string
+          description: Advisory title summarizing the vulnerability.
+        description:
+          type: string
+          description: >-
+            Detailed description of the vulnerability including impact
+            and attack vector.
+        severity:
+          type: string
+          enum:
+            - NONE
+            - LOW
+            - MEDIUM
+            - HIGH
+            - CRITICAL
+          description: Severity rating based on CVSS v3.1 base score.
+        cvssScore:
+          type: number
+          description: CVSS v3.1 base score (0.0-10.0).
+          minimum: 0.0
+          maximum: 10.0
+        cvssVectorString:
+          type: string
+          description: >-
+            CVSS v3.1 vector string (e.g.,
+            CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H).
+        cwe:
+          type: string
+          description: CWE identifier for the vulnerability class.
+        affectedProducts:
+          type: array
+          items:
+            type: object
+            properties:
+              product:
+                type: string
+                description: Product name (e.g., PAN-OS, Cortex XDR Agent).
+              versions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    version:
+                      type: string
+                      description: Affected version or version range.
+                    status:
+                      type: string
+                      enum:
+                        - Affected
+                        - Unaffected
+                        - Fixed
+                      description: Whether this version is affected.
+                    versionType:
+                      type: string
+                      enum:
+                        - custom
+                        - semver
+          description: >-
+            List of affected products and their version status.
+        fixedVersions:
+          type: array
+          items:
+            type: string
+          description: >-
+            Product versions in which the vulnerability has been fixed
+            (e.g., PAN-OS 11.1.3, PAN-OS 10.2.9).
+        workarounds:
+          type: string
+          description: >-
+            Available workarounds or mitigations if a fix is not yet
+            deployed.
+        exploitStatus:
+          type: string
+          enum:
+            - None
+            - Proof-of-Concept
+            - Active
+          description: Known exploit activity status.
+        acknowledgments:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                description: Name of the reporter or researcher.
+              organization:
+                type: string
+                description: Organization of the reporter.
+          description: Individuals or organizations credited with discovery.
+        references:
+          type: array
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+                format: uri
+                description: Reference URL.
+              description:
+                type: string
+          description: External references and related advisories.
+        publishedDate:
+          type: string
+          format: date-time
+          description: Date and time when the advisory was first published.
+        lastModifiedDate:
+          type: string
+          format: date-time
+          description: Date and time of the most recent advisory update.
+        advisoryId:
+          type: string
+          description: >-
+            Palo Alto Networks internal advisory identifier
+            (e.g., PAN-SA-2024-0001).
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+              description: Human-readable error description.

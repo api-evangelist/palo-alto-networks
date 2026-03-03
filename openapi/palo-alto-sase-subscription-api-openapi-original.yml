@@ -1,0 +1,321 @@
+openapi: 3.1.0
+info:
+  title: SASE Subscription Service API
+  description: >-
+    REST API for the Palo Alto Networks SASE Subscription Service providing
+    programmatic access to license and entitlement management. Enables
+    retrieval of subscription details, license status, product entitlements,
+    and usage information across Tenant Service Group hierarchies. Useful
+    for automated license compliance monitoring, capacity planning, and
+    subscription lifecycle management. Authentication uses OAuth2 bearer
+    tokens obtained from the Palo Alto Networks identity provider.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  - url: https://api.sase.paloaltonetworks.com
+    description: SASE API gateway for subscription service operations.
+security:
+  - bearerAuth: []
+tags:
+  - name: Subscriptions
+    description: >-
+      Subscription management operations for viewing and monitoring
+      SASE product licenses.
+  - name: Entitlements
+    description: >-
+      Entitlement operations for querying product feature allocations
+      and usage limits.
+paths:
+  /subscription/v1/subscriptions:
+    get:
+      operationId: listSubscriptions
+      summary: List subscriptions
+      description: >-
+        Returns a list of all subscriptions accessible to the authenticated
+        principal. Includes subscription metadata such as product name,
+        status, validity period, and licensed quantity. Results can be
+        filtered by product type or subscription status. Supports pagination
+        for large subscription portfolios.
+      tags:
+        - Subscriptions
+      parameters:
+        - name: product
+          in: query
+          required: false
+          description: Filter subscriptions by product name.
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          description: Filter subscriptions by status.
+          schema:
+            type: string
+            enum:
+              - active
+              - expired
+              - pending
+              - suspended
+        - name: offset
+          in: query
+          required: false
+          description: Pagination offset for the result set.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of subscriptions to return.
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+      responses:
+        '200':
+          description: Subscriptions returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_count:
+                    type: integer
+                    description: Total number of subscriptions matching the query.
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Subscription'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /subscription/v1/subscriptions/{tsg_id}:
+    get:
+      operationId: getSubscriptionsByTsg
+      summary: Get subscriptions for a TSG
+      description: >-
+        Returns all subscriptions associated with a specific Tenant Service
+        Group. Provides a TSG-scoped view of licensed products, their
+        quantities, validity periods, and current status. Useful for
+        understanding the license posture of a specific organizational
+        unit within the SASE hierarchy.
+      tags:
+        - Subscriptions
+      parameters:
+        - name: tsg_id
+          in: path
+          required: true
+          description: >-
+            Tenant Service Group ID to retrieve subscriptions for.
+          schema:
+            type: string
+        - name: include_children
+          in: query
+          required: false
+          description: >-
+            When true, includes subscriptions from child TSGs in the
+            response.
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Subscriptions for the specified TSG returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tsg_id:
+                    type: string
+                    description: The TSG ID that was queried.
+                  total_count:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Subscription'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /subscription/v1/entitlements:
+    get:
+      operationId: listEntitlements
+      summary: List entitlements
+      description: >-
+        Returns a list of product entitlements for the authenticated
+        principal's scope. Entitlements represent specific feature
+        allocations and usage limits derived from active subscriptions.
+        Each entitlement includes the entitled feature, allocated quantity,
+        consumed quantity, and the associated subscription reference.
+      tags:
+        - Entitlements
+      parameters:
+        - name: tsg_id
+          in: query
+          required: false
+          description: >-
+            TSG ID to scope the entitlement query. When omitted, returns
+            entitlements for the top-level TSG.
+          schema:
+            type: string
+        - name: product
+          in: query
+          required: false
+          description: Filter entitlements by product name.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Entitlements returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_count:
+                    type: integer
+                    description: Total number of entitlements.
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Entitlement'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
+          scopes: {}
+      description: >-
+        OAuth2 client credentials flow. Obtain an access token from the
+        Palo Alto Networks identity provider and include it as a Bearer
+        token in the Authorization header.
+  responses:
+    Unauthorized:
+      description: Missing or invalid OAuth2 bearer token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    Subscription:
+      type: object
+      properties:
+        subscription_id:
+          type: string
+          description: Unique identifier for the subscription.
+        tsg_id:
+          type: string
+          description: TSG ID that this subscription is allocated to.
+        product:
+          type: string
+          description: >-
+            Product name (e.g., Prisma Access, Prisma SD-WAN, ADEM,
+            Cloud SWG).
+        status:
+          type: string
+          enum:
+            - active
+            - expired
+            - pending
+            - suspended
+          description: Current status of the subscription.
+        start_date:
+          type: string
+          format: date
+          description: Start date of the subscription validity period.
+        end_date:
+          type: string
+          format: date
+          description: End date of the subscription validity period.
+        quantity:
+          type: integer
+          description: >-
+            Licensed quantity for this subscription (e.g., number of
+            users, bandwidth in Mbps, or device count).
+        quantity_unit:
+          type: string
+          description: >-
+            Unit of measurement for the quantity (e.g., users, Mbps,
+            devices).
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the subscription was provisioned.
+    Entitlement:
+      type: object
+      properties:
+        entitlement_id:
+          type: string
+          description: Unique identifier for the entitlement.
+        subscription_id:
+          type: string
+          description: >-
+            Reference to the parent subscription that grants this
+            entitlement.
+        tsg_id:
+          type: string
+          description: TSG ID that this entitlement applies to.
+        product:
+          type: string
+          description: Product name associated with this entitlement.
+        feature:
+          type: string
+          description: >-
+            Specific feature or capability entitled (e.g., remote_access,
+            mobile_users, site_connections).
+        allocated_quantity:
+          type: integer
+          description: Total allocated quantity for this entitlement.
+        consumed_quantity:
+          type: integer
+          description: Currently consumed quantity.
+        unit:
+          type: string
+          description: Unit of measurement (e.g., users, Mbps, connections).
+        status:
+          type: string
+          enum:
+            - active
+            - expired
+            - over_allocated
+          description: Current status of the entitlement.
+    ErrorResponse:
+      type: object
+      properties:
+        error_code:
+          type: integer
+          description: Machine-readable error code.
+        message:
+          type: string
+          description: Human-readable error message.
+        details:
+          type: string
+          description: Additional context about the error.

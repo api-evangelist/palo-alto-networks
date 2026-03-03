@@ -1,0 +1,549 @@
+openapi: 3.1.0
+info:
+  title: SASE 5G API
+  description: >-
+    REST API for the Palo Alto Networks SASE 5G security service providing
+    programmatic management of 5G network security functions. Enables
+    mobile network operators and enterprises to configure security services,
+    manage tenant isolation for 5G network slices, and define security
+    policies for 5G user plane traffic. Supports integration with 5G
+    Service-Based Architecture (SBA) components including AMF, SMF, and
+    UPF. Authentication uses OAuth2 bearer tokens obtained from the
+    Palo Alto Networks identity provider.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  - url: https://api.sase.paloaltonetworks.com
+    description: SASE API gateway for 5G security service operations.
+security:
+  - bearerAuth: []
+tags:
+  - name: Services
+    description: >-
+      5G security service management for provisioning and configuring
+      network security functions.
+  - name: Tenants
+    description: >-
+      5G tenant management for network slice isolation and multi-tenancy
+      within mobile networks.
+  - name: Policies
+    description: >-
+      5G security policy management for defining traffic inspection
+      and enforcement rules for 5G user plane traffic.
+paths:
+  /5g/v1/services:
+    get:
+      operationId: list5GServices
+      summary: List 5G services
+      description: >-
+        Returns a list of all configured 5G security services for the
+        specified Tenant Service Group. Each service represents a deployed
+        security function instance that inspects and enforces policies
+        on 5G network traffic. Includes service type, deployment region,
+        capacity configuration, and operational status.
+      tags:
+        - Services
+      parameters:
+        - name: tsg_id
+          in: header
+          required: true
+          description: TSG ID to scope the service query.
+          schema:
+            type: string
+        - name: service_type
+          in: query
+          required: false
+          description: Filter services by type.
+          schema:
+            type: string
+            enum:
+              - firewall
+              - ips
+              - url_filtering
+              - threat_prevention
+        - name: status
+          in: query
+          required: false
+          description: Filter services by operational status.
+          schema:
+            type: string
+            enum:
+              - active
+              - inactive
+              - provisioning
+              - error
+      responses:
+        '200':
+          description: 5G services returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_count:
+                    type: integer
+                    description: Total number of services matching the query.
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Service5G'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      operationId: create5GService
+      summary: Create a 5G service
+      description: >-
+        Creates a new 5G security service instance within the specified
+        Tenant Service Group. The service is provisioned in the designated
+        region and configured with the specified capacity and integration
+        parameters. Provisioning is asynchronous and the service transitions
+        to active once deployment completes. Requires valid 5G security
+        subscription entitlements.
+      tags:
+        - Services
+      parameters:
+        - name: tsg_id
+          in: header
+          required: true
+          description: TSG ID under which to create the 5G service.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - service_type
+                - region
+              properties:
+                name:
+                  type: string
+                  description: Display name for the 5G service instance.
+                  maxLength: 128
+                service_type:
+                  type: string
+                  enum:
+                    - firewall
+                    - ips
+                    - url_filtering
+                    - threat_prevention
+                  description: Type of security function to deploy.
+                region:
+                  type: string
+                  description: >-
+                    Deployment region for the service instance (e.g.,
+                    us-east-1, eu-west-1, ap-southeast-1).
+                capacity:
+                  type: object
+                  description: Capacity configuration for the service.
+                  properties:
+                    throughput_gbps:
+                      type: number
+                      format: float
+                      description: >-
+                        Desired throughput capacity in Gbps.
+                      default: 1.0
+                    max_sessions:
+                      type: integer
+                      description: >-
+                        Maximum concurrent sessions supported.
+                      default: 100000
+                network_config:
+                  type: object
+                  description: >-
+                    Network integration parameters for connecting to
+                    the 5G core network.
+                  properties:
+                    n3_interface_ip:
+                      type: string
+                      format: ipv4
+                      description: >-
+                        IP address for the N3 interface connecting to
+                        the UPF.
+                    n6_interface_ip:
+                      type: string
+                      format: ipv4
+                      description: >-
+                        IP address for the N6 interface connecting to
+                        the data network.
+                    gtp_u_port:
+                      type: integer
+                      default: 2152
+                      description: GTP-U port number.
+                description:
+                  type: string
+                  description: Optional description of the service purpose.
+                  maxLength: 512
+      responses:
+        '201':
+          description: 5G service created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service5G'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /5g/v1/tenants:
+    get:
+      operationId: list5GTenants
+      summary: List 5G tenants
+      description: >-
+        Returns a list of 5G tenants configured within the specified
+        Tenant Service Group. Each 5G tenant represents an isolated
+        security domain corresponding to a 5G network slice or enterprise
+        customer. Tenants enable multi-tenancy by providing separate
+        policy and logging domains for different network slices.
+      tags:
+        - Tenants
+      parameters:
+        - name: tsg_id
+          in: header
+          required: true
+          description: TSG ID to scope the 5G tenant query.
+          schema:
+            type: string
+        - name: slice_type
+          in: query
+          required: false
+          description: Filter tenants by network slice type.
+          schema:
+            type: string
+            enum:
+              - eMBB
+              - URLLC
+              - mMTC
+      responses:
+        '200':
+          description: 5G tenants returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_count:
+                    type: integer
+                    description: Total number of 5G tenants.
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tenant5G'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /5g/v1/policies:
+    get:
+      operationId: list5GPolicies
+      summary: List 5G security policies
+      description: >-
+        Returns a list of security policies configured for 5G traffic
+        inspection and enforcement. Policies define rules for inspecting
+        GTP-U encapsulated traffic, applying threat prevention signatures,
+        enforcing URL filtering, and controlling application usage within
+        5G network slices. Policies can be scoped to specific tenants
+        or applied globally across all slices.
+      tags:
+        - Policies
+      parameters:
+        - name: tsg_id
+          in: header
+          required: true
+          description: TSG ID to scope the policy query.
+          schema:
+            type: string
+        - name: tenant_id
+          in: query
+          required: false
+          description: >-
+            Filter policies by 5G tenant ID to retrieve slice-specific
+            policies.
+          schema:
+            type: string
+        - name: policy_type
+          in: query
+          required: false
+          description: Filter policies by type.
+          schema:
+            type: string
+            enum:
+              - security
+              - nat
+              - qos
+              - decryption
+      responses:
+        '200':
+          description: 5G security policies returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_count:
+                    type: integer
+                    description: Total number of policies.
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Policy5G'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
+          scopes: {}
+      description: >-
+        OAuth2 client credentials flow. Obtain an access token from the
+        Palo Alto Networks identity provider and include it as a Bearer
+        token in the Authorization header.
+  responses:
+    BadRequest:
+      description: The request body is malformed or contains invalid parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid OAuth2 bearer token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    Service5G:
+      type: object
+      properties:
+        service_id:
+          type: string
+          description: Unique identifier for the 5G service instance.
+        name:
+          type: string
+          description: Display name of the service.
+        service_type:
+          type: string
+          enum:
+            - firewall
+            - ips
+            - url_filtering
+            - threat_prevention
+          description: Type of security function.
+        region:
+          type: string
+          description: Deployment region.
+        status:
+          type: string
+          enum:
+            - active
+            - inactive
+            - provisioning
+            - error
+          description: Current operational status.
+        throughput_gbps:
+          type: number
+          format: float
+          description: Configured throughput capacity in Gbps.
+        max_sessions:
+          type: integer
+          description: Maximum concurrent sessions supported.
+        n3_interface_ip:
+          type: string
+          format: ipv4
+          description: N3 interface IP address.
+        n6_interface_ip:
+          type: string
+          format: ipv4
+          description: N6 interface IP address.
+        tsg_id:
+          type: string
+          description: TSG ID that owns this service.
+        description:
+          type: string
+          description: Description of the service purpose.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the service was created.
+        updated_at:
+          type: string
+          format: date-time
+          description: Timestamp when the service was last modified.
+    Tenant5G:
+      type: object
+      properties:
+        tenant_id:
+          type: string
+          description: Unique identifier for the 5G tenant.
+        name:
+          type: string
+          description: Display name of the 5G tenant.
+        tsg_id:
+          type: string
+          description: Parent TSG ID.
+        slice_type:
+          type: string
+          enum:
+            - eMBB
+            - URLLC
+            - mMTC
+          description: >-
+            5G network slice type. eMBB for enhanced Mobile Broadband,
+            URLLC for Ultra-Reliable Low-Latency Communications, mMTC
+            for massive Machine-Type Communications.
+        s_nssai:
+          type: object
+          description: >-
+            Single Network Slice Selection Assistance Information
+            identifying the network slice.
+          properties:
+            sst:
+              type: integer
+              description: Slice/Service Type (1=eMBB, 2=URLLC, 3=mMTC).
+            sd:
+              type: string
+              description: >-
+                Slice Differentiator as a 6-character hexadecimal string.
+        associated_services:
+          type: array
+          items:
+            type: string
+          description: >-
+            List of 5G service IDs associated with this tenant.
+        subscriber_count:
+          type: integer
+          description: Number of subscribers assigned to this tenant.
+        status:
+          type: string
+          enum:
+            - active
+            - inactive
+          description: Current status of the 5G tenant.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the tenant was created.
+        updated_at:
+          type: string
+          format: date-time
+          description: Timestamp when the tenant was last modified.
+    Policy5G:
+      type: object
+      properties:
+        policy_id:
+          type: string
+          description: Unique identifier for the policy.
+        name:
+          type: string
+          description: Display name of the policy.
+        policy_type:
+          type: string
+          enum:
+            - security
+            - nat
+            - qos
+            - decryption
+          description: Type of policy.
+        tenant_id:
+          type: string
+          description: >-
+            5G tenant ID this policy is scoped to. Null for global
+            policies.
+        priority:
+          type: integer
+          description: >-
+            Policy evaluation priority. Lower values are evaluated first.
+        enabled:
+          type: boolean
+          description: Whether this policy is currently active.
+        source_zones:
+          type: array
+          items:
+            type: string
+          description: Source zones for traffic matching.
+        destination_zones:
+          type: array
+          items:
+            type: string
+          description: Destination zones for traffic matching.
+        applications:
+          type: array
+          items:
+            type: string
+          description: >-
+            Application signatures to match (e.g., web-browsing, ssl,
+            dns).
+        action:
+          type: string
+          enum:
+            - allow
+            - deny
+            - drop
+            - reset
+          description: Action to take on matched traffic.
+        security_profiles:
+          type: object
+          description: Security profile attachments for deep inspection.
+          properties:
+            antivirus:
+              type: string
+              description: Antivirus profile name.
+            anti_spyware:
+              type: string
+              description: Anti-spyware profile name.
+            vulnerability:
+              type: string
+              description: Vulnerability protection profile name.
+            url_filtering:
+              type: string
+              description: URL filtering profile name.
+        logging:
+          type: boolean
+          default: true
+          description: Whether to log matched traffic.
+        tsg_id:
+          type: string
+          description: TSG ID that owns this policy.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the policy was created.
+        updated_at:
+          type: string
+          format: date-time
+          description: Timestamp when the policy was last modified.
+    ErrorResponse:
+      type: object
+      properties:
+        error_code:
+          type: integer
+          description: Machine-readable error code.
+        message:
+          type: string
+          description: Human-readable error message.
+        details:
+          type: string
+          description: Additional context about the error.

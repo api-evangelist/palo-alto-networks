@@ -1,0 +1,808 @@
+openapi: 3.1.0
+info:
+  title: Prisma Cloud CSPM API
+  description: >-
+    REST API for Prisma Cloud Security Posture Management providing
+    programmatic access to cloud security monitoring across AWS, Azure, GCP,
+    and Oracle Cloud. The API supports managing security alerts, compliance
+    policies, cloud account onboarding, asset inventories, and resource
+    queries using RQL (Resource Query Language). Authentication uses JWT
+    tokens obtained from the /login endpoint with access key credentials.
+    Tokens are valid for 10 minutes and must be refreshed for long-running
+    operations.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  - url: https://api.prismacloud.io
+    description: Prisma Cloud API (US region 1).
+  - url: https://api2.prismacloud.io
+    description: Prisma Cloud API (US region 2).
+  - url: https://api3.prismacloud.io
+    description: Prisma Cloud API (US region 3).
+  - url: https://api.eu.prismacloud.io
+    description: Prisma Cloud API (EU).
+  - url: https://api.anz.prismacloud.io
+    description: Prisma Cloud API (ANZ).
+  - url: https://api.sg.prismacloud.io
+    description: Prisma Cloud API (Singapore).
+  - url: https://api.ca.prismacloud.io
+    description: Prisma Cloud API (Canada).
+security:
+  - bearerAuth: []
+tags:
+  - name: Authentication
+    description: Login and token management.
+  - name: Alerts
+    description: Security alert management.
+  - name: Policies
+    description: Security policy management.
+  - name: Compliance
+    description: Compliance posture and reporting.
+  - name: Cloud Accounts
+    description: Cloud account onboarding and management.
+  - name: Asset Inventory
+    description: Cloud resource inventory queries.
+  - name: Search
+    description: RQL-based resource and configuration search.
+paths:
+  /login:
+    post:
+      operationId: login
+      summary: Login
+      description: >-
+        Authenticates with access key credentials and returns a JWT token
+        for subsequent API calls. Tokens are valid for 10 minutes.
+      tags:
+        - Authentication
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                  description: Access Key ID from Prisma Cloud Settings.
+                password:
+                  type: string
+                  description: Secret Key associated with the Access Key.
+                customerName:
+                  type: string
+                  description: Customer name (required for multi-tenant accounts).
+      responses:
+        '200':
+          description: Authentication successful.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: JWT bearer token for API authorization.
+                  message:
+                    type: string
+                  customerNames:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        customerName:
+                          type: string
+                        tosAccepted:
+                          type: boolean
+        '401':
+          description: Invalid credentials.
+  /v2/alert:
+    get:
+      operationId: getAlerts
+      summary: List alerts
+      description: >-
+        Returns security alerts matching the specified filters. Supports
+        filtering by status, severity, policy, time range, cloud type,
+        and account.
+      tags:
+        - Alerts
+      parameters:
+        - name: timeType
+          in: query
+          description: Time filter type.
+          schema:
+            type: string
+            enum:
+              - relative
+              - absolute
+              - to_now
+        - name: timeAmount
+          in: query
+          description: Time amount for relative time type.
+          schema:
+            type: integer
+        - name: timeUnit
+          in: query
+          description: Time unit for relative time type.
+          schema:
+            type: string
+            enum:
+              - minute
+              - hour
+              - day
+              - week
+              - month
+              - year
+        - name: detailed
+          in: query
+          description: Include full alert details.
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Alerts returned.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Alert'
+    post:
+      operationId: getAlertsFiltered
+      summary: List alerts with filters
+      description: >-
+        Returns alerts matching complex filter criteria specified in the
+        request body.
+      tags:
+        - Alerts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                timeRange:
+                  $ref: '#/components/schemas/TimeRange'
+                filters:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AlertFilter'
+                sortBy:
+                  type: array
+                  items:
+                    type: string
+                limit:
+                  type: integer
+                  default: 10000
+                offset:
+                  type: integer
+                  default: 0
+                detailed:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Filtered alerts returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalRows:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Alert'
+  /alert/{id}:
+    get:
+      operationId: getAlert
+      summary: Get alert details
+      description: Returns full details for a specific alert.
+      tags:
+        - Alerts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Alert ID.
+      responses:
+        '200':
+          description: Alert details returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alert'
+        '404':
+          description: Alert not found.
+  /alert/dismiss:
+    post:
+      operationId: dismissAlerts
+      summary: Dismiss alerts
+      description: >-
+        Dismisses one or more alerts with a reason and optional note.
+      tags:
+        - Alerts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - alerts
+                - dismissalNote
+              properties:
+                alerts:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                dismissalNote:
+                  type: string
+                  description: Reason for dismissal.
+                dismissalTimeRange:
+                  $ref: '#/components/schemas/TimeRange'
+                filter:
+                  type: object
+                  properties:
+                    timeRange:
+                      $ref: '#/components/schemas/TimeRange'
+                    filters:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/AlertFilter'
+      responses:
+        '200':
+          description: Alerts dismissed.
+  /v2/policy:
+    get:
+      operationId: getPolicies
+      summary: List policies
+      description: >-
+        Returns all security policies including built-in and custom
+        policies with their severity, cloud type, and compliance mappings.
+      tags:
+        - Policies
+      responses:
+        '200':
+          description: Policies returned.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Policy'
+    post:
+      operationId: createPolicy
+      summary: Create custom policy
+      description: Creates a new custom security policy with an RQL query.
+      tags:
+        - Policies
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicyInput'
+      responses:
+        '200':
+          description: Policy created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Policy'
+  /v2/policy/{id}:
+    get:
+      operationId: getPolicy
+      summary: Get policy details
+      description: Returns details of a specific policy.
+      tags:
+        - Policies
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Policy returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Policy'
+    put:
+      operationId: updatePolicy
+      summary: Update policy
+      description: Updates an existing policy.
+      tags:
+        - Policies
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicyInput'
+      responses:
+        '200':
+          description: Policy updated.
+    delete:
+      operationId: deletePolicy
+      summary: Delete policy
+      description: Deletes a custom policy.
+      tags:
+        - Policies
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Policy deleted.
+  /compliance/posture:
+    get:
+      operationId: getCompliancePosture
+      summary: Get compliance posture
+      description: >-
+        Returns the overall compliance posture across all monitored cloud
+        accounts, grouped by compliance standard and requirement.
+      tags:
+        - Compliance
+      parameters:
+        - name: timeType
+          in: query
+          schema:
+            type: string
+            enum:
+              - relative
+              - to_now
+        - name: timeAmount
+          in: query
+          schema:
+            type: integer
+        - name: timeUnit
+          in: query
+          schema:
+            type: string
+        - name: cloudType
+          in: query
+          schema:
+            type: string
+            enum:
+              - aws
+              - azure
+              - gcp
+              - oci
+              - alibaba_cloud
+      responses:
+        '200':
+          description: Compliance posture returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  complianceDetails:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        description:
+                          type: string
+                        passedResources:
+                          type: integer
+                        failedResources:
+                          type: integer
+                        totalResources:
+                          type: integer
+  /cloud/{cloudType}:
+    post:
+      operationId: addCloudAccount
+      summary: Onboard cloud account
+      description: >-
+        Onboards a cloud account (AWS, Azure, GCP, or OCI) for security
+        monitoring. Requires appropriate cloud credentials and permissions.
+      tags:
+        - Cloud Accounts
+      parameters:
+        - name: cloudType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+              - aws
+              - azure
+              - gcp
+              - oci
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                accountId:
+                  type: string
+                  description: Cloud provider account identifier.
+                enabled:
+                  type: boolean
+                  default: true
+                name:
+                  type: string
+                  description: Display name for the account.
+                groupIds:
+                  type: array
+                  items:
+                    type: string
+                  description: Account group IDs to associate.
+      responses:
+        '200':
+          description: Cloud account onboarded.
+  /v2/inventory:
+    get:
+      operationId: getAssetInventory
+      summary: Get asset inventory
+      description: >-
+        Returns a summary of cloud assets monitored by Prisma Cloud grouped
+        by service, region, or account.
+      tags:
+        - Asset Inventory
+      parameters:
+        - name: timeType
+          in: query
+          schema:
+            type: string
+        - name: timeAmount
+          in: query
+          schema:
+            type: integer
+        - name: timeUnit
+          in: query
+          schema:
+            type: string
+        - name: groupBy
+          in: query
+          description: Group inventory results.
+          schema:
+            type: string
+            enum:
+              - cloud.service
+              - cloud.region
+              - cloud.account
+              - resource.type
+      responses:
+        '200':
+          description: Asset inventory returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  summary:
+                    type: object
+                    properties:
+                      totalResources:
+                        type: integer
+                      passedResources:
+                        type: integer
+                      failedResources:
+                        type: integer
+                      highSeverityFailedResources:
+                        type: integer
+                  groupedAggregates:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        totalResources:
+                          type: integer
+                        failedResources:
+                          type: integer
+                        passedResources:
+                          type: integer
+  /search/config:
+    post:
+      operationId: searchConfig
+      summary: Search cloud resources
+      description: >-
+        Executes an RQL (Resource Query Language) query against cloud
+        resource configurations. Supports config, network, and event
+        query types for investigating security posture and resource
+        relationships.
+      tags:
+        - Search
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - query
+                - timeRange
+              properties:
+                query:
+                  type: string
+                  description: >-
+                    RQL query string (e.g., "config from cloud.resource
+                    where cloud.type = 'aws'").
+                timeRange:
+                  $ref: '#/components/schemas/TimeRange'
+                limit:
+                  type: integer
+                  default: 100
+                withResourceJson:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Search results returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cloudType:
+                    type: string
+                  query:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      totalRows:
+                        type: integer
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            name:
+                              type: string
+                            cloudType:
+                              type: string
+                            accountId:
+                              type: string
+                            accountName:
+                              type: string
+                            regionId:
+                              type: string
+                            resourceType:
+                              type: string
+                            overallPassed:
+                              type: boolean
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        JWT token obtained from the /login endpoint. Valid for 10 minutes.
+  schemas:
+    Alert:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum:
+            - open
+            - dismissed
+            - snoozed
+            - resolved
+        reason:
+          type: string
+        firstSeen:
+          type: integer
+          description: Epoch timestamp in milliseconds.
+        lastSeen:
+          type: integer
+        alertTime:
+          type: integer
+        policy:
+          type: object
+          properties:
+            policyId:
+              type: string
+            policyType:
+              type: string
+            name:
+              type: string
+            severity:
+              type: string
+              enum:
+                - low
+                - medium
+                - high
+                - critical
+                - informational
+            recommendation:
+              type: string
+        resource:
+          type: object
+          properties:
+            rrn:
+              type: string
+              description: Prisma Cloud Resource RRN.
+            id:
+              type: string
+            name:
+              type: string
+            cloudType:
+              type: string
+            accountId:
+              type: string
+            accountName:
+              type: string
+            regionId:
+              type: string
+            resourceType:
+              type: string
+        riskDetail:
+          type: object
+          properties:
+            score:
+              type: integer
+            rating:
+              type: string
+    AlertFilter:
+      type: object
+      properties:
+        name:
+          type: string
+          description: >-
+            Filter field name (e.g., alert.status, cloud.type,
+            policy.severity, cloud.accountId).
+        operator:
+          type: string
+          enum:
+            - '='
+        value:
+          type: string
+    TimeRange:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - relative
+            - absolute
+            - to_now
+        value:
+          type: object
+          properties:
+            amount:
+              type: integer
+            unit:
+              type: string
+              enum:
+                - minute
+                - hour
+                - day
+                - week
+                - month
+                - year
+    Policy:
+      type: object
+      properties:
+        policyId:
+          type: string
+        name:
+          type: string
+        policyType:
+          type: string
+          enum:
+            - config
+            - network
+            - audit_event
+            - anomaly
+            - data
+            - iam
+        severity:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+            - critical
+            - informational
+        description:
+          type: string
+        recommendation:
+          type: string
+        cloudType:
+          type: string
+        enabled:
+          type: boolean
+        systemDefault:
+          type: boolean
+        rule:
+          type: object
+          properties:
+            name:
+              type: string
+            criteria:
+              type: string
+              description: RQL query string.
+            type:
+              type: string
+        complianceMetadata:
+          type: array
+          items:
+            type: object
+            properties:
+              standardName:
+                type: string
+              requirementId:
+                type: string
+              requirementName:
+                type: string
+              sectionId:
+                type: string
+    PolicyInput:
+      type: object
+      required:
+        - name
+        - policyType
+        - severity
+        - rule
+      properties:
+        name:
+          type: string
+        policyType:
+          type: string
+        severity:
+          type: string
+        description:
+          type: string
+        recommendation:
+          type: string
+        cloudType:
+          type: string
+        enabled:
+          type: boolean
+          default: true
+        rule:
+          type: object
+          required:
+            - name
+            - criteria
+            - type
+          properties:
+            name:
+              type: string
+            criteria:
+              type: string
+              description: RQL query for the policy rule.
+            type:
+              type: string

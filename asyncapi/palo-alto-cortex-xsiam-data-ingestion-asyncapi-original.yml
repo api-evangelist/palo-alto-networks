@@ -1,0 +1,363 @@
+asyncapi: 2.6.0
+info:
+  title: Cortex XSIAM Data Ingestion
+  version: '1.0'
+  description: >-
+    Cortex XSIAM provides HTTP-based data ingestion endpoints for collecting
+    log and event data from external sources. Data can be ingested as raw log
+    events, parsed and normalized events, CEF-formatted alerts, or
+    JSON-formatted parsed alerts. The HTTP collector endpoints accept POST
+    requests with compressed or uncompressed payloads and require API key
+    authentication via the x-xdr-auth-id and Authorization headers. Ingested
+    data is processed by the XSIAM correlation and analytics engines for
+    threat detection, investigation, and automated response. Data ingestion
+    supports high-throughput streaming for SIEM replacement and XDR-native
+    data lake consolidation.
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  collector:
+    url: 'https://api-{fqdn}/logs/v1/event'
+    protocol: https
+    description: >-
+      Cortex XSIAM HTTP collector endpoint for log and event data ingestion.
+      The FQDN is specific to your XSIAM tenant and can be found in
+      Settings > Configurations > Data Collection > HTTP Collectors. All
+      requests require API key authentication using the x-xdr-auth-id header
+      (key ID) and the Authorization header (API key value). Payloads may be
+      gzip-compressed using the Content-Encoding: gzip header.
+    variables:
+      fqdn:
+        description: >-
+          Your XSIAM tenant fully qualified domain name, such as
+          xsiam-tenant.xdr.us.paloaltonetworks.com.
+channels:
+  /logs/v1/event:
+    description: >-
+      Channel for ingesting raw log events via the HTTP collector. Raw events
+      are submitted as unstructured or semi-structured log data that XSIAM
+      parses and normalizes using built-in and custom parsing rules. Supports
+      batch ingestion of multiple log entries per request. Each event must
+      include a log_type, vendor, and product to route the data to the
+      correct parsing pipeline.
+    subscribe:
+      operationId: onRawLogEvent
+      summary: Ingest raw log events
+      message:
+        $ref: '#/components/messages/RawLogEvent'
+  /logs/v1/xsiam:
+    description: >-
+      Channel for ingesting parsed and normalized events directly into the
+      XSIAM data lake. Pre-parsed events bypass the ingestion parsing
+      pipeline and are indexed directly into the appropriate dataset. Use
+      this endpoint when the source system has already normalized the event
+      data into XSIAM-compatible field mappings.
+    subscribe:
+      operationId: onParsedEvent
+      summary: Ingest parsed and normalized events
+      message:
+        $ref: '#/components/messages/ParsedEvent'
+  /logs/v1/insert/cef:
+    description: >-
+      Channel for ingesting CEF (Common Event Format) formatted alerts.
+      CEF is a standard log format used by many security products. XSIAM
+      parses the CEF header and extension fields and maps them to the
+      unified data model for correlation with other data sources.
+    subscribe:
+      operationId: onCEFAlert
+      summary: Ingest CEF-formatted alerts
+      message:
+        $ref: '#/components/messages/CEFAlert'
+  /logs/v1/insert/json:
+    description: >-
+      Channel for ingesting JSON-formatted parsed alerts. JSON alerts
+      contain structured key-value pairs representing security detections
+      from external systems. XSIAM indexes the alert fields and correlates
+      them with endpoint, network, and cloud data for unified investigation.
+    subscribe:
+      operationId: onJSONAlert
+      summary: Ingest JSON-formatted parsed alerts
+      message:
+        $ref: '#/components/messages/JSONAlert'
+components:
+  messages:
+    RawLogEvent:
+      name: RawLogEvent
+      title: Raw Log Event
+      summary: >-
+        A raw log event submitted to the XSIAM HTTP collector for parsing
+        and normalization. The body contains the unstructured or
+        semi-structured log data.
+      contentType: application/json
+      payload:
+        type: object
+        properties:
+          log_type:
+            type: string
+            description: >-
+              Log type identifier used to route the event to the correct
+              parsing pipeline, such as syslog, firewall, or endpoint.
+          vendor:
+            type: string
+            description: >-
+              Name of the vendor producing the log data, used in combination
+              with product to identify the parsing rule.
+          product:
+            type: string
+            description: >-
+              Name of the product producing the log data, such as a specific
+              firewall model, EDR agent, or cloud service.
+          body:
+            type: string
+            description: >-
+              The raw log event content. May be a syslog message, CSV line,
+              JSON string, or any other log format supported by the configured
+              parsing rules.
+        required:
+          - log_type
+          - vendor
+          - product
+          - body
+    ParsedEvent:
+      name: ParsedEvent
+      title: Parsed and Normalized Event
+      summary: >-
+        A pre-parsed and normalized event for direct ingestion into the XSIAM
+        data lake. Fields must conform to the XSIAM unified data model.
+      contentType: application/json
+      payload:
+        type: object
+        properties:
+          event_type:
+            type: string
+            description: >-
+              Event type identifier that determines the target dataset and
+              schema, such as NETWORK, PROCESS, FILE, REGISTRY, or AUTH.
+          fields:
+            $ref: '#/components/schemas/ParsedEventData'
+        required:
+          - event_type
+          - fields
+    CEFAlert:
+      name: CEFAlert
+      title: CEF-Formatted Alert
+      summary: >-
+        An alert formatted in Common Event Format (CEF) for ingestion into
+        XSIAM. The CEF header contains version, vendor, product, version,
+        signature ID, name, and severity fields.
+      contentType: application/json
+      payload:
+        type: object
+        properties:
+          cef_header:
+            type: string
+            description: >-
+              The CEF header string in the format:
+              CEF:Version|Device Vendor|Device Product|Device Version|Signature ID|Name|Severity|
+              Example: CEF:0|PaloAlto|Firewall|10.2|100|Threat Detected|8|
+          extension:
+            type: string
+            description: >-
+              The CEF extension containing key-value pairs of event attributes.
+              Keys follow the CEF standard field names such as src, dst, dpt,
+              spt, act, msg, cs1, cs2, and custom labels.
+        required:
+          - cef_header
+          - extension
+    JSONAlert:
+      name: JSONAlert
+      title: JSON-Formatted Parsed Alert
+      summary: >-
+        A structured JSON alert from an external security system for ingestion
+        and correlation in XSIAM.
+      contentType: application/json
+      payload:
+        type: object
+        properties:
+          alert_name:
+            type: string
+            description: Name or title of the alert from the source system.
+          severity:
+            type: string
+            enum:
+              - informational
+              - low
+              - medium
+              - high
+              - critical
+            description: Alert severity level.
+          local_ip:
+            type: string
+            description: Local (source) IP address involved in the alert.
+          local_port:
+            type: integer
+            description: Local (source) port number involved in the alert.
+          remote_ip:
+            type: string
+            description: Remote (destination) IP address involved in the alert.
+          remote_port:
+            type: integer
+            description: Remote (destination) port number involved in the alert.
+          action:
+            type: string
+            description: Action taken by the source system in response to the detection.
+          timestamp:
+            type: string
+            format: date-time
+            description: Timestamp of the alert from the source system.
+          vendor:
+            type: string
+            description: Vendor name of the source system generating the alert.
+          product:
+            type: string
+            description: Product name of the source system generating the alert.
+        required:
+          - alert_name
+          - severity
+  schemas:
+    LogEvent:
+      type: object
+      description: >-
+        Schema for a raw log event entry in the ingestion batch. Represents
+        a single log line or record from an external data source.
+      properties:
+        log_type:
+          type: string
+          description: Log type identifier for parsing pipeline routing.
+        vendor:
+          type: string
+          description: Vendor name of the log source.
+        product:
+          type: string
+          description: Product name of the log source.
+        body:
+          type: string
+          description: Raw log content.
+        timestamp:
+          type: string
+          format: date-time
+          description: >-
+            Timestamp of the log event. If not provided, the ingestion time
+            is used.
+        collector_name:
+          type: string
+          description: Name of the HTTP collector profile receiving the data.
+    ParsedEventData:
+      type: object
+      description: >-
+        Key-value map of parsed event fields conforming to the XSIAM unified
+        data model. Field names and types must match the target dataset schema.
+      properties:
+        _time:
+          type: string
+          format: date-time
+          description: Event timestamp in ISO 8601 format.
+        action_type:
+          type: string
+          description: Type of action observed in the event.
+        actor_process_name:
+          type: string
+          description: Name of the process that initiated the event.
+        actor_process_pid:
+          type: integer
+          description: Process ID of the initiating process.
+        agent_hostname:
+          type: string
+          description: Hostname of the agent reporting the event.
+        agent_ip:
+          type: string
+          description: IP address of the agent reporting the event.
+        dst_ip:
+          type: string
+          description: Destination IP address.
+        dst_port:
+          type: integer
+          description: Destination port number.
+        src_ip:
+          type: string
+          description: Source IP address.
+        src_port:
+          type: integer
+          description: Source port number.
+      additionalProperties: true
+    CEFData:
+      type: object
+      description: >-
+        Parsed representation of a CEF-formatted event with header fields
+        and extension attributes separated into structured fields.
+      properties:
+        version:
+          type: integer
+          description: CEF format version number.
+        deviceVendor:
+          type: string
+          description: Vendor of the device generating the event.
+        deviceProduct:
+          type: string
+          description: Product name of the device generating the event.
+        deviceVersion:
+          type: string
+          description: Version of the device or product.
+        signatureId:
+          type: string
+          description: Unique identifier for the event type or rule.
+        name:
+          type: string
+          description: Human-readable name of the event.
+        severity:
+          type: integer
+          description: Event severity as an integer from 0 (lowest) to 10 (highest).
+        extensions:
+          type: object
+          description: Key-value pairs of CEF extension fields.
+          additionalProperties:
+            type: string
+    AlertData:
+      type: object
+      description: >-
+        Schema for a JSON-formatted alert record from an external security
+        system ingested into XSIAM for correlation and investigation.
+      properties:
+        alert_name:
+          type: string
+          description: Name or title of the alert.
+        severity:
+          type: string
+          enum:
+            - informational
+            - low
+            - medium
+            - high
+            - critical
+        local_ip:
+          type: string
+          description: Local IP address.
+        local_port:
+          type: integer
+          description: Local port number.
+        remote_ip:
+          type: string
+          description: Remote IP address.
+        remote_port:
+          type: integer
+          description: Remote port number.
+        action:
+          type: string
+          description: Action taken by the source system.
+        vendor:
+          type: string
+          description: Vendor name of the source system.
+        product:
+          type: string
+          description: Product name of the source system.
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp of the alert.
+        raw_log:
+          type: string
+          description: Original raw log data if available.

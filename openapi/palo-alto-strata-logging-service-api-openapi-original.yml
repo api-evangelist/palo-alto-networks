@@ -1,0 +1,713 @@
+openapi: 3.1.0
+info:
+  title: Strata Logging Service API
+  description: >-
+    REST API for the Strata Logging Service (formerly Cortex Data Lake).
+    Provides programmatic access to log forwarding profile management and
+    log query capabilities. Configure log forwarding destinations to send
+    firewall, threat, URL filtering, and other security logs to external
+    SIEM systems, HTTP endpoints, or email recipients in multiple output
+    formats. Submit log queries using SQL-like syntax to search and
+    retrieve security event data stored in the cloud-based logging
+    infrastructure. Requires an active Strata Logging Service or Cortex
+    Data Lake subscription.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  - url: https://api.sase.paloaltonetworks.com
+    description: Strata Logging Service production API server.
+security:
+  - oauth2Bearer: []
+tags:
+  - name: LogForwarding
+    description: >-
+      Manage log forwarding profiles that define how and where security
+      logs are sent. Each profile specifies one or more destinations,
+      an output format, and optional log filters to control which events
+      are forwarded.
+  - name: Queries
+    description: >-
+      Submit and retrieve results of log queries. Queries use a SQL-like
+      syntax to search across firewall traffic, threat, URL filtering,
+      WildFire, authentication, and other log types stored in the Strata
+      Logging Service.
+paths:
+  /logging-service/v1/profiles:
+    get:
+      operationId: listLogForwardingProfiles
+      summary: List log forwarding profiles
+      description: >-
+        Returns all log forwarding profiles configured for the tenant.
+        Each profile defines one or more forwarding destinations, the
+        output format, log type filters, and whether the profile is
+        currently enabled. Supports pagination for tenants with many
+        profiles.
+      tags:
+        - LogForwarding
+      parameters:
+        - name: offset
+          in: query
+          description: Pagination offset. Defaults to 0.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of profiles to return.
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+        - name: enabled
+          in: query
+          description: Filter by enabled or disabled profiles.
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: List of log forwarding profiles.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of profiles matching the filter.
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LogForwardingProfile'
+        '401':
+          description: Invalid or expired OAuth2 bearer token.
+        '403':
+          description: Insufficient permissions to list profiles.
+        '429':
+          description: Rate limit exceeded.
+    post:
+      operationId: createLogForwardingProfile
+      summary: Create a log forwarding profile
+      description: >-
+        Creates a new log forwarding profile. The profile must include at
+        least one destination and a log format. Destinations can be syslog
+        servers, HTTPS webhook endpoints, or email addresses. The optional
+        filter field accepts a log type or query expression to restrict
+        which events are forwarded.
+      tags:
+        - LogForwarding
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogForwardingProfileCreate'
+      responses:
+        '201':
+          description: Log forwarding profile created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogForwardingProfile'
+        '400':
+          description: Invalid profile configuration or missing required fields.
+        '401':
+          description: Invalid or expired OAuth2 bearer token.
+        '403':
+          description: Insufficient permissions to create profiles.
+        '409':
+          description: A profile with this name already exists.
+        '429':
+          description: Rate limit exceeded.
+  /logging-service/v1/profiles/{id}:
+    put:
+      operationId: updateLogForwardingProfile
+      summary: Update a log forwarding profile
+      description: >-
+        Updates an existing log forwarding profile by replacing its
+        configuration. All mutable fields must be provided in the request
+        body. Changes take effect within a few minutes as the logging
+        pipeline picks up the updated configuration.
+      tags:
+        - LogForwarding
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the log forwarding profile.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogForwardingProfileUpdate'
+      responses:
+        '200':
+          description: Log forwarding profile updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogForwardingProfile'
+        '400':
+          description: Invalid profile configuration.
+        '401':
+          description: Invalid or expired OAuth2 bearer token.
+        '403':
+          description: Insufficient permissions to update profiles.
+        '404':
+          description: Profile not found.
+        '429':
+          description: Rate limit exceeded.
+    delete:
+      operationId: deleteLogForwardingProfile
+      summary: Delete a log forwarding profile
+      description: >-
+        Deletes a log forwarding profile. Log forwarding for this profile
+        stops within a few minutes. This action is irreversible. Active
+        forwarding connections are terminated gracefully.
+      tags:
+        - LogForwarding
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the log forwarding profile.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Profile deleted successfully.
+        '401':
+          description: Invalid or expired OAuth2 bearer token.
+        '403':
+          description: Insufficient permissions to delete profiles.
+        '404':
+          description: Profile not found.
+        '429':
+          description: Rate limit exceeded.
+  /logging-service/v1/queries:
+    post:
+      operationId: submitLogQuery
+      summary: Submit a log query
+      description: >-
+        Submits a log query for asynchronous execution. The query uses a
+        SQL-like syntax to search across log types including traffic,
+        threat, url, wildfire, auth, tunnel, userid, hip-match, and
+        globalprotect. Returns a query ID that can be used to poll for
+        results. Queries can scan up to 90 days of retained log data
+        depending on the subscription tier.
+      tags:
+        - Queries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogQuery'
+      responses:
+        '202':
+          description: Query accepted for execution.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queryId:
+                    type: string
+                    format: uuid
+                    description: Unique identifier for retrieving query results.
+                  status:
+                    type: string
+                    enum:
+                      - queued
+                      - running
+                    description: Current execution status of the query.
+                  submittedAt:
+                    type: string
+                    format: date-time
+                    description: Timestamp when the query was submitted.
+        '400':
+          description: Invalid query syntax or unsupported log type.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: Error code.
+                  message:
+                    type: string
+                    description: Human-readable error message.
+                  details:
+                    type: string
+                    description: >-
+                      Additional details such as the position of the syntax
+                      error in the query.
+        '401':
+          description: Invalid or expired OAuth2 bearer token.
+        '403':
+          description: Insufficient permissions to submit queries.
+        '429':
+          description: Rate limit exceeded or maximum concurrent queries reached.
+  /logging-service/v1/queries/{queryId}/results:
+    get:
+      operationId: getLogQueryResults
+      summary: Get log query results
+      description: >-
+        Retrieves the results of a previously submitted log query. If the
+        query is still executing, the response indicates the current status
+        and estimated progress. Once complete, results are returned as an
+        array of log records with pagination support. Large result sets
+        should be retrieved using the offset and limit parameters.
+      tags:
+        - Queries
+      parameters:
+        - name: queryId
+          in: path
+          required: true
+          description: Unique query identifier returned by the POST /logging-service/v1/queries endpoint.
+          schema:
+            type: string
+            format: uuid
+        - name: offset
+          in: query
+          description: Pagination offset into the result set.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of log records to return per page.
+          schema:
+            type: integer
+            default: 100
+            maximum: 10000
+      responses:
+        '200':
+          description: Query results returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogQueryResult'
+        '202':
+          description: Query is still executing.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queryId:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum:
+                      - queued
+                      - running
+                  progress:
+                    type: number
+                    format: float
+                    description: Estimated completion progress from 0.0 to 1.0.
+                  estimatedCompletionTime:
+                    type: string
+                    format: date-time
+                    description: Estimated time when results will be available.
+        '401':
+          description: Invalid or expired OAuth2 bearer token.
+        '404':
+          description: Query ID not found or has expired.
+        '410':
+          description: Query results have expired and are no longer available.
+components:
+  securitySchemes:
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        OAuth 2.0 bearer token obtained from the Palo Alto Networks identity
+        service at https://auth.apps.paloaltonetworks.com. Use the
+        client_credentials grant type with a service account that has the
+        Strata Logging Service API scope enabled.
+  schemas:
+    LogForwardingProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier of the log forwarding profile.
+        name:
+          type: string
+          description: Human-readable name of the profile.
+        description:
+          type: string
+          description: Optional description of the profile purpose.
+        destinations:
+          type: array
+          description: >-
+            One or more forwarding destinations. Each destination defines
+            a transport type and connection details.
+          items:
+            $ref: '#/components/schemas/ForwardingDestination'
+        format:
+          type: string
+          enum:
+            - csv
+            - leef
+            - cef
+            - json
+            - parquet
+          description: >-
+            Output format for forwarded log records. CSV and JSON are
+            widely supported. CEF and LEEF are optimized for SIEM
+            integrations. Parquet is optimized for data lake storage.
+        filter:
+          type: string
+          description: >-
+            Log filter expression to restrict which events are forwarded.
+            Supports log type selectors (e.g., log_type eq traffic) and
+            field-level conditions. When omitted, all log types are
+            forwarded.
+        logTypes:
+          type: array
+          description: >-
+            Specific log types to forward. When specified, only these log
+            types are forwarded regardless of the filter expression.
+          items:
+            type: string
+            enum:
+              - traffic
+              - threat
+              - url
+              - wildfire
+              - auth
+              - tunnel
+              - userid
+              - hip-match
+              - globalprotect
+              - decryption
+              - config
+              - system
+        enabled:
+          type: boolean
+          description: Whether the profile is currently active and forwarding logs.
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when the profile was created.
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp when the profile was last modified.
+        createdBy:
+          type: string
+          description: Email or identifier of the user who created the profile.
+        status:
+          type: string
+          enum:
+            - active
+            - paused
+            - error
+          description: >-
+            Current operational status. Active means logs are being
+            forwarded. Paused means the profile is disabled. Error
+            indicates a connectivity or authentication issue with a
+            destination.
+        lastForwardedAt:
+          type: string
+          format: date-time
+          description: Timestamp of the most recently forwarded log record.
+    ForwardingDestination:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - syslog
+            - https
+            - email
+          description: Transport type for this destination.
+        host:
+          type: string
+          description: >-
+            Hostname or IP address for syslog and HTTPS destinations.
+            Not applicable for email destinations.
+        port:
+          type: integer
+          description: >-
+            Port number for syslog and HTTPS destinations. Common defaults
+            are 514 for syslog UDP, 6514 for syslog TLS, and 443 for HTTPS.
+        protocol:
+          type: string
+          enum:
+            - tcp
+            - udp
+            - tls
+          description: >-
+            Transport protocol for syslog destinations. TLS is recommended
+            for production use.
+        url:
+          type: string
+          format: uri
+          description: >-
+            Full webhook URL for HTTPS destinations. The logging service
+            sends POST requests with log records in the configured format.
+        emailAddresses:
+          type: array
+          description: >-
+            Recipient email addresses for email destinations. Log batches
+            are sent as attachments.
+          items:
+            type: string
+            format: email
+        authHeader:
+          type: string
+          description: >-
+            Optional Authorization header value for HTTPS destinations.
+            Stored encrypted. Sent with each webhook request.
+        tlsVerify:
+          type: boolean
+          description: >-
+            Whether to verify TLS certificates for syslog TLS and HTTPS
+            destinations. Defaults to true.
+          default: true
+    LogForwardingProfileCreate:
+      type: object
+      required:
+        - name
+        - destinations
+        - format
+      properties:
+        name:
+          type: string
+          description: >-
+            Unique name for the profile. Must be between 1 and 256
+            characters.
+          minLength: 1
+          maxLength: 256
+        description:
+          type: string
+          description: Optional description of the profile purpose.
+          maxLength: 1024
+        destinations:
+          type: array
+          description: One or more forwarding destinations.
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ForwardingDestination'
+        format:
+          type: string
+          enum:
+            - csv
+            - leef
+            - cef
+            - json
+            - parquet
+        filter:
+          type: string
+          description: >-
+            Log filter expression. When omitted, all log types are
+            forwarded.
+        logTypes:
+          type: array
+          description: Specific log types to forward.
+          items:
+            type: string
+            enum:
+              - traffic
+              - threat
+              - url
+              - wildfire
+              - auth
+              - tunnel
+              - userid
+              - hip-match
+              - globalprotect
+              - decryption
+              - config
+              - system
+        enabled:
+          type: boolean
+          description: Whether to activate the profile immediately.
+          default: true
+    LogForwardingProfileUpdate:
+      type: object
+      required:
+        - name
+        - destinations
+        - format
+      properties:
+        name:
+          type: string
+          description: Updated profile name.
+          minLength: 1
+          maxLength: 256
+        description:
+          type: string
+          description: Updated profile description.
+          maxLength: 1024
+        destinations:
+          type: array
+          description: Updated forwarding destinations.
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ForwardingDestination'
+        format:
+          type: string
+          enum:
+            - csv
+            - leef
+            - cef
+            - json
+            - parquet
+        filter:
+          type: string
+          description: Updated log filter expression.
+        logTypes:
+          type: array
+          description: Updated list of log types to forward.
+          items:
+            type: string
+            enum:
+              - traffic
+              - threat
+              - url
+              - wildfire
+              - auth
+              - tunnel
+              - userid
+              - hip-match
+              - globalprotect
+              - decryption
+              - config
+              - system
+        enabled:
+          type: boolean
+          description: Whether the profile should be active.
+    LogQuery:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          description: >-
+            SQL-like query string for searching logs. Supports SELECT,
+            FROM, WHERE, GROUP BY, ORDER BY, and LIMIT clauses. The FROM
+            clause specifies the log type (e.g., FROM traffic, FROM threat).
+            Field names correspond to log schema columns documented in
+            the Strata Logging Service reference.
+          examples:
+            - >-
+              SELECT source_ip, dest_ip, action, bytes_sent FROM traffic
+              WHERE action = 'deny' AND time_generated > '2025-01-01T00:00:00Z'
+              ORDER BY time_generated DESC LIMIT 1000
+            - >-
+              SELECT src, dst, severity, threat_name FROM threat
+              WHERE severity IN ('critical', 'high')
+              AND time_generated > now() - interval '24 hours'
+        startTime:
+          type: string
+          format: date-time
+          description: >-
+            Lower bound of the time range to search. Overrides any time
+            conditions in the query WHERE clause.
+        endTime:
+          type: string
+          format: date-time
+          description: >-
+            Upper bound of the time range to search. Overrides any time
+            conditions in the query WHERE clause.
+        maxResults:
+          type: integer
+          description: >-
+            Maximum number of records to return. Overrides any LIMIT clause
+            in the query. Defaults to 10000.
+          default: 10000
+          maximum: 1000000
+    LogQueryResult:
+      type: object
+      properties:
+        queryId:
+          type: string
+          format: uuid
+          description: Unique identifier of the query.
+        status:
+          type: string
+          enum:
+            - completed
+            - partial
+            - error
+          description: >-
+            Final status of the query. Completed means all results are
+            available. Partial indicates the query hit a time or resource
+            limit and results may be incomplete. Error indicates a query
+            execution failure.
+        totalRecords:
+          type: integer
+          description: Total number of records matching the query.
+        returnedRecords:
+          type: integer
+          description: Number of records returned in this page.
+        offset:
+          type: integer
+          description: Pagination offset of this result page.
+        executionTimeMs:
+          type: integer
+          description: Query execution time in milliseconds.
+        columns:
+          type: array
+          description: >-
+            Column metadata describing the fields in each log record.
+            Order matches the fields in each record object.
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                description: Column name.
+              type:
+                type: string
+                description: >-
+                  Data type of the column (e.g., string, integer, timestamp,
+                  ip_address).
+        records:
+          type: array
+          description: Array of log records matching the query.
+          items:
+            type: object
+            additionalProperties: true
+            description: >-
+              A single log record. Fields correspond to the columns array.
+              Common fields include time_generated, source_ip, dest_ip,
+              action, app, rule_name, and severity. The exact fields depend
+              on the log type and SELECT clause.
+        completedAt:
+          type: string
+          format: date-time
+          description: Timestamp when the query finished execution.
+        error:
+          type: object
+          description: Error details when status is error.
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code.
+            message:
+              type: string
+              description: Human-readable error message.
+            position:
+              type: integer
+              description: >-
+                Character position in the query string where a syntax
+                error was detected, if applicable.

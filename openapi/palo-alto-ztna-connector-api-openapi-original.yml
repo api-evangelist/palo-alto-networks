@@ -1,0 +1,591 @@
+openapi: 3.1.0
+info:
+  title: ZTNA Connector API
+  description: >-
+    REST API for the Palo Alto Networks ZTNA Connector service providing
+    programmatic access to Zero Trust Network Access connector management,
+    connector group configuration, and application definition. ZTNA
+    Connectors enable secure access to private applications without
+    requiring inbound firewall rules or VPN infrastructure. Connectors
+    are deployed in the customer environment and establish outbound
+    connections to Prisma Access, which brokers authenticated user
+    access to internal applications.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  - url: https://api.sase.paloaltonetworks.com
+    description: ZTNA Connector SASE API server.
+security:
+  - oauth2: []
+tags:
+  - name: Connectors
+    description: >-
+      ZTNA Connector instance management for deploying and monitoring
+      lightweight connectors in private network environments.
+  - name: ConnectorGroups
+    description: >-
+      Connector group management for organizing connectors by location,
+      network segment, or application tier for high availability.
+  - name: Applications
+    description: >-
+      Private application definitions that specify the internal resources
+      accessible through ZTNA Connectors.
+paths:
+  /ztna/v1/connectors:
+    get:
+      operationId: listConnectors
+      summary: List ZTNA connectors
+      description: >-
+        Returns a list of all ZTNA Connectors deployed in the tenant.
+        Each connector represents a lightweight software agent running
+        in the customer environment that provides secure connectivity
+        to private applications. Includes status information such as
+        connection state, version, and health metrics.
+      tags:
+        - Connectors
+      parameters:
+        - name: status
+          in: query
+          description: Filter connectors by operational status.
+          schema:
+            type: string
+            enum:
+              - connected
+              - disconnected
+              - pending
+        - name: connector_group_id
+          in: query
+          description: Filter connectors by connector group.
+          schema:
+            type: string
+        - name: offset
+          in: query
+          description: Starting offset for pagination.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of results to return.
+          schema:
+            type: integer
+            default: 100
+            maximum: 500
+      responses:
+        '200':
+          description: Connectors returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Connector'
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      operationId: createConnector
+      summary: Create a ZTNA connector
+      description: >-
+        Creates a new ZTNA Connector registration. This generates a
+        connector identity and enrollment token that is used during
+        the connector deployment process. The connector must be
+        installed in the customer environment using the provided
+        enrollment token to establish connectivity with Prisma Access.
+      tags:
+        - Connectors
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - connector_group_id
+              properties:
+                name:
+                  type: string
+                  description: Display name for the connector.
+                connector_group_id:
+                  type: string
+                  description: >-
+                    Identifier of the connector group this connector
+                    belongs to.
+                description:
+                  type: string
+                  description: Optional description of the connector.
+      responses:
+        '201':
+          description: Connector created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: Unique identifier for the new connector.
+                  name:
+                    type: string
+                  enrollment_token:
+                    type: string
+                    description: >-
+                      One-time enrollment token used during connector
+                      installation. This token is only returned once
+                      and cannot be retrieved again.
+                  connector_group_id:
+                    type: string
+                  created_at:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /ztna/v1/connector-groups:
+    get:
+      operationId: listConnectorGroups
+      summary: List connector groups
+      description: >-
+        Returns a list of all ZTNA Connector groups. Connector groups
+        organize multiple connectors that serve the same set of
+        applications, enabling high availability and load distribution.
+        When a connector in a group becomes unavailable, traffic is
+        automatically routed to other healthy connectors in the group.
+      tags:
+        - ConnectorGroups
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Connector groups returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ConnectorGroup'
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createConnectorGroup
+      summary: Create a connector group
+      description: >-
+        Creates a new ZTNA Connector group. A connector group defines
+        a logical grouping of connectors that share the same network
+        access scope. Applications are mapped to connector groups, and
+        any connector in the group can service requests for the
+        associated applications.
+      tags:
+        - ConnectorGroups
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - region
+              properties:
+                name:
+                  type: string
+                  description: Display name for the connector group.
+                description:
+                  type: string
+                region:
+                  type: string
+                  description: >-
+                    Prisma Access region where this connector group
+                    establishes its tunnel endpoints (e.g., us-east-1,
+                    eu-west-1, ap-southeast-1).
+                dns_servers:
+                  type: array
+                  description: >-
+                    DNS servers used by connectors in this group to
+                    resolve internal application hostnames.
+                  items:
+                    type: string
+                    format: ipv4
+                internal_dns_suffix:
+                  type: array
+                  description: >-
+                    Internal DNS suffixes for split-DNS resolution.
+                    Queries matching these suffixes are resolved using
+                    the specified DNS servers.
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Connector group created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectorGroup'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /ztna/v1/applications:
+    get:
+      operationId: listApplications
+      summary: List ZTNA applications
+      description: >-
+        Returns a list of private applications configured for access
+        through ZTNA Connectors. Each application defines the internal
+        resource (hostname, IP, port, protocol) that users can access
+        through the zero trust access broker. Applications are mapped
+        to connector groups that provide the network path to the
+        resource.
+      tags:
+        - Applications
+      parameters:
+        - name: connector_group_id
+          in: query
+          description: Filter applications by connector group.
+          schema:
+            type: string
+        - name: enabled
+          in: query
+          description: Filter by application enabled state.
+          schema:
+            type: boolean
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Applications returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Application'
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      description: >-
+        OAuth 2.0 client credentials flow for obtaining an access token.
+        Requires a client ID and client secret from the Palo Alto Networks
+        SASE identity provider. The access token must be included as a
+        Bearer token in the Authorization header.
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
+          scopes: {}
+  responses:
+    Unauthorized:
+      description: Missing or invalid OAuth2 access token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Invalid request parameters or body.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    Connector:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the connector.
+          readOnly: true
+        name:
+          type: string
+          description: Display name of the connector.
+        description:
+          type: string
+        connector_group_id:
+          type: string
+          description: Identifier of the connector group this connector belongs to.
+        connector_group_name:
+          type: string
+          description: Name of the associated connector group.
+          readOnly: true
+        status:
+          type: string
+          enum:
+            - connected
+            - disconnected
+            - pending
+            - error
+          description: Current operational status of the connector.
+          readOnly: true
+        version:
+          type: string
+          description: Software version of the connector agent.
+          readOnly: true
+        hostname:
+          type: string
+          description: Hostname of the machine running the connector.
+          readOnly: true
+        private_ip:
+          type: string
+          format: ipv4
+          description: Private IP address of the connector host.
+          readOnly: true
+        public_ip:
+          type: string
+          format: ipv4
+          description: Public IP address observed by the Prisma Access service.
+          readOnly: true
+        platform:
+          type: string
+          enum:
+            - linux
+            - docker
+            - kubernetes
+            - vmware
+          description: Deployment platform of the connector.
+          readOnly: true
+        last_heartbeat:
+          type: string
+          format: date-time
+          description: Timestamp of the last heartbeat received from the connector.
+          readOnly: true
+        uptime_seconds:
+          type: integer
+          description: Duration in seconds since the connector last started.
+          readOnly: true
+        active_connections:
+          type: integer
+          description: Number of active user sessions through this connector.
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+        - name
+        - connector_group_id
+    ConnectorGroup:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the connector group.
+          readOnly: true
+        name:
+          type: string
+          description: Display name of the connector group.
+        description:
+          type: string
+        region:
+          type: string
+          description: >-
+            Prisma Access region for tunnel termination (e.g.,
+            us-east-1, eu-west-1).
+        dns_servers:
+          type: array
+          description: Internal DNS servers for resolving application hostnames.
+          items:
+            type: string
+            format: ipv4
+        internal_dns_suffix:
+          type: array
+          description: DNS suffixes for split-DNS resolution.
+          items:
+            type: string
+        connector_count:
+          type: integer
+          description: Number of connectors in this group.
+          readOnly: true
+        healthy_connector_count:
+          type: integer
+          description: Number of connectors in a healthy connected state.
+          readOnly: true
+        application_count:
+          type: integer
+          description: Number of applications mapped to this group.
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+        - name
+        - region
+    Application:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the application.
+          readOnly: true
+        name:
+          type: string
+          description: Display name of the application.
+        description:
+          type: string
+        enabled:
+          type: boolean
+          description: Whether the application is enabled for user access.
+          default: true
+        connector_group_id:
+          type: string
+          description: >-
+            Identifier of the connector group providing network
+            access to this application.
+        app_domains:
+          type: array
+          description: >-
+            Fully qualified domain names or wildcard domains for the
+            application. Used for DNS-based routing.
+          items:
+            type: string
+        app_ips:
+          type: array
+          description: >-
+            IP addresses or CIDR ranges of the application servers.
+          items:
+            type: string
+        ports:
+          type: array
+          description: >-
+            Port ranges the application listens on.
+          items:
+            type: object
+            properties:
+              port:
+                type: string
+                description: >-
+                  Port number or range (e.g., "443" or "8080-8090").
+              protocol:
+                type: string
+                enum:
+                  - tcp
+                  - udp
+                  - both
+                description: Transport protocol.
+        access_type:
+          type: string
+          enum:
+            - browser
+            - non-browser
+            - both
+          description: >-
+            Type of client access supported. Browser access uses a
+            clientless web portal; non-browser requires the
+            GlobalProtect agent.
+        ssl_verification:
+          type: boolean
+          description: Whether SSL certificate verification is enforced.
+          default: true
+        health_check:
+          type: object
+          description: Application health check configuration.
+          properties:
+            enabled:
+              type: boolean
+              default: true
+            path:
+              type: string
+              description: HTTP path for health checks (e.g., /health).
+            interval_seconds:
+              type: integer
+              default: 30
+        user_segments:
+          type: array
+          description: >-
+            User segments or groups allowed to access this application.
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+        - name
+        - connector_group_id
+    ErrorResponse:
+      type: object
+      properties:
+        _errors:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+              message:
+                type: string
+              details:
+                type: object
+        _request_id:
+          type: string

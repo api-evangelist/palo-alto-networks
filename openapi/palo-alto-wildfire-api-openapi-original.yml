@@ -1,0 +1,478 @@
+openapi: 3.1.0
+info:
+  title: WildFire API
+  description: >-
+    Cloud-based REST API for submitting files, URLs, and links to the WildFire
+    sandbox for advanced malware analysis. The API returns threat verdicts
+    (benign, malware, grayware, phishing) and detailed behavioral analysis
+    reports. Supports file submission via multipart form upload, verdict
+    queries by file hash (MD5, SHA-256), and retrieval of PCAP captures and
+    full analysis reports in PDF, XML, or MAEC format.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  - url: https://wildfire.paloaltonetworks.com/publicapi
+    description: WildFire global cloud (US).
+  - url: https://eu.wildfire.paloaltonetworks.com/publicapi
+    description: WildFire EU cloud.
+  - url: https://jp.wildfire.paloaltonetworks.com/publicapi
+    description: WildFire Japan cloud.
+security:
+  - apiKey: []
+tags:
+  - name: Submit
+    description: Submit files and URLs for malware analysis.
+  - name: Verdicts
+    description: Query analysis verdicts for files and URLs.
+  - name: Reports
+    description: Retrieve detailed analysis reports.
+  - name: PCAP
+    description: Retrieve packet capture data from analysis sessions.
+paths:
+  /submit/file:
+    post:
+      operationId: submitFile
+      summary: Submit a file for analysis
+      description: >-
+        Submits a file to WildFire for sandbox analysis. The file is executed
+        in a controlled environment and analyzed for malicious behavior.
+        Analysis typically completes within 5 minutes. Maximum file size is
+        100 MB for most file types.
+      tags:
+        - Submit
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - apikey
+                - file
+              properties:
+                apikey:
+                  type: string
+                  description: WildFire API key.
+                file:
+                  type: string
+                  format: binary
+                  description: The file to submit for analysis.
+      responses:
+        '200':
+          description: File submitted successfully.
+          content:
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/SubmitResponse'
+        '401':
+          description: Invalid API key.
+        '413':
+          description: File size exceeds maximum limit.
+        '418':
+          description: Unsupported file type.
+  /submit/url:
+    post:
+      operationId: submitUrl
+      summary: Submit a URL for analysis
+      description: >-
+        Submits a URL to WildFire for web page analysis. WildFire visits
+        the URL in a sandboxed browser environment and analyzes it for
+        drive-by downloads, exploit kits, phishing content, and other
+        web-based threats.
+      tags:
+        - Submit
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - apikey
+                - url
+              properties:
+                apikey:
+                  type: string
+                  description: WildFire API key.
+                url:
+                  type: string
+                  format: uri
+                  description: The URL to analyze.
+      responses:
+        '200':
+          description: URL submitted successfully.
+          content:
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/SubmitResponse'
+        '401':
+          description: Invalid API key.
+  /submit/link:
+    post:
+      operationId: submitLink
+      summary: Submit a remote file link for analysis
+      description: >-
+        Submits a link to a file hosted at a remote location. WildFire
+        downloads the file from the specified URL and analyzes it in the
+        sandbox environment.
+      tags:
+        - Submit
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - apikey
+                - link
+              properties:
+                apikey:
+                  type: string
+                  description: WildFire API key.
+                link:
+                  type: string
+                  format: uri
+                  description: URL pointing to the file to download and analyze.
+      responses:
+        '200':
+          description: Link submitted successfully.
+          content:
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/SubmitResponse'
+  /get/verdict:
+    post:
+      operationId: getVerdict
+      summary: Get verdict for a single hash
+      description: >-
+        Returns the WildFire analysis verdict for a file identified by its
+        MD5 or SHA-256 hash. Verdict codes are 0 (benign), 1 (malware),
+        2 (grayware), 4 (phishing), 5 (C2), -100 (pending), -101 (error),
+        -102 (unknown/not found), -103 (invalid hash).
+      tags:
+        - Verdicts
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - apikey
+                - hash
+              properties:
+                apikey:
+                  type: string
+                  description: WildFire API key.
+                hash:
+                  type: string
+                  description: MD5 or SHA-256 hash of the file.
+      responses:
+        '200':
+          description: Verdict returned.
+          content:
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/VerdictResponse'
+        '401':
+          description: Invalid API key.
+        '404':
+          description: Hash not found in WildFire database.
+  /get/verdicts:
+    post:
+      operationId: getVerdicts
+      summary: Get verdicts for multiple hashes
+      description: >-
+        Returns WildFire analysis verdicts for up to 500 file hashes in a
+        single request. Accepts a newline-separated list of MD5 or SHA-256
+        hashes.
+      tags:
+        - Verdicts
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - apikey
+                - file
+              properties:
+                apikey:
+                  type: string
+                  description: WildFire API key.
+                file:
+                  type: string
+                  description: Newline-separated list of MD5 or SHA-256 hashes (max 500).
+      responses:
+        '200':
+          description: Verdicts returned.
+          content:
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/VerdictsResponse'
+  /get/report:
+    post:
+      operationId: getReport
+      summary: Get analysis report
+      description: >-
+        Returns the full analysis report for a file identified by its hash.
+        Reports include behavioral analysis, network activity, process
+        activity, registry changes, and file system modifications observed
+        during sandbox execution. Available in XML or PDF format.
+      tags:
+        - Reports
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - apikey
+                - hash
+              properties:
+                apikey:
+                  type: string
+                  description: WildFire API key.
+                hash:
+                  type: string
+                  description: MD5 or SHA-256 hash of the file.
+                format:
+                  type: string
+                  enum:
+                    - xml
+                    - pdf
+                    - maec
+                  default: xml
+                  description: Report output format.
+      responses:
+        '200':
+          description: Report returned.
+          content:
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Report not found for the specified hash.
+  /get/pcap:
+    post:
+      operationId: getPcap
+      summary: Get packet capture
+      description: >-
+        Returns the packet capture (PCAP) file recorded during sandbox
+        analysis of the specified file. The PCAP contains all network
+        traffic generated by the sample during execution.
+      tags:
+        - PCAP
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - apikey
+                - hash
+              properties:
+                apikey:
+                  type: string
+                  description: WildFire API key.
+                hash:
+                  type: string
+                  description: MD5 or SHA-256 hash of the file.
+                platform:
+                  type: string
+                  description: >-
+                    Analysis environment platform number. Use the report
+                    to determine available platforms.
+      responses:
+        '200':
+          description: PCAP file returned.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: PCAP not available for the specified hash.
+  /get/sample:
+    post:
+      operationId: getSample
+      summary: Get malware sample
+      description: >-
+        Downloads the original malware sample from WildFire. Only available
+        for files with a malware verdict. Requires a WildFire subscription
+        that includes sample download privileges.
+      tags:
+        - Reports
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - apikey
+                - hash
+              properties:
+                apikey:
+                  type: string
+                  description: WildFire API key.
+                hash:
+                  type: string
+                  description: MD5 or SHA-256 hash of the malware sample.
+      responses:
+        '200':
+          description: Sample file returned.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '403':
+          description: Insufficient privileges for sample download.
+        '404':
+          description: Sample not found.
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: query
+      name: apikey
+      description: >-
+        WildFire API key obtained from the Palo Alto Networks Support Portal
+        or generated from a PAN-OS firewall with a WildFire subscription.
+  schemas:
+    SubmitResponse:
+      type: object
+      description: Response from a file, URL, or link submission.
+      properties:
+        wildfire:
+          type: object
+          properties:
+            upload-file-info:
+              type: object
+              properties:
+                filename:
+                  type: string
+                  description: Name of the submitted file.
+                filetype:
+                  type: string
+                  description: Detected file type.
+                sha256:
+                  type: string
+                  description: SHA-256 hash of the submitted file.
+                md5:
+                  type: string
+                  description: MD5 hash of the submitted file.
+                size:
+                  type: integer
+                  description: File size in bytes.
+                url:
+                  type: string
+                  description: Submitted URL (for URL submissions).
+    VerdictResponse:
+      type: object
+      description: Verdict for a single file hash.
+      properties:
+        wildfire:
+          type: object
+          properties:
+            get-verdict-info:
+              type: object
+              properties:
+                sha256:
+                  type: string
+                md5:
+                  type: string
+                verdict:
+                  type: integer
+                  description: >-
+                    Verdict code. 0=benign, 1=malware, 2=grayware,
+                    4=phishing, 5=C2, -100=pending, -101=error,
+                    -102=unknown, -103=invalid hash.
+    VerdictsResponse:
+      type: object
+      description: Verdicts for multiple file hashes.
+      properties:
+        wildfire:
+          type: object
+          properties:
+            get-verdict-info:
+              type: array
+              items:
+                type: object
+                properties:
+                  sha256:
+                    type: string
+                  md5:
+                    type: string
+                  verdict:
+                    type: integer
+    ReportResponse:
+      type: object
+      description: Full sandbox analysis report.
+      properties:
+        wildfire:
+          type: object
+          properties:
+            file_info:
+              type: object
+              properties:
+                sha256:
+                  type: string
+                md5:
+                  type: string
+                filetype:
+                  type: string
+                malware:
+                  type: string
+                  description: Whether the file is malware (yes/no).
+                size:
+                  type: integer
+            task_info:
+              type: object
+              properties:
+                report:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      platform:
+                        type: string
+                        description: Analysis platform identifier.
+                      software:
+                        type: string
+                        description: Software environment used.
+                      summary:
+                        type: object
+                        properties:
+                          entry:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                details:
+                                  type: string
+                                behavior:
+                                  type: string
+                      network:
+                        type: object
+                        description: Network activity observed during execution.
+                      process_list:
+                        type: object
+                        description: Processes created during execution.
+                      registry:
+                        type: object
+                        description: Registry modifications during execution.

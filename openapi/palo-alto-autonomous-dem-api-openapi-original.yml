@@ -1,0 +1,862 @@
+openapi: 3.1.0
+info:
+  title: Autonomous DEM API
+  description: >-
+    REST API for the Autonomous Digital Experience Management (ADEM)
+    platform providing programmatic access to application experience
+    scores, agent health status, synthetic testing configuration, and
+    network path and WiFi performance metrics. Autonomous DEM
+    continuously monitors the end-to-end digital experience of users
+    connecting through Prisma Access, identifying performance
+    degradations across the endpoint, local network, ISP, and
+    application layers before users report issues.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  - url: https://api.sase.paloaltonetworks.com
+    description: Autonomous DEM SASE API server.
+security:
+  - oauth2: []
+tags:
+  - name: ApplicationScores
+    description: >-
+      Application experience score monitoring providing aggregated
+      performance ratings for SaaS and internal applications as
+      experienced by end users.
+  - name: AgentStatus
+    description: >-
+      ADEM agent status monitoring for tracking the health and
+      connectivity of endpoint monitoring agents deployed on user
+      devices.
+  - name: Tests
+    description: >-
+      Synthetic test configuration and results for proactive
+      monitoring of application reachability and performance
+      from user endpoints.
+  - name: Metrics
+    description: >-
+      Detailed network path and WiFi performance metrics providing
+      granular visibility into each segment of the user-to-application
+      connection.
+paths:
+  /adem/v1/app-scores:
+    get:
+      operationId: getApplicationScores
+      summary: Get application experience scores
+      description: >-
+        Returns application experience scores representing the
+        end-to-end quality of user interactions with monitored
+        applications. Scores range from 0 to 100, with higher values
+        indicating better experience. Scores are computed from
+        latency, packet loss, jitter, and application response time
+        measurements collected by ADEM agents on user endpoints.
+        Results can be filtered by application, user, time range,
+        and score threshold.
+      tags:
+        - ApplicationScores
+      parameters:
+        - name: application
+          in: query
+          description: >-
+            Filter by application name (e.g., Microsoft 365,
+            Salesforce, Zoom).
+          schema:
+            type: string
+        - name: user
+          in: query
+          description: Filter by user email address.
+          schema:
+            type: string
+            format: email
+        - name: start_time
+          in: query
+          required: true
+          description: Start of the time range in ISO 8601 format.
+          schema:
+            type: string
+            format: date-time
+        - name: end_time
+          in: query
+          required: true
+          description: End of the time range in ISO 8601 format.
+          schema:
+            type: string
+            format: date-time
+        - name: score_below
+          in: query
+          description: >-
+            Filter for scores below this threshold. Useful for
+            identifying degraded experiences.
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 100
+        - name: granularity
+          in: query
+          description: Time granularity for score aggregation.
+          schema:
+            type: string
+            enum:
+              - 5m
+              - 15m
+              - 1h
+              - 1d
+            default: 1h
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            maximum: 1000
+      responses:
+        '200':
+          description: Application scores returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ApplicationScore'
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /adem/v1/agents/status:
+    get:
+      operationId: getAgentStatus
+      summary: Get ADEM agent status
+      description: >-
+        Returns the current status of ADEM monitoring agents deployed
+        on user endpoints. Each agent record includes connectivity
+        state, version information, last check-in time, and the
+        endpoint device details. Useful for monitoring agent health,
+        identifying endpoints with outdated agents, and tracking
+        overall ADEM deployment coverage.
+      tags:
+        - AgentStatus
+      parameters:
+        - name: status
+          in: query
+          description: Filter by agent status.
+          schema:
+            type: string
+            enum:
+              - connected
+              - disconnected
+              - degraded
+              - disabled
+        - name: version
+          in: query
+          description: Filter by agent version string.
+          schema:
+            type: string
+        - name: user
+          in: query
+          description: Filter by user email address.
+          schema:
+            type: string
+            format: email
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            maximum: 1000
+      responses:
+        '200':
+          description: Agent status records returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AgentStatus'
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /adem/v1/synthetic-tests:
+    get:
+      operationId: listSyntheticTests
+      summary: List synthetic tests
+      description: >-
+        Returns a list of synthetic tests configured for proactive
+        application monitoring. Synthetic tests periodically probe
+        application endpoints from ADEM agents to measure
+        availability, latency, DNS resolution time, TCP connection
+        time, and HTTP response time. Tests run continuously from
+        user endpoints to detect issues before they impact user
+        experience.
+      tags:
+        - Tests
+      parameters:
+        - name: application
+          in: query
+          description: Filter tests by target application name.
+          schema:
+            type: string
+        - name: enabled
+          in: query
+          description: Filter by test enabled state.
+          schema:
+            type: boolean
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Synthetic tests returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SyntheticTest'
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /adem/v1/metrics/network-path:
+    get:
+      operationId: getNetworkPathMetrics
+      summary: Get network path metrics
+      description: >-
+        Returns detailed network path metrics showing performance
+        characteristics of each hop along the route from user endpoint
+        to application. Metrics include per-hop latency, packet loss,
+        jitter, and MTU. The network path is segmented into endpoint,
+        local network, ISP, Prisma Access backbone, and application
+        layers to pinpoint the source of performance degradation.
+      tags:
+        - Metrics
+      parameters:
+        - name: user
+          in: query
+          description: Filter by user email address.
+          schema:
+            type: string
+            format: email
+        - name: application
+          in: query
+          description: Filter by target application name.
+          schema:
+            type: string
+        - name: start_time
+          in: query
+          required: true
+          description: Start of the time range in ISO 8601 format.
+          schema:
+            type: string
+            format: date-time
+        - name: end_time
+          in: query
+          required: true
+          description: End of the time range in ISO 8601 format.
+          schema:
+            type: string
+            format: date-time
+        - name: granularity
+          in: query
+          description: Time granularity for metric aggregation.
+          schema:
+            type: string
+            enum:
+              - 5m
+              - 15m
+              - 1h
+            default: 15m
+      responses:
+        '200':
+          description: Network path metrics returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NetworkPathMetric'
+                  total:
+                    type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /adem/v1/metrics/wifi:
+    get:
+      operationId: getWiFiMetrics
+      summary: Get WiFi performance metrics
+      description: >-
+        Returns WiFi performance metrics collected from ADEM agents
+        on user endpoints. Metrics include signal strength (RSSI),
+        noise level, channel utilization, link speed, and WiFi-related
+        latency. Useful for identifying wireless network issues that
+        degrade the user experience, such as poor signal coverage,
+        channel congestion, or access point capacity problems.
+      tags:
+        - Metrics
+      parameters:
+        - name: user
+          in: query
+          description: Filter by user email address.
+          schema:
+            type: string
+            format: email
+        - name: ssid
+          in: query
+          description: Filter by WiFi SSID name.
+          schema:
+            type: string
+        - name: start_time
+          in: query
+          required: true
+          description: Start of the time range in ISO 8601 format.
+          schema:
+            type: string
+            format: date-time
+        - name: end_time
+          in: query
+          required: true
+          description: End of the time range in ISO 8601 format.
+          schema:
+            type: string
+            format: date-time
+        - name: granularity
+          in: query
+          description: Time granularity for metric aggregation.
+          schema:
+            type: string
+            enum:
+              - 5m
+              - 15m
+              - 1h
+            default: 15m
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: WiFi metrics returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        timestamp:
+                          type: string
+                          format: date-time
+                        user:
+                          type: string
+                          format: email
+                        device_name:
+                          type: string
+                        ssid:
+                          type: string
+                        bssid:
+                          type: string
+                          description: MAC address of the connected access point.
+                        band:
+                          type: string
+                          enum:
+                            - 2.4GHz
+                            - 5GHz
+                            - 6GHz
+                        channel:
+                          type: integer
+                        rssi_dbm:
+                          type: integer
+                          description: >-
+                            Received signal strength indicator in dBm.
+                            Typical range -30 (excellent) to -90 (poor).
+                        noise_dbm:
+                          type: integer
+                          description: Noise level in dBm.
+                        snr_db:
+                          type: number
+                          description: Signal-to-noise ratio in dB.
+                        link_speed_mbps:
+                          type: number
+                          description: WiFi link speed in Mbps.
+                        channel_utilization_pct:
+                          type: number
+                          description: >-
+                            Percentage of time the WiFi channel is busy.
+                        wifi_latency_ms:
+                          type: number
+                          description: >-
+                            Latency attributable to the WiFi segment in
+                            milliseconds.
+                        retransmission_pct:
+                          type: number
+                          description: WiFi frame retransmission percentage.
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      description: >-
+        OAuth 2.0 client credentials flow for obtaining an access token.
+        Requires a client ID and client secret from the Palo Alto Networks
+        SASE identity provider. The access token must be included as a
+        Bearer token in the Authorization header.
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
+          scopes: {}
+  responses:
+    Unauthorized:
+      description: Missing or invalid OAuth2 access token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Invalid request parameters or body.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    ApplicationScore:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Time bucket for the aggregated score.
+        application:
+          type: string
+          description: Name of the monitored application.
+        user:
+          type: string
+          format: email
+          description: User email address if filtering by user.
+        overall_score:
+          type: integer
+          description: >-
+            Overall experience score from 0 to 100. Computed as a
+            weighted average of endpoint, network, and application
+            component scores.
+          minimum: 0
+          maximum: 100
+        endpoint_score:
+          type: integer
+          description: >-
+            Endpoint health score reflecting CPU, memory, and disk
+            performance on the user device.
+          minimum: 0
+          maximum: 100
+        network_score:
+          type: integer
+          description: >-
+            Network path score reflecting latency, loss, and jitter
+            across the full path from endpoint to application.
+          minimum: 0
+          maximum: 100
+        application_score:
+          type: integer
+          description: >-
+            Application responsiveness score based on server
+            response time and availability.
+          minimum: 0
+          maximum: 100
+        latency_ms:
+          type: number
+          description: Average round-trip latency in milliseconds.
+        packet_loss_pct:
+          type: number
+          description: Packet loss percentage.
+        jitter_ms:
+          type: number
+          description: Latency variation (jitter) in milliseconds.
+        sample_count:
+          type: integer
+          description: Number of measurement samples in this time bucket.
+    AgentStatus:
+      type: object
+      properties:
+        agent_id:
+          type: string
+          description: Unique identifier for the ADEM agent instance.
+        user:
+          type: string
+          format: email
+          description: Email address of the user associated with this agent.
+        device_name:
+          type: string
+          description: Hostname of the endpoint device.
+        status:
+          type: string
+          enum:
+            - connected
+            - disconnected
+            - degraded
+            - disabled
+          description: Current operational status of the agent.
+        version:
+          type: string
+          description: ADEM agent software version.
+        os:
+          type: string
+          enum:
+            - windows
+            - macos
+            - linux
+            - ios
+            - android
+          description: Operating system of the endpoint.
+        os_version:
+          type: string
+          description: Operating system version string.
+        connection_type:
+          type: string
+          enum:
+            - wifi
+            - ethernet
+            - cellular
+          description: Current network connection type.
+        public_ip:
+          type: string
+          format: ipv4
+          description: Public IP address of the endpoint.
+        private_ip:
+          type: string
+          format: ipv4
+          description: Private IP address of the endpoint.
+        location:
+          type: object
+          description: Geographic location derived from IP geolocation.
+          properties:
+            city:
+              type: string
+            region:
+              type: string
+            country:
+              type: string
+            latitude:
+              type: number
+            longitude:
+              type: number
+        last_check_in:
+          type: string
+          format: date-time
+          description: Timestamp of the last agent heartbeat.
+        uptime_seconds:
+          type: integer
+          description: Duration since the agent last started.
+        monitored_apps:
+          type: array
+          description: Applications currently being monitored by this agent.
+          items:
+            type: string
+        cpu_usage_pct:
+          type: number
+          description: Current CPU usage percentage on the endpoint.
+        memory_usage_pct:
+          type: number
+          description: Current memory usage percentage on the endpoint.
+    SyntheticTest:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the synthetic test.
+          readOnly: true
+        name:
+          type: string
+          description: Display name of the synthetic test.
+        description:
+          type: string
+        enabled:
+          type: boolean
+          description: Whether the test is currently active.
+          default: true
+        application:
+          type: string
+          description: Name of the target application being tested.
+        test_type:
+          type: string
+          enum:
+            - http
+            - tcp
+            - dns
+            - icmp
+          description: Type of synthetic probe.
+        target_url:
+          type: string
+          format: uri
+          description: >-
+            Target URL for HTTP tests. For TCP tests, specify
+            host:port format.
+        target_host:
+          type: string
+          description: Target hostname or IP for non-HTTP tests.
+        target_port:
+          type: integer
+          description: Target port for TCP tests.
+        interval_seconds:
+          type: integer
+          description: Time between test executions in seconds.
+          default: 300
+          minimum: 60
+          maximum: 3600
+        timeout_ms:
+          type: integer
+          description: Maximum time to wait for a response in milliseconds.
+          default: 5000
+        http_method:
+          type: string
+          enum:
+            - GET
+            - HEAD
+            - POST
+          description: HTTP method for HTTP type tests.
+          default: GET
+        expected_status_codes:
+          type: array
+          description: >-
+            Expected HTTP status codes for a successful test. Test
+            is marked as failed if the response code is not in this
+            list.
+          items:
+            type: integer
+          default:
+            - 200
+        agent_scope:
+          type: object
+          description: >-
+            Scope of agents that should run this test.
+          properties:
+            type:
+              type: string
+              enum:
+                - all
+                - user_group
+                - specific_users
+            user_groups:
+              type: array
+              items:
+                type: string
+            users:
+              type: array
+              items:
+                type: string
+                format: email
+        latest_results:
+          type: object
+          description: Summary of the most recent test execution results.
+          readOnly: true
+          properties:
+            success_rate_pct:
+              type: number
+              description: Percentage of agents where the test succeeded.
+            avg_latency_ms:
+              type: number
+              description: Average response latency across all agents.
+            avg_dns_time_ms:
+              type: number
+              description: Average DNS resolution time.
+            avg_tcp_connect_ms:
+              type: number
+              description: Average TCP connection establishment time.
+            avg_ttfb_ms:
+              type: number
+              description: Average time to first byte for HTTP tests.
+            last_run:
+              type: string
+              format: date-time
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+        - name
+        - test_type
+    NetworkPathMetric:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Time bucket for the aggregated metrics.
+        user:
+          type: string
+          format: email
+          description: User email address.
+        application:
+          type: string
+          description: Target application name.
+        source_ip:
+          type: string
+          description: Source IP address of the endpoint.
+        destination_ip:
+          type: string
+          description: Destination IP address of the application.
+        total_latency_ms:
+          type: number
+          description: Total end-to-end latency in milliseconds.
+        total_packet_loss_pct:
+          type: number
+          description: Total end-to-end packet loss percentage.
+        total_jitter_ms:
+          type: number
+          description: Total end-to-end jitter in milliseconds.
+        segments:
+          type: array
+          description: >-
+            Performance metrics broken down by network segment
+            from endpoint to application.
+          items:
+            type: object
+            properties:
+              segment_name:
+                type: string
+                enum:
+                  - endpoint
+                  - local_network
+                  - isp
+                  - prisma_access
+                  - application
+                description: Name of the network segment.
+              latency_ms:
+                type: number
+                description: Latency contribution of this segment.
+              packet_loss_pct:
+                type: number
+                description: Packet loss in this segment.
+              jitter_ms:
+                type: number
+                description: Jitter in this segment.
+              status:
+                type: string
+                enum:
+                  - good
+                  - fair
+                  - poor
+                  - critical
+                description: >-
+                  Health status of this segment based on
+                  performance thresholds.
+        hops:
+          type: array
+          description: Individual hops along the network path.
+          items:
+            type: object
+            properties:
+              hop_number:
+                type: integer
+              ip:
+                type: string
+              hostname:
+                type: string
+              latency_ms:
+                type: number
+              packet_loss_pct:
+                type: number
+              asn:
+                type: integer
+                description: Autonomous System Number of the hop.
+              isp:
+                type: string
+                description: ISP name if identifiable.
+        path_mtu:
+          type: integer
+          description: Path Maximum Transmission Unit in bytes.
+        sample_count:
+          type: integer
+          description: Number of measurement samples in this time bucket.
+    ErrorResponse:
+      type: object
+      properties:
+        _errors:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+              message:
+                type: string
+              details:
+                type: object
+        _request_id:
+          type: string

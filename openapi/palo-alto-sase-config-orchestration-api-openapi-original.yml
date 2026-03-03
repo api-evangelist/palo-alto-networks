@@ -1,0 +1,544 @@
+openapi: 3.1.0
+info:
+  title: Configuration Orchestration API
+  description: >-
+    REST API for the Palo Alto Networks SASE Configuration Orchestration
+    service enabling third-party SD-WAN integration with Prisma Access.
+    Provides programmatic management of IPSec tunnels, network connections,
+    and bandwidth allocations between third-party SD-WAN appliances and
+    the Prisma Access cloud-delivered security platform. Supports
+    automated provisioning of site-to-cloud connectivity for branch
+    offices using non-Palo Alto Networks SD-WAN solutions. Authentication
+    uses OAuth2 bearer tokens obtained from the Palo Alto Networks
+    identity provider.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  - url: https://api.sase.paloaltonetworks.com
+    description: SASE API gateway for configuration orchestration operations.
+security:
+  - bearerAuth: []
+tags:
+  - name: Tunnels
+    description: >-
+      IPSec tunnel management for establishing secure connectivity
+      between third-party SD-WAN appliances and Prisma Access.
+  - name: Connections
+    description: >-
+      Network connection management for defining logical connectivity
+      between sites and Prisma Access service nodes.
+  - name: BandwidthAllocations
+    description: >-
+      Bandwidth allocation management for controlling throughput
+      distribution across tunnels and connections.
+paths:
+  /config-orch/v1/tunnels:
+    get:
+      operationId: listTunnels
+      summary: List tunnels
+      description: >-
+        Returns a list of all configured IPSec tunnels for the specified
+        Tenant Service Group. Each tunnel represents a secure connection
+        between a third-party SD-WAN appliance at a branch site and a
+        Prisma Access service node. Includes tunnel configuration details,
+        IKE parameters, and current operational status.
+      tags:
+        - Tunnels
+      parameters:
+        - name: tsg_id
+          in: header
+          required: true
+          description: TSG ID to scope the tunnel query.
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          description: Filter tunnels by operational status.
+          schema:
+            type: string
+            enum:
+              - up
+              - down
+              - pending
+              - error
+        - name: site_name
+          in: query
+          required: false
+          description: Filter tunnels by site name.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tunnels returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_count:
+                    type: integer
+                    description: Total number of tunnels matching the query.
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tunnel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      operationId: createTunnel
+      summary: Create a tunnel
+      description: >-
+        Creates a new IPSec tunnel configuration between a third-party
+        SD-WAN appliance and a Prisma Access service node. Requires
+        specifying the remote site details, IKE configuration parameters,
+        and the target Prisma Access region. The tunnel is provisioned
+        asynchronously and transitions from pending to up once both
+        endpoints complete the IKE negotiation.
+      tags:
+        - Tunnels
+      parameters:
+        - name: tsg_id
+          in: header
+          required: true
+          description: TSG ID under which to create the tunnel.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - site_name
+                - remote_ip
+                - ike_config
+                - region
+              properties:
+                site_name:
+                  type: string
+                  description: Human-readable name for the remote site.
+                  maxLength: 128
+                remote_ip:
+                  type: string
+                  format: ipv4
+                  description: >-
+                    Public IP address of the remote SD-WAN appliance
+                    tunnel endpoint.
+                remote_id:
+                  type: string
+                  description: >-
+                    IKE identity of the remote peer (e.g., FQDN, email,
+                    or IP address).
+                ike_config:
+                  type: object
+                  description: IKE negotiation parameters.
+                  required:
+                    - version
+                    - pre_shared_key
+                  properties:
+                    version:
+                      type: string
+                      enum:
+                        - ikev1
+                        - ikev2
+                      description: IKE protocol version.
+                    pre_shared_key:
+                      type: string
+                      description: Pre-shared key for IKE authentication.
+                    dh_group:
+                      type: string
+                      enum:
+                        - group2
+                        - group5
+                        - group14
+                        - group19
+                        - group20
+                      default: group20
+                      description: Diffie-Hellman group for key exchange.
+                    encryption:
+                      type: string
+                      enum:
+                        - aes-128-cbc
+                        - aes-256-cbc
+                        - aes-128-gcm
+                        - aes-256-gcm
+                      default: aes-256-gcm
+                      description: Encryption algorithm.
+                    integrity:
+                      type: string
+                      enum:
+                        - sha256
+                        - sha384
+                        - sha512
+                      default: sha256
+                      description: Integrity hash algorithm.
+                    lifetime_seconds:
+                      type: integer
+                      default: 28800
+                      description: IKE SA lifetime in seconds.
+                region:
+                  type: string
+                  description: >-
+                    Prisma Access compute region for the tunnel endpoint
+                    (e.g., us-east-1, eu-west-1, ap-southeast-1).
+                bandwidth_mbps:
+                  type: integer
+                  description: Allocated bandwidth for this tunnel in Mbps.
+                  default: 100
+      responses:
+        '201':
+          description: Tunnel created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tunnel'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /config-orch/v1/connections:
+    get:
+      operationId: listConnections
+      summary: List connections
+      description: >-
+        Returns a list of all logical network connections for the specified
+        Tenant Service Group. Connections represent higher-level abstractions
+        that group one or more tunnels into a logical site-to-cloud
+        connectivity unit. Each connection includes its configuration,
+        associated tunnels, and health status.
+      tags:
+        - Connections
+      parameters:
+        - name: tsg_id
+          in: header
+          required: true
+          description: TSG ID to scope the connection query.
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          description: Filter connections by health status.
+          schema:
+            type: string
+            enum:
+              - healthy
+              - degraded
+              - down
+              - provisioning
+      responses:
+        '200':
+          description: Connections returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_count:
+                    type: integer
+                    description: Total number of connections.
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Connection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /config-orch/v1/bandwidth-allocations:
+    post:
+      operationId: createBandwidthAllocation
+      summary: Create a bandwidth allocation
+      description: >-
+        Creates or updates a bandwidth allocation for distributing licensed
+        throughput capacity across tunnels and connections within a Tenant
+        Service Group. Bandwidth allocations ensure that each site receives
+        its required throughput while respecting the overall subscription
+        limits. Allocations are validated against available entitlements
+        before being applied.
+      tags:
+        - BandwidthAllocations
+      parameters:
+        - name: tsg_id
+          in: header
+          required: true
+          description: TSG ID for the bandwidth allocation.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - allocations
+              properties:
+                allocations:
+                  type: array
+                  description: List of bandwidth allocation entries.
+                  items:
+                    type: object
+                    required:
+                      - target_id
+                      - target_type
+                      - bandwidth_mbps
+                    properties:
+                      target_id:
+                        type: string
+                        description: >-
+                          ID of the tunnel or connection to allocate
+                          bandwidth to.
+                      target_type:
+                        type: string
+                        enum:
+                          - tunnel
+                          - connection
+                        description: Type of the allocation target.
+                      bandwidth_mbps:
+                        type: integer
+                        description: Bandwidth to allocate in Mbps.
+                        minimum: 1
+                      priority:
+                        type: string
+                        enum:
+                          - high
+                          - medium
+                          - low
+                        default: medium
+                        description: >-
+                          Priority level for bandwidth contention
+                          resolution.
+      responses:
+        '200':
+          description: Bandwidth allocation applied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BandwidthAllocation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: >-
+            Requested allocation exceeds available bandwidth entitlements.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
+          scopes: {}
+      description: >-
+        OAuth2 client credentials flow. Obtain an access token from the
+        Palo Alto Networks identity provider and include it as a Bearer
+        token in the Authorization header.
+  responses:
+    BadRequest:
+      description: The request body is malformed or contains invalid parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid OAuth2 bearer token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    Tunnel:
+      type: object
+      properties:
+        tunnel_id:
+          type: string
+          description: Unique identifier for the tunnel.
+        site_name:
+          type: string
+          description: Human-readable name for the remote site.
+        remote_ip:
+          type: string
+          format: ipv4
+          description: Public IP address of the remote tunnel endpoint.
+        remote_id:
+          type: string
+          description: IKE identity of the remote peer.
+        local_ip:
+          type: string
+          format: ipv4
+          description: >-
+            Prisma Access tunnel endpoint IP address assigned after
+            provisioning.
+        ike_version:
+          type: string
+          enum:
+            - ikev1
+            - ikev2
+          description: IKE protocol version in use.
+        encryption:
+          type: string
+          description: Negotiated encryption algorithm.
+        region:
+          type: string
+          description: Prisma Access compute region hosting this tunnel.
+        bandwidth_mbps:
+          type: integer
+          description: Allocated bandwidth in Mbps.
+        status:
+          type: string
+          enum:
+            - up
+            - down
+            - pending
+            - error
+          description: Current operational status of the tunnel.
+        status_message:
+          type: string
+          description: >-
+            Human-readable status message with additional context for
+            error or pending states.
+        tsg_id:
+          type: string
+          description: TSG ID that owns this tunnel.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the tunnel was created.
+        updated_at:
+          type: string
+          format: date-time
+          description: Timestamp when the tunnel was last modified.
+    Connection:
+      type: object
+      properties:
+        connection_id:
+          type: string
+          description: Unique identifier for the connection.
+        name:
+          type: string
+          description: Human-readable name for the connection.
+        site_name:
+          type: string
+          description: Associated remote site name.
+        tunnel_ids:
+          type: array
+          items:
+            type: string
+          description: List of tunnel IDs that compose this connection.
+        region:
+          type: string
+          description: Prisma Access compute region.
+        total_bandwidth_mbps:
+          type: integer
+          description: >-
+            Aggregate bandwidth across all tunnels in this connection.
+        status:
+          type: string
+          enum:
+            - healthy
+            - degraded
+            - down
+            - provisioning
+          description: >-
+            Operational health status of the connection. Degraded
+            indicates some but not all tunnels are operational.
+        active_tunnels:
+          type: integer
+          description: Number of tunnels currently in the up state.
+        total_tunnels:
+          type: integer
+          description: Total number of tunnels in this connection.
+        tsg_id:
+          type: string
+          description: TSG ID that owns this connection.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the connection was created.
+        updated_at:
+          type: string
+          format: date-time
+          description: Timestamp when the connection was last modified.
+    BandwidthAllocation:
+      type: object
+      properties:
+        allocation_id:
+          type: string
+          description: Unique identifier for the bandwidth allocation.
+        tsg_id:
+          type: string
+          description: TSG ID that this allocation belongs to.
+        total_entitled_mbps:
+          type: integer
+          description: Total bandwidth entitlement for the TSG in Mbps.
+        total_allocated_mbps:
+          type: integer
+          description: >-
+            Sum of all individual allocations within this TSG in Mbps.
+        remaining_mbps:
+          type: integer
+          description: Unallocated bandwidth remaining in Mbps.
+        allocations:
+          type: array
+          items:
+            type: object
+            properties:
+              target_id:
+                type: string
+                description: ID of the allocated tunnel or connection.
+              target_type:
+                type: string
+                enum:
+                  - tunnel
+                  - connection
+              bandwidth_mbps:
+                type: integer
+                description: Allocated bandwidth in Mbps.
+              priority:
+                type: string
+                enum:
+                  - high
+                  - medium
+                  - low
+          description: Individual bandwidth allocation entries.
+        updated_at:
+          type: string
+          format: date-time
+          description: Timestamp when the allocation was last modified.
+    ErrorResponse:
+      type: object
+      properties:
+        error_code:
+          type: integer
+          description: Machine-readable error code.
+        message:
+          type: string
+          description: Human-readable error message.
+        details:
+          type: string
+          description: Additional context about the error.

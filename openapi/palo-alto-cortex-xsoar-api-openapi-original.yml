@@ -1,0 +1,867 @@
+openapi: 3.1.0
+info:
+  title: Cortex XSOAR API
+  description: >-
+    REST API for the Cortex XSOAR security orchestration, automation, and
+    response platform providing programmatic access to incident management,
+    investigation workflows, playbook execution, integration configuration,
+    and war room collaboration. XSOAR enables security teams to standardize
+    and automate incident response processes through orchestrated playbooks,
+    built-in case management, and real-time analyst collaboration.
+    Authentication uses an API key passed in the Authorization header.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  - url: https://{xsoar-server}
+    description: Cortex XSOAR server instance.
+    variables:
+      xsoar-server:
+        description: >-
+          Your Cortex XSOAR server hostname and optional port (e.g.,
+          xsoar.example.com or xsoar.example.com:443).
+        default: xsoar.example.com
+security:
+  - apiKey: []
+tags:
+  - name: Incidents
+    description: Incident creation, search, and management operations.
+  - name: Investigations
+    description: Investigation and playbook execution operations.
+  - name: Playbooks
+    description: Playbook retrieval and management.
+  - name: Integrations
+    description: Integration instance configuration and management.
+  - name: WarRoom
+    description: War room entry and collaboration operations.
+paths:
+  /incidents/search:
+    post:
+      operationId: searchIncidents
+      summary: Search incidents
+      description: >-
+        Searches for incidents matching the specified query and filters.
+        Supports the Cortex XSOAR query language for complex searches across
+        incident fields including name, type, severity, status, labels, and
+        custom fields. Returns paginated results sorted by the specified
+        field. Used for building dashboards, generating reports, and
+        integrating incident data with external systems.
+      tags:
+        - Incidents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                filter:
+                  type: object
+                  properties:
+                    query:
+                      type: string
+                      description: >-
+                        XSOAR query string for filtering incidents (e.g.,
+                        'severity:high AND status:active').
+                    type:
+                      type: array
+                      items:
+                        type: string
+                      description: Filter by incident types.
+                    severity:
+                      type: array
+                      items:
+                        type: number
+                        enum:
+                          - 0
+                          - 0.5
+                          - 1
+                          - 2
+                          - 3
+                          - 4
+                      description: >-
+                        Filter by severity levels. 0=Unknown, 0.5=Informational,
+                        1=Low, 2=Medium, 3=High, 4=Critical.
+                    status:
+                      type: array
+                      items:
+                        type: number
+                        enum:
+                          - 0
+                          - 1
+                          - 2
+                          - 3
+                      description: >-
+                        Filter by status. 0=Pending, 1=Active, 2=Done,
+                        3=Archive.
+                    fromDate:
+                      type: string
+                      format: date-time
+                      description: Start date for the search range.
+                    toDate:
+                      type: string
+                      format: date-time
+                      description: End date for the search range.
+                    period:
+                      type: object
+                      properties:
+                        by:
+                          type: string
+                          enum:
+                            - day
+                            - week
+                            - month
+                        byTo:
+                          type: string
+                page:
+                  type: integer
+                  description: Page number for pagination (0-based).
+                  default: 0
+                size:
+                  type: integer
+                  description: Number of incidents per page.
+                  default: 50
+                sort:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      field:
+                        type: string
+                      asc:
+                        type: boolean
+      responses:
+        '200':
+          description: Search results returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of incidents matching the query.
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Incident'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /incident:
+    post:
+      operationId: createIncident
+      summary: Create incident
+      description: >-
+        Creates a new incident in Cortex XSOAR with the specified properties.
+        The incident is assigned a unique ID and an investigation is
+        automatically opened. If a playbook is configured for the incident
+        type, it is triggered automatically upon creation. Custom fields
+        defined for the incident type can be populated during creation.
+      tags:
+        - Incidents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IncidentCreate'
+      responses:
+        '200':
+          description: Incident created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Incident'
+  /incident/{id}:
+    get:
+      operationId: getIncident
+      summary: Get incident by ID
+      description: >-
+        Returns the full details of a specific incident including all
+        standard and custom fields, labels, attached evidence, associated
+        playbooks, and investigation metadata. Used to retrieve current
+        incident state for display, reporting, or integration purposes.
+      tags:
+        - Incidents
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The unique incident ID.
+      responses:
+        '200':
+          description: Incident details returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Incident'
+        '404':
+          description: Incident not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /inv-playbook/{id}/run:
+    post:
+      operationId: runPlaybook
+      summary: Run playbook on investigation
+      description: >-
+        Triggers the execution of a playbook on an existing investigation.
+        The playbook automates incident response tasks such as enrichment,
+        containment, remediation, and notification. Playbooks can be
+        triggered manually via this endpoint or automatically based on
+        incident type configuration. Returns immediately after initiating
+        execution; playbook progress can be monitored through the war room.
+      tags:
+        - Investigations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The investigation ID to run the playbook on.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - playbookId
+              properties:
+                playbookId:
+                  type: string
+                  description: The ID of the playbook to execute.
+                input:
+                  type: object
+                  additionalProperties: true
+                  description: >-
+                    Key-value pairs for playbook input parameters. The keys
+                    must match the playbook's defined input names.
+      responses:
+        '200':
+          description: Playbook execution initiated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: The playbook run ID.
+                  investigationId:
+                    type: string
+                  state:
+                    type: string
+                    enum:
+                      - inprogress
+                      - completed
+                      - waiting
+                      - error
+                    description: Initial state of the playbook execution.
+  /settings/integration/search:
+    get:
+      operationId: searchIntegrations
+      summary: Search integrations
+      description: >-
+        Returns a list of configured integration instances matching the
+        search criteria. Integrations connect XSOAR to external security
+        tools, threat intelligence feeds, ticketing systems, and
+        communication platforms. Each integration instance includes its
+        configuration, enabled status, and health information.
+      tags:
+        - Integrations
+      parameters:
+        - name: query
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >-
+            Search query to filter integrations by name, brand, or
+            category.
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+          description: Maximum number of results to return.
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+          description: Page number for pagination (0-based).
+      responses:
+        '200':
+          description: Integration instances returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  instances:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Integration'
+  /entry:
+    post:
+      operationId: createWarRoomEntry
+      summary: Create war room entry
+      description: >-
+        Creates a new entry in an investigation's war room. War room entries
+        include analyst notes, command execution results, evidence files,
+        and automated task outputs. Entries provide a chronological audit
+        trail of all actions taken during an investigation. Supports
+        markdown formatting for rich text notes.
+      tags:
+        - WarRoom
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - investigationId
+                - data
+              properties:
+                investigationId:
+                  type: string
+                  description: The investigation ID to add the entry to.
+                data:
+                  type: string
+                  description: >-
+                    The content of the war room entry. Supports markdown
+                    formatting for notes.
+                categories:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - notes
+                      - chats
+                      - evidence
+                  description: Categories to tag the entry with.
+                markdown:
+                  type: boolean
+                  default: true
+                  description: Whether the data field contains markdown content.
+      responses:
+        '200':
+          description: War room entry created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WarRoomEntry'
+  /war-room/{id}:
+    get:
+      operationId: getWarRoom
+      summary: Get war room entries
+      description: >-
+        Returns all war room entries for a specific investigation. The war
+        room serves as the central collaboration space for an investigation,
+        containing command results, analyst notes, playbook task outputs,
+        file attachments, and chat messages. Entries are returned in
+        chronological order.
+      tags:
+        - WarRoom
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The investigation ID to retrieve war room entries for.
+      responses:
+        '200':
+          description: War room entries returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  entries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WarRoomEntry'
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: >-
+        API key generated from Cortex XSOAR Settings > Integrations >
+        API Keys. The key value is passed directly in the Authorization
+        header.
+  responses:
+    Unauthorized:
+      description: Missing or invalid API key.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    Incident:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique incident identifier.
+        name:
+          type: string
+          description: Incident name or title.
+        type:
+          type: string
+          description: >-
+            Incident type (e.g., Phishing, Malware, Access, Unclassified).
+        severity:
+          type: number
+          enum:
+            - 0
+            - 0.5
+            - 1
+            - 2
+            - 3
+            - 4
+          description: >-
+            Severity level. 0=Unknown, 0.5=Informational, 1=Low,
+            2=Medium, 3=High, 4=Critical.
+        status:
+          type: number
+          enum:
+            - 0
+            - 1
+            - 2
+            - 3
+          description: >-
+            Incident status. 0=Pending, 1=Active, 2=Done, 3=Archive.
+        owner:
+          type: string
+          description: Username of the assigned analyst.
+        created:
+          type: string
+          format: date-time
+          description: Incident creation timestamp.
+        modified:
+          type: string
+          format: date-time
+          description: Last modification timestamp.
+        occurred:
+          type: string
+          format: date-time
+          description: When the incident actually occurred.
+        closed:
+          type: string
+          format: date-time
+          description: Incident closure timestamp, if resolved.
+        labels:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              value:
+                type: string
+          description: Key-value labels attached to the incident.
+        details:
+          type: string
+          description: Free-text incident details and description.
+        phase:
+          type: string
+          description: Current investigation phase.
+        investigationId:
+          type: string
+          description: ID of the associated investigation.
+        playbookId:
+          type: string
+          description: ID of the primary playbook running on this incident.
+        closeReason:
+          type: string
+          description: Reason for closing the incident.
+        closeNotes:
+          type: string
+          description: Analyst notes provided when closing the incident.
+        notifyTime:
+          type: string
+          format: date-time
+          description: SLA notification time.
+        dueDate:
+          type: string
+          format: date-time
+          description: SLA due date for the incident.
+        reminder:
+          type: string
+          format: date-time
+          description: Scheduled reminder time.
+        roles:
+          type: array
+          items:
+            type: string
+          description: Roles with access to this incident.
+        CustomFields:
+          type: object
+          additionalProperties: true
+          description: >-
+            Custom fields defined for this incident type. Keys are field
+            names and values are the field contents.
+    IncidentCreate:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Incident name or title.
+        type:
+          type: string
+          description: >-
+            Incident type. Must match a configured incident type in XSOAR
+            (e.g., Phishing, Malware, Access).
+        severity:
+          type: number
+          enum:
+            - 0
+            - 0.5
+            - 1
+            - 2
+            - 3
+            - 4
+          description: >-
+            Severity level. 0=Unknown, 0.5=Informational, 1=Low,
+            2=Medium, 3=High, 4=Critical.
+          default: 0
+        owner:
+          type: string
+          description: Username of the analyst to assign.
+        occurred:
+          type: string
+          format: date-time
+          description: When the incident occurred. Defaults to creation time.
+        labels:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              value:
+                type: string
+        details:
+          type: string
+          description: Free-text incident details.
+        playbookId:
+          type: string
+          description: >-
+            Playbook ID to run on the incident. If not specified, the
+            default playbook for the incident type is used.
+        CustomFields:
+          type: object
+          additionalProperties: true
+          description: Custom field values for the incident type.
+    Investigation:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique investigation identifier.
+        name:
+          type: string
+        status:
+          type: number
+          enum:
+            - 0
+            - 1
+            - 2
+          description: >-
+            Investigation status. 0=Active, 1=Done, 2=Pending.
+        type:
+          type: string
+          enum:
+            - standard
+            - playground
+          description: Investigation type.
+        creatingUserId:
+          type: string
+          description: User ID of the investigation creator.
+        users:
+          type: array
+          items:
+            type: string
+          description: User IDs with access to this investigation.
+        created:
+          type: string
+          format: date-time
+        modified:
+          type: string
+          format: date-time
+        incidentId:
+          type: string
+          description: Associated incident ID.
+        mirrorTypes:
+          type: array
+          items:
+            type: string
+          description: Configured mirror types for bidirectional sync.
+    Playbook:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique playbook identifier.
+        name:
+          type: string
+          description: Playbook display name.
+        description:
+          type: string
+          description: Playbook purpose and usage description.
+        version:
+          type: integer
+          description: Playbook version number.
+        startTaskId:
+          type: string
+          description: ID of the first task in the playbook.
+        tasks:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              id:
+                type: string
+              taskId:
+                type: string
+              type:
+                type: string
+                enum:
+                  - regular
+                  - playbook
+                  - condition
+                  - title
+                  - start
+                  - standard
+                  - collection
+              name:
+                type: string
+              description:
+                type: string
+              scriptName:
+                type: string
+              nexttasks:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: string
+          description: >-
+            Map of task IDs to task definitions. Each task represents a
+            step in the playbook workflow.
+        inputs:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              value:
+                type: object
+              required:
+                type: boolean
+              description:
+                type: string
+          description: Playbook input parameter definitions.
+        outputs:
+          type: array
+          items:
+            type: object
+            properties:
+              contextPath:
+                type: string
+              type:
+                type: string
+              description:
+                type: string
+          description: Playbook output definitions written to context.
+        modified:
+          type: string
+          format: date-time
+        system:
+          type: boolean
+          description: Whether this is a system (built-in) playbook.
+        deprecated:
+          type: boolean
+    Integration:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique integration instance identifier.
+        name:
+          type: string
+          description: Integration instance name.
+        brand:
+          type: string
+          description: Integration brand name (e.g., VirusTotal, Splunk, ServiceNow).
+        category:
+          type: string
+          description: >-
+            Integration category (e.g., Data Enrichment, Analytics & SIEM,
+            Case Management).
+        enabled:
+          type: boolean
+          description: Whether the integration instance is enabled.
+        defaultIgnored:
+          type: boolean
+        configurationData:
+          type: object
+          additionalProperties:
+            type: string
+          description: >-
+            Configuration parameters for the integration instance.
+            Sensitive values are masked.
+        health:
+          type: object
+          properties:
+            status:
+              type: string
+              enum:
+                - healthy
+                - unhealthy
+                - unknown
+            lastChecked:
+              type: string
+              format: date-time
+            errorMessage:
+              type: string
+          description: Integration instance health status.
+        version:
+          type: string
+          description: Integration pack version.
+        modified:
+          type: string
+          format: date-time
+    WarRoomEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique entry identifier.
+        investigationId:
+          type: string
+          description: Investigation this entry belongs to.
+        type:
+          type: number
+          enum:
+            - 1
+            - 2
+            - 3
+            - 4
+            - 5
+            - 9
+            - 12
+            - 15
+          description: >-
+            Entry type. 1=Note, 2=DownloadAgent, 3=File, 4=Error,
+            5=Pinned, 9=PlaybookTask, 12=Widget, 15=Map.
+        contents:
+          type: string
+          description: The main content of the entry.
+        contentsFormat:
+          type: string
+          enum:
+            - text
+            - table
+            - json
+            - markdown
+            - html
+          description: Format of the contents field.
+        parentContent:
+          type: string
+          description: >-
+            The command or action that generated this entry, if
+            applicable.
+        created:
+          type: string
+          format: date-time
+          description: Entry creation timestamp.
+        modified:
+          type: string
+          format: date-time
+        user:
+          type: string
+          description: Username of the entry creator.
+        entryTask:
+          type: object
+          properties:
+            taskId:
+              type: string
+            playbookId:
+              type: string
+            taskName:
+              type: string
+          description: >-
+            Associated playbook task information if this entry was
+            generated by a playbook.
+        categories:
+          type: array
+          items:
+            type: string
+          description: Categories assigned to this entry.
+        tags:
+          type: array
+          items:
+            type: string
+          description: Tags applied to this entry.
+        pinned:
+          type: boolean
+          description: Whether this entry is pinned in the war room.
+        note:
+          type: boolean
+          description: Whether this entry is marked as a note.
+        file:
+          type: string
+          description: Filename if this entry has an attached file.
+        fileMetadata:
+          type: object
+          properties:
+            size:
+              type: integer
+            type:
+              type: string
+            info:
+              type: string
+          description: File metadata if this entry has an attachment.
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message describing the failure.
+        status:
+          type: integer
+          description: HTTP status code.
+        detail:
+          type: string
+          description: Detailed error information for debugging.

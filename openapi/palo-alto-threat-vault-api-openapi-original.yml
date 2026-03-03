@@ -1,0 +1,505 @@
+openapi: 3.1.0
+info:
+  title: Threat Vault API
+  description: >-
+    REST API for querying Palo Alto Networks threat signature metadata,
+    content release information, and threat intelligence data. Provides
+    access to antivirus signatures, anti-spyware signatures, vulnerability
+    protection (IPS) signatures, DNS security data, and file type
+    identification. Replaces the deprecated AutoFocus API for threat
+    intelligence lookups. Requires an Advanced Threat Prevention or
+    Threat Prevention subscription.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  - url: https://api.threatvault.paloaltonetworks.com
+    description: Threat Vault API production server.
+security:
+  - apiKey: []
+tags:
+  - name: Threats
+    description: Threat signature queries.
+  - name: Content
+    description: Content release information.
+paths:
+  /service/v1/threats:
+    get:
+      operationId: getThreats
+      summary: Get threat signatures
+      description: >-
+        Returns threat signature metadata matching the specified query
+        parameters. Supports querying by signature ID, CVE, threat name,
+        or signature type. Returns detailed information including severity,
+        category, affected platforms, and recommended actions.
+      tags:
+        - Threats
+      parameters:
+        - name: id
+          in: query
+          description: Threat signature ID.
+          schema:
+            type: string
+        - name: name
+          in: query
+          description: Threat name or partial name for search.
+          schema:
+            type: string
+        - name: cve
+          in: query
+          description: CVE identifier (e.g., CVE-2021-44228).
+          schema:
+            type: string
+        - name: type
+          in: query
+          description: Signature type filter.
+          schema:
+            type: string
+            enum:
+              - antivirus
+              - antispyware
+              - vulnerability
+              - dns
+              - rtdns
+              - fileformat
+              - spyware
+        - name: offset
+          in: query
+          description: Pagination offset.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of results.
+          schema:
+            type: integer
+            default: 200
+            maximum: 200
+      responses:
+        '200':
+          description: Threat signatures returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  count:
+                    type: integer
+                  data:
+                    type: object
+                    properties:
+                      antivirus:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AntivirusSignature'
+                      antispyware:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AntispywareSignature'
+                      vulnerability:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/VulnerabilitySignature'
+                      fileformat:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/FileFormatSignature'
+                      dns:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DnsSignature'
+                  message:
+                    type: string
+        '400':
+          description: Invalid query parameters.
+        '401':
+          description: Invalid or missing API key.
+        '403':
+          description: Insufficient subscription for requested data.
+        '429':
+          description: Rate limit exceeded.
+  /service/v1/threats/{id}:
+    get:
+      operationId: getThreatById
+      summary: Get threat by ID
+      description: Returns detailed metadata for a specific threat signature.
+      tags:
+        - Threats
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique threat signature ID.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Threat signature returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    description: Signature details (type varies by signature category).
+        '404':
+          description: Signature not found.
+  /service/v1/threats/history:
+    get:
+      operationId: getThreatHistory
+      summary: Get threat signature history
+      description: >-
+        Returns the change history for a specific threat signature including
+        when it was first released, updated, or modified.
+      tags:
+        - Threats
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: Threat signature ID.
+          schema:
+            type: string
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - antivirus
+              - antispyware
+              - vulnerability
+              - dns
+      responses:
+        '200':
+          description: Signature history returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        version:
+                          type: string
+                        build_time:
+                          type: string
+                          format: date-time
+                        release_time:
+                          type: string
+                          format: date-time
+  /service/v1/content:
+    get:
+      operationId: getContentReleases
+      summary: Get content releases
+      description: >-
+        Returns content release information including release version,
+        release date, and content update details.
+      tags:
+        - Content
+      parameters:
+        - name: version
+          in: query
+          description: Specific content release version.
+          schema:
+            type: string
+        - name: type
+          in: query
+          description: Content type filter.
+          schema:
+            type: string
+            enum:
+              - antivirus
+              - wildfire
+              - content
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 200
+      responses:
+        '200':
+          description: Content releases returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  count:
+                    type: integer
+                  data:
+                    type: object
+                    properties:
+                      releases:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ContentRelease'
+  /service/v1/content/{version}:
+    get:
+      operationId: getContentRelease
+      summary: Get content release details
+      description: >-
+        Returns detailed information about a specific content release
+        version including new, modified, and disabled signatures.
+      tags:
+        - Content
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Content release details returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/ContentRelease'
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+      description: >-
+        Threat Vault API key. Requires an active Advanced Threat Prevention
+        or Threat Prevention subscription.
+  schemas:
+    AntivirusSignature:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        severity:
+          type: string
+          enum:
+            - informational
+            - low
+            - medium
+            - high
+            - critical
+        type:
+          type: string
+        subtype:
+          type: string
+        description:
+          type: string
+        action:
+          type: string
+        create_time:
+          type: string
+          format: date-time
+        status:
+          type: string
+        related_sha256_hashes:
+          type: array
+          items:
+            type: string
+        release:
+          type: object
+          properties:
+            antivirus:
+              type: object
+              properties:
+                first_release_version:
+                  type: string
+                first_release_time:
+                  type: string
+                  format: date-time
+            wildfire:
+              type: object
+              properties:
+                first_release_version:
+                  type: string
+                first_release_time:
+                  type: string
+                  format: date-time
+    AntispywareSignature:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        severity:
+          type: string
+        category:
+          type: string
+        action:
+          type: string
+        description:
+          type: string
+        min_version:
+          type: string
+        max_version:
+          type: string
+        create_time:
+          type: string
+          format: date-time
+        status:
+          type: string
+    VulnerabilitySignature:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        severity:
+          type: string
+        category:
+          type: string
+        description:
+          type: string
+        action:
+          type: string
+        cve:
+          type: array
+          items:
+            type: string
+          description: Associated CVE identifiers.
+        vendor:
+          type: array
+          items:
+            type: string
+          description: Affected vendors.
+        reference:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: External reference URLs.
+        ori_release_version:
+          type: string
+        ori_release_time:
+          type: string
+          format: date-time
+        latest_release_version:
+          type: string
+        latest_release_time:
+          type: string
+          format: date-time
+        status:
+          type: string
+    FileFormatSignature:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        data_ident_only:
+          type: integer
+        file_type:
+          type: string
+    DnsSignature:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        severity:
+          type: string
+        type:
+          type: string
+        subtype:
+          type: string
+        description:
+          type: string
+        action:
+          type: string
+        create_time:
+          type: string
+          format: date-time
+        status:
+          type: string
+        release:
+          type: object
+          properties:
+            antivirus:
+              type: object
+              properties:
+                first_release_version:
+                  type: string
+                first_release_time:
+                  type: string
+                  format: date-time
+    ContentRelease:
+      type: object
+      properties:
+        version:
+          type: string
+        build_time:
+          type: string
+          format: date-time
+        release_time:
+          type: string
+          format: date-time
+        content_type:
+          type: string
+        new_signatures:
+          type: integer
+        modified_signatures:
+          type: integer
+        disabled_signatures:
+          type: integer
+        release_notes:
+          type: object
+          properties:
+            new:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  name:
+                    type: string
+                  type:
+                    type: string
+            modified:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  name:
+                    type: string
+                  type:
+                    type: string
+                  previous_severity:
+                    type: string
+                  new_severity:
+                    type: string

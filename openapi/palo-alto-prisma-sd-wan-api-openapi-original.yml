@@ -1,0 +1,722 @@
+openapi: 3.1.0
+info:
+  title: Prisma SD-WAN API
+  description: >-
+    REST API for the Prisma SD-WAN branch networking platform providing
+    programmatic access to site management, element (ION device)
+    configuration, WAN interface setup, policy management, and network
+    topology visualization. Prisma SD-WAN enables intelligent path
+    selection, application-aware routing, and centralized management
+    of branch office connectivity across the SASE fabric.
+  version: '2.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  - url: https://api.sase.paloaltonetworks.com
+    description: Prisma SD-WAN SASE API server.
+security:
+  - oauth2: []
+tags:
+  - name: Sites
+    description: >-
+      Site management for branch offices, data centers, and remote
+      locations connected through Prisma SD-WAN.
+  - name: Elements
+    description: >-
+      ION device (element) management including hardware appliances and
+      virtual instances deployed at SD-WAN sites.
+  - name: WANInterfaces
+    description: >-
+      WAN interface configuration for defining upstream connectivity
+      including ISP links, MPLS circuits, and LTE connections.
+  - name: PolicySets
+    description: >-
+      Policy set management for defining application-aware routing,
+      QoS, and path selection rules.
+  - name: PathPolicies
+    description: >-
+      Path policy configuration for controlling traffic steering
+      decisions across available WAN links.
+  - name: Topology
+    description: >-
+      Network topology views providing visibility into site-to-site
+      connectivity and VPN mesh status.
+paths:
+  /sdwan/v2.0/api/sites:
+    get:
+      operationId: listSites
+      summary: List SD-WAN sites
+      description: >-
+        Returns a list of all SD-WAN sites configured in the tenant.
+        Each site represents a physical location such as a branch
+        office, data center, or retail store. Sites contain one or
+        more ION elements that provide SD-WAN functionality.
+        Supports pagination through offset and limit parameters.
+      tags:
+        - Sites
+      parameters:
+        - name: offset
+          in: query
+          description: Starting offset for pagination.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of sites to return.
+          schema:
+            type: integer
+            default: 100
+            maximum: 1000
+        - name: name
+          in: query
+          description: Filter sites by name.
+          schema:
+            type: string
+        - name: admin_state
+          in: query
+          description: Filter by administrative state.
+          schema:
+            type: string
+            enum:
+              - active
+              - disabled
+      responses:
+        '200':
+          description: Sites returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                    description: Total number of sites matching the query.
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Site'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      operationId: createSite
+      summary: Create an SD-WAN site
+      description: >-
+        Creates a new SD-WAN site definition. A site represents a
+        physical location where ION devices will be deployed. The site
+        configuration includes location details, address information,
+        and administrative settings. After creation, ION elements can
+        be assigned to the site.
+      tags:
+        - Sites
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Site'
+      responses:
+        '200':
+          description: Site created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Site'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /sdwan/v2.0/api/sites/{site_id}/elements:
+    get:
+      operationId: listSiteElements
+      summary: List elements at a site
+      description: >-
+        Returns a list of ION elements (devices) deployed at the
+        specified site. Elements are the SD-WAN appliances or virtual
+        instances that provide routing, security, and WAN optimization
+        at each site. Each element includes hardware details, software
+        version, and operational status.
+      tags:
+        - Elements
+      parameters:
+        - name: site_id
+          in: path
+          required: true
+          description: Unique identifier of the site.
+          schema:
+            type: string
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Elements returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Element'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Site not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /sdwan/v2.0/api/sites/{site_id}/waninterfaces:
+    get:
+      operationId: listSiteWANInterfaces
+      summary: List WAN interfaces at a site
+      description: >-
+        Returns a list of WAN interfaces configured at the specified
+        site. WAN interfaces represent upstream network connections
+        such as broadband ISP links, MPLS circuits, dedicated fiber
+        connections, or LTE backup links. Each interface includes
+        bandwidth settings, cost metrics, and link priority.
+      tags:
+        - WANInterfaces
+      parameters:
+        - name: site_id
+          in: path
+          required: true
+          description: Unique identifier of the site.
+          schema:
+            type: string
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: WAN interfaces returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WANInterface'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Site not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /sdwan/v2.0/api/policysets:
+    get:
+      operationId: listPolicySets
+      summary: List policy sets
+      description: >-
+        Returns a list of all policy sets configured in the SD-WAN
+        tenant. Policy sets are collections of policies that define
+        traffic handling behavior including application-aware routing,
+        QoS prioritization, and path selection. Policy sets can be
+        assigned to individual sites or applied globally.
+      tags:
+        - PolicySets
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Policy sets returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PolicySet'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /sdwan/v2.0/api/topology:
+    get:
+      operationId: getTopology
+      summary: Get network topology
+      description: >-
+        Returns the current SD-WAN network topology showing
+        site-to-site connectivity, VPN tunnel status, and mesh
+        relationships. The topology view provides visibility into
+        how sites are interconnected through Prisma Access hubs,
+        direct site-to-site VPN tunnels, and service connections.
+        Includes health indicators for each link.
+      tags:
+        - Topology
+      parameters:
+        - name: type
+          in: query
+          description: >-
+            Type of topology view to retrieve. Full returns all
+            connections; hub-spoke returns the hub-and-spoke overlay.
+          schema:
+            type: string
+            enum:
+              - full
+              - hub-spoke
+              - mesh
+            default: full
+      responses:
+        '200':
+          description: Network topology returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  nodes:
+                    type: array
+                    description: Sites and hubs in the topology.
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        type:
+                          type: string
+                          enum:
+                            - site
+                            - hub
+                            - datacenter
+                        status:
+                          type: string
+                          enum:
+                            - up
+                            - down
+                            - degraded
+                  links:
+                    type: array
+                    description: Connections between nodes.
+                    items:
+                      type: object
+                      properties:
+                        source_id:
+                          type: string
+                        target_id:
+                          type: string
+                        type:
+                          type: string
+                          enum:
+                            - vpn
+                            - direct
+                            - prisma-access
+                        status:
+                          type: string
+                          enum:
+                            - up
+                            - down
+                        latency_ms:
+                          type: number
+                        jitter_ms:
+                          type: number
+                        packet_loss_pct:
+                          type: number
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      description: >-
+        OAuth 2.0 client credentials flow for obtaining an access token.
+        Requires a client ID and client secret from the Palo Alto Networks
+        SASE identity provider. The access token must be included as a
+        Bearer token in the Authorization header.
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
+          scopes: {}
+  responses:
+    Unauthorized:
+      description: Missing or invalid OAuth2 access token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Invalid request parameters or body.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    Site:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the site.
+          readOnly: true
+        name:
+          type: string
+          description: Name of the SD-WAN site.
+        description:
+          type: string
+          description: Optional description of the site.
+        admin_state:
+          type: string
+          enum:
+            - active
+            - disabled
+          description: Administrative state of the site.
+          default: active
+        element_cluster_role:
+          type: string
+          enum:
+            - SPOKE
+            - HUB
+            - NONE
+          description: Role of the site in the SD-WAN topology.
+          default: SPOKE
+        address:
+          type: object
+          description: Physical address of the site.
+          properties:
+            street:
+              type: string
+            street2:
+              type: string
+            city:
+              type: string
+            state:
+              type: string
+            post_code:
+              type: string
+            country:
+              type: string
+        location:
+          type: object
+          description: Geographic coordinates of the site.
+          properties:
+            latitude:
+              type: number
+              format: double
+            longitude:
+              type: number
+              format: double
+        policy_set_id:
+          type: string
+          description: >-
+            Identifier of the policy set assigned to this site. If
+            not set, the default policy set is used.
+        service_binding:
+          type: string
+          description: >-
+            Service binding type for Prisma Access integration.
+        tags:
+          type: array
+          items:
+            type: string
+          description: Tags for organizing and filtering sites.
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+        - name
+    Element:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the element.
+          readOnly: true
+        name:
+          type: string
+          description: Name of the ION element.
+        serial_number:
+          type: string
+          description: Hardware serial number of the device.
+        model_name:
+          type: string
+          description: >-
+            Hardware model (e.g., ION 1200, ION 2000, ION 3200,
+            ION 9000, ION Virtual).
+        software_version:
+          type: string
+          description: Current software version running on the element.
+        site_id:
+          type: string
+          description: Identifier of the site this element is assigned to.
+        role:
+          type: string
+          enum:
+            - HUB
+            - SPOKE
+          description: Role of the element within the site.
+        state:
+          type: string
+          enum:
+            - bound
+            - unbound
+            - offline
+            - degraded
+          description: Current operational state of the element.
+        connected:
+          type: boolean
+          description: Whether the element is currently connected to the controller.
+        admin_action:
+          type: string
+          enum:
+            - none
+            - reboot
+            - decommission
+          description: Pending administrative action on the element.
+        cluster_id:
+          type: string
+          description: HA cluster identifier if the element is part of a cluster.
+        deployment_op:
+          type: string
+          description: Current deployment operation status.
+        allowed_roles:
+          type: array
+          items:
+            type: string
+          description: Roles this element is capable of performing.
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+        - name
+    WANInterface:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the WAN interface.
+          readOnly: true
+        name:
+          type: string
+          description: Name of the WAN interface.
+        description:
+          type: string
+        type:
+          type: string
+          enum:
+            - publicwan
+            - privatewan
+          description: >-
+            Type of WAN connection. Public WAN is internet-facing;
+            private WAN is MPLS or dedicated circuit.
+        network_id:
+          type: string
+          description: Associated WAN network identifier.
+        link_bw_down:
+          type: number
+          description: Downstream bandwidth in Mbps.
+        link_bw_up:
+          type: number
+          description: Upstream bandwidth in Mbps.
+        bw_config_mode:
+          type: string
+          enum:
+            - manual
+            - auto
+          description: Bandwidth configuration mode.
+        cost:
+          type: integer
+          description: >-
+            Cost metric for path selection. Lower cost links are
+            preferred.
+          minimum: 0
+          maximum: 255
+        lqm_enabled:
+          type: boolean
+          description: Whether Link Quality Monitoring is enabled.
+          default: true
+        bfd_mode:
+          type: string
+          enum:
+            - aggressive
+            - non-aggressive
+          description: Bidirectional Forwarding Detection mode.
+        label_id:
+          type: string
+          description: WAN interface label for policy-based routing.
+        site_id:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+        - name
+        - type
+    PolicySet:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the policy set.
+          readOnly: true
+        name:
+          type: string
+          description: Name of the policy set.
+        description:
+          type: string
+        default_policy:
+          type: boolean
+          description: Whether this is the default policy set.
+          default: false
+        bandwidth_allocation_schemes:
+          type: array
+          description: Bandwidth allocation rules within the policy set.
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              bandwidth_range:
+                type: object
+                properties:
+                  high:
+                    type: number
+                  low:
+                    type: number
+        network_policy_rules:
+          type: array
+          description: Network policy rules for traffic steering.
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              description:
+                type: string
+              app_def_ids:
+                type: array
+                items:
+                  type: string
+                description: Application definition IDs this rule applies to.
+              paths_allowed:
+                type: object
+                properties:
+                  active_paths:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        label:
+                          type: string
+                        type:
+                          type: string
+                  backup_paths:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        label:
+                          type: string
+                        type:
+                          type: string
+              priority_num:
+                type: integer
+                description: Rule priority number for ordering.
+        qos_policy_rules:
+          type: array
+          description: QoS policy rules for traffic prioritization.
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              dscp_class:
+                type: string
+              priority:
+                type: string
+                enum:
+                  - high
+                  - medium
+                  - low
+                  - default
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+        - name
+    ErrorResponse:
+      type: object
+      properties:
+        _error:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+              message:
+                type: string

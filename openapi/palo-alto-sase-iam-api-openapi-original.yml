@@ -1,0 +1,439 @@
+openapi: 3.1.0
+info:
+  title: SASE IAM API
+  description: >-
+    REST API for the Palo Alto Networks SASE Identity and Access Management
+    service providing programmatic control over service accounts, access
+    policies, and role assignments. Enables automated provisioning of
+    machine-to-machine credentials, fine-grained access policy management
+    across Tenant Service Group hierarchies, and role-based access control
+    configuration. Authentication uses OAuth2 bearer tokens obtained from
+    the Palo Alto Networks identity provider.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  - url: https://api.sase.paloaltonetworks.com
+    description: SASE API gateway for identity and access management operations.
+security:
+  - bearerAuth: []
+tags:
+  - name: ServiceAccounts
+    description: >-
+      Service account management for machine-to-machine authentication
+      and API access credentials.
+  - name: AccessPolicies
+    description: >-
+      Access policy management for defining fine-grained permissions
+      across TSG hierarchies.
+  - name: Roles
+    description: >-
+      Role definitions for grouping permissions into assignable units.
+paths:
+  /iam/v1/service_accounts:
+    get:
+      operationId: listServiceAccounts
+      summary: List service accounts
+      description: >-
+        Returns a list of all service accounts within the specified Tenant
+        Service Group. Each service account includes its name, associated
+        TSG, client ID for OAuth2 authentication, and creation timestamp.
+        Service accounts are used for programmatic API access without
+        user interaction.
+      tags:
+        - ServiceAccounts
+      parameters:
+        - name: tsg_id
+          in: query
+          required: true
+          description: >-
+            TSG ID to scope the query. Only service accounts belonging
+            to this TSG are returned.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Service accounts returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_count:
+                    type: integer
+                    description: Total number of service accounts.
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ServiceAccount'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      operationId: createServiceAccount
+      summary: Create a service account
+      description: >-
+        Creates a new service account within the specified Tenant Service
+        Group. Returns the service account details including the client
+        ID and client secret. The client secret is only returned once at
+        creation time and cannot be retrieved afterward. Store it securely.
+        The service account can then be used to obtain OAuth2 access tokens
+        for API authentication.
+      tags:
+        - ServiceAccounts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - tsg_id
+              properties:
+                name:
+                  type: string
+                  description: Display name for the service account.
+                  maxLength: 128
+                tsg_id:
+                  type: string
+                  description: TSG ID under which to create the service account.
+                description:
+                  type: string
+                  description: Optional description of the service account purpose.
+                  maxLength: 512
+      responses:
+        '201':
+          description: Service account created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: Unique identifier of the new service account.
+                  name:
+                    type: string
+                  tsg_id:
+                    type: string
+                  client_id:
+                    type: string
+                    description: OAuth2 client ID for this service account.
+                  client_secret:
+                    type: string
+                    description: >-
+                      OAuth2 client secret. Only returned at creation time.
+                      Store securely.
+                  created_at:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /iam/v1/service_accounts/{id}:
+    delete:
+      operationId: deleteServiceAccount
+      summary: Delete a service account
+      description: >-
+        Permanently deletes a service account and revokes all associated
+        credentials. Any access tokens previously issued to this service
+        account will be invalidated immediately. This operation cannot
+        be undone.
+      tags:
+        - ServiceAccounts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the service account to delete.
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Service account deleted.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /iam/v1/access_policies:
+    get:
+      operationId: listAccessPolicies
+      summary: List access policies
+      description: >-
+        Returns a list of access policies defined within the specified
+        Tenant Service Group. Access policies bind principals (users or
+        service accounts) to roles within a TSG scope, granting specific
+        permissions for SASE platform operations.
+      tags:
+        - AccessPolicies
+      parameters:
+        - name: tsg_id
+          in: query
+          required: true
+          description: TSG ID to scope the access policy query.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Access policies returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_count:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AccessPolicy'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      operationId: createAccessPolicy
+      summary: Create an access policy
+      description: >-
+        Creates a new access policy that binds a principal to a role within
+        a TSG scope. The principal can be a user email address or a service
+        account ID. The role determines the specific permissions granted.
+        Access policies can be scoped to a specific TSG and optionally
+        inherited by child TSGs.
+      tags:
+        - AccessPolicies
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - principal
+                - role
+                - tsg_id
+              properties:
+                principal:
+                  type: string
+                  description: >-
+                    The principal to grant access to. Can be a user email
+                    address or a service account ID.
+                principal_type:
+                  type: string
+                  enum:
+                    - user
+                    - service_account
+                  description: Type of the principal.
+                role:
+                  type: string
+                  description: >-
+                    Role name or ID to assign to the principal.
+                tsg_id:
+                  type: string
+                  description: TSG ID that defines the scope of this policy.
+                inherit:
+                  type: boolean
+                  default: false
+                  description: >-
+                    Whether child TSGs inherit this access policy.
+      responses:
+        '201':
+          description: Access policy created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessPolicy'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /iam/v1/roles:
+    get:
+      operationId: listRoles
+      summary: List roles
+      description: >-
+        Returns a list of all available roles that can be assigned in
+        access policies. Includes both built-in system roles and custom
+        roles defined within the TSG hierarchy. Each role specifies a
+        set of permissions for SASE platform operations.
+      tags:
+        - Roles
+      parameters:
+        - name: tsg_id
+          in: query
+          required: false
+          description: >-
+            TSG ID to scope the query. When provided, includes custom
+            roles defined in this TSG in addition to built-in roles.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Roles returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_count:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Role'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
+          scopes: {}
+      description: >-
+        OAuth2 client credentials flow. Obtain an access token from the
+        Palo Alto Networks identity provider and include it as a Bearer
+        token in the Authorization header.
+  responses:
+    BadRequest:
+      description: The request body is malformed or contains invalid parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid OAuth2 bearer token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    ServiceAccount:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the service account.
+        name:
+          type: string
+          description: Display name of the service account.
+        tsg_id:
+          type: string
+          description: TSG ID that owns this service account.
+        client_id:
+          type: string
+          description: >-
+            OAuth2 client ID used for authentication. Pair with the
+            client secret to obtain access tokens.
+        description:
+          type: string
+          description: Description of the service account purpose.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the service account was created.
+        updated_at:
+          type: string
+          format: date-time
+          description: Timestamp when the service account was last modified.
+    AccessPolicy:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the access policy.
+        principal:
+          type: string
+          description: >-
+            The principal this policy applies to. A user email or
+            service account ID.
+        principal_type:
+          type: string
+          enum:
+            - user
+            - service_account
+          description: Type of the principal.
+        role:
+          type: string
+          description: Role name or ID assigned by this policy.
+        tsg_id:
+          type: string
+          description: TSG ID that defines the scope of this policy.
+        inherit:
+          type: boolean
+          description: Whether child TSGs inherit this policy.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the policy was created.
+        updated_at:
+          type: string
+          format: date-time
+          description: Timestamp when the policy was last modified.
+    Role:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the role.
+        name:
+          type: string
+          description: Display name of the role.
+        description:
+          type: string
+          description: Description of the role and its permissions.
+        role_type:
+          type: string
+          enum:
+            - builtin
+            - custom
+          description: Whether this is a built-in system role or custom role.
+        permissions:
+          type: array
+          items:
+            type: string
+          description: List of permission strings granted by this role.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the role was created.
+    ErrorResponse:
+      type: object
+      properties:
+        error_code:
+          type: integer
+          description: Machine-readable error code.
+        message:
+          type: string
+          description: Human-readable error message.
+        details:
+          type: string
+          description: Additional context about the error.

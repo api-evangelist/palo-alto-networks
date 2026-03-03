@@ -1,0 +1,835 @@
+openapi: 3.1.0
+info:
+  title: Cortex XSIAM API
+  description: >-
+    REST API for the Cortex XSIAM AI-driven security operations platform
+    providing programmatic access to incident management, alert handling,
+    endpoint operations, XQL cross-data-source querying, data collection
+    monitoring, and audit logging. XSIAM unifies SOC capabilities including
+    SIEM, SOAR, ASM, and XDR into a single autonomous platform powered by
+    machine learning. All API requests use POST with JSON request bodies.
+    Authentication uses API key pairs consisting of an API Key ID and API
+    Key value.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  - url: https://api-{fqdn}/public_api/v1
+    description: Cortex XSIAM API server (region-specific).
+    variables:
+      fqdn:
+        description: >-
+          Your Cortex XSIAM tenant FQDN (e.g.,
+          xsiam-us.paloaltonetworks.com).
+        default: xsiam-us.paloaltonetworks.com
+security:
+  - apiKeyId: []
+    apiKey: []
+tags:
+  - name: Incidents
+    description: Incident lifecycle management operations.
+  - name: Alerts
+    description: Alert retrieval and management operations.
+  - name: Endpoints
+    description: Endpoint management and response actions.
+  - name: XQL
+    description: Cross-data-source query language operations.
+  - name: DataCollection
+    description: Data collection source monitoring and status.
+  - name: AuditLogs
+    description: Management audit log retrieval.
+paths:
+  /incidents/get_incidents:
+    post:
+      operationId: getIncidents
+      summary: Get incidents
+      description: >-
+        Returns a list of incidents matching the specified filters. XSIAM
+        incidents are AI-correlated groupings of alerts from multiple data
+        sources including XDR agents, network sensors, cloud sources, and
+        third-party integrations. Supports filtering by incident ID, status,
+        severity, creation time, and modification time. Returns up to 100
+        incidents per request with pagination support.
+      tags:
+        - Incidents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_data:
+                  type: object
+                  properties:
+                    filters:
+                      type: array
+                      description: Array of filter objects to narrow results.
+                      items:
+                        $ref: '#/components/schemas/Filter'
+                    search_from:
+                      type: integer
+                      description: Starting offset for pagination.
+                      default: 0
+                    search_to:
+                      type: integer
+                      description: Ending offset for pagination.
+                    sort:
+                      $ref: '#/components/schemas/SortCriteria'
+      responses:
+        '200':
+          description: Incidents returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      total_count:
+                        type: integer
+                      result_count:
+                        type: integer
+                      incidents:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Incident'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/Forbidden'
+  /alerts/get_alerts_multi_events:
+    post:
+      operationId: getAlerts
+      summary: Get alerts with events
+      description: >-
+        Returns alerts matching the specified filters along with their
+        associated event data. Each alert includes the originating events,
+        source information, severity, MITRE ATT&CK mapping, and associated
+        artifacts. XSIAM alerts are ingested from multiple data sources
+        and correlated by the AI engine.
+      tags:
+        - Alerts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_data:
+                  type: object
+                  properties:
+                    filters:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Filter'
+                    search_from:
+                      type: integer
+                      default: 0
+                    search_to:
+                      type: integer
+                    sort:
+                      $ref: '#/components/schemas/SortCriteria'
+      responses:
+        '200':
+          description: Alerts returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      total_count:
+                        type: integer
+                      result_count:
+                        type: integer
+                      alerts:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Alert'
+  /endpoints/get_endpoint:
+    post:
+      operationId: getEndpoints
+      summary: Get endpoints
+      description: >-
+        Returns a list of managed endpoints matching the specified filters.
+        Endpoint data includes agent version, operating system, IP addresses,
+        isolation status, last seen time, and content version. XSIAM manages
+        endpoints through the unified Cortex agent.
+      tags:
+        - Endpoints
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_data:
+                  type: object
+                  properties:
+                    filters:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Filter'
+                    search_from:
+                      type: integer
+                      default: 0
+                    search_to:
+                      type: integer
+                    sort:
+                      $ref: '#/components/schemas/SortCriteria'
+      responses:
+        '200':
+          description: Endpoints returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      total_count:
+                        type: integer
+                      result_count:
+                        type: integer
+                      endpoints:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Endpoint'
+  /xql/start_xql_query:
+    post:
+      operationId: startXqlQuery
+      summary: Start XQL query
+      description: >-
+        Initiates an asynchronous XQL (Cross-Data-Source Query Language)
+        query. XQL enables searching across all ingested data sources
+        including endpoints, network, cloud, identity, and third-party
+        logs in a unified query language. Returns a query ID that can
+        be used to poll for results. Queries are executed asynchronously
+        to handle large datasets spanning multiple data lakes.
+      tags:
+        - XQL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_data:
+                  type: object
+                  required:
+                    - query
+                  properties:
+                    query:
+                      type: string
+                      description: >-
+                        XQL query string. Supports dataset selection, filtering,
+                        aggregation, and transformation operations.
+                    tenants:
+                      type: array
+                      items:
+                        type: string
+                      description: >-
+                        List of tenant IDs to query. Defaults to the current
+                        tenant if not specified.
+                    timeframe:
+                      type: object
+                      description: Time range for the query.
+                      properties:
+                        from:
+                          type: integer
+                          description: Start time as epoch timestamp in milliseconds.
+                        to:
+                          type: integer
+                          description: End time as epoch timestamp in milliseconds.
+                        relative_time:
+                          type: string
+                          description: >-
+                            Relative time range (e.g., '24 hours', '7 days',
+                            '30 days').
+      responses:
+        '200':
+          description: XQL query initiated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: string
+                    description: >-
+                      The query execution ID used to retrieve results via
+                      the get_query_results endpoint.
+  /xql/get_query_results:
+    post:
+      operationId: getXqlQueryResults
+      summary: Get XQL query results
+      description: >-
+        Retrieves the results of a previously initiated XQL query. If the
+        query is still executing, the response indicates the pending status.
+        For completed queries, returns the matching records with pagination
+        support. Large result sets may require multiple requests using the
+        stream_id for continuation.
+      tags:
+        - XQL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_data:
+                  type: object
+                  required:
+                    - query_id
+                  properties:
+                    query_id:
+                      type: string
+                      description: The execution ID returned by start_xql_query.
+                    pending_result:
+                      type: boolean
+                      default: false
+                      description: >-
+                        If true, returns immediately even if the query is
+                        still running, indicating pending status.
+                    limit:
+                      type: integer
+                      default: 1000
+                      description: Maximum number of results to return.
+                    format:
+                      type: string
+                      enum:
+                        - json
+                        - csv
+                      default: json
+                      description: Output format for the results.
+      responses:
+        '200':
+          description: Query results returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    $ref: '#/components/schemas/XQLResult'
+  /audits/management_logs:
+    post:
+      operationId: getAuditLogs
+      summary: Get management audit logs
+      description: >-
+        Returns management audit logs including user actions, configuration
+        changes, API activity, and administrative operations. Useful for
+        compliance monitoring, troubleshooting, and security reviews of
+        platform usage.
+      tags:
+        - AuditLogs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_data:
+                  type: object
+                  properties:
+                    filters:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Filter'
+                    search_from:
+                      type: integer
+                      default: 0
+                    search_to:
+                      type: integer
+                    sort:
+                      $ref: '#/components/schemas/SortCriteria'
+      responses:
+        '200':
+          description: Audit logs returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      total_count:
+                        type: integer
+                      result_count:
+                        type: integer
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AuditLog'
+  /data_collection/get_data_collection_status:
+    post:
+      operationId: getDataCollectionStatus
+      summary: Get data collection status
+      description: >-
+        Returns the status of data collection sources configured in XSIAM.
+        Provides visibility into the health and throughput of data ingestion
+        pipelines including syslog collectors, API-based integrations,
+        cloud connectors, and agent data forwarding. Useful for monitoring
+        data ingestion gaps and troubleshooting collection issues.
+      tags:
+        - DataCollection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_data:
+                  type: object
+                  properties:
+                    filters:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Filter'
+                    search_from:
+                      type: integer
+                      default: 0
+                    search_to:
+                      type: integer
+      responses:
+        '200':
+          description: Data collection status returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      total_count:
+                        type: integer
+                      result_count:
+                        type: integer
+                      sources:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DataCollectionSource'
+components:
+  securitySchemes:
+    apiKeyId:
+      type: apiKey
+      in: header
+      name: x-xdr-auth-id
+      description: API Key ID from Cortex XSIAM Settings > Configurations > API Keys.
+    apiKey:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: >-
+        API Key value. For Standard keys, the raw key. For Advanced keys,
+        a computed hash of the key with nonce and timestamp.
+  responses:
+    Unauthorized:
+      description: Missing or invalid API key credentials.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient API key permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    Filter:
+      type: object
+      description: Filter criteria for narrowing query results.
+      properties:
+        field:
+          type: string
+          description: Field name to filter on.
+        operator:
+          type: string
+          enum:
+            - in
+            - gte
+            - lte
+            - eq
+            - neq
+            - contains
+          description: Comparison operator.
+        value:
+          description: >-
+            Filter value. Type depends on operator; arrays for 'in',
+            scalars for comparison operators.
+    SortCriteria:
+      type: object
+      properties:
+        field:
+          type: string
+          description: Field to sort by.
+        keyword:
+          type: string
+          enum:
+            - asc
+            - desc
+          default: asc
+    Incident:
+      type: object
+      properties:
+        incident_id:
+          type: string
+        incident_name:
+          type: string
+        creation_time:
+          type: integer
+          description: Epoch timestamp in milliseconds.
+        modification_time:
+          type: integer
+        status:
+          type: string
+          enum:
+            - new
+            - under_investigation
+            - resolved_threat_handled
+            - resolved_known_issue
+            - resolved_duplicate
+            - resolved_false_positive
+            - resolved_other
+        severity:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+            - critical
+            - informational
+        description:
+          type: string
+        assigned_user_mail:
+          type: string
+        assigned_user_pretty_name:
+          type: string
+        alert_count:
+          type: integer
+        host_count:
+          type: integer
+        user_count:
+          type: integer
+        starred:
+          type: boolean
+        detection_time:
+          type: integer
+        ai_score:
+          type: number
+          description: >-
+            XSIAM AI-generated incident confidence score between 0 and 100
+            indicating the likelihood that this incident is a true positive.
+        predicted_category:
+          type: string
+          description: >-
+            AI-predicted incident category based on alert correlation and
+            behavioral analysis.
+        data_sources:
+          type: array
+          items:
+            type: string
+          description: >-
+            List of data sources that contributed alerts to this incident
+            (e.g., XDR Agent, Network, Cloud, Identity).
+    Alert:
+      type: object
+      properties:
+        alert_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        severity:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+            - critical
+            - informational
+        category:
+          type: string
+        action:
+          type: string
+        action_pretty:
+          type: string
+        host_name:
+          type: string
+        host_ip:
+          type: string
+        user_name:
+          type: string
+        source:
+          type: string
+          description: >-
+            Alert source (e.g., XDR Agent, XDR Analytics, BIOC, Correlation
+            Rule, Third-Party).
+        mitre_tactic_id:
+          type: string
+          description: MITRE ATT&CK tactic ID associated with the alert.
+        mitre_technique_id:
+          type: string
+          description: MITRE ATT&CK technique ID associated with the alert.
+        detection_timestamp:
+          type: integer
+        events:
+          type: array
+          items:
+            type: object
+            properties:
+              event_id:
+                type: string
+              event_type:
+                type: string
+              event_timestamp:
+                type: integer
+              raw_log:
+                type: string
+          description: Raw events associated with this alert.
+    Endpoint:
+      type: object
+      properties:
+        endpoint_id:
+          type: string
+        endpoint_name:
+          type: string
+        endpoint_type:
+          type: string
+        ip:
+          type: array
+          items:
+            type: string
+        os_type:
+          type: string
+          enum:
+            - windows
+            - linux
+            - macos
+            - android
+        domain:
+          type: string
+        alias:
+          type: string
+        install_date:
+          type: integer
+        last_seen:
+          type: integer
+        content_version:
+          type: string
+        endpoint_version:
+          type: string
+        is_isolated:
+          type: string
+          enum:
+            - AGENT_ISOLATED
+            - AGENT_UNISOLATED
+            - AGENT_PENDING_ISOLATION
+            - AGENT_PENDING_ISOLATION_CANCELLATION
+        endpoint_status:
+          type: string
+          enum:
+            - CONNECTED
+            - DISCONNECTED
+            - LOST
+        group_name:
+          type: string
+          description: Endpoint group assignment in XSIAM.
+        operational_status:
+          type: string
+          enum:
+            - FULLY_PROTECTED
+            - PARTIALLY_PROTECTED
+            - PROTECTION_ERROR
+            - NOT_PROTECTED
+          description: Protection status of the endpoint agent.
+    XQLQuery:
+      type: object
+      properties:
+        query_id:
+          type: string
+          description: Unique identifier for the query execution.
+        query:
+          type: string
+          description: The XQL query string that was executed.
+        status:
+          type: string
+          enum:
+            - PENDING
+            - PARTIAL_SUCCESS
+            - SUCCESS
+            - FAIL
+        start_time:
+          type: integer
+          description: Query execution start time as epoch timestamp.
+        end_time:
+          type: integer
+          description: Query execution end time as epoch timestamp.
+    XQLResult:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - SUCCESS
+            - PENDING
+            - PARTIAL_SUCCESS
+            - FAIL
+          description: Current status of the query execution.
+        number_of_results:
+          type: integer
+          description: Total number of matching records.
+        query_cost:
+          type: object
+          properties:
+            bytes_scanned:
+              type: integer
+            query_time_ms:
+              type: integer
+          description: Resource usage metrics for the query.
+        results:
+          type: object
+          properties:
+            stream_id:
+              type: string
+              description: >-
+                Stream ID for fetching additional results when the result
+                set exceeds the limit.
+            data:
+              type: array
+              items:
+                type: object
+                additionalProperties: true
+              description: >-
+                Array of result records. Schema varies based on the
+                XQL query and selected fields.
+        remaining_available_result_count:
+          type: integer
+          description: Number of additional results available via stream_id.
+    AuditLog:
+      type: object
+      properties:
+        AUDIT_ID:
+          type: integer
+        AUDIT_OWNER_NAME:
+          type: string
+        AUDIT_OWNER_EMAIL:
+          type: string
+        AUDIT_ASSET_JSON:
+          type: string
+        AUDIT_ASSET_NAMES:
+          type: string
+        AUDIT_HOSTNAME:
+          type: string
+        AUDIT_RESULT:
+          type: string
+          enum:
+            - SUCCESS
+            - FAIL
+        AUDIT_REASON:
+          type: string
+        AUDIT_DESCRIPTION:
+          type: string
+        AUDIT_ENTITY:
+          type: string
+        AUDIT_ENTITY_SUBTYPE:
+          type: string
+        AUDIT_SESSION_ID:
+          type: integer
+        AUDIT_CASE_ID:
+          type: integer
+        AUDIT_INSERT_TIME:
+          type: integer
+    DataCollectionSource:
+      type: object
+      properties:
+        source_id:
+          type: string
+          description: Unique identifier for the data collection source.
+        source_name:
+          type: string
+          description: Display name of the data source.
+        source_type:
+          type: string
+          enum:
+            - Syslog
+            - API
+            - CloudConnector
+            - AgentForwarding
+            - FileUpload
+            - Custom
+          description: Type of data collection mechanism.
+        vendor:
+          type: string
+          description: Vendor name of the data source product.
+        product:
+          type: string
+          description: Product name generating the data.
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - INACTIVE
+            - ERROR
+            - PENDING_CONFIGURATION
+          description: Current collection status.
+        last_event_received:
+          type: integer
+          description: >-
+            Epoch timestamp of the most recently received event from
+            this source.
+        events_per_second:
+          type: number
+          description: >-
+            Average event throughput in events per second over the last
+            hour.
+        total_events_24h:
+          type: integer
+          description: Total number of events received in the last 24 hours.
+        error_message:
+          type: string
+          description: >-
+            Error details if the source status is ERROR, otherwise null.
+        configuration:
+          type: object
+          properties:
+            collector_id:
+              type: string
+            protocol:
+              type: string
+            port:
+              type: integer
+            format:
+              type: string
+          description: Collection configuration details.
+    ErrorResponse:
+      type: object
+      properties:
+        reply:
+          type: object
+          properties:
+            err_code:
+              type: integer
+            err_msg:
+              type: string
+            err_extra:
+              type: string

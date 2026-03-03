@@ -1,0 +1,256 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/api-evangelist/palo-alto-networks/refs/heads/main/json-schema/prisma-cloud-policy-schema.json",
+  "title": "Prisma Cloud Policy",
+  "description": "Schema for a Prisma Cloud security policy configuration. Policies define the security and compliance checks that Prisma Cloud evaluates against cloud resources and configurations. Each policy contains a rule with an RQL (Resource Query Language) query or configuration criteria, along with severity classification, remediation guidance, and compliance mapping. Policies can be system-default (provided by Palo Alto Networks) or custom-created by administrators to enforce organization-specific security requirements.",
+  "type": "object",
+  "required": ["name", "policyType", "severity", "enabled", "rule"],
+  "properties": {
+    "policyId": {
+      "type": "string",
+      "description": "Unique identifier for the policy, assigned by Prisma Cloud upon creation. This UUID is used to reference the policy in API operations, alert rules, and compliance report configurations.",
+      "format": "uuid"
+    },
+    "policyType": {
+      "type": "string",
+      "description": "Classification of the policy type that determines the evaluation engine and data source used. 'config' policies evaluate cloud resource configurations, 'network' policies analyze network flow logs, 'audit_event' policies monitor cloud provider audit trails, 'anomaly' policies use machine learning for behavioral detection, 'data' policies scan data stores for sensitive information, 'iam' policies assess identity and access management configurations, 'workload' policies evaluate container and serverless workloads, and 'attack_path' policies identify chained misconfigurations that create exploitable attack paths.",
+      "enum": [
+        "config",
+        "network",
+        "audit_event",
+        "anomaly",
+        "data",
+        "iam",
+        "workload",
+        "attack_path"
+      ]
+    },
+    "severity": {
+      "type": "string",
+      "description": "Severity level assigned to the policy, indicating the potential risk and impact of a violation. Severity drives alert prioritization, notification routing, and compliance reporting. 'critical' indicates an actively exploitable misconfiguration, 'high' indicates a serious security gap, 'medium' indicates a moderate risk, 'low' indicates a minor configuration concern, and 'informational' indicates a best-practice recommendation.",
+      "enum": ["informational", "low", "medium", "high", "critical"]
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name of the policy. Must be unique within the Prisma Cloud tenant. The name should clearly describe the security check being performed and typically follows the pattern: 'Cloud Provider - Resource Type - Condition' (e.g., 'AWS S3 bucket is publicly accessible').",
+      "maxLength": 256
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description of the policy explaining what misconfiguration or security risk it detects, why it matters, and the potential impact of a violation. Displayed in the policy library and alert details."
+    },
+    "recommendation": {
+      "type": "string",
+      "description": "Step-by-step remediation guidance for resolving policy violations. Should include specific instructions for the relevant cloud provider console, CLI, or API. Supports markdown formatting for structured documentation."
+    },
+    "cloudType": {
+      "type": "string",
+      "description": "Cloud service provider that the policy applies to. 'all' indicates a cross-cloud policy that evaluates resources across multiple providers. Provider-specific policies contain RQL queries and remediation steps tailored to that provider's APIs and configuration model.",
+      "enum": ["aws", "azure", "gcp", "oci", "alibaba_cloud", "all"]
+    },
+    "labels": {
+      "type": "array",
+      "description": "List of administrative labels applied to the policy for organizational grouping, filtering, and bulk management. Labels are user-defined strings that support operational workflows such as team ownership, project association, or regulatory scope.",
+      "items": {
+        "type": "string",
+        "description": "A label string for categorizing or tagging the policy."
+      }
+    },
+    "enabled": {
+      "type": "boolean",
+      "description": "Whether the policy is currently active and generating alerts. Disabled policies remain in the configuration but are not evaluated during scheduled or real-time scans. Useful for temporarily suppressing a policy during maintenance windows or phased rollouts.",
+      "default": true
+    },
+    "systemDefault": {
+      "type": "boolean",
+      "description": "Whether the policy is a system-default policy provided by Palo Alto Networks. System-default policies are maintained and updated by the Prisma Cloud research team and cannot be deleted, though they can be disabled or cloned.",
+      "default": false
+    },
+    "createdBy": {
+      "type": "string",
+      "description": "Email address or username of the administrator who created the policy. Set to 'Prisma Cloud' for system-default policies."
+    },
+    "createdOn": {
+      "type": "integer",
+      "description": "Timestamp of when the policy was created, expressed as Unix epoch time in milliseconds."
+    },
+    "lastModifiedBy": {
+      "type": "string",
+      "description": "Email address or username of the administrator who last modified the policy configuration."
+    },
+    "lastModifiedOn": {
+      "type": "integer",
+      "description": "Timestamp of the last modification to the policy, expressed as Unix epoch time in milliseconds."
+    },
+    "rule": {
+      "$ref": "#/$defs/PolicyRule",
+      "description": "The evaluation rule that defines the detection logic for this policy. Contains the RQL query or configuration criteria that Prisma Cloud executes to identify violations."
+    },
+    "remediation": {
+      "$ref": "#/$defs/Remediation",
+      "description": "Automated and manual remediation configuration for resolving policy violations. Includes CLI script templates and descriptive actions."
+    },
+    "complianceMetadata": {
+      "type": "array",
+      "description": "List of compliance standard mappings that associate this policy with specific regulatory or organizational compliance requirements. Each entry links the policy to a compliance standard, requirement, and section for compliance reporting and gap analysis.",
+      "items": {
+        "$ref": "#/$defs/ComplianceMetadata"
+      }
+    },
+    "policySubTypes": {
+      "type": "array",
+      "description": "Sub-type classifications that further categorize the policy within its primary policy type. Used for filtering and specialized evaluation logic.",
+      "items": {
+        "type": "string",
+        "enum": ["build", "run", "audit", "permissions", "network_config", "network_event", "dns"]
+      }
+    },
+    "ruleLastModifiedOn": {
+      "type": "integer",
+      "description": "Timestamp of the last modification to the policy rule (RQL query), expressed as Unix epoch time in milliseconds. Tracked separately from the policy metadata modification time."
+    }
+  },
+  "$defs": {
+    "PolicyRule": {
+      "type": "object",
+      "description": "Defines the detection logic for a Prisma Cloud policy. The rule contains the RQL query that is executed against cloud resource configurations, network flow logs, or audit events to identify security violations.",
+      "required": ["name", "type"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the rule, typically matching or derived from the parent policy name."
+        },
+        "criteria": {
+          "type": "string",
+          "description": "The RQL (Resource Query Language) query string that defines the detection logic. For config policies, this is a 'config from' query. For network policies, this is a 'network from' query. For audit_event policies, this is an 'event from' query. The query is evaluated against Prisma Cloud's indexed cloud resource data to identify violations."
+        },
+        "parameters": {
+          "type": "object",
+          "description": "Additional parameters that modify rule evaluation behavior. Key-value pairs that configure thresholds, time windows, or provider-specific settings for the detection engine.",
+          "properties": {
+            "savedSearch": {
+              "type": "boolean",
+              "description": "Whether the criteria references a saved RQL search rather than an inline query."
+            },
+            "withIac": {
+              "type": "boolean",
+              "description": "Whether the policy supports Infrastructure as Code (IaC) scanning for shift-left security evaluation."
+            }
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "type": {
+          "type": "string",
+          "description": "The rule type that determines which evaluation engine processes the query. Must align with the parent policy's policyType.",
+          "enum": ["Config", "Network", "AuditEvent", "Anomaly", "Data", "IAM", "Workload", "AttackPath"]
+        },
+        "children": {
+          "type": "array",
+          "description": "Child rules for composite policies that combine multiple evaluation criteria using boolean logic. Used in attack path and complex multi-condition policies.",
+          "items": {
+            "$ref": "#/$defs/PolicyRuleChild"
+          }
+        }
+      }
+    },
+    "PolicyRuleChild": {
+      "type": "object",
+      "description": "A child rule within a composite policy rule, used for multi-condition detection logic.",
+      "properties": {
+        "criteria": {
+          "type": "string",
+          "description": "RQL query string for this child rule condition."
+        },
+        "type": {
+          "type": "string",
+          "description": "Rule type for the child condition."
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Additional metadata for the child rule condition.",
+          "additionalProperties": true
+        }
+      }
+    },
+    "Remediation": {
+      "type": "object",
+      "description": "Remediation configuration for a Prisma Cloud policy. Defines both automated remediation through CLI scripts and manual remediation through descriptive actions. Automated remediation can be triggered manually by analysts or automatically through alert rules.",
+      "properties": {
+        "cliScriptTemplate": {
+          "type": "string",
+          "description": "CLI command template for automated remediation. Supports variable substitution using Prisma Cloud template syntax (e.g., ${resourceId}, ${region}) for cloud provider CLI commands (aws, az, gcloud) that remediate the detected misconfiguration."
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of the remediation procedure, providing step-by-step instructions for manual resolution of the policy violation."
+        },
+        "impact": {
+          "type": "string",
+          "description": "Description of the potential impact or side effects of applying the remediation. Warns administrators about service disruptions or behavioral changes that may result from the fix."
+        },
+        "actions": {
+          "type": "array",
+          "description": "List of discrete remediation actions available for this policy. Each action represents a specific remediation step or alternative approach.",
+          "items": {
+            "$ref": "#/$defs/RemediationAction"
+          }
+        }
+      }
+    },
+    "RemediationAction": {
+      "type": "object",
+      "description": "A discrete remediation action that can be executed to resolve a policy violation.",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "description": "The type of remediation operation to perform (e.g., 'modify-security-group', 'update-bucket-policy', 'enable-encryption')."
+        },
+        "payload": {
+          "type": "string",
+          "description": "JSON-encoded payload or parameter string for the remediation operation, containing the specific configuration changes to apply."
+        }
+      }
+    },
+    "ComplianceMetadata": {
+      "type": "object",
+      "description": "Maps a policy to a specific compliance standard requirement. Establishes the relationship between Prisma Cloud security policies and regulatory or organizational compliance frameworks for reporting and gap analysis.",
+      "properties": {
+        "standardName": {
+          "type": "string",
+          "description": "Name of the compliance standard or framework (e.g., 'CIS v1.4.0 (AWS)', 'PCI DSS v3.2.1', 'HIPAA', 'SOC 2', 'NIST 800-53 Rev5', 'GDPR')."
+        },
+        "requirementId": {
+          "type": "string",
+          "description": "Identifier of the specific compliance requirement within the standard (e.g., '1.1', '3.4', 'A.12.6')."
+        },
+        "requirementName": {
+          "type": "string",
+          "description": "Human-readable name or title of the compliance requirement."
+        },
+        "sectionId": {
+          "type": "string",
+          "description": "Identifier of the section within the requirement that this policy maps to. Provides granular mapping to specific control objectives or sub-requirements."
+        },
+        "sectionDescription": {
+          "type": "string",
+          "description": "Description of the compliance section, explaining the specific control objective or security requirement."
+        },
+        "customAssigned": {
+          "type": "boolean",
+          "description": "Whether this compliance mapping was custom-assigned by an administrator rather than being a system-default mapping provided by Palo Alto Networks. Custom assignments allow organizations to extend compliance frameworks with additional policy associations.",
+          "default": false
+        },
+        "complianceId": {
+          "type": "string",
+          "description": "Unique identifier for this specific compliance mapping entry."
+        },
+        "policyId": {
+          "type": "string",
+          "description": "Reference back to the parent policy identifier for this compliance mapping."
+        }
+      }
+    }
+  }
+}

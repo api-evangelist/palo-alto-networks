@@ -1,0 +1,674 @@
+openapi: 3.1.0
+info:
+  title: AIOps for NGFW BPA API
+  description: >-
+    REST API for the AIOps for NGFW Best Practice Assessment (BPA)
+    service. Generates comprehensive assessments of PAN-OS firewall
+    configurations against Palo Alto Networks best practice
+    recommendations. The API supports submitting firewall configurations
+    for assessment, checking assessment status, and retrieving detailed
+    BPA reports with findings, severity ratings, and remediation
+    guidance. Authentication uses OAuth2 bearer tokens obtained from
+    the Palo Alto Networks identity provider.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  - url: https://api.stratacloud.paloaltonetworks.com
+    description: Strata Cloud AIOps API production endpoint.
+security:
+  - bearerAuth: []
+tags:
+  - name: Assessments
+    description: Best practice assessment lifecycle management.
+  - name: Reports
+    description: BPA report retrieval and export.
+paths:
+  /aiops/bpa/v1/assessments:
+    post:
+      operationId: generateAssessment
+      summary: Generate a best practice assessment
+      description: >-
+        Submits a PAN-OS firewall configuration for best practice
+        assessment. The configuration can be provided as a serial number
+        of a Cortex Data Lake connected firewall or as a direct
+        configuration snapshot. The assessment evaluates the
+        configuration against Palo Alto Networks best practice
+        recommendations across security policies, objects, network
+        settings, decryption, logging, and threat prevention profiles.
+        Returns an assessment ID for tracking the asynchronous
+        assessment process.
+      tags:
+        - Assessments
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - serial_number
+              properties:
+                serial_number:
+                  type: string
+                  description: >-
+                    Serial number of the PAN-OS firewall connected to
+                    Cortex Data Lake.
+                assessment_type:
+                  type: string
+                  enum:
+                    - full
+                    - security_policy
+                    - network
+                    - decryption
+                    - logging
+                  default: full
+                  description: >-
+                    Type of assessment to perform. A full assessment
+                    evaluates all configuration areas.
+                label:
+                  type: string
+                  description: >-
+                    Optional label to identify this assessment for
+                    reference.
+                notify_email:
+                  type: string
+                  format: email
+                  description: >-
+                    Email address to notify when the assessment is
+                    complete.
+      responses:
+        '202':
+          description: Assessment generation initiated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: Unique assessment identifier for status tracking.
+                  serial_number:
+                    type: string
+                  assessment_type:
+                    type: string
+                  label:
+                    type: string
+                  status:
+                    type: string
+                    enum:
+                      - pending
+                    description: Initial status is always pending.
+                  created_at:
+                    type: string
+                    format: date-time
+                  message:
+                    type: string
+                    description: Status message.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: >-
+            Firewall with the specified serial number not found in
+            Cortex Data Lake.
+        '429':
+          description: Rate limit exceeded or concurrent assessment limit reached.
+    get:
+      operationId: listAssessments
+      summary: List assessments
+      description: >-
+        Returns a paginated list of all best practice assessments
+        including their current status, creation time, and associated
+        firewall serial number. Supports filtering by serial number
+        and assessment status.
+      tags:
+        - Assessments
+      parameters:
+        - name: serial_number
+          in: query
+          description: Filter by firewall serial number.
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filter by assessment status.
+          schema:
+            type: string
+            enum:
+              - pending
+              - in_progress
+              - completed
+              - failed
+        - name: limit
+          in: query
+          description: Maximum number of assessments to return.
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+        - name: offset
+          in: query
+          description: Pagination offset.
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Assessments returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Assessment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /aiops/bpa/v1/assessments/{id}/status:
+    get:
+      operationId: getAssessmentStatus
+      summary: Get assessment status
+      description: >-
+        Returns the current status of a best practice assessment. Use
+        this endpoint to poll for completion of an asynchronous
+        assessment. The assessment progresses through pending,
+        in_progress, and completed (or failed) states. When completed,
+        the status includes a summary of findings by severity.
+      tags:
+        - Assessments
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique assessment identifier.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Assessment status returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Assessment not found.
+  /aiops/bpa/v1/assessments/{id}/report:
+    get:
+      operationId: getAssessmentReport
+      summary: Get assessment report
+      description: >-
+        Returns the full best practice assessment report with detailed
+        findings, severity ratings, descriptions, and remediation
+        recommendations. The report is organized by configuration area
+        (security policies, objects, network, decryption, logging, and
+        threat prevention). Only available after the assessment status
+        is completed.
+      tags:
+        - Reports
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique assessment identifier.
+          schema:
+            type: string
+        - name: severity
+          in: query
+          description: Filter findings by minimum severity.
+          schema:
+            type: string
+            enum:
+              - critical
+              - high
+              - medium
+              - low
+              - informational
+        - name: category
+          in: query
+          description: Filter findings by configuration category.
+          schema:
+            type: string
+            enum:
+              - security_policy
+              - objects
+              - network
+              - decryption
+              - logging
+              - threat_prevention
+              - url_filtering
+              - wildfire
+              - dos_protection
+      responses:
+        '200':
+          description: Assessment report returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BPAReport'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Assessment not found or report not yet available.
+        '409':
+          description: Assessment is not yet completed.
+  /aiops/bpa/v1/assessments/{id}/report/export:
+    get:
+      operationId: exportAssessmentReport
+      summary: Export assessment report
+      description: >-
+        Exports the best practice assessment report in PDF or CSV
+        format for offline review and distribution. The PDF report
+        includes executive summary, detailed findings, and remediation
+        steps. The CSV export contains finding data suitable for
+        import into tracking systems.
+      tags:
+        - Reports
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique assessment identifier.
+          schema:
+            type: string
+        - name: format
+          in: query
+          required: true
+          description: Export format.
+          schema:
+            type: string
+            enum:
+              - pdf
+              - csv
+      responses:
+        '200':
+          description: Report export returned.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            text/csv:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Assessment not found or report not yet available.
+        '409':
+          description: Assessment is not yet completed.
+  /aiops/bpa/v1/assessments/{id}:
+    delete:
+      operationId: deleteAssessment
+      summary: Delete assessment
+      description: >-
+        Deletes a best practice assessment and its associated report.
+        This operation is permanent and cannot be undone.
+      tags:
+        - Assessments
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique assessment identifier.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Assessment deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Assessment not found.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        OAuth2 access token obtained from the Palo Alto Networks identity
+        provider using a client credentials grant. Requires a service
+        account with AIOps BPA API permissions. Tokens are typically
+        valid for 15 minutes.
+  responses:
+    BadRequest:
+      description: Malformed request or invalid parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid authentication token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient permissions for the requested operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    Assessment:
+      type: object
+      description: A best practice assessment request and its metadata.
+      properties:
+        id:
+          type: string
+          description: Unique assessment identifier.
+        serial_number:
+          type: string
+          description: Firewall serial number.
+        assessment_type:
+          type: string
+          enum:
+            - full
+            - security_policy
+            - network
+            - decryption
+            - logging
+          description: Type of assessment performed.
+        label:
+          type: string
+          description: User-assigned label for reference.
+        status:
+          type: string
+          enum:
+            - pending
+            - in_progress
+            - completed
+            - failed
+          description: Current assessment status.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the assessment was requested.
+        completed_at:
+          type: string
+          format: date-time
+          description: Timestamp when the assessment completed.
+        firewall_info:
+          type: object
+          properties:
+            hostname:
+              type: string
+            model:
+              type: string
+              description: Firewall model (e.g., PA-5260, VM-300).
+            sw_version:
+              type: string
+              description: PAN-OS software version.
+            app_version:
+              type: string
+              description: App-ID content version.
+            threat_version:
+              type: string
+              description: Threat content version.
+    AssessmentStatus:
+      type: object
+      description: >-
+        Current status of a best practice assessment including progress
+        and summary when completed.
+      properties:
+        id:
+          type: string
+          description: Unique assessment identifier.
+        status:
+          type: string
+          enum:
+            - pending
+            - in_progress
+            - completed
+            - failed
+        progress_percent:
+          type: integer
+          description: Assessment completion percentage (0-100).
+          minimum: 0
+          maximum: 100
+        status_message:
+          type: string
+          description: Human-readable status or error message.
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        summary:
+          type: object
+          description: >-
+            Finding summary by severity. Only present when status is
+            completed.
+          properties:
+            total_checks:
+              type: integer
+              description: Total number of best practice checks evaluated.
+            passed_checks:
+              type: integer
+              description: Number of checks that passed.
+            failed_checks:
+              type: integer
+              description: Number of checks that failed.
+            score:
+              type: number
+              description: >-
+                Overall best practice adherence score (0-100 percentage).
+              minimum: 0
+              maximum: 100
+            findings_by_severity:
+              type: object
+              properties:
+                critical:
+                  type: integer
+                high:
+                  type: integer
+                medium:
+                  type: integer
+                low:
+                  type: integer
+                informational:
+                  type: integer
+        error:
+          type: object
+          description: Error details when status is failed.
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+    BPAReport:
+      type: object
+      description: >-
+        Full best practice assessment report with detailed findings and
+        remediation recommendations.
+      properties:
+        id:
+          type: string
+          description: Assessment identifier.
+        serial_number:
+          type: string
+        assessment_type:
+          type: string
+        generated_at:
+          type: string
+          format: date-time
+          description: Report generation timestamp.
+        firewall_info:
+          type: object
+          properties:
+            hostname:
+              type: string
+            model:
+              type: string
+            sw_version:
+              type: string
+            serial_number:
+              type: string
+        summary:
+          type: object
+          properties:
+            total_checks:
+              type: integer
+            passed_checks:
+              type: integer
+            failed_checks:
+              type: integer
+            score:
+              type: number
+            findings_by_severity:
+              type: object
+              properties:
+                critical:
+                  type: integer
+                high:
+                  type: integer
+                medium:
+                  type: integer
+                low:
+                  type: integer
+                informational:
+                  type: integer
+            findings_by_category:
+              type: object
+              properties:
+                security_policy:
+                  type: integer
+                objects:
+                  type: integer
+                network:
+                  type: integer
+                decryption:
+                  type: integer
+                logging:
+                  type: integer
+                threat_prevention:
+                  type: integer
+                url_filtering:
+                  type: integer
+                wildfire:
+                  type: integer
+                dos_protection:
+                  type: integer
+        findings:
+          type: array
+          items:
+            type: object
+            properties:
+              check_id:
+                type: string
+                description: Unique best practice check identifier.
+              check_name:
+                type: string
+                description: Name of the best practice check.
+              category:
+                type: string
+                enum:
+                  - security_policy
+                  - objects
+                  - network
+                  - decryption
+                  - logging
+                  - threat_prevention
+                  - url_filtering
+                  - wildfire
+                  - dos_protection
+                description: Configuration area category.
+              severity:
+                type: string
+                enum:
+                  - critical
+                  - high
+                  - medium
+                  - low
+                  - informational
+              status:
+                type: string
+                enum:
+                  - pass
+                  - fail
+                  - warning
+                  - not_applicable
+              description:
+                type: string
+                description: >-
+                  Detailed description of the best practice check and
+                  why it matters.
+              finding_detail:
+                type: string
+                description: >-
+                  Specific details about the finding including which
+                  configuration elements are affected.
+              remediation:
+                type: string
+                description: >-
+                  Step-by-step remediation guidance to bring the
+                  configuration into compliance.
+              reference_url:
+                type: string
+                format: uri
+                description: >-
+                  URL to the Palo Alto Networks best practice
+                  documentation.
+              affected_objects:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    object_type:
+                      type: string
+                      description: >-
+                        Type of configuration object (e.g., security-rule,
+                        zone, interface, profile).
+                    object_name:
+                      type: string
+                      description: Name of the affected configuration object.
+                    location:
+                      type: string
+                      description: >-
+                        Configuration location (e.g., vsys1, device-group
+                        name).
+          description: Individual best practice findings.
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+              description: Human-readable error description.
+            details:
+              type: string
+        request_id:
+          type: string
+          description: Unique request identifier for troubleshooting.

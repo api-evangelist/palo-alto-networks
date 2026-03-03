@@ -1,0 +1,439 @@
+openapi: 3.1.0
+info:
+  title: DNS Security API (Beta)
+  description: >-
+    REST API for querying DNS domain intelligence from Palo Alto Networks
+    DNS Security cloud service. Provides domain categorization, reputation
+    verdicts, historical DNS activity, and related domain analysis. Enables
+    security teams to investigate suspicious domains, enrich security
+    events with DNS threat intelligence, and automate domain-based threat
+    hunting workflows. Currently in Beta; endpoints and response formats
+    may change. Requires an active DNS Security subscription.
+  version: '1.0-beta'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  - url: https://api.dns.service.paloaltonetworks.com
+    description: DNS Security API production server.
+security:
+  - dnsApiKey: []
+tags:
+  - name: Domains
+    description: Domain lookup and intelligence operations.
+  - name: Categories
+    description: Domain categorization and classification operations.
+paths:
+  /v1/domain/{domain}:
+    get:
+      operationId: getDomainInfo
+      summary: Get domain information
+      description: >-
+        Returns comprehensive intelligence for a specific domain including
+        its current category, security verdict, first and last seen
+        timestamps, popularity ranking, and a list of related domains.
+        Use this endpoint as a starting point for domain investigations.
+      tags:
+        - Domains
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          description: Fully qualified domain name to query (e.g., example.com).
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Domain information returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/DomainInfo'
+        '400':
+          description: Invalid domain format.
+        '401':
+          description: Invalid or missing API key.
+        '404':
+          description: Domain not found in DNS Security database.
+        '429':
+          description: Rate limit exceeded.
+  /v1/domain/{domain}/category:
+    get:
+      operationId: getDomainCategory
+      summary: Get domain category
+      description: >-
+        Returns the current and historical categorization for a domain.
+        Categories are assigned by the Palo Alto Networks URL filtering
+        and DNS Security classification engines. A domain may belong to
+        multiple categories simultaneously.
+      tags:
+        - Categories
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          description: Fully qualified domain name to query.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Domain category returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/DomainCategory'
+        '400':
+          description: Invalid domain format.
+        '401':
+          description: Invalid or missing API key.
+        '404':
+          description: Domain not found.
+        '429':
+          description: Rate limit exceeded.
+  /v1/domain/{domain}/history:
+    get:
+      operationId: getDomainHistory
+      summary: Get domain history
+      description: >-
+        Returns the historical DNS activity for a domain including
+        changes in IP resolution, category reclassifications, and
+        verdict transitions over time. Useful for tracking domain
+        infrastructure pivots and identifying domains that were
+        recently weaponized.
+      tags:
+        - Domains
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          description: Fully qualified domain name to query.
+          schema:
+            type: string
+        - name: start
+          in: query
+          description: Start date for history range (ISO 8601 format).
+          schema:
+            type: string
+            format: date
+        - name: end
+          in: query
+          description: End date for history range (ISO 8601 format).
+          schema:
+            type: string
+            format: date
+        - name: limit
+          in: query
+          description: Maximum number of history records to return.
+          schema:
+            type: integer
+            default: 100
+            maximum: 1000
+      responses:
+        '200':
+          description: Domain history returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  count:
+                    type: integer
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DomainHistory'
+        '400':
+          description: Invalid query parameters.
+        '401':
+          description: Invalid or missing API key.
+        '404':
+          description: Domain not found.
+        '429':
+          description: Rate limit exceeded.
+  /v1/domain/{domain}/related:
+    get:
+      operationId: getRelatedDomains
+      summary: Get related domains
+      description: >-
+        Returns a list of domains that share infrastructure, registration
+        patterns, or behavioral characteristics with the queried domain.
+        Relationships are derived from passive DNS data, WHOIS
+        correlations, and shared hosting or certificate analysis.
+      tags:
+        - Domains
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          description: Fully qualified domain name to query.
+          schema:
+            type: string
+        - name: relationship
+          in: query
+          description: Type of relationship to filter by.
+          schema:
+            type: string
+            enum:
+              - infrastructure
+              - registration
+              - certificate
+              - content
+        - name: limit
+          in: query
+          description: Maximum number of related domains to return.
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+      responses:
+        '200':
+          description: Related domains returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  count:
+                    type: integer
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        domain:
+                          type: string
+                        relationship:
+                          type: string
+                        confidence:
+                          type: number
+                          format: float
+                        verdict:
+                          type: string
+        '401':
+          description: Invalid or missing API key.
+        '404':
+          description: Domain not found.
+        '429':
+          description: Rate limit exceeded.
+  /v1/categories:
+    get:
+      operationId: listCategories
+      summary: List all domain categories
+      description: >-
+        Returns the complete list of domain categories used by the DNS
+        Security classification engine. Each category includes its
+        identifier, display name, and description. Use these category
+        identifiers when filtering or interpreting domain lookups.
+      tags:
+        - Categories
+      responses:
+        '200':
+          description: Categories returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        name:
+                          type: string
+                        description:
+                          type: string
+        '401':
+          description: Invalid or missing API key.
+        '429':
+          description: Rate limit exceeded.
+  /v1/domain/batch:
+    post:
+      operationId: batchDomainLookup
+      summary: Batch domain lookup
+      description: >-
+        Submits a batch of domains for lookup and returns intelligence
+        for each domain in a single response. Accepts up to 100 domains
+        per request. More efficient than individual lookups when
+        investigating multiple domains from the same security event.
+      tags:
+        - Domains
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - domains
+              properties:
+                domains:
+                  type: array
+                  items:
+                    type: string
+                  maxItems: 100
+                  description: List of fully qualified domain names to query.
+      responses:
+        '200':
+          description: Batch lookup results returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  count:
+                    type: integer
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DomainInfo'
+        '400':
+          description: Invalid request body or too many domains.
+        '401':
+          description: Invalid or missing API key.
+        '429':
+          description: Rate limit exceeded.
+components:
+  securitySchemes:
+    dnsApiKey:
+      type: apiKey
+      in: header
+      name: X-DNS-API-APIKEY
+      description: >-
+        DNS Security API key. Requires an active DNS Security
+        subscription associated with a Palo Alto Networks support account.
+  schemas:
+    DomainInfo:
+      type: object
+      properties:
+        domain:
+          type: string
+          description: Fully qualified domain name.
+        category:
+          type: string
+          description: Primary category assigned to the domain.
+        verdict:
+          type: string
+          enum:
+            - benign
+            - malware
+            - phishing
+            - command-and-control
+            - grayware
+            - dynamic-dns
+            - newly-registered
+            - unknown
+          description: Security verdict for the domain.
+        firstSeen:
+          type: string
+          format: date-time
+          description: Timestamp when the domain was first observed.
+        lastSeen:
+          type: string
+          format: date-time
+          description: Timestamp when the domain was most recently observed.
+        popularity:
+          type: integer
+          description: >-
+            Relative popularity ranking. Lower numbers indicate
+            higher popularity.
+        relatedDomains:
+          type: array
+          items:
+            type: string
+          description: List of domains related by infrastructure or behavior.
+        confidence:
+          type: number
+          format: float
+          description: Confidence score for the verdict (0.0 to 1.0).
+        ipResolutions:
+          type: array
+          items:
+            type: string
+          description: IP addresses the domain currently resolves to.
+    DomainCategory:
+      type: object
+      properties:
+        domain:
+          type: string
+          description: Fully qualified domain name.
+        categories:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+                description: Numeric category identifier.
+              name:
+                type: string
+                description: Human-readable category name.
+              confidence:
+                type: number
+                format: float
+                description: Classification confidence score.
+          description: List of categories assigned to the domain.
+        verdict:
+          type: string
+          description: Overall security verdict.
+        lastClassified:
+          type: string
+          format: date-time
+          description: Timestamp of the most recent classification.
+    DomainHistory:
+      type: object
+      properties:
+        domain:
+          type: string
+          description: Fully qualified domain name.
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp of the history record.
+        eventType:
+          type: string
+          enum:
+            - ip_change
+            - category_change
+            - verdict_change
+            - first_seen
+            - registration
+          description: Type of historical event.
+        previousValue:
+          type: string
+          description: Previous value before the change.
+        newValue:
+          type: string
+          description: New value after the change.
+        ipAddress:
+          type: string
+          description: IP address associated with this history record.
+        asn:
+          type: string
+          description: Autonomous system number for the resolved IP.
+        country:
+          type: string
+          description: Country code for the resolved IP geolocation.

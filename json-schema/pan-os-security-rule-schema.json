@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/api-evangelist/palo-alto-networks/refs/heads/main/json-schema/pan-os-security-rule-schema.json",
+  "title": "PAN-OS Security Rule",
+  "description": "Schema for a PAN-OS firewall security policy rule as represented in the REST/XML API. Security rules define the traffic enforcement criteria on Palo Alto Networks next-generation firewalls and Panorama-managed devices. Each rule specifies source, destination, application, service, and action parameters that determine how traffic matching the rule is handled. Rules are evaluated top-down within a rulebase and can be configured at the device, virtual system, or device group level.",
+  "type": "object",
+  "required": ["name", "action"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Unique name of the security rule within its rulebase. Must be unique within the device group or virtual system. Maximum 63 characters, must start with a letter or underscore.",
+      "maxLength": 63,
+      "pattern": "^[a-zA-Z_][a-zA-Z0-9._\\- ]*$"
+    },
+    "description": {
+      "type": "string",
+      "description": "Free-form text description of the rule's purpose, intent, or business justification. Maximum 1024 characters.",
+      "maxLength": 1024
+    },
+    "tags": {
+      "type": "array",
+      "description": "List of administrative tags applied to the rule for organizational grouping, filtering, and policy management. Tags must be pre-defined on the device or Panorama.",
+      "items": {
+        "type": "string",
+        "description": "A tag name. Must reference an existing tag object on the device."
+      }
+    },
+    "from": {
+      "type": "array",
+      "description": "List of source security zones. Traffic must originate from one of these zones for the rule to match. Use 'any' to match all zones.",
+      "items": {
+        "type": "string",
+        "description": "A security zone name or 'any' to match all zones."
+      },
+      "default": ["any"]
+    },
+    "to": {
+      "type": "array",
+      "description": "List of destination security zones. Traffic must be destined for one of these zones for the rule to match. Use 'any' to match all zones.",
+      "items": {
+        "type": "string",
+        "description": "A security zone name or 'any' to match all zones."
+      },
+      "default": ["any"]
+    },
+    "source": {
+      "$ref": "#/$defs/AddressSpecification",
+      "description": "Source address specification defining which source IP addresses, address objects, or address groups the rule matches."
+    },
+    "destination": {
+      "$ref": "#/$defs/AddressSpecification",
+      "description": "Destination address specification defining which destination IP addresses, address objects, or address groups the rule matches."
+    },
+    "source-user": {
+      "type": "array",
+      "description": "List of source users or user groups that the rule applies to. Requires User-ID to be enabled on the ingress zone. Use 'any' to match all users, 'unknown' to match traffic without User-ID information, 'known-user' to match any identified user, or 'pre-logon' for GlobalProtect pre-logon users.",
+      "items": {
+        "type": "string",
+        "description": "A username, user group name, or special keyword ('any', 'unknown', 'known-user', 'pre-logon')."
+      },
+      "default": ["any"]
+    },
+    "application": {
+      "type": "array",
+      "description": "List of applications or application groups that the rule applies to. PAN-OS uses App-ID technology to identify applications regardless of port, protocol, or encryption. Use 'any' to match all applications.",
+      "items": {
+        "type": "string",
+        "description": "An application name, application group name, application filter name, or 'any'."
+      },
+      "default": ["any"]
+    },
+    "service": {
+      "type": "array",
+      "description": "List of services (protocol/port combinations) that the rule applies to. Use 'any' to match all services or 'application-default' to use the default ports defined for the matched applications.",
+      "items": {
+        "type": "string",
+        "description": "A service object name, service group name, 'any', or 'application-default'."
+      },
+      "default": ["application-default"]
+    },
+    "category": {
+      "type": "array",
+      "description": "List of URL filtering categories that the rule applies to. Requires a URL Filtering license and profile. Use 'any' to match all categories.",
+      "items": {
+        "type": "string",
+        "description": "A URL category name or 'any'."
+      },
+      "default": ["any"]
+    },
+    "action": {
+      "type": "string",
+      "description": "Action to take when traffic matches the rule criteria. 'allow' permits the traffic, 'deny' blocks and sends an ICMP unreachable response, 'drop' silently discards the traffic, 'reset-client' sends a TCP RST to the client, 'reset-server' sends a TCP RST to the server, and 'reset-both' sends TCP RST to both client and server.",
+      "enum": ["allow", "deny", "drop", "reset-client", "reset-server", "reset-both"]
+    },
+    "log-setting": {
+      "type": "string",
+      "description": "Name of the log forwarding profile to use for this rule. The profile determines where traffic logs are sent (e.g., Panorama, syslog servers, email, SNMP, HTTP destinations)."
+    },
+    "profile-setting": {
+      "$ref": "#/$defs/ProfileSetting",
+      "description": "Security profile settings that define which threat prevention profiles are applied to traffic matching this rule."
+    },
+    "disabled": {
+      "type": "boolean",
+      "description": "Whether the security rule is administratively disabled. Disabled rules remain in the configuration but are not evaluated during policy lookup.",
+      "default": false
+    },
+    "log-start": {
+      "type": "boolean",
+      "description": "Whether to generate a traffic log entry at the start of a session matching this rule. Enabling log-start increases logging volume and is typically used for debugging or compliance requirements.",
+      "default": false
+    },
+    "log-end": {
+      "type": "boolean",
+      "description": "Whether to generate a traffic log entry at the end of a session matching this rule. Log-end is enabled by default and captures session summary information including bytes transferred and duration.",
+      "default": true
+    },
+    "schedule": {
+      "type": "string",
+      "description": "Name of a schedule object that defines the time window during which this rule is active. When no schedule is specified, the rule is always active."
+    },
+    "rule-type": {
+      "type": "string",
+      "description": "Specifies the scope of zone-based enforcement for the rule. 'universal' matches traffic between any zones (default), 'intrazone' matches only traffic within the same zone, and 'interzone' matches only traffic between different zones.",
+      "enum": ["universal", "intrazone", "interzone"],
+      "default": "universal"
+    }
+  },
+  "$defs": {
+    "AddressSpecification": {
+      "type": "object",
+      "description": "Defines an address matching specification used for source or destination matching in a security rule. Contains a list of address members and an optional negation flag to invert the match logic.",
+      "properties": {
+        "member": {
+          "type": "array",
+          "description": "List of address objects, address groups, IP addresses, IP ranges, or CIDR subnets to match. Use 'any' to match all addresses. Supports IPv4 and IPv6 addresses, FQDN objects, and dynamic address groups.",
+          "items": {
+            "type": "string",
+            "description": "An address object name, address group name, IP address, IP range, CIDR notation, FQDN, or 'any'."
+          },
+          "default": ["any"]
+        },
+        "negate": {
+          "type": "boolean",
+          "description": "When set to true, the rule matches all addresses except those listed in the member array. This inverts the address matching logic, creating an exclusion-based rule.",
+          "default": false
+        }
+      }
+    },
+    "ProfileSetting": {
+      "type": "object",
+      "description": "Security profile settings that associate threat prevention profiles with a security rule. Profiles can be applied individually or as a group. Security profile groups bundle multiple profile types for simplified management.",
+      "properties": {
+        "group": {
+          "type": "array",
+          "description": "List of security profile group names to apply to the rule. A security profile group bundles antivirus, anti-spyware, vulnerability protection, URL filtering, file blocking, WildFire analysis, and data filtering profiles into a single reusable object.",
+          "items": {
+            "type": "string",
+            "description": "Name of a security profile group defined on the device or Panorama."
+          }
+        },
+        "profiles": {
+          "$ref": "#/$defs/IndividualProfiles",
+          "description": "Individual security profiles to apply when not using a profile group. Each profile type provides a specific layer of threat prevention."
+        }
+      }
+    },
+    "IndividualProfiles": {
+      "type": "object",
+      "description": "Individual security profile assignments for granular threat prevention configuration. Each property references a named profile object of the corresponding type configured on the device.",
+      "properties": {
+        "virus": {
+          "type": "array",
+          "description": "Antivirus profile name(s) for malware detection and prevention on file transfers.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "spyware": {
+          "type": "array",
+          "description": "Anti-spyware profile name(s) for detecting spyware, command-and-control traffic, and DNS-based threats.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "vulnerability": {
+          "type": "array",
+          "description": "Vulnerability protection profile name(s) for detecting and preventing exploitation of known software vulnerabilities.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "url-filtering": {
+          "type": "array",
+          "description": "URL filtering profile name(s) for controlling access to websites based on URL categories.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "file-blocking": {
+          "type": "array",
+          "description": "File blocking profile name(s) for controlling the transfer of files based on type, direction, and application.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "wildfire-analysis": {
+          "type": "array",
+          "description": "WildFire analysis profile name(s) for forwarding unknown files to WildFire for cloud-based sandbox analysis.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "data-filtering": {
+          "type": "array",
+          "description": "Data filtering profile name(s) for detecting and preventing the transfer of sensitive data patterns such as credit card or social security numbers.",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

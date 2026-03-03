@@ -1,0 +1,389 @@
+asyncapi: 2.6.0
+info:
+  title: SASE Multitenant Notifications
+  version: '1.0'
+  description: >-
+    Palo Alto Networks SASE (Secure Access Service Edge) delivers real-time
+    notifications for security incidents, platform announcements, dataplane
+    upgrades, and certificate expiration warnings across multitenant
+    deployments. Notifications are sent as HTTP POST requests to registered
+    webhook endpoints configured at the tenant or tenant service group (TSG)
+    level. Each notification includes a tenant context identifier (tsg_id)
+    for routing in multitenant environments. Notification subscriptions are
+    managed through the SASE Multitenant Notification Service API, allowing
+    administrators to select notification types, severity thresholds, and
+    delivery endpoints for each tenant.
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  webhook:
+    url: '{notificationEndpoint}'
+    protocol: https
+    description: >-
+      Your notification endpoint URL registered with the SASE Multitenant
+      Notification Service. Configure notification subscriptions via the
+      SASE API to specify which notification types are delivered to this
+      endpoint. The endpoint must accept POST requests with JSON payloads
+      and return a 2xx response within 30 seconds.
+    variables:
+      notificationEndpoint:
+        description: The URL of your registered notification endpoint.
+channels:
+  /notification/incident:
+    description: >-
+      Channel for security incident notifications. Triggered when SASE
+      detects a security incident such as a policy breach, threat detection,
+      or anomalous activity within a tenant's network perimeter. Incident
+      notifications include severity classification, affected tenant
+      context, and descriptive details for triage and response.
+    subscribe:
+      operationId: onIncidentNotification
+      summary: Security incident notification
+      message:
+        $ref: '#/components/messages/IncidentNotification'
+  /notification/announcement:
+    description: >-
+      Channel for platform announcement notifications. Delivered when
+      Palo Alto Networks publishes service announcements including
+      scheduled maintenance windows, feature releases, deprecation
+      notices, and service status updates that affect SASE tenants.
+    subscribe:
+      operationId: onAnnouncementNotification
+      summary: Platform announcement notification
+      message:
+        $ref: '#/components/messages/AnnouncementNotification'
+  /notification/dataplane-upgrade:
+    description: >-
+      Channel for dataplane upgrade notifications. Triggered when a SASE
+      dataplane upgrade is scheduled, in progress, or completed for a
+      specific region. Notifications include the current and target software
+      versions, scheduled maintenance window, and upgrade status transitions.
+    subscribe:
+      operationId: onDataplaneUpgradeNotification
+      summary: Dataplane upgrade notification
+      message:
+        $ref: '#/components/messages/DataplaneUpgradeNotification'
+  /notification/certificate-expiry:
+    description: >-
+      Channel for certificate expiration warning notifications. Triggered
+      when TLS/SSL certificates used by SASE service connections, GlobalProtect
+      portals, or custom domains are approaching their expiration date.
+      Warnings are sent at configurable intervals (e.g., 90, 60, 30, 14, 7
+      days before expiry) to allow administrators to renew certificates
+      before service disruption.
+    subscribe:
+      operationId: onCertificateExpiryNotification
+      summary: Certificate expiration warning notification
+      message:
+        $ref: '#/components/messages/CertificateExpiryNotification'
+components:
+  messages:
+    IncidentNotification:
+      name: IncidentNotification
+      title: SASE Security Incident Notification
+      summary: >-
+        Webhook payload sent when a security incident is detected within a
+        SASE tenant. Contains the incident classification, severity, affected
+        tenant context, and descriptive information for triage.
+      contentType: application/json
+      payload:
+        type: object
+        properties:
+          notificationId:
+            type: string
+            description: Unique identifier for this notification delivery.
+          type:
+            type: string
+            enum:
+              - incident
+            description: Notification type identifier.
+          tsg_id:
+            type: string
+            description: >-
+              Tenant Service Group identifier indicating which tenant
+              context the incident belongs to.
+          severity:
+            type: string
+            enum:
+              - informational
+              - low
+              - medium
+              - high
+              - critical
+            description: Severity classification of the security incident.
+          title:
+            type: string
+            description: Brief title summarizing the incident.
+          description:
+            type: string
+            description: >-
+              Detailed description of the incident including affected
+              resources, detection context, and recommended actions.
+          timestamp:
+            type: string
+            format: date-time
+            description: Timestamp when the incident was detected.
+          category:
+            type: string
+            description: >-
+              Incident category such as threat, policy_violation, anomaly,
+              or data_loss.
+          affectedResources:
+            type: array
+            description: List of resources affected by the incident.
+            items:
+              type: object
+              properties:
+                resourceType:
+                  type: string
+                  description: Type of affected resource.
+                resourceId:
+                  type: string
+                  description: Identifier of the affected resource.
+          callbackUrl:
+            type: string
+            format: uri
+            description: Direct link to the incident in the SASE management console.
+    AnnouncementNotification:
+      name: AnnouncementNotification
+      title: SASE Platform Announcement Notification
+      summary: >-
+        Webhook payload sent for platform announcements including maintenance
+        windows, feature releases, deprecation notices, and service status
+        updates.
+      contentType: application/json
+      payload:
+        type: object
+        properties:
+          notificationId:
+            type: string
+            description: Unique identifier for this notification delivery.
+          type:
+            type: string
+            enum:
+              - announcement
+            description: Notification type identifier.
+          title:
+            type: string
+            description: Announcement title.
+          body:
+            type: string
+            description: >-
+              Full announcement body with details about the platform change,
+              maintenance window, or service update.
+          category:
+            type: string
+            enum:
+              - maintenance
+              - feature_release
+              - deprecation
+              - service_status
+              - security_advisory
+            description: Category of the announcement.
+          affectedServices:
+            type: array
+            description: >-
+              List of SASE services affected by the announcement, such as
+              Prisma Access, GlobalProtect, ADEM, SWG, or ZTNA.
+            items:
+              type: string
+          effectiveDate:
+            type: string
+            format: date-time
+            description: >-
+              Date and time when the announced change takes effect.
+          timestamp:
+            type: string
+            format: date-time
+            description: Timestamp when the announcement was published.
+          tsg_id:
+            type: string
+            description: >-
+              Tenant Service Group identifier if the announcement is
+              tenant-specific. Omitted for global announcements.
+    DataplaneUpgradeNotification:
+      name: DataplaneUpgradeNotification
+      title: SASE Dataplane Upgrade Notification
+      summary: >-
+        Webhook payload sent when a SASE dataplane upgrade is scheduled,
+        in progress, or completed for a region.
+      contentType: application/json
+      payload:
+        type: object
+        properties:
+          notificationId:
+            type: string
+            description: Unique identifier for this notification delivery.
+          type:
+            type: string
+            enum:
+              - dataplane_upgrade
+            description: Notification type identifier.
+          tsg_id:
+            type: string
+            description: Tenant Service Group identifier for the affected tenant.
+          region:
+            type: string
+            description: >-
+              SASE compute region where the dataplane upgrade is occurring,
+              such as us-east-1, eu-west-1, or ap-southeast-1.
+          currentVersion:
+            type: string
+            description: >-
+              Current dataplane software version before the upgrade.
+          targetVersion:
+            type: string
+            description: >-
+              Target dataplane software version after the upgrade completes.
+          scheduledTime:
+            type: string
+            format: date-time
+            description: >-
+              Scheduled start time for the dataplane upgrade maintenance
+              window.
+          estimatedEndTime:
+            type: string
+            format: date-time
+            description: >-
+              Estimated end time for the dataplane upgrade maintenance window.
+          status:
+            type: string
+            enum:
+              - scheduled
+              - in_progress
+              - completed
+              - failed
+              - rolled_back
+            description: Current status of the dataplane upgrade.
+          timestamp:
+            type: string
+            format: date-time
+            description: Timestamp when this notification was generated.
+    CertificateExpiryNotification:
+      name: CertificateExpiryNotification
+      title: Certificate Expiration Warning Notification
+      summary: >-
+        Webhook payload sent when a TLS/SSL certificate used by SASE services
+        is approaching its expiration date.
+      contentType: application/json
+      payload:
+        type: object
+        properties:
+          notificationId:
+            type: string
+            description: Unique identifier for this notification delivery.
+          type:
+            type: string
+            enum:
+              - certificate_expiry
+            description: Notification type identifier.
+          tsg_id:
+            type: string
+            description: Tenant Service Group identifier for the affected tenant.
+          certificateName:
+            type: string
+            description: Name of the certificate approaching expiration.
+          serialNumber:
+            type: string
+            description: Certificate serial number.
+          issuer:
+            type: string
+            description: Certificate issuer distinguished name.
+          subject:
+            type: string
+            description: Certificate subject distinguished name.
+          expirationDate:
+            type: string
+            format: date-time
+            description: Certificate expiration date and time.
+          daysUntilExpiry:
+            type: integer
+            description: Number of days remaining until the certificate expires.
+          usedBy:
+            type: array
+            description: >-
+              List of SASE services or configurations using this certificate.
+            items:
+              type: string
+          timestamp:
+            type: string
+            format: date-time
+            description: Timestamp when this notification was generated.
+  schemas:
+    IncidentDetail:
+      type: object
+      description: >-
+        Detailed information about a SASE security incident for enrichment
+        and correlation.
+      properties:
+        incidentId:
+          type: string
+          description: Unique incident identifier.
+        type:
+          type: string
+          description: Incident type classification.
+        severity:
+          type: string
+          enum:
+            - informational
+            - low
+            - medium
+            - high
+            - critical
+        title:
+          type: string
+          description: Incident title.
+        description:
+          type: string
+          description: Incident description.
+        tsg_id:
+          type: string
+          description: Tenant Service Group identifier.
+        category:
+          type: string
+          description: Incident category.
+        detectionSource:
+          type: string
+          description: Source of the incident detection.
+        timestamp:
+          type: string
+          format: date-time
+    ServiceInfo:
+      type: object
+      description: >-
+        Information about a SASE service affected by a notification.
+      properties:
+        serviceName:
+          type: string
+          description: Name of the SASE service.
+        serviceStatus:
+          type: string
+          enum:
+            - operational
+            - degraded
+            - maintenance
+            - outage
+          description: Current operational status of the service.
+        region:
+          type: string
+          description: Region where the service is deployed.
+    TenantContext:
+      type: object
+      description: >-
+        Tenant context information for multitenant notification routing.
+      properties:
+        tsg_id:
+          type: string
+          description: Tenant Service Group identifier.
+        tenantName:
+          type: string
+          description: Human-readable tenant name.
+        parentTsgId:
+          type: string
+          description: >-
+            Parent Tenant Service Group identifier for hierarchical
+            tenant structures.

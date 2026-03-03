@@ -1,0 +1,719 @@
+openapi: 3.1.0
+info:
+  title: SaaS Security Posture Management API
+  description: >-
+    REST API for the Palo Alto Networks SaaS Security Posture Management
+    (SSPM) service providing programmatic access to SaaS application
+    security assessments, misconfiguration detection, and compliance
+    monitoring. Enables automated retrieval of connected SaaS application
+    inventories, security assessment results with remediation guidance,
+    supported application catalog browsing, and Jira integration
+    management for ticketing workflows. Designed for security operations
+    teams to monitor and remediate SaaS misconfigurations at scale.
+    Authentication uses OAuth2 bearer tokens obtained from the Palo Alto
+    Networks identity provider.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  - url: https://api.sase.paloaltonetworks.com
+    description: SASE API gateway for SSPM operations.
+security:
+  - bearerAuth: []
+tags:
+  - name: Applications
+    description: >-
+      Connected SaaS application inventory and assessment operations.
+  - name: Assessments
+    description: >-
+      Security assessment retrieval for misconfiguration detection
+      and compliance monitoring.
+  - name: Catalog
+    description: >-
+      Supported SaaS application catalog for discovering available
+      integrations.
+  - name: Integrations
+    description: >-
+      Third-party integration management for ticketing and workflow
+      automation.
+paths:
+  /sspm/v1/applications:
+    get:
+      operationId: listSSPMApplications
+      summary: List connected applications
+      description: >-
+        Returns a list of all SaaS applications connected to the SSPM
+        service for security posture monitoring. Each application includes
+        its connection status, number of assessed configurations, risk
+        score, and the last assessment timestamp. Connected applications
+        are continuously monitored for security misconfigurations and
+        compliance violations.
+      tags:
+        - Applications
+      parameters:
+        - name: tsg_id
+          in: header
+          required: true
+          description: TSG ID to scope the application query.
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          description: Filter applications by connection status.
+          schema:
+            type: string
+            enum:
+              - connected
+              - disconnected
+              - error
+              - pending
+        - name: risk_level
+          in: query
+          required: false
+          description: Filter applications by risk level.
+          schema:
+            type: string
+            enum:
+              - critical
+              - high
+              - medium
+              - low
+      responses:
+        '200':
+          description: Connected applications returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_count:
+                    type: integer
+                    description: Total number of connected applications.
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SSPMApplication'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /sspm/v1/applications/{id}/assessments:
+    get:
+      operationId: getApplicationAssessments
+      summary: Get assessments for an application
+      description: >-
+        Returns the security assessment results for a specific connected
+        SaaS application. Assessments identify configuration settings
+        that deviate from security best practices, compliance frameworks,
+        or organizational policies. Each assessment includes the check
+        name, current status, severity, affected setting, and remediation
+        guidance. Results can be filtered by status or severity to focus
+        on actionable findings.
+      tags:
+        - Assessments
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: >-
+            Unique identifier of the connected application to retrieve
+            assessments for.
+          schema:
+            type: string
+        - name: tsg_id
+          in: header
+          required: true
+          description: TSG ID to scope the assessment query.
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          description: Filter assessments by check status.
+          schema:
+            type: string
+            enum:
+              - pass
+              - fail
+              - warning
+              - error
+              - not_applicable
+        - name: severity
+          in: query
+          required: false
+          description: Filter assessments by severity level.
+          schema:
+            type: string
+            enum:
+              - critical
+              - high
+              - medium
+              - low
+              - informational
+        - name: framework
+          in: query
+          required: false
+          description: >-
+            Filter assessments by compliance framework (e.g., CIS,
+            NIST, SOC2).
+          schema:
+            type: string
+        - name: offset
+          in: query
+          required: false
+          description: Pagination offset.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of assessments to return.
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+      responses:
+        '200':
+          description: Assessments returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  application_id:
+                    type: string
+                    description: ID of the assessed application.
+                  application_name:
+                    type: string
+                    description: Name of the assessed application.
+                  total_count:
+                    type: integer
+                    description: Total number of assessment checks.
+                  pass_count:
+                    type: integer
+                    description: Number of checks that passed.
+                  fail_count:
+                    type: integer
+                    description: Number of checks that failed.
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Assessment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /sspm/v1/catalog:
+    get:
+      operationId: listCatalogEntries
+      summary: List supported applications
+      description: >-
+        Returns the catalog of SaaS applications supported by the SSPM
+        service. Each catalog entry includes the application name,
+        category, supported assessment checks, required permissions for
+        connection, and setup instructions. Use this endpoint to discover
+        which applications can be onboarded for security posture
+        monitoring.
+      tags:
+        - Catalog
+      parameters:
+        - name: category
+          in: query
+          required: false
+          description: Filter catalog entries by application category.
+          schema:
+            type: string
+            enum:
+              - collaboration
+              - crm
+              - cloud_infrastructure
+              - identity_provider
+              - email
+              - file_storage
+              - project_management
+              - hr
+              - finance
+        - name: search
+          in: query
+          required: false
+          description: >-
+            Search term to filter catalog entries by application name.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Catalog entries returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_count:
+                    type: integer
+                    description: Total number of supported applications.
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CatalogEntry'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /sspm/v1/integrations/jira:
+    get:
+      operationId: getJiraIntegration
+      summary: Get Jira integration
+      description: >-
+        Returns the current Jira integration configuration for the
+        specified Tenant Service Group. The Jira integration enables
+        automatic creation of Jira tickets for failed security assessment
+        checks, providing a workflow for tracking and remediating SaaS
+        misconfigurations. Includes the Jira instance URL, project
+        configuration, issue type mappings, and connection status.
+      tags:
+        - Integrations
+      parameters:
+        - name: tsg_id
+          in: header
+          required: true
+          description: TSG ID to scope the integration query.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Jira integration configuration returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JiraIntegration'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: No Jira integration configured for this TSG.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createJiraIntegration
+      summary: Create or update Jira integration
+      description: >-
+        Creates or updates the Jira integration configuration for the
+        specified Tenant Service Group. Configures automatic ticket
+        creation for failed SSPM assessment checks. Requires a valid
+        Jira instance URL, API token for authentication, project key,
+        and issue type mapping. The integration validates connectivity
+        to the Jira instance before saving the configuration.
+      tags:
+        - Integrations
+      parameters:
+        - name: tsg_id
+          in: header
+          required: true
+          description: TSG ID to configure the Jira integration for.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jira_url
+                - api_token
+                - user_email
+                - project_key
+              properties:
+                jira_url:
+                  type: string
+                  format: uri
+                  description: >-
+                    Base URL of the Jira instance (e.g.,
+                    https://yourcompany.atlassian.net).
+                api_token:
+                  type: string
+                  description: >-
+                    Jira API token for authentication. Encrypted at rest.
+                user_email:
+                  type: string
+                  format: email
+                  description: >-
+                    Email address of the Jira user associated with the
+                    API token.
+                project_key:
+                  type: string
+                  description: >-
+                    Jira project key where tickets will be created (e.g.,
+                    SEC, SSPM).
+                issue_type:
+                  type: string
+                  default: Task
+                  description: >-
+                    Jira issue type for created tickets (e.g., Task, Bug,
+                    Story).
+                severity_mapping:
+                  type: object
+                  description: >-
+                    Maps SSPM severity levels to Jira priority levels.
+                  properties:
+                    critical:
+                      type: string
+                      default: Highest
+                    high:
+                      type: string
+                      default: High
+                    medium:
+                      type: string
+                      default: Medium
+                    low:
+                      type: string
+                      default: Low
+                auto_create_tickets:
+                  type: boolean
+                  default: true
+                  description: >-
+                    When true, automatically creates Jira tickets for
+                    new failed assessment checks.
+                auto_close_tickets:
+                  type: boolean
+                  default: false
+                  description: >-
+                    When true, automatically transitions Jira tickets
+                    to done when the assessment check passes.
+      responses:
+        '200':
+          description: Jira integration configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JiraIntegration'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          description: >-
+            Unable to connect to the specified Jira instance. Verify
+            the URL and credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
+          scopes: {}
+      description: >-
+        OAuth2 client credentials flow. Obtain an access token from the
+        Palo Alto Networks identity provider and include it as a Bearer
+        token in the Authorization header.
+  responses:
+    BadRequest:
+      description: The request body is malformed or contains invalid parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid OAuth2 bearer token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    SSPMApplication:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the connected application.
+        name:
+          type: string
+          description: Display name of the SaaS application.
+        vendor:
+          type: string
+          description: Application vendor name.
+        category:
+          type: string
+          enum:
+            - collaboration
+            - crm
+            - cloud_infrastructure
+            - identity_provider
+            - email
+            - file_storage
+            - project_management
+            - hr
+            - finance
+          description: Application category.
+        status:
+          type: string
+          enum:
+            - connected
+            - disconnected
+            - error
+            - pending
+          description: Current connection status.
+        risk_score:
+          type: integer
+          description: Aggregate risk score (0-100) based on assessment results.
+        risk_level:
+          type: string
+          enum:
+            - critical
+            - high
+            - medium
+            - low
+          description: Risk level derived from the risk score.
+        total_checks:
+          type: integer
+          description: Total number of assessment checks for this application.
+        failed_checks:
+          type: integer
+          description: Number of assessment checks currently failing.
+        passed_checks:
+          type: integer
+          description: Number of assessment checks currently passing.
+        last_assessment_at:
+          type: string
+          format: date-time
+          description: Timestamp of the most recent assessment run.
+        connected_at:
+          type: string
+          format: date-time
+          description: Timestamp when the application was connected.
+        tsg_id:
+          type: string
+          description: TSG ID that owns this application connection.
+    Assessment:
+      type: object
+      properties:
+        assessment_id:
+          type: string
+          description: Unique identifier for the assessment check.
+        check_name:
+          type: string
+          description: >-
+            Name of the security check (e.g., MFA enforcement, password
+            policy, sharing settings).
+        description:
+          type: string
+          description: Detailed description of what the check evaluates.
+        status:
+          type: string
+          enum:
+            - pass
+            - fail
+            - warning
+            - error
+            - not_applicable
+          description: Current status of the assessment check.
+        severity:
+          type: string
+          enum:
+            - critical
+            - high
+            - medium
+            - low
+            - informational
+          description: Severity level of the finding when the check fails.
+        category:
+          type: string
+          description: >-
+            Assessment category (e.g., authentication, authorization,
+            data_protection, logging).
+        frameworks:
+          type: array
+          items:
+            type: string
+          description: >-
+            Compliance frameworks this check maps to (e.g., CIS, NIST,
+            SOC2, ISO27001).
+        affected_setting:
+          type: string
+          description: >-
+            The specific SaaS application setting evaluated by this
+            check.
+        current_value:
+          type: string
+          description: The current value of the affected setting.
+        recommended_value:
+          type: string
+          description: The recommended value for the affected setting.
+        remediation:
+          type: string
+          description: >-
+            Step-by-step remediation guidance for addressing a failed
+            check.
+        jira_ticket_key:
+          type: string
+          description: >-
+            Jira ticket key if a ticket was created for this finding.
+            Null if no Jira integration or no ticket created.
+        last_evaluated_at:
+          type: string
+          format: date-time
+          description: Timestamp of the most recent evaluation.
+    CatalogEntry:
+      type: object
+      properties:
+        catalog_id:
+          type: string
+          description: Unique identifier for the catalog entry.
+        name:
+          type: string
+          description: Name of the SaaS application.
+        vendor:
+          type: string
+          description: Application vendor name.
+        category:
+          type: string
+          enum:
+            - collaboration
+            - crm
+            - cloud_infrastructure
+            - identity_provider
+            - email
+            - file_storage
+            - project_management
+            - hr
+            - finance
+          description: Application category.
+        description:
+          type: string
+          description: >-
+            Description of the application and supported security
+            assessment capabilities.
+        total_checks:
+          type: integer
+          description: >-
+            Number of security assessment checks available for this
+            application.
+        supported_frameworks:
+          type: array
+          items:
+            type: string
+          description: >-
+            Compliance frameworks supported by the assessment checks
+            (e.g., CIS, NIST, SOC2).
+        required_permissions:
+          type: array
+          items:
+            type: string
+          description: >-
+            Permissions required in the SaaS application to enable
+            SSPM monitoring (e.g., read-only admin, security admin).
+        setup_url:
+          type: string
+          format: uri
+          description: >-
+            Documentation URL with setup instructions for connecting
+            this application.
+        icon_url:
+          type: string
+          format: uri
+          description: URL for the application icon.
+    JiraIntegration:
+      type: object
+      properties:
+        integration_id:
+          type: string
+          description: Unique identifier for the Jira integration.
+        tsg_id:
+          type: string
+          description: TSG ID this integration belongs to.
+        jira_url:
+          type: string
+          format: uri
+          description: Base URL of the connected Jira instance.
+        user_email:
+          type: string
+          format: email
+          description: Email address of the Jira authentication user.
+        project_key:
+          type: string
+          description: Jira project key for ticket creation.
+        issue_type:
+          type: string
+          description: Jira issue type used for created tickets.
+        severity_mapping:
+          type: object
+          description: Mapping of SSPM severity levels to Jira priorities.
+          properties:
+            critical:
+              type: string
+            high:
+              type: string
+            medium:
+              type: string
+            low:
+              type: string
+        auto_create_tickets:
+          type: boolean
+          description: Whether tickets are auto-created for failed checks.
+        auto_close_tickets:
+          type: boolean
+          description: Whether tickets are auto-closed when checks pass.
+        status:
+          type: string
+          enum:
+            - connected
+            - disconnected
+            - error
+          description: Current connection status to the Jira instance.
+        tickets_created:
+          type: integer
+          description: Total number of Jira tickets created by this integration.
+        last_sync_at:
+          type: string
+          format: date-time
+          description: Timestamp of the last successful sync with Jira.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the integration was created.
+        updated_at:
+          type: string
+          format: date-time
+          description: Timestamp when the integration was last modified.
+    ErrorResponse:
+      type: object
+      properties:
+        error_code:
+          type: integer
+          description: Machine-readable error code.
+        message:
+          type: string
+          description: Human-readable error message.
+        details:
+          type: string
+          description: Additional context about the error.

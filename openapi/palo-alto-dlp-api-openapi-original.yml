@@ -1,0 +1,681 @@
+openapi: 3.1.0
+info:
+  title: Data Loss Prevention API
+  description: >-
+    REST API for managing Enterprise Data Loss Prevention (DLP) through
+    Palo Alto Networks cloud-delivered security services. Provides
+    incident detection and management, data pattern configuration,
+    and reporting capabilities for monitoring sensitive data exposure
+    across network traffic, SaaS applications, and endpoints. Enables
+    integration with SIEM, SOAR, and ticketing systems for automated
+    incident response workflows. Requires an active Enterprise DLP
+    subscription with SASE.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  - url: https://api.sase.paloaltonetworks.com
+    description: SASE API production server.
+security:
+  - bearerAuth: []
+tags:
+  - name: Incidents
+    description: DLP incident detection and management operations.
+  - name: DataPatterns
+    description: Data pattern configuration and lookup operations.
+  - name: Reports
+    description: DLP reporting and summary operations.
+paths:
+  /dlp/v1/incidents:
+    get:
+      operationId: listDlpIncidents
+      summary: List DLP incidents
+      description: >-
+        Returns a paginated list of DLP incidents detected across
+        monitored channels. Supports filtering by severity, status,
+        data pattern, channel, time range, and user. Each incident
+        represents a detected occurrence of sensitive data matching
+        one or more configured data patterns.
+      tags:
+        - Incidents
+      parameters:
+        - name: status
+          in: query
+          description: Filter incidents by current status.
+          schema:
+            type: string
+            enum:
+              - open
+              - in_review
+              - resolved
+              - dismissed
+        - name: severity
+          in: query
+          description: Filter incidents by severity level.
+          schema:
+            type: string
+            enum:
+              - critical
+              - high
+              - medium
+              - low
+              - informational
+        - name: channel
+          in: query
+          description: Filter incidents by detection channel.
+          schema:
+            type: string
+            enum:
+              - web
+              - ssl
+              - saas
+              - email
+              - endpoint
+        - name: data_pattern_id
+          in: query
+          description: Filter incidents by data pattern identifier.
+          schema:
+            type: string
+        - name: user
+          in: query
+          description: Filter incidents by user email or username.
+          schema:
+            type: string
+        - name: start_time
+          in: query
+          description: Start of time range filter (ISO 8601 format).
+          schema:
+            type: string
+            format: date-time
+        - name: end_time
+          in: query
+          description: End of time range filter (ISO 8601 format).
+          schema:
+            type: string
+            format: date-time
+        - name: offset
+          in: query
+          description: Pagination offset.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of incidents to return.
+          schema:
+            type: integer
+            default: 100
+            maximum: 500
+      responses:
+        '200':
+          description: DLP incidents returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of incidents matching the query.
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+                  incidents:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DLPIncident'
+        '400':
+          description: Invalid query parameters.
+        '401':
+          description: Invalid or expired bearer token.
+        '403':
+          description: Insufficient permissions.
+        '429':
+          description: Rate limit exceeded.
+  /dlp/v1/incidents/{id}:
+    get:
+      operationId: getDlpIncident
+      summary: Get DLP incident by ID
+      description: >-
+        Returns detailed information for a specific DLP incident
+        including the full data pattern match context, affected file
+        or transaction metadata, user attribution, and remediation
+        history.
+      tags:
+        - Incidents
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique incident identifier.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: DLP incident details returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  incident:
+                    $ref: '#/components/schemas/DLPIncident'
+        '401':
+          description: Invalid or expired bearer token.
+        '403':
+          description: Insufficient permissions.
+        '404':
+          description: Incident not found.
+  /dlp/v1/incidents/{id}/status:
+    put:
+      operationId: updateDlpIncidentStatus
+      summary: Update DLP incident status
+      description: >-
+        Updates the status of a specific DLP incident. Used to progress
+        incidents through the investigation workflow from open to
+        in-review, resolved, or dismissed. Supports adding a comment
+        to document the status change rationale.
+      tags:
+        - Incidents
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique incident identifier.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - open
+                    - in_review
+                    - resolved
+                    - dismissed
+                  description: New status for the incident.
+                comment:
+                  type: string
+                  description: Comment documenting the status change.
+                assignee:
+                  type: string
+                  description: Email address of the assigned analyst.
+      responses:
+        '200':
+          description: Incident status updated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  incident:
+                    $ref: '#/components/schemas/DLPIncident'
+        '400':
+          description: Invalid status transition or request body.
+        '401':
+          description: Invalid or expired bearer token.
+        '403':
+          description: Insufficient permissions.
+        '404':
+          description: Incident not found.
+  /dlp/v1/data-patterns:
+    get:
+      operationId: listDataPatterns
+      summary: List data patterns
+      description: >-
+        Returns a list of configured data patterns used for DLP
+        detection. Includes both predefined system patterns (such as
+        credit card numbers, social security numbers, and HIPAA
+        identifiers) and custom patterns defined by the organization.
+        Each pattern includes its detection rules, confidence
+        thresholds, and associated data profile assignments.
+      tags:
+        - DataPatterns
+      parameters:
+        - name: type
+          in: query
+          description: Filter by pattern type.
+          schema:
+            type: string
+            enum:
+              - predefined
+              - custom
+        - name: offset
+          in: query
+          description: Pagination offset.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of patterns to return.
+          schema:
+            type: integer
+            default: 100
+            maximum: 500
+      responses:
+        '200':
+          description: Data patterns returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  data_patterns:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DataPattern'
+        '401':
+          description: Invalid or expired bearer token.
+        '403':
+          description: Insufficient permissions.
+        '429':
+          description: Rate limit exceeded.
+  /dlp/v1/data-patterns/{id}:
+    get:
+      operationId: getDataPattern
+      summary: Get data pattern by ID
+      description: >-
+        Returns detailed configuration for a specific data pattern
+        including its detection rules, regular expressions or
+        keyword lists, proximity settings, and confidence scoring
+        parameters.
+      tags:
+        - DataPatterns
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique data pattern identifier.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Data pattern details returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data_pattern:
+                    $ref: '#/components/schemas/DataPattern'
+        '401':
+          description: Invalid or expired bearer token.
+        '403':
+          description: Insufficient permissions.
+        '404':
+          description: Data pattern not found.
+  /dlp/v1/reports/summary:
+    get:
+      operationId: getDlpReportSummary
+      summary: Get DLP report summary
+      description: >-
+        Returns an aggregated summary of DLP incidents over a specified
+        time period. Includes breakdowns by severity, channel, data
+        pattern, top users, and trend data. Useful for executive
+        reporting and compliance dashboards.
+      tags:
+        - Reports
+      parameters:
+        - name: start_time
+          in: query
+          required: true
+          description: Start of reporting period (ISO 8601 format).
+          schema:
+            type: string
+            format: date-time
+        - name: end_time
+          in: query
+          required: true
+          description: End of reporting period (ISO 8601 format).
+          schema:
+            type: string
+            format: date-time
+        - name: group_by
+          in: query
+          description: Dimension to group summary results by.
+          schema:
+            type: string
+            enum:
+              - severity
+              - channel
+              - data_pattern
+              - user
+              - day
+              - week
+              - month
+            default: severity
+      responses:
+        '200':
+          description: DLP report summary returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  summary:
+                    $ref: '#/components/schemas/IncidentSummary'
+        '400':
+          description: Invalid query parameters or time range.
+        '401':
+          description: Invalid or expired bearer token.
+        '403':
+          description: Insufficient permissions.
+        '429':
+          description: Rate limit exceeded.
+  /dlp/v1/reports/trends:
+    get:
+      operationId: getDlpTrends
+      summary: Get DLP incident trends
+      description: >-
+        Returns time-series trend data for DLP incidents over a
+        specified period. Shows incident volume, severity distribution,
+        and detection channel breakdown over time. Supports daily,
+        weekly, and monthly granularity.
+      tags:
+        - Reports
+      parameters:
+        - name: start_time
+          in: query
+          required: true
+          description: Start of trend period (ISO 8601 format).
+          schema:
+            type: string
+            format: date-time
+        - name: end_time
+          in: query
+          required: true
+          description: End of trend period (ISO 8601 format).
+          schema:
+            type: string
+            format: date-time
+        - name: granularity
+          in: query
+          description: Time granularity for trend data points.
+          schema:
+            type: string
+            enum:
+              - day
+              - week
+              - month
+            default: day
+      responses:
+        '200':
+          description: DLP trend data returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  granularity:
+                    type: string
+                  data_points:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        timestamp:
+                          type: string
+                          format: date-time
+                        total_incidents:
+                          type: integer
+                        by_severity:
+                          type: object
+                          properties:
+                            critical:
+                              type: integer
+                            high:
+                              type: integer
+                            medium:
+                              type: integer
+                            low:
+                              type: integer
+                            informational:
+                              type: integer
+                        by_channel:
+                          type: object
+                          properties:
+                            web:
+                              type: integer
+                            ssl:
+                              type: integer
+                            saas:
+                              type: integer
+                            email:
+                              type: integer
+                            endpoint:
+                              type: integer
+        '400':
+          description: Invalid query parameters.
+        '401':
+          description: Invalid or expired bearer token.
+        '403':
+          description: Insufficient permissions.
+        '429':
+          description: Rate limit exceeded.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        OAuth 2.0 bearer token obtained from the Palo Alto Networks
+        SASE authentication service. Tokens are issued via the
+        client credentials flow using a service account.
+  schemas:
+    DLPIncident:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique incident identifier.
+        status:
+          type: string
+          enum:
+            - open
+            - in_review
+            - resolved
+            - dismissed
+          description: Current incident status.
+        severity:
+          type: string
+          enum:
+            - critical
+            - high
+            - medium
+            - low
+            - informational
+          description: Incident severity level.
+        dataPattern:
+          type: string
+          description: Name of the data pattern that triggered the incident.
+        dataPatternId:
+          type: string
+          description: Identifier of the data pattern that triggered the incident.
+        matchCount:
+          type: integer
+          description: Number of data pattern matches in the content.
+        channel:
+          type: string
+          enum:
+            - web
+            - ssl
+            - saas
+            - email
+            - endpoint
+          description: Channel where the data exposure was detected.
+        user:
+          type: string
+          description: Email address or username of the user involved.
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp when the incident was detected.
+        application:
+          type: string
+          description: Application associated with the incident.
+        file_name:
+          type: string
+          description: Name of the file containing sensitive data.
+        file_type:
+          type: string
+          description: MIME type of the file.
+        file_size:
+          type: integer
+          description: Size of the file in bytes.
+        direction:
+          type: string
+          enum:
+            - upload
+            - download
+            - internal
+          description: Direction of data movement.
+        action_taken:
+          type: string
+          enum:
+            - alert
+            - block
+            - quarantine
+            - encrypt
+          description: Automated action taken on the incident.
+        assignee:
+          type: string
+          description: Email address of the assigned analyst.
+    DataPattern:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique data pattern identifier.
+        name:
+          type: string
+          description: Display name of the data pattern.
+        description:
+          type: string
+          description: Human-readable description of what the pattern detects.
+        type:
+          type: string
+          enum:
+            - predefined
+            - custom
+          description: Whether the pattern is predefined or custom.
+        category:
+          type: string
+          description: Pattern category (e.g., PII, PCI, HIPAA, Financial).
+        confidence:
+          type: string
+          enum:
+            - high
+            - medium
+            - low
+          description: Confidence threshold for the pattern.
+        detection_rules:
+          type: array
+          items:
+            type: object
+            properties:
+              rule_type:
+                type: string
+                enum:
+                  - regex
+                  - keyword
+                  - dictionary
+                  - file_property
+              value:
+                type: string
+              proximity:
+                type: integer
+          description: Detection rule definitions for the pattern.
+        enabled:
+          type: boolean
+          description: Whether the data pattern is active.
+        incident_count:
+          type: integer
+          description: Total number of incidents triggered by this pattern.
+    IncidentSummary:
+      type: object
+      properties:
+        total_incidents:
+          type: integer
+          description: Total number of incidents in the reporting period.
+        open_incidents:
+          type: integer
+          description: Number of incidents still in open status.
+        resolved_incidents:
+          type: integer
+          description: Number of resolved incidents.
+        by_severity:
+          type: object
+          properties:
+            critical:
+              type: integer
+            high:
+              type: integer
+            medium:
+              type: integer
+            low:
+              type: integer
+            informational:
+              type: integer
+          description: Incident count breakdown by severity.
+        by_channel:
+          type: object
+          properties:
+            web:
+              type: integer
+            ssl:
+              type: integer
+            saas:
+              type: integer
+            email:
+              type: integer
+            endpoint:
+              type: integer
+          description: Incident count breakdown by detection channel.
+        top_data_patterns:
+          type: array
+          items:
+            type: object
+            properties:
+              pattern_name:
+                type: string
+              incident_count:
+                type: integer
+          description: Most frequently triggered data patterns.
+        top_users:
+          type: array
+          items:
+            type: object
+            properties:
+              user:
+                type: string
+              incident_count:
+                type: integer
+          description: Users with the most incidents.
+        reporting_period:
+          type: object
+          properties:
+            start_time:
+              type: string
+              format: date-time
+            end_time:
+              type: string
+              format: date-time
+          description: Time range for the summary report.

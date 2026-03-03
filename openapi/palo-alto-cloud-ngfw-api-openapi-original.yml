@@ -1,0 +1,982 @@
+openapi: 3.1.0
+info:
+  title: Cloud NGFW for AWS API
+  description: >-
+    REST API for managing Cloud Next-Generation Firewall (NGFW) for AWS,
+    a cloud-native managed firewall service delivered as an AWS resource.
+    Provides programmatic access to create and manage firewalls, rule
+    stacks, security rules, FQDN lists, and prefix lists. Cloud NGFW
+    integrates with AWS networking constructs including VPCs, subnets,
+    and Gateway Load Balancers. Authentication uses AWS IAM Signature
+    Version 4 signing with the appropriate IAM role permissions.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  - url: https://api.{region}.aws.cloudngfw.paloaltonetworks.com
+    description: Cloud NGFW for AWS API endpoint (region-specific).
+    variables:
+      region:
+        description: >-
+          AWS region where Cloud NGFW resources are deployed (e.g.,
+          us-east-1, eu-west-1).
+        default: us-east-1
+security:
+  - awsIamAuth: []
+tags:
+  - name: Firewalls
+    description: Cloud NGFW firewall resource management.
+  - name: RuleStacks
+    description: Rule stack configuration management.
+  - name: Rules
+    description: Security rule management within rule stacks.
+  - name: FQDN Lists
+    description: Fully qualified domain name list management.
+  - name: Prefix Lists
+    description: IP prefix list management.
+paths:
+  /v1/config/firewalls:
+    get:
+      operationId: listFirewalls
+      summary: List firewalls
+      description: >-
+        Returns a list of all Cloud NGFW firewall resources in the
+        current AWS account and region. Each firewall is associated with
+        a VPC, subnets, and a rule stack that defines its security
+        policy. Supports pagination with next token.
+      tags:
+        - Firewalls
+      parameters:
+        - name: maxresults
+          in: query
+          description: Maximum number of firewalls to return per page.
+          schema:
+            type: integer
+            default: 100
+            maximum: 1000
+        - name: nexttoken
+          in: query
+          description: Pagination token from a previous response.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Firewalls returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: object
+                    properties:
+                      Firewalls:
+                        type: array
+                        items:
+                          type: string
+                          description: Firewall name.
+                      NextToken:
+                        type: string
+                        description: Token for retrieving the next page.
+                  ResponseStatus:
+                    $ref: '#/components/schemas/ResponseStatus'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      operationId: createFirewall
+      summary: Create firewall
+      description: >-
+        Creates a new Cloud NGFW firewall resource in the specified VPC
+        and subnets. The firewall is associated with a rule stack that
+        defines its security policy. Provisioning takes several minutes
+        to complete. The firewall endpoints are created in the specified
+        subnets for integration with AWS Gateway Load Balancer.
+      tags:
+        - Firewalls
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Firewall'
+      responses:
+        '200':
+          description: Firewall creation initiated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: object
+                    properties:
+                      Firewall:
+                        $ref: '#/components/schemas/Firewall'
+                  ResponseStatus:
+                    $ref: '#/components/schemas/ResponseStatus'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: A firewall with the specified name already exists.
+  /v1/config/firewalls/{firewallname}:
+    get:
+      operationId: getFirewall
+      summary: Get firewall
+      description: >-
+        Returns detailed information about a specific Cloud NGFW firewall
+        including its status, VPC association, subnet endpoints, rule
+        stack binding, and operational state.
+      tags:
+        - Firewalls
+      parameters:
+        - name: firewallname
+          in: path
+          required: true
+          description: Name of the firewall to retrieve.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Firewall details returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: object
+                    properties:
+                      Firewall:
+                        $ref: '#/components/schemas/Firewall'
+                      Status:
+                        type: object
+                        properties:
+                          FirewallStatus:
+                            type: string
+                            enum:
+                              - CREATE_IN_PROGRESS
+                              - CREATE_COMPLETE
+                              - CREATE_FAILED
+                              - UPDATE_IN_PROGRESS
+                              - UPDATE_COMPLETE
+                              - DELETE_IN_PROGRESS
+                              - DELETE_COMPLETE
+                              - DELETE_FAILED
+                          FailureReason:
+                            type: string
+                          RuleStackStatus:
+                            type: string
+                            enum:
+                              - Pending
+                              - Success
+                              - Failed
+                          Attachments:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                EndpointId:
+                                  type: string
+                                SubnetId:
+                                  type: string
+                                Status:
+                                  type: string
+                  ResponseStatus:
+                    $ref: '#/components/schemas/ResponseStatus'
+        '404':
+          description: Firewall not found.
+    delete:
+      operationId: deleteFirewall
+      summary: Delete firewall
+      description: >-
+        Deletes a Cloud NGFW firewall resource. The firewall endpoints
+        are removed from the subnets and the resource is deprovisioned.
+        Ensure all Gateway Load Balancer target group associations are
+        removed before deletion.
+      tags:
+        - Firewalls
+      parameters:
+        - name: firewallname
+          in: path
+          required: true
+          description: Name of the firewall to delete.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Firewall deletion initiated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ResponseStatus:
+                    $ref: '#/components/schemas/ResponseStatus'
+        '404':
+          description: Firewall not found.
+        '409':
+          description: Firewall cannot be deleted in its current state.
+  /v1/config/rulestacks:
+    get:
+      operationId: listRuleStacks
+      summary: List rule stacks
+      description: >-
+        Returns a list of all rule stacks in the current account and
+        region. Rule stacks are containers for security rules, FQDN
+        lists, and prefix lists that define the security policy applied
+        to Cloud NGFW firewalls.
+      tags:
+        - RuleStacks
+      parameters:
+        - name: scope
+          in: query
+          description: Rule stack scope filter.
+          schema:
+            type: string
+            enum:
+              - Local
+              - Global
+            default: Local
+        - name: maxresults
+          in: query
+          schema:
+            type: integer
+            default: 100
+        - name: nexttoken
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rule stacks returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: object
+                    properties:
+                      RuleStacks:
+                        type: array
+                        items:
+                          type: string
+                          description: Rule stack name.
+                      NextToken:
+                        type: string
+                  ResponseStatus:
+                    $ref: '#/components/schemas/ResponseStatus'
+    post:
+      operationId: createRuleStack
+      summary: Create rule stack
+      description: >-
+        Creates a new rule stack that can hold security rules, FQDN
+        lists, and prefix lists. A rule stack must be created before
+        it can be associated with a Cloud NGFW firewall. Local rule
+        stacks are scoped to a single account and region; global rule
+        stacks are managed centrally.
+      tags:
+        - RuleStacks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RuleStack'
+      responses:
+        '200':
+          description: Rule stack created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: object
+                    properties:
+                      RuleStackName:
+                        type: string
+                  ResponseStatus:
+                    $ref: '#/components/schemas/ResponseStatus'
+        '409':
+          description: A rule stack with the specified name already exists.
+  /v1/config/rulestacks/{rulestackname}:
+    get:
+      operationId: getRuleStack
+      summary: Get rule stack
+      description: Returns detailed information about a specific rule stack.
+      tags:
+        - RuleStacks
+      parameters:
+        - name: rulestackname
+          in: path
+          required: true
+          description: Name of the rule stack.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rule stack returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: object
+                    properties:
+                      RuleStackName:
+                        type: string
+                      RuleStackCandidate:
+                        $ref: '#/components/schemas/RuleStack'
+                      RuleStackCommitted:
+                        $ref: '#/components/schemas/RuleStack'
+                  ResponseStatus:
+                    $ref: '#/components/schemas/ResponseStatus'
+        '404':
+          description: Rule stack not found.
+    delete:
+      operationId: deleteRuleStack
+      summary: Delete rule stack
+      description: >-
+        Deletes a rule stack and all its associated rules, FQDN lists,
+        and prefix lists. The rule stack must not be associated with
+        any active firewall before deletion.
+      tags:
+        - RuleStacks
+      parameters:
+        - name: rulestackname
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rule stack deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ResponseStatus:
+                    $ref: '#/components/schemas/ResponseStatus'
+        '404':
+          description: Rule stack not found.
+        '409':
+          description: Rule stack is in use by one or more firewalls.
+  /v1/config/rulestacks/{rulestackname}/rules:
+    get:
+      operationId: listRules
+      summary: List rules in a rule stack
+      description: >-
+        Returns all security rules defined in the specified rule stack.
+        Rules are evaluated in priority order (lowest number first) and
+        define matching criteria for traffic inspection and enforcement.
+      tags:
+        - Rules
+      parameters:
+        - name: rulestackname
+          in: path
+          required: true
+          description: Name of the rule stack.
+          schema:
+            type: string
+        - name: maxresults
+          in: query
+          schema:
+            type: integer
+            default: 100
+        - name: nexttoken
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rules returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: object
+                    properties:
+                      RuleStackName:
+                        type: string
+                      Rules:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            Priority:
+                              type: integer
+                            RuleName:
+                              type: string
+                      NextToken:
+                        type: string
+                  ResponseStatus:
+                    $ref: '#/components/schemas/ResponseStatus'
+    post:
+      operationId: createRule
+      summary: Create rule in a rule stack
+      description: >-
+        Creates a new security rule in the specified rule stack with a
+        given priority. The rule defines source and destination criteria,
+        applications, protocols, and the action to take on matching
+        traffic. After creating rules, commit the rule stack to activate
+        changes.
+      tags:
+        - Rules
+      parameters:
+        - name: rulestackname
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Rule'
+      responses:
+        '200':
+          description: Rule created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: object
+                    properties:
+                      RuleStackName:
+                        type: string
+                      RuleName:
+                        type: string
+                      Priority:
+                        type: integer
+                  ResponseStatus:
+                    $ref: '#/components/schemas/ResponseStatus'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: A rule with the specified name or priority already exists.
+  /v1/config/rulestacks/{rulestackname}/fqdnlists:
+    get:
+      operationId: listFQDNLists
+      summary: List FQDN lists
+      description: >-
+        Returns all FQDN (Fully Qualified Domain Name) lists defined
+        in the specified rule stack. FQDN lists group domain names
+        that can be referenced in security rules for domain-based
+        traffic filtering.
+      tags:
+        - FQDN Lists
+      parameters:
+        - name: rulestackname
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: maxresults
+          in: query
+          schema:
+            type: integer
+            default: 100
+        - name: nexttoken
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: FQDN lists returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: object
+                    properties:
+                      RuleStackName:
+                        type: string
+                      FqdnLists:
+                        type: array
+                        items:
+                          type: string
+                          description: FQDN list name.
+                      NextToken:
+                        type: string
+                  ResponseStatus:
+                    $ref: '#/components/schemas/ResponseStatus'
+    post:
+      operationId: createFQDNList
+      summary: Create FQDN list
+      description: >-
+        Creates a new FQDN list in the specified rule stack containing
+        one or more domain names. FQDN lists can be referenced in
+        security rules to allow or deny traffic to specific domains.
+      tags:
+        - FQDN Lists
+      parameters:
+        - name: rulestackname
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FQDNList'
+      responses:
+        '200':
+          description: FQDN list created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: object
+                    properties:
+                      RuleStackName:
+                        type: string
+                      FqdnListName:
+                        type: string
+                  ResponseStatus:
+                    $ref: '#/components/schemas/ResponseStatus'
+        '409':
+          description: An FQDN list with the specified name already exists.
+  /v1/config/rulestacks/{rulestackname}/prefixlists:
+    get:
+      operationId: listPrefixLists
+      summary: List prefix lists
+      description: >-
+        Returns all IP prefix lists defined in the specified rule stack.
+        Prefix lists group IP CIDR blocks that can be referenced in
+        security rules for IP-based traffic filtering.
+      tags:
+        - Prefix Lists
+      parameters:
+        - name: rulestackname
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: maxresults
+          in: query
+          schema:
+            type: integer
+            default: 100
+        - name: nexttoken
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Prefix lists returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: object
+                    properties:
+                      RuleStackName:
+                        type: string
+                      PrefixLists:
+                        type: array
+                        items:
+                          type: string
+                          description: Prefix list name.
+                      NextToken:
+                        type: string
+                  ResponseStatus:
+                    $ref: '#/components/schemas/ResponseStatus'
+    post:
+      operationId: createPrefixList
+      summary: Create prefix list
+      description: >-
+        Creates a new IP prefix list in the specified rule stack
+        containing one or more IP CIDR blocks. Prefix lists can be
+        referenced in security rules for source or destination matching.
+      tags:
+        - Prefix Lists
+      parameters:
+        - name: rulestackname
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - FqdnListName
+                - PrefixList
+              properties:
+                PrefixListName:
+                  type: string
+                  description: Unique name for the prefix list.
+                Description:
+                  type: string
+                PrefixList:
+                  type: array
+                  items:
+                    type: string
+                  description: >-
+                    List of IP CIDR blocks (e.g., 10.0.0.0/8,
+                    192.168.1.0/24).
+                AuditComment:
+                  type: string
+      responses:
+        '200':
+          description: Prefix list created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: object
+                    properties:
+                      RuleStackName:
+                        type: string
+                      PrefixListName:
+                        type: string
+                  ResponseStatus:
+                    $ref: '#/components/schemas/ResponseStatus'
+        '409':
+          description: A prefix list with the specified name already exists.
+components:
+  securitySchemes:
+    awsIamAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: >-
+        AWS IAM Signature Version 4 authentication. Requests must be
+        signed using AWS credentials with the appropriate IAM role
+        permissions for Cloud NGFW operations. The signing service
+        name is execute-api and the region matches the API endpoint
+        region.
+  responses:
+    BadRequest:
+      description: Malformed request or invalid parameters.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              ResponseStatus:
+                $ref: '#/components/schemas/ResponseStatus'
+    Unauthorized:
+      description: Missing or invalid AWS IAM credentials.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              ResponseStatus:
+                $ref: '#/components/schemas/ResponseStatus'
+    Forbidden:
+      description: Insufficient IAM permissions for the requested operation.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              ResponseStatus:
+                $ref: '#/components/schemas/ResponseStatus'
+  schemas:
+    Firewall:
+      type: object
+      description: A Cloud NGFW firewall resource deployed in an AWS VPC.
+      properties:
+        FirewallName:
+          type: string
+          description: Unique name for the firewall resource.
+        AccountId:
+          type: string
+          description: AWS account ID where the firewall is deployed.
+        VpcId:
+          type: string
+          description: AWS VPC ID for the firewall.
+        SubnetMappings:
+          type: array
+          items:
+            type: object
+            properties:
+              SubnetId:
+                type: string
+                description: AWS subnet ID for firewall endpoint placement.
+              AvailabilityZone:
+                type: string
+                description: AWS availability zone.
+          description: Subnet mappings for firewall endpoint creation.
+        RuleStackName:
+          type: string
+          description: Name of the rule stack to associate with this firewall.
+        GlobalRuleStackName:
+          type: string
+          description: Name of the global rule stack (optional).
+        EndpointServiceName:
+          type: string
+          description: VPC endpoint service name for Gateway Load Balancer integration.
+          readOnly: true
+        Description:
+          type: string
+        Tags:
+          type: array
+          items:
+            type: object
+            properties:
+              Key:
+                type: string
+              Value:
+                type: string
+          description: AWS resource tags.
+        LinkId:
+          type: string
+          description: Panorama link identifier for management integration.
+        LinkStatus:
+          type: string
+          enum:
+            - NotLinked
+            - LinkPending
+            - Linked
+            - LinkFailed
+          readOnly: true
+    RuleStack:
+      type: object
+      description: >-
+        A rule stack containing security rules, FQDN lists, and prefix
+        lists that define the security policy for Cloud NGFW firewalls.
+      properties:
+        RuleStackName:
+          type: string
+          description: Unique name for the rule stack.
+        Scope:
+          type: string
+          enum:
+            - Local
+            - Global
+          description: Rule stack scope.
+        AccountId:
+          type: string
+        Description:
+          type: string
+        MinAppIdVersion:
+          type: string
+          description: >-
+            Minimum App-ID content version for application
+            identification.
+        Profiles:
+          type: object
+          properties:
+            AntiSpywareProfile:
+              type: string
+              enum:
+                - BestPractice
+                - None
+            AntiVirusProfile:
+              type: string
+              enum:
+                - BestPractice
+                - None
+            VulnerabilityProfile:
+              type: string
+              enum:
+                - BestPractice
+                - None
+            FileBlockingProfile:
+              type: string
+              enum:
+                - BestPractice
+                - None
+            URLFilteringProfile:
+              type: string
+              enum:
+                - BestPractice
+                - None
+                - Custom
+        Tags:
+          type: array
+          items:
+            type: object
+            properties:
+              Key:
+                type: string
+              Value:
+                type: string
+    Rule:
+      type: object
+      description: >-
+        A security rule within a rule stack defining traffic matching
+        criteria and enforcement action.
+      properties:
+        RuleName:
+          type: string
+          description: Unique name for the rule within the rule stack.
+        Priority:
+          type: integer
+          description: >-
+            Rule evaluation priority. Lower numbers are evaluated first.
+            Must be unique within the rule stack.
+          minimum: 1
+          maximum: 99999
+        Enabled:
+          type: boolean
+          default: true
+        Source:
+          type: object
+          properties:
+            Cidrs:
+              type: array
+              items:
+                type: string
+              description: Source IP CIDR blocks.
+            Countries:
+              type: array
+              items:
+                type: string
+              description: Source country codes (ISO 3166-1 alpha-2).
+            Feeds:
+              type: array
+              items:
+                type: string
+              description: Source threat intelligence feed names.
+            PrefixLists:
+              type: array
+              items:
+                type: string
+              description: Source prefix list names.
+        Destination:
+          type: object
+          properties:
+            Cidrs:
+              type: array
+              items:
+                type: string
+            Countries:
+              type: array
+              items:
+                type: string
+            Feeds:
+              type: array
+              items:
+                type: string
+            PrefixLists:
+              type: array
+              items:
+                type: string
+            FqdnLists:
+              type: array
+              items:
+                type: string
+              description: Destination FQDN list names.
+        NegateSource:
+          type: boolean
+          default: false
+          description: Negate the source match criteria.
+        NegateDestination:
+          type: boolean
+          default: false
+        Applications:
+          type: array
+          items:
+            type: string
+          description: >-
+            Application names for App-ID matching (use "any" for all
+            applications).
+        Protocol:
+          type: string
+          default: application-default
+          description: Protocol or application-default.
+        Category:
+          type: object
+          properties:
+            Feeds:
+              type: array
+              items:
+                type: string
+            UrlCategoryNames:
+              type: array
+              items:
+                type: string
+          description: URL category matching criteria.
+        Action:
+          type: string
+          enum:
+            - Allow
+            - DenySilent
+            - DenyResetServer
+            - DenyResetBoth
+          description: Action to take on matching traffic.
+        Logging:
+          type: boolean
+          default: true
+        DecryptionRuleType:
+          type: string
+          enum:
+            - SSLForwardProxy
+            - SSLInboundInspection
+            - None
+        AuditComment:
+          type: string
+        Description:
+          type: string
+        Tags:
+          type: array
+          items:
+            type: object
+            properties:
+              Key:
+                type: string
+              Value:
+                type: string
+    FQDNList:
+      type: object
+      description: >-
+        A list of fully qualified domain names for use in security
+        rules.
+      properties:
+        FqdnListName:
+          type: string
+          description: Unique name for the FQDN list.
+        Description:
+          type: string
+        FqdnList:
+          type: array
+          items:
+            type: string
+          description: >-
+            List of FQDNs (e.g., www.example.com, *.paloaltonetworks.com).
+            Wildcards are supported with asterisk prefix.
+        AuditComment:
+          type: string
+    ResponseStatus:
+      type: object
+      description: Standard API response status.
+      properties:
+        ErrorCode:
+          type: integer
+          description: Error code (0 for success).
+        Reason:
+          type: string
+          description: Human-readable status or error description.

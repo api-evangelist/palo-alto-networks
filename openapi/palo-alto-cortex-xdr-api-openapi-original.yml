@@ -1,0 +1,806 @@
+openapi: 3.1.0
+info:
+  title: Cortex XDR API
+  description: >-
+    REST API for the Cortex XDR extended detection and response platform
+    providing programmatic access to incident management, alert handling,
+    endpoint operations, script execution, and audit logging. All API
+    requests use POST with JSON request bodies. Authentication uses API
+    key pairs consisting of an API Key ID and API Key value, with support
+    for Standard, Advanced, and RBAC key types.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  - url: https://api-{fqdn}/public_api/v1
+    description: Cortex XDR API server (region-specific).
+    variables:
+      fqdn:
+        description: >-
+          Your Cortex XDR tenant FQDN (e.g.,
+          xdr-us.paloaltonetworks.com).
+        default: xdr-us.paloaltonetworks.com
+security:
+  - apiKeyId: []
+    apiKey: []
+tags:
+  - name: Incidents
+    description: Incident lifecycle management operations.
+  - name: Alerts
+    description: Alert retrieval and management operations.
+  - name: Endpoints
+    description: Endpoint management and response actions.
+  - name: Scripts
+    description: Script execution on managed endpoints.
+  - name: Audit
+    description: Audit log retrieval.
+paths:
+  /incidents/get_incidents:
+    post:
+      operationId: getIncidents
+      summary: Get incidents
+      description: >-
+        Returns a list of incidents matching the specified filters. Supports
+        filtering by incident ID, status, severity, creation time, and
+        modification time. Returns up to 100 incidents per request with
+        pagination support.
+      tags:
+        - Incidents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_data:
+                  type: object
+                  properties:
+                    filters:
+                      type: array
+                      description: Array of filter objects to narrow results.
+                      items:
+                        $ref: '#/components/schemas/Filter'
+                    search_from:
+                      type: integer
+                      description: Starting offset for pagination.
+                      default: 0
+                    search_to:
+                      type: integer
+                      description: Ending offset for pagination.
+                    sort:
+                      $ref: '#/components/schemas/SortCriteria'
+      responses:
+        '200':
+          description: Incidents returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      total_count:
+                        type: integer
+                      result_count:
+                        type: integer
+                      incidents:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Incident'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/Forbidden'
+  /incidents/get_incident_extra_data:
+    post:
+      operationId: getIncidentExtraData
+      summary: Get incident details
+      description: >-
+        Returns detailed information about a specific incident including
+        associated alerts, network artifacts, file artifacts, and the
+        incident timeline.
+      tags:
+        - Incidents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_data:
+                  type: object
+                  required:
+                    - incident_id
+                  properties:
+                    incident_id:
+                      type: string
+                      description: The incident ID to retrieve details for.
+                    alerts_limit:
+                      type: integer
+                      default: 1000
+                      description: Maximum number of alerts to return.
+      responses:
+        '200':
+          description: Incident details returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      incident:
+                        $ref: '#/components/schemas/Incident'
+                      alerts:
+                        type: object
+                        properties:
+                          total_count:
+                            type: integer
+                          data:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Alert'
+                      network_artifacts:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/NetworkArtifact'
+                      file_artifacts:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/FileArtifact'
+  /incidents/update_incident:
+    post:
+      operationId: updateIncident
+      summary: Update incident
+      description: >-
+        Updates incident fields including status, severity, assignee,
+        and resolution status. Supports updating multiple fields in a
+        single request.
+      tags:
+        - Incidents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_data:
+                  type: object
+                  required:
+                    - incident_id
+                    - update_data
+                  properties:
+                    incident_id:
+                      type: string
+                    update_data:
+                      type: object
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - new
+                            - under_investigation
+                            - resolved_threat_handled
+                            - resolved_known_issue
+                            - resolved_duplicate
+                            - resolved_false_positive
+                            - resolved_other
+                        assigned_user_mail:
+                          type: string
+                          format: email
+                        assigned_user_pretty_name:
+                          type: string
+                        severity:
+                          type: string
+                          enum:
+                            - low
+                            - medium
+                            - high
+                            - critical
+                        resolve_comment:
+                          type: string
+      responses:
+        '200':
+          description: Incident updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: boolean
+  /alerts/get_alerts_multi_events:
+    post:
+      operationId: getAlerts
+      summary: Get alerts
+      description: >-
+        Returns alerts matching the specified filters. Each alert includes
+        event data, source information, severity, and associated artifacts.
+      tags:
+        - Alerts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_data:
+                  type: object
+                  properties:
+                    filters:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Filter'
+                    search_from:
+                      type: integer
+                      default: 0
+                    search_to:
+                      type: integer
+                    sort:
+                      $ref: '#/components/schemas/SortCriteria'
+      responses:
+        '200':
+          description: Alerts returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      total_count:
+                        type: integer
+                      result_count:
+                        type: integer
+                      alerts:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Alert'
+  /endpoints/get_endpoint:
+    post:
+      operationId: getEndpoints
+      summary: Get endpoints
+      description: >-
+        Returns a list of managed endpoints matching the specified filters.
+        Endpoint data includes agent version, OS, IP addresses, isolation
+        status, and last seen time.
+      tags:
+        - Endpoints
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_data:
+                  type: object
+                  properties:
+                    filters:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Filter'
+                    search_from:
+                      type: integer
+                      default: 0
+                    search_to:
+                      type: integer
+                    sort:
+                      $ref: '#/components/schemas/SortCriteria'
+      responses:
+        '200':
+          description: Endpoints returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      total_count:
+                        type: integer
+                      result_count:
+                        type: integer
+                      endpoints:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Endpoint'
+  /endpoints/isolate:
+    post:
+      operationId: isolateEndpoints
+      summary: Isolate endpoints
+      description: >-
+        Isolates one or more endpoints from the network. Isolated endpoints
+        can only communicate with the Cortex XDR cloud. Useful for
+        containing compromised hosts during incident response.
+      tags:
+        - Endpoints
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_data:
+                  type: object
+                  properties:
+                    filters:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Filter'
+                    endpoint_id_list:
+                      type: array
+                      items:
+                        type: string
+                      description: List of endpoint IDs to isolate.
+      responses:
+        '200':
+          description: Isolation initiated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      action_id:
+                        type: integer
+                        description: ID for tracking the action status.
+  /endpoints/unisolate:
+    post:
+      operationId: unisolateEndpoints
+      summary: Unisolate endpoints
+      description: >-
+        Removes network isolation from one or more endpoints, restoring
+        normal network connectivity.
+      tags:
+        - Endpoints
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_data:
+                  type: object
+                  properties:
+                    filters:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Filter'
+                    endpoint_id_list:
+                      type: array
+                      items:
+                        type: string
+      responses:
+        '200':
+          description: Unisolation initiated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      action_id:
+                        type: integer
+  /endpoints/scan:
+    post:
+      operationId: scanEndpoints
+      summary: Scan endpoints
+      description: >-
+        Initiates a full or partial malware scan on one or more endpoints.
+      tags:
+        - Endpoints
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_data:
+                  type: object
+                  properties:
+                    filters:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Filter'
+                    endpoint_id_list:
+                      type: array
+                      items:
+                        type: string
+      responses:
+        '200':
+          description: Scan initiated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      action_id:
+                        type: integer
+  /scripts/run_script:
+    post:
+      operationId: runScript
+      summary: Run script on endpoints
+      description: >-
+        Executes a script on one or more managed endpoints. Scripts can
+        be from the built-in script library or custom uploaded scripts.
+        Requires Advanced or RBAC API key.
+      tags:
+        - Scripts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_data:
+                  type: object
+                  required:
+                    - script_uid
+                    - filters
+                  properties:
+                    script_uid:
+                      type: string
+                      description: Unique identifier of the script to execute.
+                    filters:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Filter'
+                    endpoint_id_list:
+                      type: array
+                      items:
+                        type: string
+                    timeout:
+                      type: integer
+                      default: 600
+                      description: Script execution timeout in seconds.
+                    parameters_values:
+                      type: object
+                      description: Key-value pairs for script parameters.
+                      additionalProperties: true
+      responses:
+        '200':
+          description: Script execution initiated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      action_id:
+                        type: integer
+                      endpoints_count:
+                        type: integer
+  /audits/management_logs:
+    post:
+      operationId: getAuditLogs
+      summary: Get audit logs
+      description: >-
+        Returns management audit logs including user actions, configuration
+        changes, and API activity.
+      tags:
+        - Audit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_data:
+                  type: object
+                  properties:
+                    filters:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Filter'
+                    search_from:
+                      type: integer
+                      default: 0
+                    search_to:
+                      type: integer
+                    sort:
+                      $ref: '#/components/schemas/SortCriteria'
+      responses:
+        '200':
+          description: Audit logs returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      total_count:
+                        type: integer
+                      result_count:
+                        type: integer
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AuditLog'
+components:
+  securitySchemes:
+    apiKeyId:
+      type: apiKey
+      in: header
+      name: x-xdr-auth-id
+      description: API Key ID from Cortex XDR Settings > Configurations > API Keys.
+    apiKey:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: >-
+        API Key value. For Standard keys, the raw key. For Advanced keys,
+        a computed hash of the key with nonce and timestamp.
+  responses:
+    Unauthorized:
+      description: Missing or invalid API key credentials.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient API key permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    Filter:
+      type: object
+      description: Filter criteria for narrowing query results.
+      properties:
+        field:
+          type: string
+          description: Field name to filter on.
+        operator:
+          type: string
+          enum:
+            - in
+            - gte
+            - lte
+            - eq
+            - neq
+            - contains
+          description: Comparison operator.
+        value:
+          description: >-
+            Filter value. Type depends on operator; arrays for 'in',
+            scalars for comparison operators.
+    SortCriteria:
+      type: object
+      properties:
+        field:
+          type: string
+          description: Field to sort by.
+        keyword:
+          type: string
+          enum:
+            - asc
+            - desc
+          default: asc
+    Incident:
+      type: object
+      properties:
+        incident_id:
+          type: string
+        incident_name:
+          type: string
+        creation_time:
+          type: integer
+          description: Epoch timestamp in milliseconds.
+        modification_time:
+          type: integer
+        status:
+          type: string
+          enum:
+            - new
+            - under_investigation
+            - resolved_threat_handled
+            - resolved_known_issue
+            - resolved_duplicate
+            - resolved_false_positive
+            - resolved_other
+        severity:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+            - critical
+            - informational
+        description:
+          type: string
+        assigned_user_mail:
+          type: string
+        assigned_user_pretty_name:
+          type: string
+        alert_count:
+          type: integer
+        host_count:
+          type: integer
+        user_count:
+          type: integer
+        starred:
+          type: boolean
+        detection_time:
+          type: integer
+    Alert:
+      type: object
+      properties:
+        alert_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        severity:
+          type: string
+        category:
+          type: string
+        action:
+          type: string
+        action_pretty:
+          type: string
+        host_name:
+          type: string
+        host_ip:
+          type: string
+        user_name:
+          type: string
+        source:
+          type: string
+          description: Alert source (e.g., XDR Agent, XDR Analytics, BIOC).
+        detection_timestamp:
+          type: integer
+    Endpoint:
+      type: object
+      properties:
+        endpoint_id:
+          type: string
+        endpoint_name:
+          type: string
+        endpoint_type:
+          type: string
+        ip:
+          type: array
+          items:
+            type: string
+        os_type:
+          type: string
+          enum:
+            - windows
+            - linux
+            - macos
+            - android
+        domain:
+          type: string
+        alias:
+          type: string
+        install_date:
+          type: integer
+        last_seen:
+          type: integer
+        content_version:
+          type: string
+        endpoint_version:
+          type: string
+        is_isolated:
+          type: string
+          enum:
+            - AGENT_ISOLATED
+            - AGENT_UNISOLATED
+            - AGENT_PENDING_ISOLATION
+            - AGENT_PENDING_ISOLATION_CANCELLATION
+        endpoint_status:
+          type: string
+          enum:
+            - CONNECTED
+            - DISCONNECTED
+            - LOST
+    NetworkArtifact:
+      type: object
+      properties:
+        type:
+          type: string
+          description: Artifact type (domain, ip, etc.).
+        network_domain:
+          type: string
+        network_remote_ip:
+          type: string
+        network_remote_port:
+          type: integer
+        network_country:
+          type: string
+        is_manual:
+          type: boolean
+    FileArtifact:
+      type: object
+      properties:
+        type:
+          type: string
+        file_sha256:
+          type: string
+        file_name:
+          type: string
+        file_wildfire_verdict:
+          type: string
+        file_signature_vendor_name:
+          type: string
+        is_process:
+          type: boolean
+        is_manual:
+          type: boolean
+    AuditLog:
+      type: object
+      properties:
+        AUDIT_ID:
+          type: integer
+        AUDIT_OWNER_NAME:
+          type: string
+        AUDIT_OWNER_EMAIL:
+          type: string
+        AUDIT_ASSET_JSON:
+          type: string
+        AUDIT_ASSET_NAMES:
+          type: string
+        AUDIT_HOSTNAME:
+          type: string
+        AUDIT_RESULT:
+          type: string
+          enum:
+            - SUCCESS
+            - FAIL
+        AUDIT_REASON:
+          type: string
+        AUDIT_DESCRIPTION:
+          type: string
+        AUDIT_ENTITY:
+          type: string
+        AUDIT_ENTITY_SUBTYPE:
+          type: string
+        AUDIT_SESSION_ID:
+          type: integer
+        AUDIT_CASE_ID:
+          type: integer
+        AUDIT_INSERT_TIME:
+          type: integer
+    ErrorResponse:
+      type: object
+      properties:
+        reply:
+          type: object
+          properties:
+            err_code:
+              type: integer
+            err_msg:
+              type: string
+            err_extra:
+              type: string

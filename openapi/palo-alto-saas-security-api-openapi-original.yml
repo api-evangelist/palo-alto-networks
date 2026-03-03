@@ -1,0 +1,833 @@
+openapi: 3.1.0
+info:
+  title: SaaS Security API
+  description: >-
+    REST API for managing SaaS application security through Palo Alto
+    Networks SaaS Security (formerly Aperture). Provides asset
+    discovery and classification, incident management, application
+    visibility, and on-demand scanning capabilities for sanctioned
+    SaaS applications. Monitors cloud-stored files and collaboration
+    content for sensitive data exposure, malware, and policy violations
+    across services such as Office 365, Google Workspace, Box, Dropbox,
+    Salesforce, and Slack. Requires an active SaaS Security subscription.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  - url: https://api.aperture.paloaltonetworks.com/api/v1
+    description: SaaS Security API production server.
+security:
+  - bearerAuth: []
+tags:
+  - name: Assets
+    description: SaaS asset discovery and classification operations.
+  - name: Incidents
+    description: Security incident management operations.
+  - name: Applications
+    description: SaaS application visibility and management operations.
+  - name: Scans
+    description: On-demand scanning operations.
+paths:
+  /assets:
+    get:
+      operationId: listAssets
+      summary: List SaaS assets
+      description: >-
+        Returns a paginated list of assets discovered across connected
+        SaaS applications. Assets include files, documents, messages,
+        and other content objects stored in monitored cloud services.
+        Supports filtering by application, asset type, exposure level,
+        scan status, and owner.
+      tags:
+        - Assets
+      parameters:
+        - name: application
+          in: query
+          description: Filter assets by SaaS application name.
+          schema:
+            type: string
+            enum:
+              - office365
+              - google_workspace
+              - box
+              - dropbox
+              - salesforce
+              - slack
+              - github
+              - servicenow
+        - name: type
+          in: query
+          description: Filter assets by content type.
+          schema:
+            type: string
+            enum:
+              - file
+              - document
+              - spreadsheet
+              - presentation
+              - email
+              - message
+              - record
+        - name: exposure
+          in: query
+          description: Filter assets by exposure level.
+          schema:
+            type: string
+            enum:
+              - public
+              - external
+              - company
+              - internal
+              - private
+        - name: scan_status
+          in: query
+          description: Filter assets by scan status.
+          schema:
+            type: string
+            enum:
+              - scanned
+              - pending
+              - failed
+              - not_scanned
+        - name: owner
+          in: query
+          description: Filter assets by owner email address.
+          schema:
+            type: string
+        - name: has_violations
+          in: query
+          description: Filter for assets with policy violations.
+          schema:
+            type: boolean
+        - name: start_time
+          in: query
+          description: Filter assets modified after this time (ISO 8601 format).
+          schema:
+            type: string
+            format: date-time
+        - name: offset
+          in: query
+          description: Pagination offset.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of assets to return.
+          schema:
+            type: integer
+            default: 100
+            maximum: 500
+      responses:
+        '200':
+          description: SaaS assets returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of assets matching the query.
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+                  assets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Asset'
+        '400':
+          description: Invalid query parameters.
+        '401':
+          description: Invalid or expired bearer token.
+        '403':
+          description: Insufficient permissions.
+        '429':
+          description: Rate limit exceeded.
+  /assets/{id}:
+    get:
+      operationId: getAsset
+      summary: Get asset by ID
+      description: >-
+        Returns detailed information for a specific SaaS asset including
+        its full metadata, scan results, policy violation details,
+        sharing permissions, and activity history. Provides the complete
+        context needed for incident investigation.
+      tags:
+        - Assets
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique asset identifier.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Asset details returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  asset:
+                    $ref: '#/components/schemas/Asset'
+        '401':
+          description: Invalid or expired bearer token.
+        '403':
+          description: Insufficient permissions.
+        '404':
+          description: Asset not found.
+  /incidents:
+    get:
+      operationId: listIncidents
+      summary: List security incidents
+      description: >-
+        Returns a paginated list of security incidents detected across
+        monitored SaaS applications. Incidents are generated when assets
+        violate configured security policies, contain malware, expose
+        sensitive data, or exhibit anomalous sharing behavior. Supports
+        filtering by status, severity, application, and policy type.
+      tags:
+        - Incidents
+      parameters:
+        - name: status
+          in: query
+          description: Filter incidents by current status.
+          schema:
+            type: string
+            enum:
+              - open
+              - in_progress
+              - resolved
+              - dismissed
+        - name: severity
+          in: query
+          description: Filter incidents by severity level.
+          schema:
+            type: string
+            enum:
+              - critical
+              - high
+              - medium
+              - low
+              - informational
+        - name: application
+          in: query
+          description: Filter incidents by SaaS application.
+          schema:
+            type: string
+        - name: policy_type
+          in: query
+          description: Filter incidents by policy type.
+          schema:
+            type: string
+            enum:
+              - dlp
+              - malware
+              - exposure
+              - compliance
+              - anomaly
+        - name: start_time
+          in: query
+          description: Start of time range filter (ISO 8601 format).
+          schema:
+            type: string
+            format: date-time
+        - name: end_time
+          in: query
+          description: End of time range filter (ISO 8601 format).
+          schema:
+            type: string
+            format: date-time
+        - name: offset
+          in: query
+          description: Pagination offset.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of incidents to return.
+          schema:
+            type: integer
+            default: 100
+            maximum: 500
+      responses:
+        '200':
+          description: Security incidents returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+                  incidents:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Incident'
+        '400':
+          description: Invalid query parameters.
+        '401':
+          description: Invalid or expired bearer token.
+        '403':
+          description: Insufficient permissions.
+        '429':
+          description: Rate limit exceeded.
+  /incidents/{id}/status:
+    put:
+      operationId: updateIncidentStatus
+      summary: Update incident status
+      description: >-
+        Updates the status of a specific security incident. Supports
+        transitioning incidents through the investigation workflow
+        and adding resolution comments. Can also trigger automated
+        remediation actions when resolving an incident.
+      tags:
+        - Incidents
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique incident identifier.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - open
+                    - in_progress
+                    - resolved
+                    - dismissed
+                  description: New status for the incident.
+                comment:
+                  type: string
+                  description: Comment documenting the status change.
+                remediation_action:
+                  type: string
+                  enum:
+                    - quarantine
+                    - remove_sharing
+                    - notify_owner
+                    - none
+                  description: >-
+                    Remediation action to apply when resolving. Only
+                    applicable when status is set to resolved.
+      responses:
+        '200':
+          description: Incident status updated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  incident:
+                    $ref: '#/components/schemas/Incident'
+        '400':
+          description: Invalid status transition or request body.
+        '401':
+          description: Invalid or expired bearer token.
+        '403':
+          description: Insufficient permissions.
+        '404':
+          description: Incident not found.
+  /applications:
+    get:
+      operationId: listApplications
+      summary: List connected SaaS applications
+      description: >-
+        Returns a list of SaaS applications connected to the SaaS
+        Security service. Includes connection status, monitored asset
+        counts, scan progress, and application-specific configuration
+        details. Only returns applications that have been onboarded
+        and authorized for monitoring.
+      tags:
+        - Applications
+      parameters:
+        - name: status
+          in: query
+          description: Filter applications by connection status.
+          schema:
+            type: string
+            enum:
+              - connected
+              - disconnected
+              - pending
+              - error
+      responses:
+        '200':
+          description: Connected applications returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  applications:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Application'
+        '401':
+          description: Invalid or expired bearer token.
+        '403':
+          description: Insufficient permissions.
+        '429':
+          description: Rate limit exceeded.
+  /applications/{id}:
+    get:
+      operationId: getApplication
+      summary: Get application details
+      description: >-
+        Returns detailed information for a specific connected SaaS
+        application including connection health, scan statistics,
+        monitored user counts, incident summary, and configuration
+        settings.
+      tags:
+        - Applications
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique application identifier.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Application details returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  application:
+                    $ref: '#/components/schemas/Application'
+        '401':
+          description: Invalid or expired bearer token.
+        '403':
+          description: Insufficient permissions.
+        '404':
+          description: Application not found.
+  /scans:
+    post:
+      operationId: createScan
+      summary: Create on-demand scan
+      description: >-
+        Initiates an on-demand scan of assets in a specific SaaS
+        application. On-demand scans supplement the automated
+        continuous scanning and can target specific applications,
+        content types, or user accounts. Returns a scan identifier
+        that can be used to track scan progress.
+      tags:
+        - Scans
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - application_id
+              properties:
+                application_id:
+                  type: string
+                  description: Identifier of the application to scan.
+                scan_type:
+                  type: string
+                  enum:
+                    - full
+                    - incremental
+                    - targeted
+                  default: incremental
+                  description: Type of scan to perform.
+                target_users:
+                  type: array
+                  items:
+                    type: string
+                  description: >-
+                    List of user email addresses to target. Only
+                    applicable for targeted scans.
+                content_types:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - file
+                      - document
+                      - spreadsheet
+                      - presentation
+                      - email
+                      - message
+                  description: Content types to include in the scan.
+                policies:
+                  type: array
+                  items:
+                    type: string
+                  description: >-
+                    List of policy identifiers to evaluate during
+                    the scan. If empty, all active policies are used.
+      responses:
+        '202':
+          description: Scan initiated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  scan_id:
+                    type: string
+                    description: Unique identifier for the initiated scan.
+                  status:
+                    type: string
+                    enum:
+                      - queued
+                      - in_progress
+                  estimated_duration:
+                    type: string
+                    description: Estimated scan duration (e.g., 2h 30m).
+        '400':
+          description: Invalid request body or scan parameters.
+        '401':
+          description: Invalid or expired bearer token.
+        '403':
+          description: Insufficient permissions.
+        '404':
+          description: Application not found.
+        '409':
+          description: A scan is already in progress for this application.
+        '429':
+          description: Rate limit exceeded.
+  /scans/{id}:
+    get:
+      operationId: getScanStatus
+      summary: Get scan status
+      description: >-
+        Returns the current status and progress of a specific scan.
+        Includes asset count, completion percentage, findings
+        summary, and estimated time remaining for in-progress scans.
+      tags:
+        - Scans
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique scan identifier.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Scan status returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  scan_id:
+                    type: string
+                  application_id:
+                    type: string
+                  scan_type:
+                    type: string
+                  status:
+                    type: string
+                    enum:
+                      - queued
+                      - in_progress
+                      - completed
+                      - failed
+                      - cancelled
+                  progress:
+                    type: integer
+                    minimum: 0
+                    maximum: 100
+                    description: Completion percentage.
+                  assets_scanned:
+                    type: integer
+                  assets_total:
+                    type: integer
+                  violations_found:
+                    type: integer
+                  started_at:
+                    type: string
+                    format: date-time
+                  completed_at:
+                    type: string
+                    format: date-time
+                  estimated_remaining:
+                    type: string
+                    description: Estimated time remaining for in-progress scans.
+        '401':
+          description: Invalid or expired bearer token.
+        '403':
+          description: Insufficient permissions.
+        '404':
+          description: Scan not found.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        OAuth 2.0 bearer token obtained from the Palo Alto Networks
+        SaaS Security authentication service. Tokens are issued via
+        the client credentials flow using API credentials generated
+        in the SaaS Security administration console.
+  schemas:
+    Asset:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique asset identifier.
+        name:
+          type: string
+          description: Name of the asset (file name, document title, etc.).
+        type:
+          type: string
+          enum:
+            - file
+            - document
+            - spreadsheet
+            - presentation
+            - email
+            - message
+            - record
+          description: Content type of the asset.
+        application:
+          type: string
+          description: SaaS application where the asset resides.
+        owner:
+          type: string
+          description: Email address of the asset owner.
+        exposure:
+          type: string
+          enum:
+            - public
+            - external
+            - company
+            - internal
+            - private
+          description: >-
+            Current exposure level of the asset. Public means
+            accessible by anyone on the internet. External means
+            shared with users outside the organization.
+        scanStatus:
+          type: string
+          enum:
+            - scanned
+            - pending
+            - failed
+            - not_scanned
+          description: Current scan status of the asset.
+        violations:
+          type: array
+          items:
+            type: object
+            properties:
+              policy_id:
+                type: string
+              policy_name:
+                type: string
+              severity:
+                type: string
+              data_pattern:
+                type: string
+              match_count:
+                type: integer
+          description: List of policy violations detected in the asset.
+        size:
+          type: integer
+          description: Asset size in bytes.
+        mime_type:
+          type: string
+          description: MIME type of the asset content.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the asset was created in the SaaS application.
+        modified_at:
+          type: string
+          format: date-time
+          description: Timestamp when the asset was last modified.
+        last_scanned_at:
+          type: string
+          format: date-time
+          description: Timestamp of the most recent scan of this asset.
+        collaborators:
+          type: array
+          items:
+            type: string
+          description: Email addresses of users with access to the asset.
+        location:
+          type: string
+          description: Path or folder location within the SaaS application.
+    Incident:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique incident identifier.
+        status:
+          type: string
+          enum:
+            - open
+            - in_progress
+            - resolved
+            - dismissed
+          description: Current incident status.
+        severity:
+          type: string
+          enum:
+            - critical
+            - high
+            - medium
+            - low
+            - informational
+          description: Incident severity level.
+        policy_type:
+          type: string
+          enum:
+            - dlp
+            - malware
+            - exposure
+            - compliance
+            - anomaly
+          description: Type of policy that generated the incident.
+        policy_name:
+          type: string
+          description: Name of the policy that was violated.
+        application:
+          type: string
+          description: SaaS application where the incident occurred.
+        asset_id:
+          type: string
+          description: Identifier of the asset involved.
+        asset_name:
+          type: string
+          description: Name of the asset involved.
+        owner:
+          type: string
+          description: Email address of the asset owner.
+        description:
+          type: string
+          description: Human-readable incident description.
+        data_patterns:
+          type: array
+          items:
+            type: string
+          description: Data patterns that matched (for DLP incidents).
+        match_count:
+          type: integer
+          description: Number of data pattern matches.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the incident was created.
+        updated_at:
+          type: string
+          format: date-time
+          description: Timestamp when the incident was last updated.
+        assignee:
+          type: string
+          description: Email address of the assigned analyst.
+        remediation_action:
+          type: string
+          description: Remediation action applied to resolve the incident.
+    Application:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique application identifier.
+        name:
+          type: string
+          description: Display name of the SaaS application.
+        type:
+          type: string
+          enum:
+            - office365
+            - google_workspace
+            - box
+            - dropbox
+            - salesforce
+            - slack
+            - github
+            - servicenow
+          description: Application type identifier.
+        status:
+          type: string
+          enum:
+            - connected
+            - disconnected
+            - pending
+            - error
+          description: Current connection status.
+        connected_at:
+          type: string
+          format: date-time
+          description: Timestamp when the application was connected.
+        last_scan_at:
+          type: string
+          format: date-time
+          description: Timestamp of the most recent scan.
+        total_assets:
+          type: integer
+          description: Total number of assets discovered.
+        scanned_assets:
+          type: integer
+          description: Number of assets that have been scanned.
+        monitored_users:
+          type: integer
+          description: Number of users being monitored.
+        open_incidents:
+          type: integer
+          description: Number of open incidents for this application.
+        scan_progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Current scan completion percentage.
+        policies_applied:
+          type: array
+          items:
+            type: string
+          description: List of policy names applied to this application.
+        health:
+          type: object
+          properties:
+            api_status:
+              type: string
+              enum:
+                - healthy
+                - degraded
+                - unavailable
+            last_heartbeat:
+              type: string
+              format: date-time
+            error_message:
+              type: string
+          description: Application connection health details.

@@ -1,0 +1,992 @@
+openapi: 3.1.0
+info:
+  title: Strata Cloud Manager API
+  description: >-
+    Unified cloud-based management API for Palo Alto Networks Strata Cloud
+    Manager. Provides centralized configuration management for firewalls,
+    Prisma Access, and Prisma SD-WAN deployments through a single API.
+    Supports managing security rules, address objects, address groups, tags,
+    service objects, and network interfaces across all managed devices and
+    tenants. Authentication uses OAuth2 bearer tokens obtained from the
+    Palo Alto Networks identity provider with a client credentials grant.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+  - url: https://api.strata.paloaltonetworks.com
+    description: Strata Cloud Manager API production endpoint.
+security:
+  - bearerAuth: []
+tags:
+  - name: Security
+    description: Security policy rule configuration.
+  - name: Objects
+    description: Address, tag, and service object management.
+  - name: Network
+    description: Network interface configuration.
+  - name: Deployment
+    description: Configuration deployment and push operations.
+paths:
+  /config/security/v1/security-rules:
+    get:
+      operationId: listSecurityRules
+      summary: List security rules
+      description: >-
+        Returns a paginated list of security rules configured in the
+        specified folder or snippet. Security rules define the traffic
+        forwarding and inspection policy applied to network traffic
+        flowing through managed firewalls.
+      tags:
+        - Security
+      parameters:
+        - name: folder
+          in: query
+          description: >-
+            Configuration folder scope (e.g., Shared, Mobile Users,
+            Remote Networks, Service Connections).
+          schema:
+            type: string
+        - name: snippet
+          in: query
+          description: Configuration snippet name.
+          schema:
+            type: string
+        - name: position
+          in: query
+          description: Rulebase position filter.
+          schema:
+            type: string
+            enum:
+              - pre
+              - post
+        - name: limit
+          in: query
+          description: Maximum number of results per page.
+          schema:
+            type: integer
+            default: 200
+            maximum: 5000
+        - name: offset
+          in: query
+          description: Pagination offset.
+          schema:
+            type: integer
+            default: 0
+        - name: name
+          in: query
+          description: Filter by rule name.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Security rules returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SecurityRule'
+                  offset:
+                    type: integer
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      operationId: createSecurityRule
+      summary: Create security rule
+      description: >-
+        Creates a new security rule in the specified folder or snippet.
+        The rule defines matching criteria including source and destination
+        zones, addresses, applications, services, and the action to take
+        on matching traffic.
+      tags:
+        - Security
+      parameters:
+        - name: folder
+          in: query
+          description: Configuration folder scope.
+          schema:
+            type: string
+        - name: snippet
+          in: query
+          description: Configuration snippet name.
+          schema:
+            type: string
+        - name: position
+          in: query
+          description: Rulebase position.
+          schema:
+            type: string
+            enum:
+              - pre
+              - post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecurityRule'
+      responses:
+        '201':
+          description: Security rule created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: A rule with the specified name already exists.
+  /config/security/v1/security-rules/{id}:
+    get:
+      operationId: getSecurityRule
+      summary: Get security rule
+      description: Returns a specific security rule by its unique identifier.
+      tags:
+        - Security
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the security rule.
+          schema:
+            type: string
+        - name: folder
+          in: query
+          description: Configuration folder scope.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Security rule returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityRule'
+        '404':
+          description: Security rule not found.
+    put:
+      operationId: updateSecurityRule
+      summary: Update security rule
+      description: >-
+        Updates an existing security rule. The entire rule object must be
+        provided as this performs a full replacement of the rule
+        configuration.
+      tags:
+        - Security
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the security rule.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecurityRule'
+      responses:
+        '200':
+          description: Security rule updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityRule'
+        '404':
+          description: Security rule not found.
+    delete:
+      operationId: deleteSecurityRule
+      summary: Delete security rule
+      description: Deletes a security rule by its unique identifier.
+      tags:
+        - Security
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the security rule.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Security rule deleted.
+        '404':
+          description: Security rule not found.
+        '409':
+          description: Rule cannot be deleted due to existing references.
+  /config/objects/v1/addresses:
+    get:
+      operationId: listAddresses
+      summary: List address objects
+      description: >-
+        Returns a paginated list of address objects configured in the
+        specified folder or snippet. Address objects represent IP
+        addresses, subnets, ranges, or FQDNs used in security policy
+        rules.
+      tags:
+        - Objects
+      parameters:
+        - name: folder
+          in: query
+          description: Configuration folder scope.
+          schema:
+            type: string
+        - name: snippet
+          in: query
+          description: Configuration snippet name.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 200
+            maximum: 5000
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: name
+          in: query
+          description: Filter by address object name.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Address objects returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Address'
+                  offset:
+                    type: integer
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+    post:
+      operationId: createAddress
+      summary: Create address object
+      description: >-
+        Creates a new address object in the specified folder or snippet.
+        Exactly one address type field (ip_netmask, ip_range, ip_wildcard,
+        or fqdn) must be provided.
+      tags:
+        - Objects
+      parameters:
+        - name: folder
+          in: query
+          description: Configuration folder scope.
+          schema:
+            type: string
+        - name: snippet
+          in: query
+          description: Configuration snippet name.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Address'
+      responses:
+        '201':
+          description: Address object created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: An address object with the specified name already exists.
+  /config/objects/v1/address-groups:
+    get:
+      operationId: listAddressGroups
+      summary: List address groups
+      description: >-
+        Returns a paginated list of address groups. Groups can be static
+        with explicit member lists or dynamic with tag-based filters.
+      tags:
+        - Objects
+      parameters:
+        - name: folder
+          in: query
+          schema:
+            type: string
+        - name: snippet
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 200
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: name
+          in: query
+          description: Filter by address group name.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Address groups returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        folder:
+                          type: string
+                        description:
+                          type: string
+                        static:
+                          type: array
+                          items:
+                            type: string
+                          description: List of address object names for static groups.
+                        dynamic:
+                          type: object
+                          properties:
+                            filter:
+                              type: string
+                              description: Tag-based filter expression for dynamic groups.
+                        tag:
+                          type: array
+                          items:
+                            type: string
+                  offset:
+                    type: integer
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+  /config/objects/v1/tags:
+    get:
+      operationId: listTags
+      summary: List tags
+      description: >-
+        Returns a paginated list of tag objects. Tags are used to
+        categorize and group address objects, service objects, and other
+        configuration elements for use in dynamic groups and policy
+        filtering.
+      tags:
+        - Objects
+      parameters:
+        - name: folder
+          in: query
+          description: Configuration folder scope.
+          schema:
+            type: string
+        - name: snippet
+          in: query
+          description: Configuration snippet name.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 200
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: name
+          in: query
+          description: Filter by tag name.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tags returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tag'
+                  offset:
+                    type: integer
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+    post:
+      operationId: createTag
+      summary: Create tag
+      description: >-
+        Creates a new tag object with optional color assignment. Tags
+        are used to categorize configuration objects and enable dynamic
+        group membership.
+      tags:
+        - Objects
+      parameters:
+        - name: folder
+          in: query
+          description: Configuration folder scope.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Tag'
+      responses:
+        '201':
+          description: Tag created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tag'
+  /config/objects/v1/services:
+    get:
+      operationId: listServices
+      summary: List service objects
+      description: >-
+        Returns a paginated list of service objects. Service objects
+        define protocol and port combinations used in security policy
+        rules to identify specific network services.
+      tags:
+        - Objects
+      parameters:
+        - name: folder
+          in: query
+          description: Configuration folder scope.
+          schema:
+            type: string
+        - name: snippet
+          in: query
+          description: Configuration snippet name.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 200
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: name
+          in: query
+          description: Filter by service name.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Service objects returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Service'
+                  offset:
+                    type: integer
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+    post:
+      operationId: createService
+      summary: Create service object
+      description: >-
+        Creates a new service object defining a TCP or UDP protocol with
+        destination port or port range.
+      tags:
+        - Objects
+      parameters:
+        - name: folder
+          in: query
+          description: Configuration folder scope.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Service'
+      responses:
+        '201':
+          description: Service object created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /config/network/v1/interfaces:
+    get:
+      operationId: listInterfaces
+      summary: List network interfaces
+      description: >-
+        Returns a paginated list of network interfaces configured on
+        managed devices. Includes ethernet, loopback, tunnel, and
+        aggregate interfaces with their IP addressing and zone
+        assignments.
+      tags:
+        - Network
+      parameters:
+        - name: folder
+          in: query
+          description: Configuration folder scope.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 200
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: name
+          in: query
+          description: Filter by interface name.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Interfaces returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        folder:
+                          type: string
+                        type:
+                          type: string
+                          enum:
+                            - ethernet
+                            - loopback
+                            - tunnel
+                            - aggregate-ethernet
+                            - vlan
+                        ip_address:
+                          type: string
+                          description: IP address with CIDR notation.
+                        zone:
+                          type: string
+                          description: Assigned security zone.
+                        mtu:
+                          type: integer
+                        link_state:
+                          type: string
+                          enum:
+                            - up
+                            - down
+                            - auto
+                        comment:
+                          type: string
+                  offset:
+                    type: integer
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+  /config/deployment/v1/push:
+    post:
+      operationId: pushConfiguration
+      summary: Push configuration
+      description: >-
+        Pushes pending configuration changes to managed devices. This
+        deploys all uncommitted configuration modifications in the
+        specified folder to the target firewalls and appliances. Returns
+        a job ID for tracking the push operation status.
+      tags:
+        - Deployment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - folders
+              properties:
+                folders:
+                  type: array
+                  items:
+                    type: string
+                  description: >-
+                    List of folder names to push (e.g., Shared, Mobile Users).
+                description:
+                  type: string
+                  description: Description of the configuration push.
+      responses:
+        '200':
+          description: Configuration push initiated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  job_id:
+                    type: string
+                    description: Job ID for tracking push status.
+                  message:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        OAuth2 access token obtained from the Palo Alto Networks identity
+        provider using a client credentials grant. Generate a service
+        account and client credentials from the Strata Cloud Manager
+        identity settings. Tokens are typically valid for 15 minutes.
+  responses:
+    BadRequest:
+      description: Malformed request or invalid parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid authentication token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient permissions for the requested operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    SecurityRule:
+      type: object
+      description: >-
+        A security policy rule defining traffic matching criteria and
+        enforcement action.
+      properties:
+        id:
+          type: string
+          description: Unique identifier assigned by the system.
+          readOnly: true
+        name:
+          type: string
+          description: Rule name, unique within the folder and position.
+        folder:
+          type: string
+          description: Configuration folder containing this rule.
+          readOnly: true
+        position:
+          type: string
+          enum:
+            - pre
+            - post
+          description: Rulebase position.
+        from:
+          type: array
+          items:
+            type: string
+          description: Source security zones.
+        to:
+          type: array
+          items:
+            type: string
+          description: Destination security zones.
+        source:
+          type: array
+          items:
+            type: string
+          description: Source addresses or address groups (use "any" for all).
+        destination:
+          type: array
+          items:
+            type: string
+          description: Destination addresses or address groups.
+        source_user:
+          type: array
+          items:
+            type: string
+          description: Source users or user groups.
+        application:
+          type: array
+          items:
+            type: string
+          description: Applications to match (e.g., ssl, web-browsing).
+        service:
+          type: array
+          items:
+            type: string
+          description: Service objects or application-default.
+        category:
+          type: array
+          items:
+            type: string
+          description: URL categories to match.
+        action:
+          type: string
+          enum:
+            - allow
+            - deny
+            - drop
+            - reset-client
+            - reset-server
+            - reset-both
+          description: Action to take on matching traffic.
+        log_setting:
+          type: string
+          description: Log forwarding profile name.
+        profile_setting:
+          type: object
+          properties:
+            group:
+              type: array
+              items:
+                type: string
+              description: Security profile group names.
+        description:
+          type: string
+        tag:
+          type: array
+          items:
+            type: string
+        disabled:
+          type: boolean
+          default: false
+    Address:
+      type: object
+      description: >-
+        An address object representing an IP address, subnet, range,
+        or FQDN.
+      properties:
+        id:
+          type: string
+          description: Unique identifier assigned by the system.
+          readOnly: true
+        name:
+          type: string
+          description: Unique name of the address object.
+        folder:
+          type: string
+          readOnly: true
+        ip_netmask:
+          type: string
+          description: IP address with CIDR netmask (e.g., 10.0.0.0/24).
+        ip_range:
+          type: string
+          description: IP address range (e.g., 10.0.0.1-10.0.0.254).
+        ip_wildcard:
+          type: string
+          description: IP wildcard mask notation.
+        fqdn:
+          type: string
+          description: Fully qualified domain name.
+        description:
+          type: string
+        tag:
+          type: array
+          items:
+            type: string
+          description: Tags assigned to this address object.
+    Tag:
+      type: object
+      description: A tag for categorizing configuration objects.
+      properties:
+        id:
+          type: string
+          description: Unique identifier assigned by the system.
+          readOnly: true
+        name:
+          type: string
+          description: Tag name.
+        folder:
+          type: string
+          readOnly: true
+        color:
+          type: string
+          description: Display color for the tag.
+          enum:
+            - Red
+            - Green
+            - Blue
+            - Yellow
+            - Copper
+            - Orange
+            - Purple
+            - Gray
+            - Light Green
+            - Cyan
+            - Light Gray
+            - Blue Gray
+            - Lime
+            - Black
+            - Gold
+            - Brown
+            - Olive
+            - Maroon
+            - Red-Orange
+            - Yellow-Orange
+            - Forest Green
+            - Turquoise Blue
+            - Azure Blue
+            - Cerulean Blue
+            - Midnight Blue
+            - Medium Blue
+            - Cobalt Blue
+            - Violet Blue
+            - Blue Violet
+            - Medium Violet
+            - Medium Rose
+            - Lavender
+            - Orchid
+            - Thistle
+            - Peach
+            - Salmon
+            - Magenta
+            - Red Violet
+            - Mahogany
+            - Burnt Sienna
+            - Chestnut
+        comments:
+          type: string
+          description: Description or comments for the tag.
+    Service:
+      type: object
+      description: >-
+        A service object defining a protocol and port combination for
+        use in security policy rules.
+      properties:
+        id:
+          type: string
+          description: Unique identifier assigned by the system.
+          readOnly: true
+        name:
+          type: string
+          description: Unique name of the service object.
+        folder:
+          type: string
+          readOnly: true
+        protocol:
+          type: object
+          properties:
+            tcp:
+              type: object
+              properties:
+                port:
+                  type: string
+                  description: >-
+                    TCP destination port number or range (e.g., 80,
+                    8080-8090).
+                source_port:
+                  type: string
+                  description: TCP source port number or range.
+                override:
+                  type: object
+                  properties:
+                    timeout:
+                      type: integer
+                      description: Session timeout override in seconds.
+                    halfclose_timeout:
+                      type: integer
+                    timewait_timeout:
+                      type: integer
+            udp:
+              type: object
+              properties:
+                port:
+                  type: string
+                  description: >-
+                    UDP destination port number or range (e.g., 53,
+                    500-502).
+                source_port:
+                  type: string
+                override:
+                  type: object
+                  properties:
+                    timeout:
+                      type: integer
+        description:
+          type: string
+        tag:
+          type: array
+          items:
+            type: string
+    ErrorResponse:
+      type: object
+      properties:
+        _errors:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+              message:
+                type: string
+              details:
+                type: object
+        _request_id:
+          type: string
+          description: Unique request identifier for troubleshooting.
