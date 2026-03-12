@@ -2,188 +2,346 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/api-evangelist/palo-alto-networks/refs/heads/main/json-schema/palo-alto-security-advisory-schema.json",
   "title": "Palo Alto Networks Security Advisory",
-  "description": "Schema for a Palo Alto Networks PSIRT (Product Security Incident Response Team) security advisory. Security advisories disclose vulnerabilities affecting Palo Alto Networks products including PAN-OS, Cortex XDR, Prisma Cloud, Prisma Access, GlobalProtect, and other solutions. Each advisory provides vulnerability details, CVSS scoring, affected product versions, fixed versions, workarounds, and references aligned with CVE and CVSS standards. Advisories are published on the Palo Alto Networks Security Advisories page and updated as new information becomes available.",
+  "description": "Schema for a Palo Alto Networks PSIRT (Product Security Incident Response Team) security advisory in CVE JSON 5.0 format. Security advisories disclose vulnerabilities affecting Palo Alto Networks products including PAN-OS, Cortex XDR, Prisma Cloud, Prisma Access, GlobalProtect, Cortex XSOAR, and other solutions. Each advisory provides vulnerability details, CVSS scoring, affected product versions, fixed versions, workarounds, and references. Advisories are published on security.paloaltonetworks.com and updated as new information becomes available.",
   "type": "object",
-  "required": ["advisoryId", "title", "severity"],
+  "required": ["dataType", "containers"],
   "properties": {
-    "advisoryId": {
+    "dataType": {
       "type": "string",
-      "description": "Unique identifier for the security advisory assigned by the Palo Alto Networks PSIRT. Follows the format 'PAN-SA-YYYY-NNNN' for security advisories or 'PAN-IN-YYYY-NNNN' for informational bulletins.",
-      "pattern": "^PAN-(SA|IN)-\\d{4}-\\d{4}$"
+      "description": "Identifies the CVE JSON record type. Must be 'CVE_RECORD' for standard CVE records published by a CVE Numbering Authority.",
+      "const": "CVE_RECORD"
     },
-    "cveId": {
-      "type": "string",
-      "description": "Common Vulnerabilities and Exposures (CVE) identifier assigned to the vulnerability by a CVE Numbering Authority (CNA). Palo Alto Networks serves as a CNA for vulnerabilities in its own products. Format is 'CVE-' followed by a four-digit year and a sequence number of four or more digits.",
-      "pattern": "^CVE-\\d{4}-\\d{4,}$"
+    "cveMetadata": {
+      "$ref": "#/$defs/CveMetadata",
+      "description": "Top-level metadata about the CVE record including the CVE identifier, assigning organization, publication state, and timestamps."
     },
-    "title": {
-      "type": "string",
-      "description": "Brief descriptive title of the security advisory summarizing the vulnerability type and affected product component. Should clearly communicate the nature of the vulnerability (e.g., 'PAN-OS: OS Command Injection Vulnerability in Management Interface')."
-    },
-    "severity": {
-      "type": "string",
-      "description": "Qualitative severity rating of the vulnerability based on the CVSS base score range. 'none' indicates a CVSS score of 0.0, 'low' maps to 0.1-3.9, 'medium' maps to 4.0-6.9, 'high' maps to 7.0-8.9, and 'critical' maps to 9.0-10.0. The severity rating determines the urgency of patch deployment.",
-      "enum": ["none", "low", "medium", "high", "critical"]
-    },
-    "cvssBaseScore": {
-      "type": "number",
-      "description": "Common Vulnerability Scoring System (CVSS) version 3.1 base score representing the intrinsic severity of the vulnerability. The score ranges from 0.0 (no impact) to 10.0 (maximum severity) and is calculated from the attack vector, complexity, privileges required, user interaction, scope, and impact metrics.",
-      "minimum": 0,
-      "maximum": 10
-    },
-    "cvssVector": {
-      "type": "string",
-      "description": "CVSS version 3.1 vector string encoding the individual metrics used to calculate the base score. Format follows the CVSS v3.1 specification (e.g., 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H'). Each metric abbreviation represents an attack characteristic.",
-      "pattern": "^CVSS:3\\.[01]/AV:[NALP]/AC:[LH]/PR:[NLH]/UI:[NR]/S:[UC]/C:[NLH]/I:[NLH]/A:[NLH]$"
-    },
-    "description": {
-      "type": "string",
-      "description": "Detailed technical description of the vulnerability including the root cause, attack prerequisites, and exploitation mechanism. Should explain what the vulnerability is, where it exists in the product, and under what conditions it can be exploited. Supports markdown formatting."
-    },
-    "impact": {
-      "type": "string",
-      "description": "Description of the potential security impact if the vulnerability is successfully exploited. Should describe the consequences in terms of confidentiality, integrity, and availability impacts, as well as any potential for lateral movement, privilege escalation, or data exfiltration."
-    },
-    "exploitStatus": {
-      "type": "string",
-      "description": "Current known exploitation status of the vulnerability. 'none' indicates no known exploitation or proof-of-concept code, 'poc' indicates that proof-of-concept exploit code exists publicly or has been demonstrated, and 'active' indicates that the vulnerability is being actively exploited in the wild by threat actors.",
-      "enum": ["none", "poc", "active"]
-    },
-    "affectedProducts": {
-      "type": "array",
-      "description": "List of Palo Alto Networks products and versions affected by the vulnerability. Each entry identifies a specific product, the vulnerable version ranges, and optionally the hardware or virtual platforms affected.",
-      "items": {
-        "$ref": "#/$defs/AffectedProduct"
-      }
-    },
-    "fixedVersions": {
-      "type": "array",
-      "description": "List of product versions that contain the fix for the vulnerability. Each entry identifies the specific product, version number, and release date of the patched software. Customers should upgrade to one of these versions or later to remediate the vulnerability.",
-      "items": {
-        "$ref": "#/$defs/FixedVersion"
-      }
-    },
-    "workarounds": {
-      "type": "string",
-      "description": "Description of temporary mitigations or configuration changes that can reduce the risk of exploitation before a patched version is deployed. Workarounds may include restricting network access, disabling affected features, applying configuration hardening, or using Threat Prevention signatures. Supports markdown formatting."
-    },
-    "acknowledgments": {
-      "type": "array",
-      "description": "List of individuals, organizations, or teams who discovered or reported the vulnerability to Palo Alto Networks PSIRT. Acknowledgments recognize responsible disclosure efforts by external security researchers, partner organizations, or internal teams.",
-      "items": {
-        "type": "string",
-        "description": "Name and optional organizational affiliation of the reporter (e.g., 'John Smith of Acme Security Research')."
-      }
-    },
-    "publishedDate": {
-      "type": "string",
-      "description": "Date when the security advisory was first publicly published on the Palo Alto Networks Security Advisories page. Formatted as an ISO 8601 date string (YYYY-MM-DD).",
-      "format": "date"
-    },
-    "lastUpdatedDate": {
-      "type": "string",
-      "description": "Date when the security advisory was last updated with new information such as additional affected products, fixed versions, workaround changes, or exploitation status updates. Formatted as an ISO 8601 date string (YYYY-MM-DD).",
-      "format": "date"
-    },
-    "references": {
-      "type": "array",
-      "description": "List of external references providing additional information about the vulnerability, including CVE entries, vendor advisories, CERT/CC advisories, threat intelligence reports, and related documentation.",
-      "items": {
-        "$ref": "#/$defs/Reference"
-      }
-    },
-    "threatPreventionSignatures": {
-      "type": "array",
-      "description": "List of Palo Alto Networks Threat Prevention signature identifiers that detect or block exploitation of the vulnerability. These signatures can be deployed on PAN-OS firewalls and Prisma Access to provide network-level protection.",
-      "items": {
-        "$ref": "#/$defs/ThreatPreventionSignature"
-      }
+    "containers": {
+      "$ref": "#/$defs/Containers",
+      "description": "Container objects holding the vulnerability details contributed by the CNA (Palo Alto Networks PSIRT) and any authorized data publishers (ADP) such as CISA or NVD."
     }
   },
   "$defs": {
-    "AffectedProduct": {
+    "CveMetadata": {
       "type": "object",
-      "description": "Describes a specific Palo Alto Networks product and the version ranges affected by the vulnerability. Products include PAN-OS (firewall operating system), Cortex XDR, Cortex XSOAR, Prisma Cloud, Prisma Access, GlobalProtect, and other security solutions.",
-      "required": ["product", "versions"],
+      "description": "Metadata block for the CVE record containing the CVE identifier, assigning organization, publication lifecycle state, and key timestamps.",
+      "required": ["cveId", "assignerOrgId", "state"],
       "properties": {
-        "product": {
+        "cveId": {
           "type": "string",
-          "description": "Name of the affected Palo Alto Networks product (e.g., 'PAN-OS', 'Cortex XDR Agent', 'Cortex XSOAR', 'Prisma Cloud Compute', 'Prisma Access', 'GlobalProtect App', 'Cloud NGFW')."
+          "description": "The CVE identifier assigned by the CVE Numbering Authority. Format is 'CVE-' followed by a four-digit year and a sequence number of four or more digits.",
+          "pattern": "^CVE-\\d{4}-\\d{4,}$",
+          "example": "CVE-2024-3400"
         },
-        "versions": {
-          "type": "array",
-          "description": "List of affected version ranges or specific version identifiers. May include version ranges using comparison operators (e.g., '< 10.2.5', '>= 10.1.0'), specific versions (e.g., '10.2.3'), or branch identifiers (e.g., '10.2', '11.0').",
-          "items": {
-            "type": "string",
-            "description": "A version string, version range, or version branch identifier."
-          }
-        },
-        "platforms": {
-          "type": "array",
-          "description": "List of hardware or virtual platforms within the product family that are affected. When not specified, all platforms for the product are considered affected. Examples include specific firewall models (PA-220, PA-3200 Series), virtual form factors (VM-Series, CN-Series), or deployment types (Cloud NGFW for AWS).",
-          "items": {
-            "type": "string",
-            "description": "Platform name or model identifier."
-          }
-        },
-        "defaultStatus": {
+        "assignerOrgId": {
           "type": "string",
-          "description": "Default vulnerability status for versions not explicitly listed. Indicates whether unlisted versions should be assumed affected or unaffected.",
-          "enum": ["affected", "unaffected", "unknown"]
+          "format": "uuid",
+          "description": "UUID identifying the CVE Numbering Authority organization that assigned this CVE. For Palo Alto Networks this is the PSIRT organization UUID registered with the CVE Program.",
+          "example": "d6c1719f-72b1-4bea-a943-71e100a7dc6c"
+        },
+        "state": {
+          "type": "string",
+          "description": "Publication lifecycle state of the CVE record. 'PUBLISHED' indicates the advisory is publicly available. 'REJECTED' indicates the CVE was rejected and should not be treated as valid.",
+          "enum": ["PUBLISHED", "REJECTED"]
+        },
+        "datePublished": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 date-time when the CVE record was first published publicly by the assigning CNA."
+        },
+        "dateUpdated": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 date-time when the CVE record was most recently updated with new information such as additional affected versions, revised CVSS scores, or updated workarounds."
         }
       }
     },
-    "FixedVersion": {
+    "Containers": {
       "type": "object",
-      "description": "Identifies a specific product version that includes the vulnerability fix. Customers should upgrade to this version or any later maintenance release within the same branch to remediate the vulnerability.",
-      "required": ["product", "version"],
+      "description": "Container holding vulnerability details contributed by the CNA and any authorized data publishers. The cna block contains the authoritative Palo Alto Networks PSIRT data. The adp array contains supplementary data from authorized third parties.",
+      "required": ["cna"],
       "properties": {
+        "cna": {
+          "$ref": "#/$defs/CnaContainer",
+          "description": "Authoritative vulnerability details contributed by Palo Alto Networks as the assigning CNA. Contains the official advisory content including descriptions, affected products, CVSS scores, references, and remediation guidance."
+        },
+        "adp": {
+          "type": "array",
+          "description": "Supplementary vulnerability data contributed by Authorized Data Publishers such as CISA, NVD, or other organizations that enrich CVE records with additional analysis or context.",
+          "items": {
+            "$ref": "#/$defs/AdpContainer"
+          }
+        }
+      }
+    },
+    "CnaContainer": {
+      "type": "object",
+      "description": "CNA-contributed vulnerability details block containing the authoritative advisory content published by Palo Alto Networks PSIRT. Includes all information required for customers to assess risk and apply remediations.",
+      "required": ["descriptions", "affected", "references"],
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Brief descriptive title of the security advisory summarizing the vulnerability type and affected product component (e.g., 'PAN-OS: OS Command Injection Vulnerability in Management Interface')."
+        },
+        "descriptions": {
+          "type": "array",
+          "description": "List of natural language descriptions of the vulnerability in one or more languages. At minimum one English description must be provided.",
+          "items": {
+            "$ref": "#/$defs/Description"
+          }
+        },
+        "affected": {
+          "type": "array",
+          "description": "List of affected product and version entries describing which Palo Alto Networks products and version ranges are vulnerable. Each entry specifies a vendor, product, and list of affected version ranges.",
+          "items": {
+            "$ref": "#/$defs/AffectedProduct"
+          }
+        },
+        "metrics": {
+          "type": "array",
+          "description": "List of vulnerability severity metrics including CVSS v3.1 and CVSS v4.0 scores. Each entry provides the scored vector string and base score for risk assessment.",
+          "items": {
+            "$ref": "#/$defs/Metric"
+          }
+        },
+        "references": {
+          "type": "array",
+          "description": "List of external reference URLs providing additional information about the vulnerability including the official advisory page, NVD entry, related threat intelligence, and fix release notes.",
+          "items": {
+            "$ref": "#/$defs/Reference"
+          }
+        },
+        "workarounds": {
+          "type": "array",
+          "description": "List of temporary mitigation steps or configuration changes that reduce exploitation risk before a patched version is deployed. Each entry describes a specific workaround action.",
+          "items": {
+            "$ref": "#/$defs/Description"
+          }
+        },
+        "solutions": {
+          "type": "array",
+          "description": "List of definitive remediation solutions, typically referencing specific fixed product versions customers should upgrade to in order to fully resolve the vulnerability.",
+          "items": {
+            "$ref": "#/$defs/Description"
+          }
+        },
+        "configurations": {
+          "type": "array",
+          "description": "List of configuration prerequisites or conditions that must be present for the vulnerability to be exploitable. Helps customers assess whether their specific deployment is at risk.",
+          "items": {
+            "$ref": "#/$defs/Description"
+          }
+        }
+      }
+    },
+    "AdpContainer": {
+      "type": "object",
+      "description": "Vulnerability data contributed by an Authorized Data Publisher supplementing the CNA advisory with additional analysis, scoring, or context from organizations such as CISA or NVD.",
+      "properties": {
+        "orgId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "UUID identifying the Authorized Data Publisher organization contributing this supplementary data."
+        },
+        "title": {
+          "type": "string",
+          "description": "Optional title for the ADP data contribution."
+        },
+        "descriptions": {
+          "type": "array",
+          "description": "Supplementary descriptions added by the ADP.",
+          "items": {
+            "$ref": "#/$defs/Description"
+          }
+        },
+        "metrics": {
+          "type": "array",
+          "description": "Supplementary CVSS or other severity metrics provided by the ADP.",
+          "items": {
+            "$ref": "#/$defs/Metric"
+          }
+        },
+        "references": {
+          "type": "array",
+          "description": "Additional reference URLs provided by the ADP.",
+          "items": {
+            "$ref": "#/$defs/Reference"
+          }
+        }
+      }
+    },
+    "Description": {
+      "type": "object",
+      "description": "A natural language description entry with language tagging. Used for advisory descriptions, workaround steps, solution instructions, and configuration prerequisites.",
+      "required": ["lang", "value"],
+      "properties": {
+        "lang": {
+          "type": "string",
+          "description": "BCP 47 language tag identifying the language of the description text (e.g., 'en' for English, 'ja' for Japanese).",
+          "example": "en"
+        },
+        "value": {
+          "type": "string",
+          "description": "The description text content in the specified language. May include technical detail about the vulnerability, exploitation conditions, impact, or remediation steps."
+        }
+      }
+    },
+    "AffectedProduct": {
+      "type": "object",
+      "description": "Describes a specific Palo Alto Networks product and the version ranges affected by the vulnerability. Each entry targets a single vendor-product combination and lists all vulnerable version ranges.",
+      "required": ["vendor", "product", "versions"],
+      "properties": {
+        "vendor": {
+          "type": "string",
+          "description": "Vendor name of the affected product. For Palo Alto Networks products this is 'Palo Alto Networks'.",
+          "example": "Palo Alto Networks"
+        },
         "product": {
           "type": "string",
-          "description": "Name of the Palo Alto Networks product for which the fixed version is available."
+          "description": "Product name of the affected software (e.g., 'PAN-OS', 'Cortex XDR Agent', 'Cortex XSOAR', 'Prisma Cloud Compute', 'Prisma Access', 'GlobalProtect App', 'Cloud NGFW').",
+          "example": "PAN-OS"
         },
+        "versions": {
+          "type": "array",
+          "description": "List of version range entries describing which specific versions are affected or unaffected. Each entry specifies a version or version range using comparison operators.",
+          "items": {
+            "$ref": "#/$defs/VersionEntry"
+          }
+        }
+      }
+    },
+    "VersionEntry": {
+      "type": "object",
+      "description": "A single version or version range entry within an affected product block, specifying whether a version or range is affected or unaffected by the vulnerability.",
+      "properties": {
         "version": {
           "type": "string",
-          "description": "Specific software version number that contains the vulnerability fix (e.g., '10.2.5', '11.0.2-h1', '3.1.4'). Hotfix versions are indicated with the '-hN' suffix."
+          "description": "The version identifier or version range base for this entry (e.g., '10.2.0', '11.0', '0' as a range starting point).",
+          "example": "10.2.0"
         },
-        "releaseDate": {
+        "status": {
           "type": "string",
-          "description": "Date when the fixed version was released or is expected to be released. Formatted as an ISO 8601 date string (YYYY-MM-DD). Future dates indicate planned releases that may be subject to change.",
-          "format": "date"
+          "description": "Vulnerability status for this version entry indicating whether this version or range is affected or not affected.",
+          "enum": ["affected", "unaffected"]
+        },
+        "lessThan": {
+          "type": "string",
+          "description": "Upper bound of the version range (exclusive). The entry applies to all versions from 'version' up to but not including this value (e.g., '10.2.5' means affected through 10.2.4).",
+          "example": "10.2.5"
+        },
+        "lessThanOrEqual": {
+          "type": "string",
+          "description": "Upper bound of the version range (inclusive). The entry applies to all versions from 'version' up to and including this value.",
+          "example": "10.2.4"
+        },
+        "versionType": {
+          "type": "string",
+          "description": "Version numbering scheme used for comparison in this range entry.",
+          "enum": ["semver", "custom"]
+        }
+      }
+    },
+    "Metric": {
+      "type": "object",
+      "description": "A vulnerability severity metric entry providing a scored assessment of the vulnerability's risk. May contain CVSS v3.1, CVSS v4.0, or other standardized scoring metrics.",
+      "properties": {
+        "cvssV3_1": {
+          "$ref": "#/$defs/CvssV31",
+          "description": "CVSS version 3.1 scoring data including the vector string and base score."
+        },
+        "cvssV4_0": {
+          "$ref": "#/$defs/CvssV40",
+          "description": "CVSS version 4.0 scoring data including the vector string and base score."
+        }
+      }
+    },
+    "CvssV31": {
+      "type": "object",
+      "description": "Common Vulnerability Scoring System version 3.1 assessment for the vulnerability. Provides a standardized numeric score and vector string encoding the individual metric values used in the calculation.",
+      "required": ["version", "vectorString", "baseScore"],
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "CVSS version identifier.",
+          "const": "3.1"
+        },
+        "vectorString": {
+          "type": "string",
+          "description": "CVSS v3.1 vector string encoding all metric values in the standard abbreviated format (e.g., 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H').",
+          "pattern": "^CVSS:3\\.[01]/AV:[NALP]/AC:[LH]/PR:[NLH]/UI:[NR]/S:[UC]/C:[NLH]/I:[NLH]/A:[NLH]"
+        },
+        "baseScore": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 10.0,
+          "description": "CVSS v3.1 base score from 0.0 to 10.0 representing the intrinsic severity of the vulnerability independent of environment and time factors."
+        },
+        "baseSeverity": {
+          "type": "string",
+          "description": "Qualitative severity rating derived from the base score: None (0.0), Low (0.1-3.9), Medium (4.0-6.9), High (7.0-8.9), Critical (9.0-10.0).",
+          "enum": ["NONE", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
+        }
+      }
+    },
+    "CvssV40": {
+      "type": "object",
+      "description": "Common Vulnerability Scoring System version 4.0 assessment for the vulnerability. CVSS v4.0 introduces finer granularity with additional metric groups for threat context and supplemental information.",
+      "required": ["version", "vectorString", "baseScore"],
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "CVSS version identifier.",
+          "const": "4.0"
+        },
+        "vectorString": {
+          "type": "string",
+          "description": "CVSS v4.0 vector string encoding all metric values in the standard abbreviated format starting with 'CVSS:4.0/'.",
+          "pattern": "^CVSS:4\\.0/"
+        },
+        "baseScore": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 10.0,
+          "description": "CVSS v4.0 base score from 0.0 to 10.0."
+        },
+        "baseSeverity": {
+          "type": "string",
+          "description": "Qualitative severity rating derived from the CVSS v4.0 base score.",
+          "enum": ["NONE", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
         }
       }
     },
     "Reference": {
       "type": "object",
-      "description": "An external reference providing additional context or information about the vulnerability. References typically include CVE database entries, related vendor advisories, CERT/CC vulnerability notes, and threat intelligence reports.",
+      "description": "An external reference URL providing additional context or information about the vulnerability. References include the official advisory page, CVE database entries, vendor bulletins, and threat intelligence reports.",
       "required": ["url"],
       "properties": {
         "url": {
           "type": "string",
-          "description": "URL of the external reference resource. Must be a fully qualified URI including the protocol scheme.",
-          "format": "uri"
+          "format": "uri",
+          "description": "Fully-qualified URL of the external reference resource."
         },
-        "description": {
+        "name": {
           "type": "string",
-          "description": "Brief description of the reference resource, explaining what additional information it provides about the vulnerability (e.g., 'NIST NVD Entry', 'MITRE CVE Record', 'CERT/CC Vulnerability Note')."
-        }
-      }
-    },
-    "ThreatPreventionSignature": {
-      "type": "object",
-      "description": "A Palo Alto Networks Threat Prevention signature that provides network-level detection and blocking capability for exploitation of the vulnerability. Signatures are delivered through Threat Prevention content updates.",
-      "properties": {
-        "signatureId": {
-          "type": "string",
-          "description": "Unique numeric identifier for the Threat Prevention signature. Used to reference the signature in PAN-OS security profiles and threat logs."
+          "description": "Human-readable label for the reference link displayed in advisory reference lists."
         },
-        "signatureName": {
-          "type": "string",
-          "description": "Descriptive name of the Threat Prevention signature, typically including the CVE identifier and vulnerability description."
-        },
-        "minimumContentVersion": {
-          "type": "string",
-          "description": "Minimum Applications and Threats content update version required to include this signature. Format is 'NNNN-NNNN' (e.g., '8765-8321')."
+        "tags": {
+          "type": "array",
+          "description": "List of reference type tags categorizing the reference according to CVE Program taxonomy.",
+          "items": {
+            "type": "string",
+            "description": "A reference tag such as 'vendor-advisory', 'patch', 'third-party-advisory', 'mitigation', or 'release-notes'.",
+            "enum": [
+              "vendor-advisory",
+              "patch",
+              "third-party-advisory",
+              "mitigation",
+              "release-notes",
+              "vdb-entry",
+              "exploit",
+              "press/media coverage",
+              "related"
+            ]
+          }
         }
       }
     }

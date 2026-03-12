@@ -10,7 +10,8 @@ info:
     allow or block message delivery, and retrieve detailed incident
     context including sender, recipient, and data pattern match
     information. Requires an active Enterprise DLP subscription with
-    email channel monitoring enabled.
+    email channel monitoring enabled. Requires SOC_Admin, Superuser,
+    or Data_Security_Admin role for access.
   version: '1.0'
   contact:
     name: Palo Alto Networks Developer Support
@@ -19,77 +20,45 @@ info:
     name: Proprietary
     url: https://www.paloaltonetworks.com/legal
 servers:
-  - url: https://api.sase.paloaltonetworks.com
-    description: SASE API production server.
+  - url: https://api.{region}.dlp.paloaltonetworks.com/v1
+    description: Email DLP API production server.
+    variables:
+      region:
+        description: >-
+          Deployment region for the Email DLP service. Choose the
+          region matching your tenant data residency.
+        default: us
+        enum:
+          - us
+          - eu
+          - in
+          - apac
+          - uk
+          - jp
+          - au
 security:
   - bearerAuth: []
 tags:
   - name: Incidents
     description: Email DLP incident management operations.
-  - name: Verdicts
-    description: Email DLP verdict review and update operations.
+  - name: Attachments
+    description: Email attachment retrieval operations.
+  - name: Recipients
+    description: Email recipient retrieval operations.
 paths:
-  /email-dlp/v1/incidents:
+  /email-incidents:
     get:
-      operationId: listEmailDlpIncidents
-      summary: List email DLP incidents
+      operationId: listEmailIncidents
+      summary: List email incidents
       description: >-
         Returns a paginated list of email DLP incidents where sensitive
         data was detected in email messages or attachments. Supports
-        filtering by verdict status, sender, recipient, data pattern,
-        time range, and severity. Each incident represents a single
-        email message that triggered one or more data pattern matches.
+        filtering by status, time range, and pagination. Each incident
+        represents a single email message that triggered one or more
+        data pattern matches.
       tags:
         - Incidents
       parameters:
-        - name: verdict
-          in: query
-          description: Filter incidents by current verdict.
-          schema:
-            type: string
-            enum:
-              - pending
-              - allowed
-              - blocked
-              - quarantined
-        - name: sender
-          in: query
-          description: Filter incidents by sender email address.
-          schema:
-            type: string
-        - name: recipient
-          in: query
-          description: Filter incidents by recipient email address.
-          schema:
-            type: string
-        - name: data_pattern
-          in: query
-          description: Filter incidents by data pattern name or identifier.
-          schema:
-            type: string
-        - name: severity
-          in: query
-          description: Filter incidents by severity level.
-          schema:
-            type: string
-            enum:
-              - critical
-              - high
-              - medium
-              - low
-              - informational
-        - name: start_time
-          in: query
-          description: Start of time range filter (ISO 8601 format).
-          schema:
-            type: string
-            format: date-time
-        - name: end_time
-          in: query
-          description: End of time range filter (ISO 8601 format).
-          schema:
-            type: string
-            format: date-time
         - name: offset
           in: query
           description: Pagination offset.
@@ -103,9 +72,31 @@ paths:
             type: integer
             default: 100
             maximum: 500
+        - name: status
+          in: query
+          description: Filter incidents by current status.
+          schema:
+            type: string
+            enum:
+              - pending
+              - allowed
+              - blocked
+              - quarantined
+        - name: start_time
+          in: query
+          description: Start of time range filter (ISO 8601 format).
+          schema:
+            type: string
+            format: date-time
+        - name: end_time
+          in: query
+          description: End of time range filter (ISO 8601 format).
+          schema:
+            type: string
+            format: date-time
       responses:
         '200':
-          description: Email DLP incidents returned.
+          description: Email DLP incidents returned successfully.
           content:
             application/json:
               schema:
@@ -123,22 +114,22 @@ paths:
                     items:
                       $ref: '#/components/schemas/EmailDLPIncident'
         '400':
-          description: Invalid query parameters.
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Invalid or expired bearer token.
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          description: Insufficient permissions.
-        '429':
-          description: Rate limit exceeded.
-  /email-dlp/v1/incidents/{id}:
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /email-incidents/{id}:
     get:
-      operationId: getEmailDlpIncident
-      summary: Get email DLP incident by ID
+      operationId: getEmailIncident
+      summary: Get email incident details
       description: >-
-        Returns summary information for a specific email DLP incident
+        Returns detailed information for a specific email DLP incident
         including sender, recipients, subject, verdict, and data pattern
-        matches. For full message body context and attachment details,
-        use the incident details endpoint.
+        matches. Provides full incident context for investigation and
+        triage.
       tags:
         - Incidents
       parameters:
@@ -150,33 +141,30 @@ paths:
             type: string
       responses:
         '200':
-          description: Email DLP incident returned.
+          description: Email DLP incident returned successfully.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  incident:
-                    $ref: '#/components/schemas/EmailDLPIncident'
+                $ref: '#/components/schemas/EmailDLPIncident'
         '401':
-          description: Invalid or expired bearer token.
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          description: Insufficient permissions.
+          $ref: '#/components/responses/Forbidden'
         '404':
-          description: Incident not found.
-  /email-dlp/v1/incidents/{id}/verdict:
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /email-incidents/{id}/verdict:
     put:
-      operationId: updateEmailDlpVerdict
-      summary: Update email DLP verdict
+      operationId: updateEmailIncidentVerdict
+      summary: Update email incident verdict
       description: >-
         Updates the verdict for a specific email DLP incident. Allows
-        security analysts to override the automated verdict by
-        approving blocked messages or blocking previously allowed
-        messages. Supports adding a justification comment and
-        specifying whether the verdict should apply to future similar
-        messages from the same sender.
+        security analysts to override the automated verdict by approving
+        blocked messages (allow) or blocking previously allowed messages
+        (block). Supports adding a comment to document the decision.
       tags:
-        - Verdicts
+        - Incidents
       parameters:
         - name: id
           in: path
@@ -189,7 +177,22 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/VerdictUpdate'
+              type: object
+              required:
+                - verdict
+              properties:
+                verdict:
+                  type: string
+                  enum:
+                    - allow
+                    - block
+                  description: >-
+                    New verdict for the email message. Setting to allow
+                    releases a quarantined or blocked message for delivery.
+                    Setting to block prevents delivery of a pending message.
+                comment:
+                  type: string
+                  description: Comment explaining the verdict decision.
       responses:
         '200':
           description: Verdict updated successfully.
@@ -200,32 +203,30 @@ paths:
                 properties:
                   success:
                     type: boolean
+                    description: Whether the update was successful.
                   incident:
                     $ref: '#/components/schemas/EmailDLPIncident'
         '400':
-          description: Invalid verdict transition or request body.
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Invalid or expired bearer token.
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          description: Insufficient permissions.
+          $ref: '#/components/responses/Forbidden'
         '404':
-          description: Incident not found.
-        '409':
-          description: >-
-            Verdict conflict. The message has already been delivered
-            or permanently blocked and can no longer be updated.
-  /email-dlp/v1/incidents/{id}/details:
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /email-incidents/{id}/attachments:
     get:
-      operationId: getEmailDlpIncidentDetails
-      summary: Get email DLP incident details
+      operationId: getEmailIncidentAttachments
+      summary: Get email incident attachments
       description: >-
-        Returns full details for a specific email DLP incident including
-        message body snippets around data pattern matches, attachment
-        metadata, message headers, routing information, and a complete
-        audit trail of verdict changes. Sensitive matched content is
-        partially masked by default.
+        Returns metadata for all attachments associated with a specific
+        email DLP incident. Includes attachment filename, content type,
+        size, and data pattern match information for each attachment that
+        contributed to the incident.
       tags:
-        - Incidents
+        - Attachments
       parameters:
         - name: id
           in: path
@@ -233,267 +234,69 @@ paths:
           description: Unique incident identifier.
           schema:
             type: string
-        - name: include_snippets
-          in: query
-          description: Whether to include content snippets around matches.
-          schema:
-            type: boolean
-            default: true
-        - name: unmask
-          in: query
-          description: >-
-            Whether to return unmasked match content. Requires elevated
-            permissions and generates an audit log entry.
-          schema:
-            type: boolean
-            default: false
       responses:
         '200':
-          description: Incident details returned.
+          description: Email attachments returned successfully.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  incident:
-                    $ref: '#/components/schemas/EmailDLPIncident'
-                  message_details:
-                    type: object
-                    properties:
-                      headers:
-                        type: object
-                        properties:
-                          message_id:
-                            type: string
-                          from:
-                            type: string
-                          to:
-                            type: array
-                            items:
-                              type: string
-                          cc:
-                            type: array
-                            items:
-                              type: string
-                          date:
-                            type: string
-                            format: date-time
-                          return_path:
-                            type: string
-                      body_snippets:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            pattern_name:
-                              type: string
-                            snippet:
-                              type: string
-                            position:
-                              type: integer
-                            masked:
-                              type: boolean
-                      attachments:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            filename:
-                              type: string
-                            content_type:
-                              type: string
-                            size:
-                              type: integer
-                            has_matches:
-                              type: boolean
-                            match_count:
-                              type: integer
-                  audit_trail:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        action:
-                          type: string
-                        actor:
-                          type: string
-                        timestamp:
-                          type: string
-                          format: date-time
-                        comment:
-                          type: string
-        '401':
-          description: Invalid or expired bearer token.
-        '403':
-          description: Insufficient permissions for requested detail level.
-        '404':
-          description: Incident not found.
-  /email-dlp/v1/incidents/summary:
-    get:
-      operationId: getEmailDlpIncidentSummary
-      summary: Get email DLP incident summary
-      description: >-
-        Returns an aggregated summary of email DLP incidents over a
-        specified time period. Includes breakdowns by verdict, severity,
-        data pattern, top senders, and top recipients. Useful for
-        monitoring email DLP policy effectiveness and compliance
-        reporting.
-      tags:
-        - Incidents
-      parameters:
-        - name: start_time
-          in: query
-          required: true
-          description: Start of reporting period (ISO 8601 format).
-          schema:
-            type: string
-            format: date-time
-        - name: end_time
-          in: query
-          required: true
-          description: End of reporting period (ISO 8601 format).
-          schema:
-            type: string
-            format: date-time
-      responses:
-        '200':
-          description: Email DLP incident summary returned.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  total_incidents:
-                    type: integer
-                  by_verdict:
-                    type: object
-                    properties:
-                      pending:
-                        type: integer
-                      allowed:
-                        type: integer
-                      blocked:
-                        type: integer
-                      quarantined:
-                        type: integer
-                  by_severity:
-                    type: object
-                    properties:
-                      critical:
-                        type: integer
-                      high:
-                        type: integer
-                      medium:
-                        type: integer
-                      low:
-                        type: integer
-                      informational:
-                        type: integer
-                  top_senders:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        sender:
-                          type: string
-                        incident_count:
-                          type: integer
-                  top_data_patterns:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        pattern_name:
-                          type: string
-                        incident_count:
-                          type: integer
-                  reporting_period:
-                    type: object
-                    properties:
-                      start_time:
-                        type: string
-                        format: date-time
-                      end_time:
-                        type: string
-                        format: date-time
-        '400':
-          description: Invalid query parameters or time range.
-        '401':
-          description: Invalid or expired bearer token.
-        '403':
-          description: Insufficient permissions.
-        '429':
-          description: Rate limit exceeded.
-  /email-dlp/v1/verdicts/batch:
-    post:
-      operationId: batchUpdateEmailDlpVerdicts
-      summary: Batch update email DLP verdicts
-      description: >-
-        Updates the verdict for multiple email DLP incidents in a single
-        request. Accepts up to 50 incident identifiers and applies the
-        same verdict and justification to all specified incidents.
-        Useful for bulk triage of similar incidents.
-      tags:
-        - Verdicts
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - incident_ids
-                - verdict
-              properties:
-                incident_ids:
-                  type: array
-                  items:
+                  incident_id:
                     type: string
-                  maxItems: 50
-                  description: List of incident identifiers to update.
-                verdict:
-                  type: string
-                  enum:
-                    - allowed
-                    - blocked
-                  description: Verdict to apply to all specified incidents.
-                justification:
-                  type: string
-                  description: Justification comment for the batch verdict update.
+                    description: Identifier of the parent incident.
+                  attachments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EmailAttachment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /email-incidents/{id}/recipients:
+    get:
+      operationId: getEmailIncidentRecipients
+      summary: Get email incident recipients
+      description: >-
+        Returns the list of recipients for the email message associated
+        with a specific DLP incident. Includes To, CC, and BCC
+        recipients along with their delivery status.
+      tags:
+        - Recipients
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique incident identifier.
+          schema:
+            type: string
       responses:
         '200':
-          description: Batch verdict update completed.
+          description: Email recipients returned successfully.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  success:
-                    type: boolean
-                  updated_count:
-                    type: integer
-                    description: Number of incidents successfully updated.
-                  failed_count:
-                    type: integer
-                    description: Number of incidents that could not be updated.
-                  failures:
+                  incident_id:
+                    type: string
+                    description: Identifier of the parent incident.
+                  recipients:
                     type: array
                     items:
-                      type: object
-                      properties:
-                        incident_id:
-                          type: string
-                        reason:
-                          type: string
-                    description: Details of failed updates.
-        '400':
-          description: Invalid request body.
+                      $ref: '#/components/schemas/EmailRecipient'
         '401':
-          description: Invalid or expired bearer token.
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          description: Insufficient permissions.
-        '429':
-          description: Rate limit exceeded.
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 components:
   securitySchemes:
     bearerAuth:
@@ -501,10 +304,40 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: >-
-        OAuth 2.0 bearer token obtained from the Palo Alto Networks
-        SASE authentication service. Tokens are issued via the
-        client credentials flow using a service account with email
-        DLP permissions.
+        Bearer token for authentication. Requires SOC_Admin, Superuser,
+        or Data_Security_Admin role assigned in the Palo Alto Networks
+        tenant.
+  responses:
+    BadRequest:
+      description: Invalid request parameters or body.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Invalid or expired bearer token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient role permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   schemas:
     EmailDLPIncident:
       type: object
@@ -515,22 +348,17 @@ components:
         sender:
           type: string
           description: Email address of the message sender.
-        recipients:
-          type: array
-          items:
-            type: string
-          description: Email addresses of all message recipients.
         subject:
           type: string
           description: Email message subject line.
-        verdict:
+        status:
           type: string
           enum:
             - pending
             - allowed
             - blocked
             - quarantined
-          description: Current verdict for the email message.
+          description: Current status or verdict for the email message.
         severity:
           type: string
           enum:
@@ -540,7 +368,7 @@ components:
             - low
             - informational
           description: Incident severity based on data pattern sensitivity.
-        dataPatterns:
+        data_patterns:
           type: array
           items:
             type: object
@@ -554,7 +382,7 @@ components:
               match_count:
                 type: integer
           description: Data patterns that matched in the email content.
-        matchCount:
+        match_count:
           type: integer
           description: Total number of data pattern matches across all patterns.
         timestamp:
@@ -580,7 +408,6 @@ components:
             - alert
             - block
             - quarantine
-            - encrypt
           description: Automated action taken on the message.
         reviewed_by:
           type: string
@@ -589,36 +416,59 @@ components:
           type: string
           format: date-time
           description: Timestamp when the incident was last reviewed.
-    VerdictUpdate:
+        comment:
+          type: string
+          description: Comment added during verdict review.
+    EmailAttachment:
       type: object
-      required:
-        - verdict
       properties:
-        verdict:
+        filename:
+          type: string
+          description: Attachment filename.
+        content_type:
+          type: string
+          description: MIME content type of the attachment.
+        size:
+          type: integer
+          description: Attachment size in bytes.
+        has_matches:
+          type: boolean
+          description: Whether the attachment contained data pattern matches.
+        match_count:
+          type: integer
+          description: Number of data pattern matches in the attachment.
+        patterns_matched:
+          type: array
+          items:
+            type: string
+          description: Names of data patterns that matched in the attachment.
+    EmailRecipient:
+      type: object
+      properties:
+        email:
+          type: string
+          description: Recipient email address.
+        type:
           type: string
           enum:
-            - allowed
-            - blocked
-          description: >-
-            New verdict for the email message. Setting to allowed
-            releases a quarantined or blocked message for delivery.
-            Setting to blocked prevents delivery of a pending or
-            quarantined message.
-        justification:
+            - to
+            - cc
+            - bcc
+          description: Recipient type indicating address field.
+        delivery_status:
           type: string
-          description: >-
-            Justification comment explaining the verdict decision.
-            Required by some organizational policies.
-        apply_to_future:
-          type: boolean
-          default: false
-          description: >-
-            Whether to apply this verdict decision to future similar
-            messages from the same sender matching the same data
-            patterns.
-        notify_sender:
-          type: boolean
-          default: false
-          description: >-
-            Whether to send a notification to the original sender
-            about the verdict decision.
+          enum:
+            - delivered
+            - blocked
+            - quarantined
+            - pending
+          description: Delivery status of the message to this recipient.
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code or type.
+        message:
+          type: string
+          description: Human-readable error message.

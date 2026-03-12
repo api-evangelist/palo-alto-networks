@@ -1,14 +1,13 @@
 openapi: 3.1.0
 info:
-  title: SASE IAM API
+  title: SASE IAM Service API
   description: >-
-    REST API for the Palo Alto Networks SASE Identity and Access Management
-    service providing programmatic control over service accounts, access
-    policies, and role assignments. Enables automated provisioning of
-    machine-to-machine credentials, fine-grained access policy management
-    across Tenant Service Group hierarchies, and role-based access control
-    configuration. Authentication uses OAuth2 bearer tokens obtained from
-    the Palo Alto Networks identity provider.
+    SASE Identity and Access Management (IAM) Service API. Provides
+    programmatic management of service accounts, API key credentials,
+    and access policies for the Palo Alto Networks SASE platform. Service
+    accounts are machine identities used for API automation. Access policies
+    bind roles to service accounts or users, controlling what operations
+    they can perform within a Tenant Service Group scope.
   version: '1.0'
   contact:
     name: Palo Alto Networks Developer Support
@@ -17,44 +16,47 @@ info:
     name: Proprietary
     url: https://www.paloaltonetworks.com/legal
 servers:
-  - url: https://api.sase.paloaltonetworks.com
-    description: SASE API gateway for identity and access management operations.
+  - url: https://api.sase.paloaltonetworks.com/iam/v1
+    description: SASE IAM Service API production server.
 security:
-  - bearerAuth: []
+  - oauth2Bearer: []
 tags:
-  - name: ServiceAccounts
-    description: >-
-      Service account management for machine-to-machine authentication
-      and API access credentials.
-  - name: AccessPolicies
-    description: >-
-      Access policy management for defining fine-grained permissions
-      across TSG hierarchies.
+  - name: Service Accounts
+    description: Service account management and credential generation.
+  - name: Access Policies
+    description: Access policy management for role-based access control.
   - name: Roles
-    description: >-
-      Role definitions for grouping permissions into assignable units.
+    description: Available IAM roles and their permissions.
 paths:
-  /iam/v1/service_accounts:
+  /service-accounts:
     get:
       operationId: listServiceAccounts
       summary: List service accounts
       description: >-
-        Returns a list of all service accounts within the specified Tenant
-        Service Group. Each service account includes its name, associated
-        TSG, client ID for OAuth2 authentication, and creation timestamp.
-        Service accounts are used for programmatic API access without
-        user interaction.
+        Returns the list of service accounts for the authenticated tenant.
+        Service accounts are machine identities used to authenticate API
+        automation workflows using the client_credentials OAuth 2.0 grant.
       tags:
-        - ServiceAccounts
+        - Service Accounts
       parameters:
         - name: tsg_id
           in: query
-          required: true
-          description: >-
-            TSG ID to scope the query. Only service accounts belonging
-            to this TSG are returned.
+          description: Filter service accounts by Tenant Service Group ID.
           schema:
             type: string
+        - name: offset
+          in: query
+          description: Number of results to skip for pagination.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of service accounts to return.
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
       responses:
         '200':
           description: Service accounts returned.
@@ -63,93 +65,203 @@ paths:
               schema:
                 type: object
                 properties:
-                  total_count:
+                  total:
                     type: integer
-                    description: Total number of service accounts.
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
                   items:
                     type: array
                     items:
                       $ref: '#/components/schemas/ServiceAccount'
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       operationId: createServiceAccount
-      summary: Create a service account
+      summary: Create service account
       description: >-
-        Creates a new service account within the specified Tenant Service
-        Group. Returns the service account details including the client
-        ID and client secret. The client secret is only returned once at
-        creation time and cannot be retrieved afterward. Store it securely.
-        The service account can then be used to obtain OAuth2 access tokens
-        for API authentication.
+        Creates a new service account. After creation, use the
+        POST /service-accounts/{id}/keys endpoint to generate credentials.
+        Service accounts are scoped to a Tenant Service Group and must be
+        assigned access policies to grant API permissions.
       tags:
-        - ServiceAccounts
+        - Service Accounts
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - name
-                - tsg_id
-              properties:
-                name:
-                  type: string
-                  description: Display name for the service account.
-                  maxLength: 128
-                tsg_id:
-                  type: string
-                  description: TSG ID under which to create the service account.
-                description:
-                  type: string
-                  description: Optional description of the service account purpose.
-                  maxLength: 512
+              $ref: '#/components/schemas/ServiceAccountRequest'
       responses:
         '201':
-          description: Service account created.
+          description: Service account created successfully.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                    description: Unique identifier of the new service account.
-                  name:
-                    type: string
-                  tsg_id:
-                    type: string
-                  client_id:
-                    type: string
-                    description: OAuth2 client ID for this service account.
-                  client_secret:
-                    type: string
-                    description: >-
-                      OAuth2 client secret. Only returned at creation time.
-                      Store securely.
-                  created_at:
-                    type: string
-                    format: date-time
+                $ref: '#/components/schemas/ServiceAccount'
         '400':
-          $ref: '#/components/responses/BadRequest'
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          $ref: '#/components/responses/Forbidden'
-  /iam/v1/service_accounts/{id}:
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: A service account with this name already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /service-accounts/{id}:
+    get:
+      operationId: getServiceAccount
+      summary: Get service account
+      description: Returns full details for a specific service account.
+      tags:
+        - Service Accounts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the service account.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Service account details returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceAccount'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Service account not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: updateServiceAccount
+      summary: Update service account
+      description: Updates the display name or description of an existing service account.
+      tags:
+        - Service Accounts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the service account to update.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceAccountUpdate'
+      responses:
+        '200':
+          description: Service account updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceAccount'
+        '400':
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Service account not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: deleteServiceAccount
-      summary: Delete a service account
+      summary: Delete service account
       description: >-
-        Permanently deletes a service account and revokes all associated
-        credentials. Any access tokens previously issued to this service
-        account will be invalidated immediately. This operation cannot
-        be undone.
+        Deletes a service account and revokes all associated credentials.
+        Any active API sessions using credentials from this account will
+        be invalidated.
       tags:
-        - ServiceAccounts
+        - Service Accounts
       parameters:
         - name: id
           in: path
@@ -159,31 +271,183 @@ paths:
             type: string
       responses:
         '204':
-          description: Service account deleted.
+          description: Service account deleted successfully.
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          $ref: '#/components/responses/NotFound'
-  /iam/v1/access_policies:
+          description: Service account not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /service-accounts/{id}/keys:
+    post:
+      operationId: generateServiceAccountCredentials
+      summary: Generate service account credentials
+      description: >-
+        Generates a new client ID and client secret for a service account.
+        The client secret is returned only once in the response and cannot
+        be retrieved again. Store the credentials securely. Use these
+        credentials with the OAuth 2.0 client_credentials grant to obtain
+        Bearer tokens for API authentication.
+      tags:
+        - Service Accounts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the service account.
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description:
+                  type: string
+                  description: Optional description for this set of credentials.
+                expires_in_days:
+                  type: integer
+                  description: >-
+                    Number of days until the credentials expire. If omitted,
+                    credentials do not expire.
+                  minimum: 1
+                  maximum: 365
+      responses:
+        '201':
+          description: Credentials generated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceAccountCredentials'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Service account not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /service-accounts/{id}/keys/{key_id}:
+    delete:
+      operationId: revokeServiceAccountKey
+      summary: Revoke service account key
+      description: >-
+        Revokes a specific set of credentials for a service account. Any
+        active API sessions using these credentials will be invalidated
+        immediately.
+      tags:
+        - Service Accounts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the service account.
+          schema:
+            type: string
+        - name: key_id
+          in: path
+          required: true
+          description: Unique identifier of the key to revoke.
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Credentials revoked successfully.
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Service account or key not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /access-policies:
     get:
       operationId: listAccessPolicies
       summary: List access policies
       description: >-
-        Returns a list of access policies defined within the specified
-        Tenant Service Group. Access policies bind principals (users or
-        service accounts) to roles within a TSG scope, granting specific
-        permissions for SASE platform operations.
+        Returns the access policies defined for the tenant. Access policies
+        bind a principal (service account or user) to a role within a
+        specific TSG scope, controlling what API operations the principal
+        can perform.
       tags:
-        - AccessPolicies
+        - Access Policies
       parameters:
-        - name: tsg_id
+        - name: principal_id
           in: query
-          required: true
-          description: TSG ID to scope the access policy query.
+          description: Filter policies by principal ID (service account or user).
           schema:
             type: string
+        - name: tsg_id
+          in: query
+          description: Filter policies by TSG scope.
+          schema:
+            type: string
+        - name: offset
+          in: query
+          description: Number of results to skip for pagination.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of policies to return.
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
       responses:
         '200':
           description: Access policies returned.
@@ -192,248 +456,433 @@ paths:
               schema:
                 type: object
                 properties:
-                  total_count:
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
                     type: integer
                   items:
                     type: array
                     items:
                       $ref: '#/components/schemas/AccessPolicy'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       operationId: createAccessPolicy
-      summary: Create an access policy
+      summary: Create access policy
       description: >-
-        Creates a new access policy that binds a principal to a role within
-        a TSG scope. The principal can be a user email address or a service
-        account ID. The role determines the specific permissions granted.
-        Access policies can be scoped to a specific TSG and optionally
-        inherited by child TSGs.
+        Creates a new access policy binding a principal to a role within a
+        TSG scope. The role determines which API operations the principal
+        can perform on resources within the specified TSG.
       tags:
-        - AccessPolicies
+        - Access Policies
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - principal
-                - role
-                - tsg_id
-              properties:
-                principal:
-                  type: string
-                  description: >-
-                    The principal to grant access to. Can be a user email
-                    address or a service account ID.
-                principal_type:
-                  type: string
-                  enum:
-                    - user
-                    - service_account
-                  description: Type of the principal.
-                role:
-                  type: string
-                  description: >-
-                    Role name or ID to assign to the principal.
-                tsg_id:
-                  type: string
-                  description: TSG ID that defines the scope of this policy.
-                inherit:
-                  type: boolean
-                  default: false
-                  description: >-
-                    Whether child TSGs inherit this access policy.
+              $ref: '#/components/schemas/AccessPolicyRequest'
       responses:
         '201':
-          description: Access policy created.
+          description: Access policy created successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccessPolicy'
         '400':
-          $ref: '#/components/responses/BadRequest'
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          $ref: '#/components/responses/Forbidden'
-  /iam/v1/roles:
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /access-policies/{id}:
     get:
-      operationId: listRoles
-      summary: List roles
-      description: >-
-        Returns a list of all available roles that can be assigned in
-        access policies. Includes both built-in system roles and custom
-        roles defined within the TSG hierarchy. Each role specifies a
-        set of permissions for SASE platform operations.
+      operationId: getAccessPolicy
+      summary: Get access policy
+      description: Returns full details for a specific access policy.
       tags:
-        - Roles
+        - Access Policies
       parameters:
-        - name: tsg_id
-          in: query
-          required: false
-          description: >-
-            TSG ID to scope the query. When provided, includes custom
-            roles defined in this TSG in addition to built-in roles.
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the access policy.
           schema:
             type: string
       responses:
         '200':
-          description: Roles returned.
+          description: Access policy details returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessPolicy'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Access policy not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: updateAccessPolicy
+      summary: Update access policy
+      description: Updates the role assignment for an existing access policy.
+      tags:
+        - Access Policies
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the access policy to update.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccessPolicyRequest'
+      responses:
+        '200':
+          description: Access policy updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessPolicy'
+        '400':
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Access policy not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteAccessPolicy
+      summary: Delete access policy
+      description: Deletes an access policy, revoking the role binding from the principal.
+      tags:
+        - Access Policies
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the access policy to delete.
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Access policy deleted successfully.
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Access policy not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /roles:
+    get:
+      operationId: listRoles
+      summary: List available roles
+      description: >-
+        Returns the list of available IAM roles that can be assigned in
+        access policies. Each role defines a set of API permissions for
+        specific SASE services and operations.
+      tags:
+        - Roles
+      responses:
+        '200':
+          description: Available roles returned.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  total_count:
+                  total:
                     type: integer
                   items:
                     type: array
                     items:
                       $ref: '#/components/schemas/Role'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   securitySchemes:
-    bearerAuth:
-      type: oauth2
-      flows:
-        clientCredentials:
-          tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
-          scopes: {}
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
       description: >-
-        OAuth2 client credentials flow. Obtain an access token from the
-        Palo Alto Networks identity provider and include it as a Bearer
-        token in the Authorization header.
-  responses:
-    BadRequest:
-      description: The request body is malformed or contains invalid parameters.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Unauthorized:
-      description: Missing or invalid OAuth2 bearer token.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Forbidden:
-      description: Insufficient permissions for this operation.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    NotFound:
-      description: The requested resource was not found.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
+        OAuth 2.0 Bearer token for SASE platform authentication. Obtain
+        using the client_credentials grant with your SASE service account
+        client ID and client secret.
   schemas:
     ServiceAccount:
       type: object
       properties:
         id:
           type: string
-          description: Unique identifier for the service account.
+          description: Unique identifier of the service account.
         name:
           type: string
-          description: Display name of the service account.
-        tsg_id:
+          description: Unique name of the service account within the TSG.
+        display_name:
           type: string
-          description: TSG ID that owns this service account.
-        client_id:
-          type: string
-          description: >-
-            OAuth2 client ID used for authentication. Pair with the
-            client secret to obtain access tokens.
+          description: Human-readable display name.
         description:
           type: string
-          description: Description of the service account purpose.
+          description: Description of the service account's purpose.
+        tsg_id:
+          type: string
+          description: Tenant Service Group ID this service account belongs to.
+        key_count:
+          type: integer
+          description: Number of active credential keys for this service account.
         created_at:
           type: string
           format: date-time
-          description: Timestamp when the service account was created.
         updated_at:
           type: string
           format: date-time
-          description: Timestamp when the service account was last modified.
+    ServiceAccountRequest:
+      type: object
+      required:
+        - name
+        - tsg_id
+      properties:
+        name:
+          type: string
+          description: Unique name for the service account within the TSG.
+          pattern: '^[a-z][a-z0-9-]{0,63}$'
+        display_name:
+          type: string
+          description: Human-readable display name.
+        description:
+          type: string
+          description: Description of the service account's purpose.
+        tsg_id:
+          type: string
+          description: Tenant Service Group ID to create this service account in.
+    ServiceAccountUpdate:
+      type: object
+      properties:
+        display_name:
+          type: string
+          description: Updated display name.
+        description:
+          type: string
+          description: Updated description.
+    ServiceAccountCredentials:
+      type: object
+      properties:
+        key_id:
+          type: string
+          description: Unique identifier of the generated key.
+        client_id:
+          type: string
+          description: OAuth 2.0 client ID for this credential set.
+        client_secret:
+          type: string
+          description: >-
+            OAuth 2.0 client secret. Returned only once at creation time.
+            Store this value securely as it cannot be retrieved again.
+          writeOnly: true
+        description:
+          type: string
+          description: Description provided when the key was created.
+        expires_at:
+          type: string
+          format: date-time
+          description: Expiration timestamp, or null if credentials do not expire.
+        created_at:
+          type: string
+          format: date-time
     AccessPolicy:
       type: object
       properties:
         id:
           type: string
-          description: Unique identifier for the access policy.
-        principal:
+          description: Unique identifier of the access policy.
+        principal_id:
           type: string
-          description: >-
-            The principal this policy applies to. A user email or
-            service account ID.
+          description: ID of the service account or user this policy applies to.
         principal_type:
           type: string
           enum:
-            - user
             - service_account
-          description: Type of the principal.
-        role:
+            - user
+          description: Type of principal.
+        role_id:
           type: string
-          description: Role name or ID assigned by this policy.
+          description: ID of the role assigned by this policy.
+        role_name:
+          type: string
+          description: Name of the role assigned.
         tsg_id:
           type: string
-          description: TSG ID that defines the scope of this policy.
-        inherit:
-          type: boolean
-          description: Whether child TSGs inherit this policy.
+          description: TSG scope this policy applies to.
         created_at:
           type: string
           format: date-time
-          description: Timestamp when the policy was created.
-        updated_at:
+    AccessPolicyRequest:
+      type: object
+      required:
+        - principal_id
+        - principal_type
+        - role_id
+        - tsg_id
+      properties:
+        principal_id:
           type: string
-          format: date-time
-          description: Timestamp when the policy was last modified.
+          description: ID of the service account or user to grant access to.
+        principal_type:
+          type: string
+          enum:
+            - service_account
+            - user
+          description: Type of principal.
+        role_id:
+          type: string
+          description: ID of the role to assign.
+        tsg_id:
+          type: string
+          description: TSG scope for this policy.
     Role:
       type: object
       properties:
         id:
           type: string
-          description: Unique identifier for the role.
+          description: Unique identifier of the role.
         name:
           type: string
-          description: Display name of the role.
+          description: Role name (e.g., superuser, network_admin, readonly).
+        display_name:
+          type: string
+          description: Human-readable role display name.
         description:
           type: string
-          description: Description of the role and its permissions.
-        role_type:
-          type: string
-          enum:
-            - builtin
-            - custom
-          description: Whether this is a built-in system role or custom role.
+          description: Description of the permissions granted by this role.
         permissions:
           type: array
           items:
             type: string
-          description: List of permission strings granted by this role.
-        created_at:
-          type: string
-          format: date-time
-          description: Timestamp when the role was created.
+          description: List of permission identifiers included in this role.
     ErrorResponse:
       type: object
       properties:
-        error_code:
-          type: integer
-          description: Machine-readable error code.
+        error:
+          type: string
+          description: Error code identifying the error type.
         message:
           type: string
-          description: Human-readable error message.
-        details:
+          description: Human-readable description of the error.
+        request_id:
           type: string
-          description: Additional context about the error.
+          description: Request identifier for support correlation.

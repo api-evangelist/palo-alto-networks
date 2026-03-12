@@ -2,15 +2,13 @@ openapi: 3.1.0
 info:
   title: SASE Aggregate Monitoring API
   description: >-
-    REST API for the Palo Alto Networks SASE Aggregate Monitoring service
-    providing multi-tenant visibility into application usage, threat
-    activity, URL categorization, and license utilization across Tenant
-    Service Group hierarchies. All endpoints accept aggregation queries
-    with flexible filtering, grouping, and counting options to produce
-    summarized monitoring data. Designed for building dashboards,
-    generating reports, and automating operational intelligence.
-    Authentication uses OAuth2 bearer tokens obtained from the Palo Alto
-    Networks identity provider.
+    SASE Aggregate Monitoring API for multi-tenant visibility and telemetry.
+    Provides aggregated query capabilities across threat, URL, application,
+    bandwidth, and license data for SASE-managed tenants. Designed for
+    managed service providers and large enterprise deployments where
+    operators need cross-tenant visibility in a single query. Supports
+    histogram aggregations, group-by dimensions, and flexible filtering
+    to power dashboards and compliance reporting workflows.
   version: '1.0'
   contact:
     name: Palo Alto Networks Developer Support
@@ -19,471 +17,468 @@ info:
     name: Proprietary
     url: https://www.paloaltonetworks.com/legal
 servers:
-  - url: https://api.sase.paloaltonetworks.com
-    description: SASE API gateway for aggregate monitoring operations.
+  - url: https://api.sase.paloaltonetworks.com/mt/monitor/v1
+    description: SASE Aggregate Monitoring API production server.
 security:
-  - bearerAuth: []
+  - oauth2Bearer: []
 tags:
-  - name: Applications
-    description: >-
-      Application usage monitoring and aggregation across managed
-      tenants.
-  - name: Threats
-    description: >-
-      Threat activity monitoring and aggregation for security
-      intelligence.
-  - name: URLs
-    description: >-
-      URL categorization monitoring and aggregation for web traffic
-      analysis.
-  - name: Licenses
-    description: >-
-      License utilization monitoring and aggregation for capacity
-      management.
+  - name: Aggregation Queries
+    description: Multi-tenant aggregated data queries.
+  - name: Tenants
+    description: Tenant hierarchy visibility.
 paths:
-  /mt/monitor/v1/agg/applications:
+  /agg/query/threat:
     post:
-      operationId: aggregateApplicationUsage
-      summary: Aggregate application usage
+      operationId: queryThreatData
+      summary: Query threat data aggregation
       description: >-
-        Queries aggregated application usage data across one or more
-        Tenant Service Groups. Supports filtering by time range, TSG,
-        application category, risk level, and technology. Returns
-        aggregated metrics including bytes transferred, session count,
-        and user count grouped by the specified properties.
+        Returns aggregated threat event data across one or more tenants
+        within a Tenant Service Group hierarchy. Supports filtering by
+        threat type, severity, source, and time range. Results can be
+        grouped by dimensions such as tenant, threat category, or time
+        bucket to support dashboard and reporting use cases.
       tags:
-        - Applications
+        - Aggregation Queries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AggregationQuery'
+      responses:
+        '200':
+          description: Threat data aggregation results returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AggregationResponse'
+        '400':
+          description: Invalid query request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /agg/query/url:
+    post:
+      operationId: queryURLData
+      summary: Query URL categorization data
+      description: >-
+        Returns aggregated URL categorization and web activity data across
+        tenants. Supports filtering by URL category, action, and user groups.
+        Useful for generating web usage reports and identifying policy
+        violations across managed tenants.
+      tags:
+        - Aggregation Queries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AggregationQuery'
+      responses:
+        '200':
+          description: URL categorization data returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AggregationResponse'
+        '400':
+          description: Invalid query request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /agg/query/application:
+    post:
+      operationId: queryApplicationData
+      summary: Query application usage data
+      description: >-
+        Returns aggregated application usage data across tenants including
+        session counts, bytes transferred, and user counts per application.
+        Supports filtering by application name, category, and risk level.
+      tags:
+        - Aggregation Queries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AggregationQuery'
+      responses:
+        '200':
+          description: Application usage data returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AggregationResponse'
+        '400':
+          description: Invalid query request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /agg/query/bandwidth:
+    post:
+      operationId: queryBandwidthData
+      summary: Query bandwidth utilization data
+      description: >-
+        Returns aggregated bandwidth utilization metrics across tenants
+        and SASE locations. Supports filtering by location, time range,
+        and traffic direction. Useful for capacity planning and SLA
+        monitoring reports.
+      tags:
+        - Aggregation Queries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AggregationQuery'
+      responses:
+        '200':
+          description: Bandwidth utilization data returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AggregationResponse'
+        '400':
+          description: Invalid query request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /agg/query/license:
+    post:
+      operationId: queryLicenseData
+      summary: Query license utilization data
+      description: >-
+        Returns aggregated license utilization data across tenants for
+        all active SASE subscriptions. Supports filtering by product,
+        license type, and TSG. Useful for chargeback reporting and
+        license compliance monitoring.
+      tags:
+        - Aggregation Queries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AggregationQuery'
+      responses:
+        '200':
+          description: License utilization data returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AggregationResponse'
+        '400':
+          description: Invalid query request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /tenants:
+    get:
+      operationId: listMonitoringTenants
+      summary: Get tenant hierarchy
+      description: >-
+        Returns the tenant hierarchy accessible to the authenticated
+        service account within the Aggregate Monitoring scope. Use this
+        endpoint to enumerate the TSG IDs available for use in aggregation
+        queries.
+      tags:
+        - Tenants
       parameters:
         - name: tsg_id
-          in: header
-          required: true
+          in: query
           description: >-
-            TSG ID to scope the query. Aggregation includes data from
-            this TSG and optionally its children.
+            Root TSG ID from which to return the hierarchy. Defaults to
+            the TSG of the authenticated service account.
           schema:
             type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AggregationQuery'
       responses:
         '200':
-          description: Application usage aggregation returned.
+          description: Tenant hierarchy returned.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  header:
-                    $ref: '#/components/schemas/ResponseHeader'
-                  data:
+                  total:
+                    type: integer
+                    description: Total number of tenants in the hierarchy.
+                  items:
                     type: array
                     items:
-                      $ref: '#/components/schemas/ApplicationUsage'
-        '400':
-          $ref: '#/components/responses/BadRequest'
+                      $ref: '#/components/schemas/TenantSummary'
         '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-  /mt/monitor/v1/agg/threats:
-    post:
-      operationId: aggregateThreatActivity
-      summary: Aggregate threat activity
-      description: >-
-        Queries aggregated threat activity data across one or more Tenant
-        Service Groups. Supports filtering by time range, threat type,
-        severity, action taken, and source zone. Returns aggregated
-        metrics including threat count, affected hosts, and blocked
-        count grouped by the specified properties.
-      tags:
-        - Threats
-      parameters:
-        - name: tsg_id
-          in: header
-          required: true
-          description: TSG ID to scope the threat aggregation query.
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AggregationQuery'
-      responses:
-        '200':
-          description: Threat activity aggregation returned.
+          description: Invalid or missing Bearer token.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  header:
-                    $ref: '#/components/schemas/ResponseHeader'
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/ThreatSummary'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          $ref: '#/components/responses/Forbidden'
-  /mt/monitor/v1/agg/urls:
-    post:
-      operationId: aggregateUrlActivity
-      summary: Aggregate URL activity
-      description: >-
-        Queries aggregated URL categorization and web traffic data across
-        one or more Tenant Service Groups. Supports filtering by time
-        range, URL category, risk level, and action taken. Returns
-        aggregated metrics including request count, bytes transferred,
-        and unique user count grouped by the specified properties.
-      tags:
-        - URLs
-      parameters:
-        - name: tsg_id
-          in: header
-          required: true
-          description: TSG ID to scope the URL aggregation query.
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AggregationQuery'
-      responses:
-        '200':
-          description: URL activity aggregation returned.
+          description: Insufficient permissions.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  header:
-                    $ref: '#/components/schemas/ResponseHeader'
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/URLSummary'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-  /mt/monitor/v1/agg/licenses:
-    post:
-      operationId: aggregateLicenseUtilization
-      summary: Aggregate license utilization
-      description: >-
-        Queries aggregated license utilization data across one or more
-        Tenant Service Groups. Provides visibility into how subscribed
-        capacity is being consumed across the tenant hierarchy. Returns
-        metrics including allocated capacity, consumed capacity, and
-        utilization percentage grouped by product and TSG.
-      tags:
-        - Licenses
-      parameters:
-        - name: tsg_id
-          in: header
-          required: true
-          description: TSG ID to scope the license utilization query.
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AggregationQuery'
-      responses:
-        '200':
-          description: License utilization aggregation returned.
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  header:
-                    $ref: '#/components/schemas/ResponseHeader'
-                  data:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        tsg_id:
-                          type: string
-                          description: Tenant Service Group identifier.
-                        product:
-                          type: string
-                          description: Product name.
-                        allocated_capacity:
-                          type: integer
-                          description: Total allocated license capacity.
-                        consumed_capacity:
-                          type: integer
-                          description: Currently consumed capacity.
-                        utilization_pct:
-                          type: number
-                          format: float
-                          description: Utilization percentage (0-100).
-                        unit:
-                          type: string
-                          description: Unit of measurement.
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   securitySchemes:
-    bearerAuth:
-      type: oauth2
-      flows:
-        clientCredentials:
-          tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
-          scopes: {}
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
       description: >-
-        OAuth2 client credentials flow. Obtain an access token from the
-        Palo Alto Networks identity provider and include it as a Bearer
-        token in the Authorization header.
-  responses:
-    BadRequest:
-      description: The request body is malformed or contains invalid parameters.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Unauthorized:
-      description: Missing or invalid OAuth2 bearer token.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Forbidden:
-      description: Insufficient permissions for this operation.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
+        OAuth 2.0 Bearer token for SASE platform authentication. Obtain
+        using the client_credentials grant with your SASE service account
+        client ID and client secret.
   schemas:
     AggregationQuery:
       type: object
-      description: >-
-        Query structure for aggregation requests. Defines filtering
-        criteria, grouping properties, and result limits.
+      required:
+        - tsg_id
       properties:
+        tsg_id:
+          type: string
+          description: >-
+            Tenant Service Group ID to scope the query. Data from all
+            descendant TSGs within this scope is included.
         filter:
           type: object
           description: >-
-            Filter criteria to narrow the aggregation scope.
+            Key-value filter conditions to apply to the query. Filter keys
+            are data-type specific (e.g., severity, category, app_name).
+          additionalProperties:
+            type: string
+        time_range:
+          type: object
+          description: Time range for the query.
           properties:
-            operator:
+            start:
+              type: string
+              format: date-time
+              description: Query start time (ISO 8601).
+            end:
+              type: string
+              format: date-time
+              description: Query end time (ISO 8601). Defaults to current time.
+            last:
+              type: string
+              description: >-
+                Relative time range shorthand (e.g., 1h, 24h, 7d, 30d).
+                Mutually exclusive with start/end.
+        count:
+          type: integer
+          description: Maximum number of result rows to return.
+          default: 100
+          maximum: 1000
+        histogram:
+          type: object
+          description: >-
+            Configuration for time-series histogram output. When specified,
+            results are bucketed by time.
+          properties:
+            field:
+              type: string
+              description: Timestamp field to use for bucketing.
+            interval:
               type: string
               enum:
-                - AND
-                - OR
-              default: AND
-              description: Logical operator for combining rules.
-            rules:
-              type: array
-              description: Array of filter rules.
-              items:
-                type: object
-                properties:
-                  property:
-                    type: string
-                    description: >-
-                      Field name to filter on (e.g., time_range,
-                      app_category, severity).
-                  operator:
-                    type: string
-                    enum:
-                      - equals
-                      - not_equals
-                      - in
-                      - not_in
-                      - greater_than
-                      - less_than
-                      - between
-                    description: Comparison operator.
-                  values:
-                    type: array
-                    items:
-                      type: string
-                    description: Filter values.
-        properties:
+                - 1m
+                - 5m
+                - 15m
+                - 1h
+                - 6h
+                - 1d
+              description: Time bucket interval.
+        group_by:
           type: array
           description: >-
-            List of properties to group results by (e.g., app_name,
-            tsg_id, category).
+            Dimension fields to group results by. Supported values are
+            data-type specific.
+          items:
+            type: string
+        sort:
+          type: array
+          description: Sort order for results.
           items:
             type: object
             properties:
-              property:
+              field:
                 type: string
-                description: Property name to include in the grouping.
-              function:
+                description: Field name to sort by.
+              order:
                 type: string
                 enum:
-                  - value
-                  - sum
-                  - avg
-                  - count
-                  - min
-                  - max
-                description: Aggregation function to apply.
-              alias:
-                type: string
-                description: Optional alias for the property in the response.
-              sort:
-                type: object
-                properties:
-                  order:
-                    type: string
-                    enum:
-                      - asc
-                      - desc
-                    default: desc
-                  sequence:
-                    type: integer
-                    description: Sort priority when multiple sorts are specified.
+                  - asc
+                  - desc
+                default: desc
+    AggregationResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of matching records before count limit.
         count:
           type: integer
-          default: 100
-          description: Maximum number of aggregation groups to return.
-    ResponseHeader:
-      type: object
-      properties:
-        total_count:
-          type: integer
-          description: Total number of matching aggregation groups.
-        result_count:
-          type: integer
-          description: Number of groups returned in this response.
-        query_time_ms:
-          type: integer
-          description: Query execution time in milliseconds.
-    ApplicationUsage:
-      type: object
-      properties:
-        app_name:
-          type: string
-          description: Application name.
-        app_category:
-          type: string
-          description: Application category (e.g., collaboration, social-media).
-        risk_level:
-          type: integer
-          description: Application risk score (1-5).
-        technology:
-          type: string
-          description: Technology classification (e.g., browser-based, client-server).
-        bytes_sent:
-          type: integer
-          description: Total bytes sent.
-        bytes_received:
-          type: integer
-          description: Total bytes received.
-        session_count:
-          type: integer
-          description: Number of sessions observed.
-        user_count:
-          type: integer
-          description: Number of unique users.
-        tsg_id:
-          type: string
-          description: Tenant Service Group identifier.
-    ThreatSummary:
-      type: object
-      properties:
-        threat_name:
-          type: string
-          description: Name of the threat or signature.
-        threat_type:
-          type: string
+          description: Number of records returned.
+        time_range:
+          type: object
+          properties:
+            start:
+              type: string
+              format: date-time
+            end:
+              type: string
+              format: date-time
+        data:
+          type: array
           description: >-
-            Threat classification (e.g., vulnerability, spyware, virus,
-            wildfire).
-        severity:
-          type: string
-          enum:
-            - critical
-            - high
-            - medium
-            - low
-            - informational
-          description: Threat severity level.
-        action:
-          type: string
-          enum:
-            - alert
-            - block
-            - drop
-            - reset
-          description: Action taken on the threat.
-        threat_count:
-          type: integer
-          description: Number of times this threat was observed.
-        affected_hosts:
-          type: integer
-          description: Number of unique hosts affected.
-        blocked_count:
-          type: integer
-          description: Number of instances that were blocked.
-        tsg_id:
-          type: string
-          description: Tenant Service Group identifier.
-    URLSummary:
+            Array of result objects. Schema varies by query type and
+            group_by dimensions.
+          items:
+            type: object
+            additionalProperties: true
+        histogram:
+          type: array
+          description: >-
+            Time-series histogram buckets when histogram configuration
+            was specified in the query.
+          items:
+            type: object
+            properties:
+              timestamp:
+                type: string
+                format: date-time
+              count:
+                type: integer
+              values:
+                type: object
+                additionalProperties: true
+    TenantSummary:
       type: object
       properties:
-        url_category:
-          type: string
-          description: URL category (e.g., news, social-networking, malware).
-        risk_level:
-          type: string
-          enum:
-            - high
-            - medium
-            - low
-          description: Risk classification of the URL category.
-        action:
-          type: string
-          enum:
-            - allow
-            - block
-            - alert
-            - continue
-          description: Action applied to URL requests in this category.
-        request_count:
-          type: integer
-          description: Total number of URL requests.
-        bytes_transferred:
-          type: integer
-          description: Total bytes transferred.
-        user_count:
-          type: integer
-          description: Number of unique users.
         tsg_id:
           type: string
-          description: Tenant Service Group identifier.
+          description: Tenant Service Group ID.
+        display_name:
+          type: string
+          description: TSG display name.
+        parent_id:
+          type: string
+          description: Parent TSG ID.
+        depth:
+          type: integer
+          description: Depth in the hierarchy (0 for root).
+        child_count:
+          type: integer
+          description: Number of direct child TSGs.
     ErrorResponse:
       type: object
       properties:
-        error_code:
-          type: integer
-          description: Machine-readable error code.
+        error:
+          type: string
+          description: Error code identifying the error type.
         message:
           type: string
-          description: Human-readable error message.
-        details:
+          description: Human-readable description of the error.
+        request_id:
           type: string
-          description: Additional context about the error.
+          description: Request identifier for support correlation.

@@ -3,11 +3,13 @@ info:
   title: Prisma Access Configuration API
   description: >-
     REST API for the Prisma Access SASE platform providing programmatic
-    access to remote network configuration, service connections, mobile
-    user agent profiles, and security policy management. Prisma Access
-    delivers cloud-delivered security for branch offices, retail locations,
-    and mobile users. All configuration changes are staged in a candidate
-    configuration and must be explicitly pushed to take effect.
+    configuration of remote networks, service connections, mobile user
+    infrastructure settings, IKE gateways, IPSec tunnels, and security
+    rules. Prisma Access delivers cloud-delivered security for branch
+    offices, retail locations, and mobile users. All configuration changes
+    are staged in a candidate configuration and must be explicitly pushed
+    using the candidate push endpoint to take effect. Supports OAuth 2.0
+    Bearer token authentication.
   version: '1.0'
   contact:
     name: Palo Alto Networks Developer Support
@@ -16,8 +18,8 @@ info:
     name: Proprietary
     url: https://www.paloaltonetworks.com/legal
 servers:
-  - url: https://api.sase.paloaltonetworks.com
-    description: Prisma Access SASE API server.
+  - url: https://api.sase.paloaltonetworks.com/sse/config/v1
+    description: Prisma Access SASE configuration API server.
 security:
   - oauth2: []
 tags:
@@ -29,16 +31,26 @@ tags:
     description: >-
       Service connection management for providing access to internal
       resources through Prisma Access.
-  - name: MobileUsers
+  - name: MobileAgent
     description: >-
-      Mobile user agent profile configuration for GlobalProtect
+      Mobile user agent infrastructure settings for GlobalProtect
       remote user connectivity.
-  - name: SecurityPolicies
+  - name: IKEGateways
+    description: >-
+      IKE gateway configuration for establishing IPSec VPN tunnels
+      to Prisma Access.
+  - name: IPSecTunnels
+    description: >-
+      IPSec tunnel configuration for site-to-site VPN connectivity.
+  - name: SecurityRules
     description: >-
       Security policy rule management for controlling traffic
       flowing through Prisma Access.
+  - name: Configuration
+    description: >-
+      Candidate configuration management and job tracking.
 paths:
-  /sse/config/v1/remote-networks:
+  /remote-networks:
     get:
       operationId: listRemoteNetworks
       summary: List remote networks
@@ -46,16 +58,13 @@ paths:
         Returns a list of all configured remote networks in the Prisma
         Access tenant. Each remote network represents a branch or data
         center site connected via IPSec tunnel. Supports filtering by
-        name and folder, with pagination through offset and limit
-        query parameters.
+        name and folder, with pagination.
       tags:
         - RemoteNetworks
       parameters:
         - name: folder
           in: query
-          description: >-
-            Filter remote networks by folder (e.g., Remote Networks,
-            Shared).
+          description: Filter remote networks by folder (e.g., Remote Networks).
           schema:
             type: string
         - name: name
@@ -78,7 +87,7 @@ paths:
             maximum: 5000
       responses:
         '200':
-          description: Remote networks returned.
+          description: Remote networks returned successfully.
           content:
             application/json:
               schema:
@@ -94,10 +103,14 @@ paths:
                     type: integer
                   limit:
                     type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
     post:
       operationId: createRemoteNetwork
       summary: Create a remote network
@@ -105,8 +118,7 @@ paths:
         Creates a new remote network configuration in the candidate
         configuration. The remote network defines an IPSec tunnel
         endpoint for connecting a branch office or data center to
-        Prisma Access. The configuration must be pushed using the
-        candidate push endpoint to take effect.
+        Prisma Access. Changes must be pushed to take effect.
       tags:
         - RemoteNetworks
       parameters:
@@ -124,33 +136,120 @@ paths:
               $ref: '#/components/schemas/RemoteNetwork'
       responses:
         '201':
-          description: Remote network created.
+          description: Remote network created successfully.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                    description: Unique identifier for the created remote network.
-                  name:
-                    type: string
-                  message:
-                    type: string
+                $ref: '#/components/schemas/RemoteNetwork'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-  /sse/config/v1/service-connections:
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /remote-networks/{id}:
+    get:
+      operationId: getRemoteNetwork
+      summary: Get a remote network
+      description: Returns the configuration of a specific remote network by ID.
+      tags:
+        - RemoteNetworks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique remote network identifier.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Remote network returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoteNetwork'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    put:
+      operationId: updateRemoteNetwork
+      summary: Update a remote network
+      description: >-
+        Updates the configuration of an existing remote network in the
+        candidate configuration. Changes must be pushed to take effect.
+      tags:
+        - RemoteNetworks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique remote network identifier.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemoteNetwork'
+      responses:
+        '200':
+          description: Remote network updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoteNetwork'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      operationId: deleteRemoteNetwork
+      summary: Delete a remote network
+      description: >-
+        Deletes a remote network from the candidate configuration.
+        Changes must be pushed to take effect.
+      tags:
+        - RemoteNetworks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique remote network identifier.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Remote network deleted successfully.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /service-connections:
     get:
       operationId: listServiceConnections
       summary: List service connections
       description: >-
         Returns a list of all configured service connections. Service
         connections provide access to internal data center resources
-        from Prisma Access. Each service connection represents a
-        dedicated IPSec tunnel between Prisma Access and the
-        corporate network.
+        from Prisma Access through dedicated IPSec tunnels.
       tags:
         - ServiceConnections
       parameters:
@@ -171,7 +270,7 @@ paths:
             default: 200
       responses:
         '200':
-          description: Service connections returned.
+          description: Service connections returned successfully.
           content:
             application/json:
               schema:
@@ -189,21 +288,209 @@ paths:
                     type: integer
         '401':
           $ref: '#/components/responses/Unauthorized'
-  /sse/config/v1/mobile-users/agent-profiles:
-    get:
-      operationId: listAgentProfiles
-      summary: List mobile user agent profiles
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      operationId: createServiceConnection
+      summary: Create a service connection
       description: >-
-        Returns a list of GlobalProtect agent profiles configured for
-        mobile users. Agent profiles define connection settings, split
-        tunnel configuration, and authentication options for remote
-        users connecting through the GlobalProtect client.
+        Creates a new service connection in the candidate configuration.
+        Changes must be pushed to take effect.
       tags:
-        - MobileUsers
+        - ServiceConnections
+      parameters:
+        - name: folder
+          in: query
+          required: true
+          description: Target folder for the service connection.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceConnection'
+      responses:
+        '201':
+          description: Service connection created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceConnection'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /service-connections/{id}:
+    get:
+      operationId: getServiceConnection
+      summary: Get a service connection
+      description: Returns the configuration of a specific service connection.
+      tags:
+        - ServiceConnections
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique service connection identifier.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Service connection returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceConnection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    put:
+      operationId: updateServiceConnection
+      summary: Update a service connection
+      description: Updates an existing service connection in the candidate configuration.
+      tags:
+        - ServiceConnections
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique service connection identifier.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceConnection'
+      responses:
+        '200':
+          description: Service connection updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceConnection'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      operationId: deleteServiceConnection
+      summary: Delete a service connection
+      description: Deletes a service connection from the candidate configuration.
+      tags:
+        - ServiceConnections
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique service connection identifier.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Service connection deleted successfully.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /mobile-agent/infrastructure-settings:
+    get:
+      operationId: getMobileAgentInfrastructureSettings
+      summary: Get mobile agent infrastructure settings
+      description: >-
+        Returns the mobile user infrastructure settings for GlobalProtect
+        agent connectivity. These settings define the Prisma Access compute
+        locations, IP pool allocations, and portal configuration for
+        remote mobile users.
+      tags:
+        - MobileAgent
       parameters:
         - name: folder
           in: query
           description: Filter by folder (e.g., Mobile Users).
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Mobile agent infrastructure settings returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobileAgentInfrastructureSettings'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      operationId: createMobileAgentInfrastructureSettings
+      summary: Create mobile agent infrastructure settings
+      description: >-
+        Creates or updates the mobile user infrastructure settings in
+        the candidate configuration. Changes must be pushed to take
+        effect.
+      tags:
+        - MobileAgent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MobileAgentInfrastructureSettings'
+      responses:
+        '200':
+          description: Mobile agent infrastructure settings saved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobileAgentInfrastructureSettings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /ike-gateways:
+    get:
+      operationId: listIKEGateways
+      summary: List IKE gateways
+      description: >-
+        Returns a list of IKE gateway configurations. IKE gateways define
+        the parameters for establishing the IKE phase 1 negotiation used
+        by IPSec VPN tunnels connecting to Prisma Access.
+      tags:
+        - IKEGateways
+      parameters:
+        - name: folder
+          in: query
+          description: Filter by folder.
           schema:
             type: string
         - name: offset
@@ -218,7 +505,7 @@ paths:
             default: 200
       responses:
         '200':
-          description: Agent profiles returned.
+          description: IKE gateways returned successfully.
           content:
             application/json:
               schema:
@@ -227,7 +514,7 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/AgentProfile'
+                      $ref: '#/components/schemas/IKEGateway'
                   offset:
                     type: integer
                   total:
@@ -236,7 +523,307 @@ paths:
                     type: integer
         '401':
           $ref: '#/components/responses/Unauthorized'
-  /sse/config/v1/security-rules:
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      operationId: createIKEGateway
+      summary: Create an IKE gateway
+      description: Creates a new IKE gateway in the candidate configuration.
+      tags:
+        - IKEGateways
+      parameters:
+        - name: folder
+          in: query
+          required: true
+          description: Target folder for the IKE gateway.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IKEGateway'
+      responses:
+        '201':
+          description: IKE gateway created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IKEGateway'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /ike-gateways/{id}:
+    get:
+      operationId: getIKEGateway
+      summary: Get an IKE gateway
+      description: Returns the configuration of a specific IKE gateway.
+      tags:
+        - IKEGateways
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique IKE gateway identifier.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: IKE gateway returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IKEGateway'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    put:
+      operationId: updateIKEGateway
+      summary: Update an IKE gateway
+      description: Updates an existing IKE gateway in the candidate configuration.
+      tags:
+        - IKEGateways
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique IKE gateway identifier.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IKEGateway'
+      responses:
+        '200':
+          description: IKE gateway updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IKEGateway'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      operationId: deleteIKEGateway
+      summary: Delete an IKE gateway
+      description: Deletes an IKE gateway from the candidate configuration.
+      tags:
+        - IKEGateways
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique IKE gateway identifier.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: IKE gateway deleted successfully.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /ipsec-tunnels:
+    get:
+      operationId: listIPSecTunnels
+      summary: List IPSec tunnels
+      description: >-
+        Returns a list of IPSec tunnel configurations. IPSec tunnels use
+        the IKE gateways to establish encrypted VPN connectivity between
+        branch sites or data centers and Prisma Access.
+      tags:
+        - IPSecTunnels
+      parameters:
+        - name: folder
+          in: query
+          description: Filter by folder.
+          schema:
+            type: string
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 200
+      responses:
+        '200':
+          description: IPSec tunnels returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/IPSecTunnel'
+                  offset:
+                    type: integer
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      operationId: createIPSecTunnel
+      summary: Create an IPSec tunnel
+      description: Creates a new IPSec tunnel in the candidate configuration.
+      tags:
+        - IPSecTunnels
+      parameters:
+        - name: folder
+          in: query
+          required: true
+          description: Target folder for the IPSec tunnel.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IPSecTunnel'
+      responses:
+        '201':
+          description: IPSec tunnel created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IPSecTunnel'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /ipsec-tunnels/{id}:
+    get:
+      operationId: getIPSecTunnel
+      summary: Get an IPSec tunnel
+      description: Returns the configuration of a specific IPSec tunnel.
+      tags:
+        - IPSecTunnels
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique IPSec tunnel identifier.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: IPSec tunnel returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IPSecTunnel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    put:
+      operationId: updateIPSecTunnel
+      summary: Update an IPSec tunnel
+      description: Updates an existing IPSec tunnel in the candidate configuration.
+      tags:
+        - IPSecTunnels
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique IPSec tunnel identifier.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IPSecTunnel'
+      responses:
+        '200':
+          description: IPSec tunnel updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IPSecTunnel'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      operationId: deleteIPSecTunnel
+      summary: Delete an IPSec tunnel
+      description: Deletes an IPSec tunnel from the candidate configuration.
+      tags:
+        - IPSecTunnels
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique IPSec tunnel identifier.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: IPSec tunnel deleted successfully.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /security-rules:
     get:
       operationId: listSecurityRules
       summary: List security rules
@@ -247,7 +834,7 @@ paths:
         and action criteria. Rules are evaluated in order from top
         to bottom.
       tags:
-        - SecurityPolicies
+        - SecurityRules
       parameters:
         - name: folder
           in: query
@@ -277,7 +864,7 @@ paths:
             default: 200
       responses:
         '200':
-          description: Security rules returned.
+          description: Security rules returned successfully.
           content:
             application/json:
               schema:
@@ -293,21 +880,159 @@ paths:
                     type: integer
                   limit:
                     type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-  /sse/config/v1/config-versions/candidate:push:
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      operationId: createSecurityRule
+      summary: Create a security rule
+      description: >-
+        Creates a new security rule in the candidate configuration.
+        Changes must be pushed to take effect.
+      tags:
+        - SecurityRules
+      parameters:
+        - name: folder
+          in: query
+          required: true
+          description: Target folder for the security rule.
+          schema:
+            type: string
+        - name: position
+          in: query
+          description: Position for the new rule (pre or post).
+          schema:
+            type: string
+            enum:
+              - pre
+              - post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecurityRule'
+      responses:
+        '201':
+          description: Security rule created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /security-rules/{id}:
+    get:
+      operationId: getSecurityRule
+      summary: Get a security rule
+      description: Returns the configuration of a specific security rule.
+      tags:
+        - SecurityRules
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique security rule identifier.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Security rule returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityRule'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    put:
+      operationId: updateSecurityRule
+      summary: Update a security rule
+      description: Updates an existing security rule in the candidate configuration.
+      tags:
+        - SecurityRules
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique security rule identifier.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecurityRule'
+      responses:
+        '200':
+          description: Security rule updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      operationId: deleteSecurityRule
+      summary: Delete a security rule
+      description: Deletes a security rule from the candidate configuration.
+      tags:
+        - SecurityRules
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique security rule identifier.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Security rule deleted successfully.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /config-versions/candidate:push:
     post:
       operationId: pushCandidateConfig
       summary: Push candidate configuration
       description: >-
         Pushes the current candidate configuration to the running
-        configuration, activating all staged changes. This operation
-        applies changes across remote networks, service connections,
-        security policies, and all other configuration elements that
-        have been modified since the last push. The push is
-        asynchronous and returns a job ID for tracking progress.
+        configuration, activating all staged changes across remote
+        networks, service connections, security policies, and other
+        configuration elements modified since the last push. The push
+        is asynchronous and returns a job ID for tracking progress.
       tags:
-        - SecurityPolicies
+        - Configuration
       requestBody:
         required: true
         content:
@@ -318,7 +1043,7 @@ paths:
                 folders:
                   type: array
                   description: >-
-                    List of folders to push. If empty, all folders
+                    List of folders to push. If omitted, all folders
                     with pending changes are pushed.
                   items:
                     type: string
@@ -327,7 +1052,7 @@ paths:
                   description: Description of the configuration push.
       responses:
         '200':
-          description: Configuration push initiated.
+          description: Configuration push initiated successfully.
           content:
             application/json:
               schema:
@@ -335,17 +1060,52 @@ paths:
                 properties:
                   success:
                     type: boolean
+                    description: Whether the push was initiated successfully.
                   job_id:
                     type: string
-                    description: >-
-                      Job identifier for tracking the push operation
-                      status.
+                    description: Job identifier for tracking push operation status.
                   message:
                     type: string
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /jobs/{id}:
+    get:
+      operationId: getJobStatus
+      summary: Get job status
+      description: >-
+        Returns the current status of an asynchronous job such as a
+        candidate configuration push. Poll this endpoint to track the
+        progress of long-running operations.
+      tags:
+        - Configuration
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Job identifier returned by an asynchronous operation.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Job status returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 components:
   securitySchemes:
     oauth2:
@@ -353,8 +1113,7 @@ components:
       description: >-
         OAuth 2.0 client credentials flow for obtaining an access token.
         Requires a client ID and client secret from the Palo Alto Networks
-        SASE identity provider. The access token must be included as a
-        Bearer token in the Authorization header.
+        SASE identity provider.
       flows:
         clientCredentials:
           tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
@@ -378,9 +1137,24 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   schemas:
     RemoteNetwork:
       type: object
+      required:
+        - name
+        - region
       properties:
         id:
           type: string
@@ -391,65 +1165,37 @@ components:
           description: Name of the remote network.
         region:
           type: string
-          description: >-
-            Prisma Access compute region for this remote network
-            (e.g., us-east-1, eu-west-1).
+          description: Prisma Access compute region (e.g., us-east-1, eu-west-1).
         license_type:
           type: string
-          description: License type assigned to this remote network.
           enum:
             - FWAAS-AGGREGATE
             - FWAAS-BYOL
+          description: License type assigned to this remote network.
         spn_name:
           type: string
-          description: >-
-            Service provider node name for the Prisma Access gateway
-            location.
-        ipsec_tunnel:
-          type: object
-          description: IPSec tunnel configuration.
-          properties:
-            name:
-              type: string
-            auto_key:
-              type: object
-              properties:
-                ike_gateway:
-                  type: object
-                  properties:
-                    name:
-                      type: string
-                    peer_address:
-                      type: object
-                      properties:
-                        ip:
-                          type: string
-                          format: ipv4
-                    authentication:
-                      type: object
-                      properties:
-                        pre_shared_key:
-                          type: string
-                          description: Pre-shared key for IKE authentication.
-                ipsec_crypto_profile:
-                  type: string
-            tunnel_interface:
-              type: string
+          description: Service provider node name for the Prisma Access gateway location.
         ecmp_load_balancing:
           type: string
           enum:
             - enable
             - disable
           description: Enable or disable ECMP load balancing.
+        subnets:
+          type: array
+          items:
+            type: string
+          description: Local subnets at the remote network site.
         folder:
           type: string
           description: Folder containing this remote network.
           readOnly: true
+    ServiceConnection:
+      type: object
       required:
         - name
         - region
-    ServiceConnection:
-      type: object
+        - ipsec_tunnel
       properties:
         id:
           type: string
@@ -464,37 +1210,22 @@ components:
         ipsec_tunnel:
           type: string
           description: Name of the associated IPSec tunnel.
-        onboarding_type:
-          type: string
-          description: Type of onboarding for the service connection.
-          enum:
-            - classic
         subnets:
           type: array
-          description: List of internal subnets accessible through this connection.
           items:
             type: string
+          description: Internal subnets accessible through this connection.
         nat_pool:
           type: string
           description: NAT pool CIDR for source translation.
-        primary_wan_interface:
-          type: string
-          description: Primary WAN interface for the service connection.
-        secondary_wan_interface:
-          type: string
-          description: Secondary WAN interface for redundancy.
         qos_enabled:
           type: boolean
-          description: Whether QoS is enabled on this connection.
           default: false
+          description: Whether QoS is enabled on this connection.
         folder:
           type: string
           readOnly: true
-      required:
-        - name
-        - region
-        - ipsec_tunnel
-    AgentProfile:
+    MobileAgentInfrastructureSettings:
       type: object
       properties:
         id:
@@ -502,66 +1233,164 @@ components:
           readOnly: true
         name:
           type: string
-          description: Name of the agent profile.
-        authentication:
-          type: object
-          description: Authentication configuration for the agent.
-          properties:
-            saml_idp:
-              type: string
-              description: SAML identity provider profile name.
-            client_certificate:
-              type: boolean
-              description: Whether client certificate authentication is required.
-            mfa_enabled:
-              type: boolean
-              description: Whether multi-factor authentication is enabled.
-        agent_user_override:
-          type: object
-          properties:
-            allowed:
-              type: boolean
-            with_ticket:
-              type: boolean
-        split_tunneling:
-          type: object
-          description: Split tunnel configuration.
-          properties:
-            include_domains:
-              type: array
-              items:
+          description: Name for the infrastructure settings configuration.
+        ip_pool:
+          type: array
+          items:
+            type: string
+          description: IP address pools for mobile user address allocation.
+        dns_servers:
+          type: array
+          items:
+            type: string
+          description: DNS server IP addresses for mobile users.
+        dns_suffix:
+          type: array
+          items:
+            type: string
+          description: DNS suffixes to append for mobile users.
+        regions:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
                 type: string
-            exclude_domains:
-              type: array
-              items:
-                type: string
-            include_applications:
-              type: array
-              items:
-                type: string
-        connect_method:
+                description: Prisma Access compute region.
+              addresses:
+                type: array
+                items:
+                  type: string
+                description: IP addresses for the mobile user gateway in this region.
+          description: Compute regions for mobile user connectivity.
+    IKEGateway:
+      type: object
+      required:
+        - name
+        - peer_address
+        - authentication
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the IKE gateway.
+          readOnly: true
+        name:
+          type: string
+          description: Name of the IKE gateway.
+        version:
           type: string
           enum:
-            - pre-logon
-            - on-demand
-            - user-logon
-          description: Method used for establishing the VPN connection.
-        gp_app_config:
+            - ikev1
+            - ikev2
+            - ikev2-preferred
+          default: ikev2-preferred
+          description: IKE protocol version.
+        peer_address:
+          type: object
+          description: Peer IP address configuration.
+          properties:
+            ip:
+              type: string
+              format: ipv4
+              description: Static peer IP address.
+            dynamic:
+              type: boolean
+              description: Whether the peer address is dynamic.
+        authentication:
+          type: object
+          description: IKE authentication configuration.
+          properties:
+            pre_shared_key:
+              type: string
+              description: Pre-shared key for IKE authentication.
+            certificate:
+              type: object
+              properties:
+                local_certificate:
+                  type: string
+                  description: Local certificate profile name.
+        local_id:
           type: object
           properties:
-            portal_address:
+            type:
               type: string
-              description: GlobalProtect portal FQDN or IP address.
-            connect_timeout:
-              type: integer
-              description: Connection timeout in seconds.
+              enum:
+                - ipaddr
+                - keyid
+                - fqdn
+                - ufqdn
+            id:
+              type: string
+        peer_id:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - ipaddr
+                - keyid
+                - fqdn
+                - ufqdn
+            id:
+              type: string
         folder:
           type: string
           readOnly: true
+    IPSecTunnel:
+      type: object
       required:
         - name
+        - auto_key
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the IPSec tunnel.
+          readOnly: true
+        name:
+          type: string
+          description: Name of the IPSec tunnel.
+        auto_key:
+          type: object
+          description: Auto-key IKE configuration for the tunnel.
+          properties:
+            ike_gateway:
+              type: array
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    description: Name of the IKE gateway to use.
+            ipsec_crypto_profile:
+              type: string
+              description: IPSec crypto profile name.
+        tunnel_monitor:
+          type: object
+          properties:
+            enable:
+              type: boolean
+            destination_ip:
+              type: string
+              format: ipv4
+            proxy_id:
+              type: string
+        anti_replay:
+          type: boolean
+          default: true
+          description: Whether anti-replay protection is enabled.
+        folder:
+          type: string
+          readOnly: true
     SecurityRule:
       type: object
+      required:
+        - name
+        - from
+        - to
+        - source
+        - destination
+        - application
+        - action
       properties:
         id:
           type: string
@@ -648,14 +1477,45 @@ components:
             - pre
             - post
           readOnly: true
-      required:
-        - name
-        - from
-        - to
-        - source
-        - destination
-        - application
-        - action
+    JobStatus:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique job identifier.
+        type:
+          type: string
+          description: Type of asynchronous job.
+        status:
+          type: string
+          enum:
+            - pending
+            - running
+            - completed
+            - failed
+          description: Current status of the job.
+        result:
+          type: string
+          enum:
+            - OK
+            - FAIL
+          description: Final result of the job once completed.
+        start_ts:
+          type: string
+          format: date-time
+          description: Timestamp when the job started.
+        end_ts:
+          type: string
+          format: date-time
+          description: Timestamp when the job completed.
+        description:
+          type: string
+          description: Job description.
+        details:
+          type: array
+          items:
+            type: string
+          description: Job status detail messages.
     ErrorResponse:
       type: object
       properties:

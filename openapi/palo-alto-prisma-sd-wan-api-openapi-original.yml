@@ -3,12 +3,15 @@ info:
   title: Prisma SD-WAN API
   description: >-
     REST API for the Prisma SD-WAN branch networking platform providing
-    programmatic access to site management, element (ION device)
-    configuration, WAN interface setup, policy management, and network
-    topology visualization. Prisma SD-WAN enables intelligent path
-    selection, application-aware routing, and centralized management
-    of branch office connectivity across the SASE fabric.
-  version: '2.0'
+    programmatic access to site management, WAN and LAN interface
+    configuration, QoS rules, path policy rules, site performance
+    metrics, application usage monitoring, and alarm management. Prisma
+    SD-WAN enables intelligent path selection, application-aware routing,
+    and centralized management of branch office connectivity across the
+    SASE fabric. The unified API is available at
+    https://api.sase.paloaltonetworks.com. A legacy CloudGenix-compatible
+    API is available at https://api.cloudgenix.com/v4.7.
+  version: '1.0'
   contact:
     name: Palo Alto Networks Developer Support
     url: https://pan.dev/
@@ -17,45 +20,46 @@ info:
     url: https://www.paloaltonetworks.com/legal
 servers:
   - url: https://api.sase.paloaltonetworks.com
-    description: Prisma SD-WAN SASE API server.
+    description: Prisma SD-WAN unified SASE API server.
+  - url: https://api.cloudgenix.com/v4.7
+    description: Legacy CloudGenix API server (v4.7).
 security:
   - oauth2: []
 tags:
   - name: Sites
     description: >-
-      Site management for branch offices, data centers, and remote
-      locations connected through Prisma SD-WAN.
-  - name: Elements
-    description: >-
-      ION device (element) management including hardware appliances and
-      virtual instances deployed at SD-WAN sites.
+      SD-WAN site management for branch offices, data centers, and
+      remote locations.
   - name: WANInterfaces
     description: >-
       WAN interface configuration for defining upstream connectivity
       including ISP links, MPLS circuits, and LTE connections.
-  - name: PolicySets
+  - name: LANNetworks
     description: >-
-      Policy set management for defining application-aware routing,
-      QoS, and path selection rules.
-  - name: PathPolicies
+      LAN network configuration for defining local networks at
+      SD-WAN sites.
+  - name: QoSRules
     description: >-
-      Path policy configuration for controlling traffic steering
+      Quality of Service rule management for traffic prioritization
+      across WAN links.
+  - name: PathRules
+    description: >-
+      Path policy rule management for controlling traffic steering
       decisions across available WAN links.
-  - name: Topology
+  - name: Monitoring
     description: >-
-      Network topology views providing visibility into site-to-site
-      connectivity and VPN mesh status.
+      Site performance metrics, application usage data, and alarm
+      monitoring.
 paths:
-  /sdwan/v2.0/api/sites:
+  /sdwan/config/v1/sites:
     get:
       operationId: listSites
       summary: List SD-WAN sites
       description: >-
         Returns a list of all SD-WAN sites configured in the tenant.
         Each site represents a physical location such as a branch
-        office, data center, or retail store. Sites contain one or
-        more ION elements that provide SD-WAN functionality.
-        Supports pagination through offset and limit parameters.
+        office, data center, or retail store with one or more ION
+        devices providing SD-WAN functionality.
       tags:
         - Sites
       parameters:
@@ -77,17 +81,9 @@ paths:
           description: Filter sites by name.
           schema:
             type: string
-        - name: admin_state
-          in: query
-          description: Filter by administrative state.
-          schema:
-            type: string
-            enum:
-              - active
-              - disabled
       responses:
         '200':
-          description: Sites returned.
+          description: Sites returned successfully.
           content:
             application/json:
               schema:
@@ -104,15 +100,15 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
     post:
       operationId: createSite
       summary: Create an SD-WAN site
       description: >-
-        Creates a new SD-WAN site definition. A site represents a
-        physical location where ION devices will be deployed. The site
-        configuration includes location details, address information,
-        and administrative settings. After creation, ION elements can
-        be assigned to the site.
+        Creates a new SD-WAN site definition. After creation, ION
+        elements and WAN interfaces can be configured and assigned
+        to the site.
       tags:
         - Sites
       requestBody:
@@ -123,7 +119,7 @@ paths:
               $ref: '#/components/schemas/Site'
       responses:
         '200':
-          description: Site created.
+          description: Site created successfully.
           content:
             application/json:
               schema:
@@ -132,74 +128,115 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-  /sdwan/v2.0/api/sites/{site_id}/elements:
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /sdwan/config/v1/sites/{site_id}:
     get:
-      operationId: listSiteElements
-      summary: List elements at a site
-      description: >-
-        Returns a list of ION elements (devices) deployed at the
-        specified site. Elements are the SD-WAN appliances or virtual
-        instances that provide routing, security, and WAN optimization
-        at each site. Each element includes hardware details, software
-        version, and operational status.
+      operationId: getSite
+      summary: Get an SD-WAN site
+      description: Returns the configuration of a specific SD-WAN site by ID.
       tags:
-        - Elements
+        - Sites
       parameters:
         - name: site_id
           in: path
           required: true
-          description: Unique identifier of the site.
+          description: Unique site identifier.
           schema:
             type: string
-        - name: offset
-          in: query
-          schema:
-            type: integer
-            default: 0
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            default: 100
       responses:
         '200':
-          description: Elements returned.
+          description: Site returned successfully.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  count:
-                    type: integer
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Element'
+                $ref: '#/components/schemas/Site'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
-          description: Site not found.
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    put:
+      operationId: updateSite
+      summary: Update an SD-WAN site
+      description: Updates the configuration of an existing SD-WAN site.
+      tags:
+        - Sites
+      parameters:
+        - name: site_id
+          in: path
+          required: true
+          description: Unique site identifier.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Site'
+      responses:
+        '200':
+          description: Site updated successfully.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /sdwan/v2.0/api/sites/{site_id}/waninterfaces:
+                $ref: '#/components/schemas/Site'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      operationId: deleteSite
+      summary: Delete an SD-WAN site
+      description: Deletes an SD-WAN site and all associated configuration.
+      tags:
+        - Sites
+      parameters:
+        - name: site_id
+          in: path
+          required: true
+          description: Unique site identifier.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Site deleted successfully.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /sdwan/config/v1/sites/{site_id}/wan-interfaces:
     get:
       operationId: listSiteWANInterfaces
       summary: List WAN interfaces at a site
       description: >-
         Returns a list of WAN interfaces configured at the specified
         site. WAN interfaces represent upstream network connections
-        such as broadband ISP links, MPLS circuits, dedicated fiber
-        connections, or LTE backup links. Each interface includes
-        bandwidth settings, cost metrics, and link priority.
+        such as broadband ISP links, MPLS circuits, or LTE backup
+        links.
       tags:
         - WANInterfaces
       parameters:
         - name: site_id
           in: path
           required: true
-          description: Unique identifier of the site.
+          description: Unique site identifier.
           schema:
             type: string
         - name: offset
@@ -214,7 +251,7 @@ paths:
             default: 100
       responses:
         '200':
-          description: WAN interfaces returned.
+          description: WAN interfaces returned successfully.
           content:
             application/json:
               schema:
@@ -228,24 +265,144 @@ paths:
                       $ref: '#/components/schemas/WANInterface'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
-          description: Site not found.
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      operationId: createSiteWANInterface
+      summary: Create a WAN interface at a site
+      description: Creates a new WAN interface configuration at the specified site.
+      tags:
+        - WANInterfaces
+      parameters:
+        - name: site_id
+          in: path
+          required: true
+          description: Unique site identifier.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WANInterface'
+      responses:
+        '200':
+          description: WAN interface created successfully.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /sdwan/v2.0/api/policysets:
+                $ref: '#/components/schemas/WANInterface'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /sdwan/config/v1/sites/{site_id}/lan-networks:
     get:
-      operationId: listPolicySets
-      summary: List policy sets
+      operationId: listSiteLANNetworks
+      summary: List LAN networks at a site
       description: >-
-        Returns a list of all policy sets configured in the SD-WAN
-        tenant. Policy sets are collections of policies that define
-        traffic handling behavior including application-aware routing,
-        QoS prioritization, and path selection. Policy sets can be
-        assigned to individual sites or applied globally.
+        Returns a list of LAN networks configured at the specified site.
+        LAN networks define the local subnets and VLAN configurations
+        served by the SD-WAN device at the site.
       tags:
-        - PolicySets
+        - LANNetworks
+      parameters:
+        - name: site_id
+          in: path
+          required: true
+          description: Unique site identifier.
+          schema:
+            type: string
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: LAN networks returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LANNetwork'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      operationId: createSiteLANNetwork
+      summary: Create a LAN network at a site
+      description: Creates a new LAN network configuration at the specified site.
+      tags:
+        - LANNetworks
+      parameters:
+        - name: site_id
+          in: path
+          required: true
+          description: Unique site identifier.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LANNetwork'
+      responses:
+        '200':
+          description: LAN network created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LANNetwork'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /sdwan/config/v1/policies/qos-rules:
+    get:
+      operationId: listQoSRules
+      summary: List QoS rules
+      description: >-
+        Returns a list of Quality of Service rules configured in the
+        SD-WAN tenant. QoS rules define traffic prioritization and
+        bandwidth allocation policies for applications traversing
+        WAN links.
+      tags:
+        - QoSRules
       parameters:
         - name: offset
           in: query
@@ -259,7 +416,7 @@ paths:
             default: 100
       responses:
         '200':
-          description: Policy sets returned.
+          description: QoS rules returned successfully.
           content:
             application/json:
               schema:
@@ -270,94 +427,305 @@ paths:
                   items:
                     type: array
                     items:
-                      $ref: '#/components/schemas/PolicySet'
+                      $ref: '#/components/schemas/QoSRule'
         '401':
           $ref: '#/components/responses/Unauthorized'
-  /sdwan/v2.0/api/topology:
-    get:
-      operationId: getTopology
-      summary: Get network topology
-      description: >-
-        Returns the current SD-WAN network topology showing
-        site-to-site connectivity, VPN tunnel status, and mesh
-        relationships. The topology view provides visibility into
-        how sites are interconnected through Prisma Access hubs,
-        direct site-to-site VPN tunnels, and service connections.
-        Includes health indicators for each link.
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      operationId: createQoSRule
+      summary: Create a QoS rule
+      description: Creates a new QoS traffic prioritization rule.
       tags:
-        - Topology
-      parameters:
-        - name: type
-          in: query
-          description: >-
-            Type of topology view to retrieve. Full returns all
-            connections; hub-spoke returns the hub-and-spoke overlay.
-          schema:
-            type: string
-            enum:
-              - full
-              - hub-spoke
-              - mesh
-            default: full
+        - QoSRules
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QoSRule'
       responses:
         '200':
-          description: Network topology returned.
+          description: QoS rule created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QoSRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /sdwan/config/v1/policies/path-rules:
+    get:
+      operationId: listPathRules
+      summary: List path policy rules
+      description: >-
+        Returns a list of path policy rules. Path rules control traffic
+        steering decisions across available WAN links based on
+        application identity, source, destination, and link quality
+        conditions.
+      tags:
+        - PathRules
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Path policy rules returned successfully.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  nodes:
+                  count:
+                    type: integer
+                  items:
                     type: array
-                    description: Sites and hubs in the topology.
                     items:
-                      type: object
-                      properties:
-                        id:
-                          type: string
-                        name:
-                          type: string
-                        type:
-                          type: string
-                          enum:
-                            - site
-                            - hub
-                            - datacenter
-                        status:
-                          type: string
-                          enum:
-                            - up
-                            - down
-                            - degraded
-                  links:
-                    type: array
-                    description: Connections between nodes.
-                    items:
-                      type: object
-                      properties:
-                        source_id:
-                          type: string
-                        target_id:
-                          type: string
-                        type:
-                          type: string
-                          enum:
-                            - vpn
-                            - direct
-                            - prisma-access
-                        status:
-                          type: string
-                          enum:
-                            - up
-                            - down
-                        latency_ms:
-                          type: number
-                        jitter_ms:
-                          type: number
-                        packet_loss_pct:
-                          type: number
+                      $ref: '#/components/schemas/PathRule'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      operationId: createPathRule
+      summary: Create a path policy rule
+      description: Creates a new path policy rule for traffic steering.
+      tags:
+        - PathRules
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PathRule'
+      responses:
+        '200':
+          description: Path policy rule created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PathRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /sdwan/monitor/v1/sites/{site_id}/metrics:
+    get:
+      operationId: getSiteMetrics
+      summary: Get site performance metrics
+      description: >-
+        Returns performance metrics for a specific SD-WAN site including
+        WAN link utilization, latency, jitter, and packet loss data
+        collected from the site's ION devices.
+      tags:
+        - Monitoring
+      parameters:
+        - name: site_id
+          in: path
+          required: true
+          description: Unique site identifier.
+          schema:
+            type: string
+        - name: start_time
+          in: query
+          description: Start of the time range in ISO 8601 format.
+          schema:
+            type: string
+            format: date-time
+        - name: end_time
+          in: query
+          description: End of the time range in ISO 8601 format.
+          schema:
+            type: string
+            format: date-time
+        - name: metric_type
+          in: query
+          description: Type of metric to retrieve.
+          schema:
+            type: string
+            enum:
+              - bandwidth
+              - latency
+              - jitter
+              - packet_loss
+        - name: granularity
+          in: query
+          description: Time granularity for metric aggregation.
+          schema:
+            type: string
+            enum:
+              - 5m
+              - 15m
+              - 1h
+              - 1d
+            default: 1h
+      responses:
+        '200':
+          description: Site metrics returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  site_id:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SiteMetric'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /sdwan/monitor/v1/applications:
+    get:
+      operationId: getApplicationUsage
+      summary: Get application usage
+      description: >-
+        Returns application usage and performance data across all
+        SD-WAN sites. Includes bandwidth consumption, session counts,
+        and quality metrics per application.
+      tags:
+        - Monitoring
+      parameters:
+        - name: start_time
+          in: query
+          description: Start of the time range in ISO 8601 format.
+          schema:
+            type: string
+            format: date-time
+        - name: end_time
+          in: query
+          description: End of the time range in ISO 8601 format.
+          schema:
+            type: string
+            format: date-time
+        - name: site_id
+          in: query
+          description: Filter by specific site.
+          schema:
+            type: string
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Application usage returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ApplicationUsage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /sdwan/monitor/v1/alarms:
+    get:
+      operationId: listAlarms
+      summary: List active alarms
+      description: >-
+        Returns a list of active SD-WAN alarms across all monitored
+        sites. Alarms indicate conditions requiring attention such as
+        WAN link failures, high latency, device disconnections, and
+        tunnel state changes.
+      tags:
+        - Monitoring
+      parameters:
+        - name: site_id
+          in: query
+          description: Filter alarms by site.
+          schema:
+            type: string
+        - name: severity
+          in: query
+          description: Filter alarms by severity level.
+          schema:
+            type: string
+            enum:
+              - critical
+              - major
+              - minor
+              - info
+        - name: acknowledged
+          in: query
+          description: Filter by acknowledgement status.
+          schema:
+            type: boolean
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Alarms returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Alarm'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 components:
   securitySchemes:
     oauth2:
@@ -365,8 +733,7 @@ components:
       description: >-
         OAuth 2.0 client credentials flow for obtaining an access token.
         Requires a client ID and client secret from the Palo Alto Networks
-        SASE identity provider. The access token must be included as a
-        Bearer token in the Authorization header.
+        SASE identity provider.
       flows:
         clientCredentials:
           tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
@@ -390,9 +757,23 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   schemas:
     Site:
       type: object
+      required:
+        - name
       properties:
         id:
           type: string
@@ -409,23 +790,21 @@ components:
           enum:
             - active
             - disabled
-          description: Administrative state of the site.
           default: active
+          description: Administrative state of the site.
         element_cluster_role:
           type: string
           enum:
             - SPOKE
             - HUB
             - NONE
-          description: Role of the site in the SD-WAN topology.
           default: SPOKE
+          description: Role of the site in the SD-WAN topology.
         address:
           type: object
           description: Physical address of the site.
           properties:
             street:
-              type: string
-            street2:
               type: string
             city:
               type: string
@@ -445,15 +824,6 @@ components:
             longitude:
               type: number
               format: double
-        policy_set_id:
-          type: string
-          description: >-
-            Identifier of the policy set assigned to this site. If
-            not set, the default policy set is used.
-        service_binding:
-          type: string
-          description: >-
-            Service binding type for Prisma Access integration.
         tags:
           type: array
           items:
@@ -467,79 +837,11 @@ components:
           type: string
           format: date-time
           readOnly: true
-      required:
-        - name
-    Element:
-      type: object
-      properties:
-        id:
-          type: string
-          description: Unique identifier for the element.
-          readOnly: true
-        name:
-          type: string
-          description: Name of the ION element.
-        serial_number:
-          type: string
-          description: Hardware serial number of the device.
-        model_name:
-          type: string
-          description: >-
-            Hardware model (e.g., ION 1200, ION 2000, ION 3200,
-            ION 9000, ION Virtual).
-        software_version:
-          type: string
-          description: Current software version running on the element.
-        site_id:
-          type: string
-          description: Identifier of the site this element is assigned to.
-        role:
-          type: string
-          enum:
-            - HUB
-            - SPOKE
-          description: Role of the element within the site.
-        state:
-          type: string
-          enum:
-            - bound
-            - unbound
-            - offline
-            - degraded
-          description: Current operational state of the element.
-        connected:
-          type: boolean
-          description: Whether the element is currently connected to the controller.
-        admin_action:
-          type: string
-          enum:
-            - none
-            - reboot
-            - decommission
-          description: Pending administrative action on the element.
-        cluster_id:
-          type: string
-          description: HA cluster identifier if the element is part of a cluster.
-        deployment_op:
-          type: string
-          description: Current deployment operation status.
-        allowed_roles:
-          type: array
-          items:
-            type: string
-          description: Roles this element is capable of performing.
-        created_at:
-          type: string
-          format: date-time
-          readOnly: true
-        updated_at:
-          type: string
-          format: date-time
-          readOnly: true
-      required:
-        - name
     WANInterface:
       type: object
+      required:
+        - name
+        - type
       properties:
         id:
           type: string
@@ -555,41 +857,22 @@ components:
           enum:
             - publicwan
             - privatewan
-          description: >-
-            Type of WAN connection. Public WAN is internet-facing;
-            private WAN is MPLS or dedicated circuit.
-        network_id:
-          type: string
-          description: Associated WAN network identifier.
+          description: Type of WAN connection.
         link_bw_down:
           type: number
           description: Downstream bandwidth in Mbps.
         link_bw_up:
           type: number
           description: Upstream bandwidth in Mbps.
-        bw_config_mode:
-          type: string
-          enum:
-            - manual
-            - auto
-          description: Bandwidth configuration mode.
         cost:
           type: integer
-          description: >-
-            Cost metric for path selection. Lower cost links are
-            preferred.
           minimum: 0
           maximum: 255
+          description: Cost metric for path selection. Lower cost is preferred.
         lqm_enabled:
           type: boolean
-          description: Whether Link Quality Monitoring is enabled.
           default: true
-        bfd_mode:
-          type: string
-          enum:
-            - aggressive
-            - non-aggressive
-          description: Bidirectional Forwarding Detection mode.
+          description: Whether Link Quality Monitoring is enabled.
         label_id:
           type: string
           description: WAN interface label for policy-based routing.
@@ -604,100 +887,36 @@ components:
           type: string
           format: date-time
           readOnly: true
+    LANNetwork:
+      type: object
       required:
         - name
-        - type
-    PolicySet:
-      type: object
+        - network
       properties:
         id:
           type: string
-          description: Unique identifier for the policy set.
+          description: Unique identifier for the LAN network.
           readOnly: true
         name:
           type: string
-          description: Name of the policy set.
+          description: Name of the LAN network.
         description:
           type: string
-        default_policy:
+        network:
+          type: string
+          description: Subnet CIDR for the LAN network (e.g., 192.168.1.0/24).
+        vlan_id:
+          type: integer
+          minimum: 1
+          maximum: 4094
+          description: VLAN identifier for this LAN network.
+        dhcp_enabled:
           type: boolean
-          description: Whether this is the default policy set.
           default: false
-        bandwidth_allocation_schemes:
-          type: array
-          description: Bandwidth allocation rules within the policy set.
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-              bandwidth_range:
-                type: object
-                properties:
-                  high:
-                    type: number
-                  low:
-                    type: number
-        network_policy_rules:
-          type: array
-          description: Network policy rules for traffic steering.
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-              name:
-                type: string
-              description:
-                type: string
-              app_def_ids:
-                type: array
-                items:
-                  type: string
-                description: Application definition IDs this rule applies to.
-              paths_allowed:
-                type: object
-                properties:
-                  active_paths:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        label:
-                          type: string
-                        type:
-                          type: string
-                  backup_paths:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        label:
-                          type: string
-                        type:
-                          type: string
-              priority_num:
-                type: integer
-                description: Rule priority number for ordering.
-        qos_policy_rules:
-          type: array
-          description: QoS policy rules for traffic prioritization.
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-              name:
-                type: string
-              dscp_class:
-                type: string
-              priority:
-                type: string
-                enum:
-                  - high
-                  - medium
-                  - low
-                  - default
+          description: Whether the ION device serves DHCP for this network.
+        site_id:
+          type: string
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -706,8 +925,223 @@ components:
           type: string
           format: date-time
           readOnly: true
+    QoSRule:
+      type: object
       required:
         - name
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the QoS rule.
+          readOnly: true
+        name:
+          type: string
+          description: Name of the QoS rule.
+        description:
+          type: string
+        priority:
+          type: string
+          enum:
+            - high
+            - medium
+            - low
+            - default
+          description: Traffic priority for matching flows.
+        dscp_class:
+          type: string
+          description: DSCP class to apply for marking traffic.
+        app_filters:
+          type: array
+          items:
+            type: string
+          description: Application names or identifiers this rule applies to.
+        bandwidth_limit_up:
+          type: number
+          description: Upstream bandwidth limit in Mbps for matched traffic.
+        bandwidth_limit_down:
+          type: number
+          description: Downstream bandwidth limit in Mbps for matched traffic.
+        enabled:
+          type: boolean
+          default: true
+          description: Whether the rule is active.
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PathRule:
+      type: object
+      required:
+        - name
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the path rule.
+          readOnly: true
+        name:
+          type: string
+          description: Name of the path rule.
+        description:
+          type: string
+        app_filters:
+          type: array
+          items:
+            type: string
+          description: Application identifiers this path rule applies to.
+        preferred_paths:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+                description: WAN interface label for the preferred path.
+              type:
+                type: string
+                enum:
+                  - active
+                  - backup
+                description: Whether this path is active or backup.
+          description: Ordered list of preferred WAN paths for traffic steering.
+        sla_threshold:
+          type: object
+          description: SLA thresholds that trigger path switching.
+          properties:
+            latency_ms:
+              type: integer
+              description: Maximum acceptable latency in milliseconds.
+            packet_loss_pct:
+              type: number
+              description: Maximum acceptable packet loss percentage.
+            jitter_ms:
+              type: integer
+              description: Maximum acceptable jitter in milliseconds.
+        enabled:
+          type: boolean
+          default: true
+          description: Whether the rule is active.
+        priority:
+          type: integer
+          description: Rule evaluation priority. Lower numbers are evaluated first.
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    SiteMetric:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Time bucket for the aggregated metric.
+        site_id:
+          type: string
+          description: Site identifier.
+        interface_name:
+          type: string
+          description: WAN interface name.
+        metric_type:
+          type: string
+          enum:
+            - bandwidth
+            - latency
+            - jitter
+            - packet_loss
+          description: Type of metric.
+        value:
+          type: number
+          description: Metric value.
+        unit:
+          type: string
+          description: Unit of measurement (e.g., Mbps, ms, pct).
+        direction:
+          type: string
+          enum:
+            - upload
+            - download
+          description: Traffic direction for bandwidth metrics.
+    ApplicationUsage:
+      type: object
+      properties:
+        application:
+          type: string
+          description: Application name.
+        site_id:
+          type: string
+          description: Site where the application traffic was observed.
+        bytes_up:
+          type: integer
+          format: int64
+          description: Uploaded bytes for the application.
+        bytes_down:
+          type: integer
+          format: int64
+          description: Downloaded bytes for the application.
+        sessions:
+          type: integer
+          description: Number of application sessions.
+        avg_latency_ms:
+          type: number
+          description: Average latency for application traffic.
+        timestamp:
+          type: string
+          format: date-time
+          description: Time bucket for the usage data.
+    Alarm:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique alarm identifier.
+        type:
+          type: string
+          description: Alarm type identifier.
+        severity:
+          type: string
+          enum:
+            - critical
+            - major
+            - minor
+            - info
+          description: Alarm severity level.
+        site_id:
+          type: string
+          description: Site where the alarm was generated.
+        site_name:
+          type: string
+          description: Name of the site where the alarm was generated.
+        element_id:
+          type: string
+          description: ION element identifier that generated the alarm.
+        message:
+          type: string
+          description: Human-readable alarm description.
+        acknowledged:
+          type: boolean
+          description: Whether the alarm has been acknowledged.
+        acknowledged_by:
+          type: string
+          description: User who acknowledged the alarm.
+        acknowledged_at:
+          type: string
+          format: date-time
+          description: Timestamp when the alarm was acknowledged.
+        raised_at:
+          type: string
+          format: date-time
+          description: Timestamp when the alarm was raised.
+        cleared_at:
+          type: string
+          format: date-time
+          description: Timestamp when the alarm was cleared. Null if still active.
     ErrorResponse:
       type: object
       properties:

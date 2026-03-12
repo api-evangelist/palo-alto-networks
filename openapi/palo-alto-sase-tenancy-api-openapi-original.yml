@@ -2,13 +2,13 @@ openapi: 3.1.0
 info:
   title: SASE Tenancy Service API
   description: >-
-    REST API for the Palo Alto Networks SASE Tenancy Service providing
-    programmatic management of Tenant Service Groups (TSGs). TSGs represent
-    hierarchical organizational units within the SASE platform, enabling
-    multi-tenant administration, resource isolation, and delegated
-    management. Supports creating, updating, listing, and deleting TSGs
-    with full lifecycle control. Authentication uses OAuth2 bearer tokens
-    obtained from the Palo Alto Networks identity provider.
+    SASE Tenancy Service API for Tenant Service Group (TSG) management.
+    Provides programmatic control over the multi-tenant hierarchy used in
+    Palo Alto Networks SASE deployments. Tenant Service Groups are the
+    organizational units used to scope SASE policies, licenses, and
+    administrative access. Supports creating parent and child TSG
+    relationships to model managed service provider and enterprise
+    sub-tenant structures.
   version: '1.0'
   contact:
     name: Palo Alto Networks Developer Support
@@ -17,131 +17,149 @@ info:
     name: Proprietary
     url: https://www.paloaltonetworks.com/legal
 servers:
-  - url: https://api.sase.paloaltonetworks.com
-    description: SASE API gateway for tenancy service operations.
+  - url: https://api.sase.paloaltonetworks.com/tenancy/v1
+    description: SASE Tenancy Service API production server.
 security:
-  - bearerAuth: []
+  - oauth2Bearer: []
 tags:
-  - name: TenantServiceGroups
-    description: >-
-      Tenant Service Group management operations for creating and
-      administering multi-tenant hierarchies.
+  - name: Tenant Service Groups
+    description: Tenant Service Group lifecycle management and hierarchy queries.
 paths:
-  /tenancy/v1/tenant_service_groups:
+  /tenant-service-groups:
     get:
       operationId: listTenantServiceGroups
-      summary: List tenant service groups
+      summary: List Tenant Service Groups
       description: >-
-        Returns a list of all Tenant Service Groups accessible to the
-        authenticated principal. Results include TSG metadata such as
-        display name, parent hierarchy, support contact, and current
-        operational status. Supports optional filtering by parent TSG ID
-        to retrieve direct children within the hierarchy.
+        Returns the list of Tenant Service Groups accessible to the
+        authenticated service account. Results include the TSG hierarchy
+        metadata, license counts, and current status. Supports filtering
+        and pagination for tenants managing large numbers of TSGs.
       tags:
-        - TenantServiceGroups
+        - Tenant Service Groups
       parameters:
         - name: parent_id
           in: query
-          required: false
-          description: >-
-            Filter results to only include TSGs that are direct children
-            of the specified parent TSG ID.
+          description: Filter to return only direct children of the specified TSG ID.
           schema:
             type: string
-        - name: status
+        - name: offset
           in: query
-          required: false
-          description: Filter results by TSG operational status.
+          description: Number of results to skip for pagination.
           schema:
-            type: string
-            enum:
-              - active
-              - inactive
-              - pending
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of TSGs to return per page.
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
       responses:
         '200':
-          description: Tenant service groups returned.
+          description: Tenant Service Groups returned.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  total_count:
+                  total:
                     type: integer
                     description: Total number of TSGs matching the query.
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
                   items:
                     type: array
                     items:
                       $ref: '#/components/schemas/TenantServiceGroup'
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       operationId: createTenantServiceGroup
-      summary: Create a tenant service group
+      summary: Create Tenant Service Group
       description: >-
-        Creates a new Tenant Service Group under the specified parent TSG.
-        The new TSG inherits certain configuration properties from its
-        parent. A display name and parent ID are required. The TSG is
-        created in a pending state and transitions to active once
-        provisioning completes.
+        Creates a new Tenant Service Group. A parent TSG ID must be
+        provided to place the new TSG within the hierarchy. The creating
+        account must have administrative access to the parent TSG.
       tags:
-        - TenantServiceGroups
+        - Tenant Service Groups
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - display_name
-                - parent_id
-              properties:
-                display_name:
-                  type: string
-                  description: Human-readable name for the TSG.
-                  maxLength: 128
-                parent_id:
-                  type: string
-                  description: >-
-                    TSG ID of the parent under which this TSG will be
-                    created.
-                support_contact:
-                  type: string
-                  format: email
-                  description: >-
-                    Email address for the support contact responsible
-                    for this TSG.
+              $ref: '#/components/schemas/TenantServiceGroupRequest'
       responses:
         '201':
-          description: Tenant service group created.
+          description: Tenant Service Group created successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/TenantServiceGroup'
         '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
-          description: A TSG with the same display name already exists under this parent.
+          description: Invalid request body or missing required fields.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /tenancy/v1/tenant_service_groups/{tsg_id}:
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions on the parent TSG.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: A TSG with this name already exists under the parent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /tenant-service-groups/{tsg_id}:
     get:
       operationId: getTenantServiceGroup
-      summary: Get a tenant service group
+      summary: Get Tenant Service Group details
       description: >-
-        Returns detailed information about a specific Tenant Service Group
-        identified by its TSG ID. Includes the full TSG metadata, current
-        status, parent hierarchy information, and support contact details.
+        Returns full details for a specific Tenant Service Group including
+        its parent, display name, description, license allocations, and
+        current status.
       tags:
-        - TenantServiceGroups
+        - Tenant Service Groups
       parameters:
         - name: tsg_id
           in: path
@@ -151,27 +169,44 @@ paths:
             type: string
       responses:
         '200':
-          description: Tenant service group returned.
+          description: Tenant Service Group details returned.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/TenantServiceGroup'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          $ref: '#/components/responses/NotFound'
+          description: Tenant Service Group not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       operationId: updateTenantServiceGroup
-      summary: Update a tenant service group
+      summary: Update Tenant Service Group
       description: >-
-        Updates the mutable properties of an existing Tenant Service Group.
-        Only the display name and support contact can be modified. The
-        parent ID and TSG ID are immutable after creation. The TSG must
-        be in an active state to be updated.
+        Updates the display name, description, or contact information for
+        an existing Tenant Service Group. The TSG ID and parent relationship
+        cannot be changed after creation.
       tags:
-        - TenantServiceGroups
+        - Tenant Service Groups
       parameters:
         - name: tsg_id
           in: path
@@ -184,41 +219,53 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                display_name:
-                  type: string
-                  description: Updated human-readable name for the TSG.
-                  maxLength: 128
-                support_contact:
-                  type: string
-                  format: email
-                  description: Updated support contact email address.
+              $ref: '#/components/schemas/TenantServiceGroupUpdate'
       responses:
         '200':
-          description: Tenant service group updated.
+          description: Tenant Service Group updated successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/TenantServiceGroup'
         '400':
-          $ref: '#/components/responses/BadRequest'
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          $ref: '#/components/responses/NotFound'
+          description: Tenant Service Group not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: deleteTenantServiceGroup
-      summary: Delete a tenant service group
+      summary: Delete Tenant Service Group
       description: >-
-        Deletes an existing Tenant Service Group. The TSG must have no
-        active child TSGs and no active service subscriptions before it
-        can be deleted. Deletion is permanent and cannot be undone. The
-        TSG transitions to an inactive state during the deletion process.
+        Deletes a Tenant Service Group. The TSG must have no child TSGs
+        and no active service subscriptions before deletion. This action
+        is irreversible.
       tags:
-        - TenantServiceGroups
+        - Tenant Service Groups
       parameters:
         - name: tsg_id
           in: path
@@ -228,83 +275,155 @@ paths:
             type: string
       responses:
         '204':
-          description: Tenant service group deleted.
+          description: Tenant Service Group deleted successfully.
+        '400':
+          description: TSG has child TSGs or active subscriptions and cannot be deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: >-
-            TSG cannot be deleted because it has active child TSGs or
-            active subscriptions.
+          description: Tenant Service Group not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /tenant-service-groups/{tsg_id}/children:
+    get:
+      operationId: listChildTenantServiceGroups
+      summary: List child Tenant Service Groups
+      description: >-
+        Returns all direct child Tenant Service Groups of the specified
+        TSG. Use this endpoint to traverse the TSG hierarchy when managing
+        multi-level tenant structures.
+      tags:
+        - Tenant Service Groups
+      parameters:
+        - name: tsg_id
+          in: path
+          required: true
+          description: Unique identifier of the parent Tenant Service Group.
+          schema:
+            type: string
+        - name: offset
+          in: query
+          description: Number of results to skip for pagination.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of child TSGs to return.
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+      responses:
+        '200':
+          description: Child Tenant Service Groups returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of direct children.
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TenantServiceGroup'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Parent Tenant Service Group not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 components:
   securitySchemes:
-    bearerAuth:
-      type: oauth2
-      flows:
-        clientCredentials:
-          tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
-          scopes: {}
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
       description: >-
-        OAuth2 client credentials flow. Obtain an access token from the
-        Palo Alto Networks identity provider and include it as a Bearer
-        token in the Authorization header.
-  responses:
-    BadRequest:
-      description: The request body is malformed or contains invalid parameters.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Unauthorized:
-      description: Missing or invalid OAuth2 bearer token.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Forbidden:
-      description: Insufficient permissions for this operation.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    NotFound:
-      description: The requested resource was not found.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
+        OAuth 2.0 Bearer token for SASE platform authentication. Obtain
+        using the client_credentials grant with your SASE service account
+        client ID and client secret.
   schemas:
     TenantServiceGroup:
       type: object
       properties:
-        tsg_id:
+        id:
           type: string
-          description: Unique identifier for the Tenant Service Group.
+          description: Unique identifier of the Tenant Service Group.
         display_name:
           type: string
-          description: Human-readable name of the TSG.
+          description: Human-readable display name of the TSG.
+        description:
+          type: string
+          description: Optional description of the TSG's purpose.
         parent_id:
           type: string
-          description: >-
-            TSG ID of the parent TSG. Null for root-level TSGs.
-        support_contact:
+          description: ID of the parent TSG in the hierarchy. Null for root-level TSGs.
+        support_account_id:
           type: string
-          format: email
-          description: Email address of the support contact for this TSG.
+          description: Associated Palo Alto Networks support account identifier.
+        vertical:
+          type: string
+          description: Industry vertical classification for the TSG.
+        region:
+          type: string
+          description: Primary geographic region for the TSG.
         status:
           type: string
           enum:
             - active
-            - inactive
+            - suspended
             - pending
-          description: Current operational status of the TSG.
+          description: Current status of the TSG.
+        child_count:
+          type: integer
+          description: Number of direct child TSGs.
         created_at:
           type: string
           format: date-time
@@ -312,16 +431,56 @@ components:
         updated_at:
           type: string
           format: date-time
-          description: Timestamp when the TSG was last modified.
+          description: Timestamp of the most recent TSG modification.
+    TenantServiceGroupRequest:
+      type: object
+      required:
+        - display_name
+        - parent_id
+      properties:
+        display_name:
+          type: string
+          description: Display name for the new TSG.
+          maxLength: 256
+        description:
+          type: string
+          description: Optional description of the TSG's purpose.
+          maxLength: 1024
+        parent_id:
+          type: string
+          description: ID of the parent TSG under which to create this TSG.
+        support_account_id:
+          type: string
+          description: Palo Alto Networks support account ID to associate with this TSG.
+        vertical:
+          type: string
+          description: Industry vertical classification.
+        region:
+          type: string
+          description: Primary geographic region.
+    TenantServiceGroupUpdate:
+      type: object
+      properties:
+        display_name:
+          type: string
+          description: New display name for the TSG.
+          maxLength: 256
+        description:
+          type: string
+          description: Updated description.
+          maxLength: 1024
+        vertical:
+          type: string
+          description: Updated industry vertical classification.
     ErrorResponse:
       type: object
       properties:
-        error_code:
-          type: integer
-          description: Machine-readable error code.
+        error:
+          type: string
+          description: Error code identifying the error type.
         message:
           type: string
-          description: Human-readable error message.
-        details:
+          description: Human-readable description of the error.
+        request_id:
           type: string
-          description: Additional context about the error.
+          description: Request identifier for support correlation.

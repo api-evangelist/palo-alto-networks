@@ -2,15 +2,15 @@ openapi: 3.1.0
 info:
   title: Prisma Cloud Code Security API
   description: >-
-    REST API for Prisma Cloud Code Security (formerly Bridgecrew) providing
-    programmatic access to Infrastructure as Code (IaC) scanning, software
-    composition analysis, CI/CD pipeline security, and supply chain risk
-    management. The API enables integration with version control systems such
-    as GitHub, GitLab, Bitbucket, and Azure Repos, and supports scanning
-    Terraform, CloudFormation, Kubernetes manifests, Dockerfiles, and other
-    IaC frameworks using the Checkov scanning engine. Authentication requires
-    a JWT token obtained from the Prisma Cloud CSPM /login endpoint, passed
-    via the x-redlock-auth header.
+    REST API for Prisma Cloud Code Security (Application Security) providing
+    programmatic access to repository management, CI/CD integration scanning,
+    scan execution and status, suppression rules for policy violations, code
+    errors by branch, and fix suggestions for pull requests. The API enables
+    integration with version control systems such as GitHub, GitLab, Bitbucket,
+    and Azure Repos, and supports scanning Terraform, CloudFormation, Kubernetes
+    manifests, Dockerfiles, and other IaC frameworks using the Checkov scanning
+    engine. Authentication requires a JWT token obtained from the Prisma Cloud
+    CSPM /login endpoint, passed via the x-redlock-auth header.
   version: '1.0'
   contact:
     name: Palo Alto Networks Developer Support
@@ -19,43 +19,41 @@ info:
     name: Proprietary
     url: https://www.paloaltonetworks.com/legal
 servers:
-  - url: https://api.prismacloud.io
-    description: Prisma Cloud API (US region 1).
-  - url: https://api2.prismacloud.io
-    description: Prisma Cloud API (US region 2).
-  - url: https://api3.prismacloud.io
-    description: Prisma Cloud API (US region 3).
-  - url: https://api.eu.prismacloud.io
-    description: Prisma Cloud API (EU).
-  - url: https://api.anz.prismacloud.io
-    description: Prisma Cloud API (ANZ).
-  - url: https://api.sg.prismacloud.io
-    description: Prisma Cloud API (Singapore).
-  - url: https://api.ca.prismacloud.io
-    description: Prisma Cloud API (Canada).
+  - url: https://api.prismacloud.io/code/api/v1
+    description: Prisma Cloud Code Security API (US region 1).
+  - url: https://api2.prismacloud.io/code/api/v1
+    description: Prisma Cloud Code Security API (US region 2).
+  - url: https://api.eu.prismacloud.io/code/api/v1
+    description: Prisma Cloud Code Security API (EU).
+  - url: https://api.anz.prismacloud.io/code/api/v1
+    description: Prisma Cloud Code Security API (ANZ).
+  - url: https://api.sg.prismacloud.io/code/api/v1
+    description: Prisma Cloud Code Security API (Singapore).
+  - url: https://api.ca.prismacloud.io/code/api/v1
+    description: Prisma Cloud Code Security API (Canada).
 security:
   - redlockAuth: []
 tags:
   - name: Repositories
     description: VCS repository onboarding and management.
   - name: Scans
-    description: IaC and SCA scan execution and results.
-  - name: Errors
-    description: Code security errors and policy violations in scanned files.
-  - name: Fixes
-    description: Automated fix suggestions for detected misconfigurations.
+    description: CI/CD scan execution, integration listing, and scan status.
   - name: Suppressions
-    description: Suppression rules for managing false positives and accepted risks.
+    description: Suppression rules for managing policy violations.
+  - name: Errors
+    description: Code security errors and policy violations by branch.
+  - name: Fixes
+    description: Automated fix suggestions for pull requests.
 paths:
-  /code/api/v1/repositories:
+  /repositories:
     get:
       operationId: listRepositories
-      summary: List onboarded repositories
+      summary: List connected repositories
       description: >-
-        Returns a list of all repositories that have been onboarded to Prisma
+        Returns a list of all repositories that have been connected to Prisma
         Cloud Code Security. Includes repository metadata such as the source
         VCS provider, default branch, last scan time, and counts of open
-        security errors. Supports pagination and filtering by source type.
+        security errors.
       tags:
         - Repositories
       parameters:
@@ -91,7 +89,7 @@ paths:
               - bitbucketEnterprise
       responses:
         '200':
-          description: Repositories returned.
+          description: Repositories returned successfully.
           content:
             application/json:
               schema:
@@ -99,81 +97,164 @@ paths:
                 properties:
                   totalCount:
                     type: integer
-                    description: Total number of onboarded repositories.
+                    description: Total number of connected repositories.
                   repositories:
                     type: array
                     items:
                       $ref: '#/components/schemas/Repository'
         '401':
-          description: Unauthorized. Invalid or expired token.
-  /code/api/v1/vcs-repository/repositories:
-    get:
-      operationId: listVcsRepositories
-      summary: List VCS repositories available for onboarding
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      operationId: addRepository
+      summary: Add a repository
       description: >-
-        Returns a list of repositories discovered in connected VCS integrations
-        that are available for onboarding. This includes repositories that have
-        not yet been onboarded as well as those already integrated. Use this
-        endpoint to discover new repositories for security scanning.
+        Connects a new VCS repository to Prisma Cloud Code Security for
+        automated scanning. Triggers an initial scan of the default branch
+        after onboarding.
       tags:
         - Repositories
-      parameters:
-        - name: sourceType
-          in: query
-          required: true
-          description: VCS provider type to list repositories from.
-          schema:
-            type: string
-            enum:
-              - Github
-              - Gitlab
-              - Bitbucket
-              - AzureRepos
-        - name: orgName
-          in: query
-          description: Organization or group name to filter repositories.
-          schema:
-            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - sourceType
+                - owner
+                - name
+              properties:
+                id:
+                  type: string
+                  description: Repository identifier in the VCS provider.
+                sourceType:
+                  type: string
+                  enum:
+                    - Github
+                    - Gitlab
+                    - Bitbucket
+                    - AzureRepos
+                    - githubEnterprise
+                    - gitlabEnterprise
+                    - bitbucketEnterprise
+                  description: VCS provider type.
+                owner:
+                  type: string
+                  description: Repository owner or organization name.
+                name:
+                  type: string
+                  description: Repository name.
+                defaultBranch:
+                  type: string
+                  description: Default branch to scan. Defaults to the VCS default branch.
       responses:
         '200':
-          description: VCS repositories returned.
+          description: Repository added successfully.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    id:
-                      type: string
-                      description: Repository identifier in the VCS provider.
-                    name:
-                      type: string
-                      description: Repository name.
-                    owner:
-                      type: string
-                      description: Repository owner or organization.
-                    defaultBranch:
-                      type: string
-                      description: Default branch name.
-                    isOnboarded:
-                      type: boolean
-                      description: Whether the repository has been onboarded.
-                    url:
-                      type: string
-                      description: URL to the repository in the VCS provider.
+                $ref: '#/components/schemas/Repository'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Unauthorized. Invalid or expired token.
-  /code/api/v1/scans/integrations:
-    post:
-      operationId: triggerScanIntegration
-      summary: Trigger a scan for a repository integration
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      operationId: removeRepository
+      summary: Remove a repository
       description: >-
-        Initiates an IaC and SCA scan for a specific repository integration.
-        The scan analyzes all supported file types in the repository including
-        Terraform, CloudFormation, Kubernetes YAML, Helm charts, Dockerfiles,
-        and open-source dependency manifests. Scan results are available via
-        the errors and fixes endpoints once processing is complete.
+        Disconnects a repository from Prisma Cloud Code Security. Scan
+        history and error records are retained for audit purposes.
+      tags:
+        - Repositories
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: string
+                  description: Repository identifier to remove.
+                sourceType:
+                  type: string
+                  description: VCS provider type.
+      responses:
+        '200':
+          description: Repository removed successfully.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /scans/integrations:
+    get:
+      operationId: listScanIntegrations
+      summary: List CI/CD scan integrations
+      description: >-
+        Returns a list of configured CI/CD pipeline integrations for
+        automated scanning. Integrations include Jenkins, GitHub Actions,
+        CircleCI, GitLab CI, Azure Pipelines, and other supported CI
+        platforms.
+      tags:
+        - Scans
+      parameters:
+        - name: offset
+          in: query
+          description: Number of records to skip for pagination.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of records to return.
+          schema:
+            type: integer
+            default: 25
+      responses:
+        '200':
+          description: CI/CD integrations returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalCount:
+                    type: integer
+                  integrations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ScanIntegration'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /scans:
+    post:
+      operationId: triggerScan
+      summary: Trigger a scan
+      description: >-
+        Triggers an IaC and SCA scan for a specific repository branch.
+        The scan analyzes all supported file types in the repository.
+        Returns a scan identifier for polling status.
       tags:
         - Scans
       requestBody:
@@ -187,18 +268,13 @@ paths:
               properties:
                 repositoryId:
                   type: string
-                  description: >-
-                    Unique identifier of the onboarded repository to scan.
+                  description: Unique identifier of the repository to scan.
                 branch:
                   type: string
-                  description: >-
-                    Branch to scan. Defaults to the repository default branch
-                    if not specified.
+                  description: Branch to scan. Defaults to the repository default branch.
                 scanTypes:
                   type: array
-                  description: >-
-                    Types of scans to perform. If omitted, all scan types are
-                    run.
+                  description: Types of scans to run. Defaults to all scan types.
                   items:
                     type: string
                     enum:
@@ -208,39 +284,221 @@ paths:
                       - cicd
       responses:
         '200':
-          description: Scan initiated.
+          description: Scan triggered successfully.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ScanResult'
+                $ref: '#/components/schemas/ScanStatus'
         '400':
-          description: Invalid request parameters.
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Unauthorized. Invalid or expired token.
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
-          description: Repository not found.
-  /code/api/v1/errors/files:
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /scans/{scan_id}:
     get:
-      operationId: listCodeErrors
-      summary: List code security errors by file
+      operationId: getScanStatus
+      summary: Get scan status
+      description: >-
+        Returns the current status and summary results of a specific scan.
+        Poll this endpoint to determine when a triggered scan has completed.
+      tags:
+        - Scans
+      parameters:
+        - name: scan_id
+          in: path
+          required: true
+          description: Unique scan identifier.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Scan status returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /suppressions:
+    get:
+      operationId: listSuppressions
+      summary: List suppressions
+      description: >-
+        Returns a list of suppression rules for policy violations. Suppressions
+        can be scoped to a specific resource, file, repository, or applied
+        globally for a policy.
+      tags:
+        - Suppressions
+      parameters:
+        - name: offset
+          in: query
+          description: Number of records to skip for pagination.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of records to return.
+          schema:
+            type: integer
+            default: 25
+        - name: policyId
+          in: query
+          description: Filter suppressions by Checkov policy ID.
+          schema:
+            type: string
+        - name: suppressionType
+          in: query
+          description: Filter by suppression scope.
+          schema:
+            type: string
+            enum:
+              - Policy
+              - Resources
+              - Accounts
+              - Tags
+      responses:
+        '200':
+          description: Suppressions returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalCount:
+                    type: integer
+                    description: Total number of suppression rules.
+                  suppressions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Suppression'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      operationId: createSuppression
+      summary: Create a suppression
+      description: >-
+        Creates a suppression rule to suppress specific code security policy
+        violations. Use suppressions to manage accepted risks, false positives,
+        or findings addressed through compensating controls.
+      tags:
+        - Suppressions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - policyId
+                - suppressionType
+              properties:
+                policyId:
+                  type: string
+                  description: Checkov policy ID to suppress (e.g., CKV_AWS_18).
+                suppressionType:
+                  type: string
+                  enum:
+                    - Policy
+                    - Resources
+                    - Accounts
+                    - Tags
+                  description: Scope of the suppression rule.
+                justification:
+                  type: string
+                  description: Reason for creating the suppression.
+                expirationDate:
+                  type: string
+                  format: date-time
+                  description: Optional expiration date for the suppression.
+                resources:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      repositoryId:
+                        type: string
+                      filePath:
+                        type: string
+                      resourceId:
+                        type: string
+                  description: Specific resources to suppress. Required when suppressionType is Resources.
+      responses:
+        '200':
+          description: Suppression created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Suppression'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /suppressions/{suppression_id}:
+    delete:
+      operationId: deleteSuppression
+      summary: Delete a suppression
+      description: Deletes a specific suppression rule. The suppressed policy violations will resume being reported.
+      tags:
+        - Suppressions
+      parameters:
+        - name: suppression_id
+          in: path
+          required: true
+          description: Unique suppression identifier.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Suppression deleted successfully.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /errors/branch:
+    get:
+      operationId: getErrorsByBranch
+      summary: Get errors by branch
       description: >-
         Returns code security errors (policy violations, misconfigurations,
-        and vulnerabilities) grouped by file path. Each error includes the
-        Checkov policy ID, severity, resource name, and the file location
-        where the issue was detected. Supports filtering by repository,
-        branch, severity, and error type.
+        and vulnerabilities) for a specific repository branch. Each error
+        includes the Checkov policy ID, severity, resource name, and the
+        file location where the issue was detected.
       tags:
         - Errors
       parameters:
         - name: repositoryId
           in: query
           required: true
-          description: Filter errors by repository ID.
+          description: Repository identifier to retrieve errors for.
           schema:
             type: string
         - name: branch
           in: query
-          description: Filter errors by branch name.
+          description: Branch name to retrieve errors for. Defaults to the default branch.
           schema:
             type: string
         - name: severity
@@ -287,7 +545,7 @@ paths:
             default: 25
       responses:
         '200':
-          description: Code errors returned.
+          description: Code errors returned successfully.
           content:
             application/json:
               schema:
@@ -300,30 +558,36 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/CodeError'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Unauthorized. Invalid or expired token.
-  /code/api/v1/fixes/checkovScanResults:
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /fixes/pull_request:
     get:
-      operationId: getCheckovFixResults
-      summary: Get auto-fix suggestions from Checkov scan
+      operationId: getFixSuggestionsForPR
+      summary: Get fix suggestions for pull requests
       description: >-
-        Returns automated fix suggestions for misconfigurations detected by
-        the Checkov scanning engine. Each fix includes the original code
-        snippet, the suggested replacement, and the policy that triggered
-        the finding. Fix suggestions are available for IaC files including
-        Terraform, CloudFormation, and Kubernetes manifests.
+        Returns automated fix suggestions for misconfigurations detected in
+        a pull request or branch. Each fix includes the original code snippet,
+        the suggested replacement, and the policy that triggered the finding.
+        Fix suggestions are available for IaC files including Terraform,
+        CloudFormation, and Kubernetes manifests.
       tags:
         - Fixes
       parameters:
         - name: repositoryId
           in: query
           required: true
-          description: Repository ID to retrieve fix suggestions for.
+          description: Repository identifier to retrieve fix suggestions for.
           schema:
             type: string
         - name: branch
           in: query
-          description: Branch to retrieve fix suggestions for.
+          description: Branch or pull request branch to retrieve fix suggestions for.
           schema:
             type: string
         - name: filePath
@@ -345,7 +609,7 @@ paths:
             default: 25
       responses:
         '200':
-          description: Fix suggestions returned.
+          description: Fix suggestions returned successfully.
           content:
             application/json:
               schema:
@@ -358,152 +622,14 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Fix'
-        '401':
-          description: Unauthorized. Invalid or expired token.
-  /code/api/v1/suppressions:
-    post:
-      operationId: createSuppression
-      summary: Create a suppression rule
-      description: >-
-        Creates a suppression rule to suppress specific code security errors.
-        Suppressions can be scoped to a specific resource, file, repository,
-        or applied globally for a policy. Use suppressions to manage accepted
-        risks, false positives, or findings that are addressed through
-        compensating controls.
-      tags:
-        - Suppressions
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - policyId
-                - suppressionType
-              properties:
-                policyId:
-                  type: string
-                  description: >-
-                    Checkov policy ID to suppress (e.g., CKV_AWS_18,
-                    BC_AWS_GENERAL_31).
-                suppressionType:
-                  type: string
-                  description: Scope of the suppression rule.
-                  enum:
-                    - Policy
-                    - Resources
-                    - Accounts
-                    - Tags
-                justification:
-                  type: string
-                  description: >-
-                    Reason for creating the suppression. Required for audit
-                    trail compliance.
-                expirationDate:
-                  type: string
-                  format: date-time
-                  description: >-
-                    Optional expiration date for the suppression. After this
-                    date, the suppression is automatically removed.
-                resources:
-                  type: array
-                  description: >-
-                    List of specific resources to suppress. Required when
-                    suppressionType is Resources.
-                  items:
-                    type: object
-                    properties:
-                      repositoryId:
-                        type: string
-                      filePath:
-                        type: string
-                      resourceId:
-                        type: string
-                accountIds:
-                  type: array
-                  description: >-
-                    List of repository IDs to suppress. Required when
-                    suppressionType is Accounts.
-                  items:
-                    type: string
-                tags:
-                  type: array
-                  description: >-
-                    List of tag key-value pairs to suppress. Required when
-                    suppressionType is Tags.
-                  items:
-                    type: object
-                    properties:
-                      key:
-                        type: string
-                      value:
-                        type: string
-      responses:
-        '200':
-          description: Suppression created.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Suppression'
         '400':
-          description: Invalid suppression parameters.
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Unauthorized. Invalid or expired token.
-    get:
-      operationId: listSuppressions
-      summary: List suppression rules
-      description: >-
-        Returns all active suppression rules configured for code security
-        findings. Supports filtering by policy ID, suppression type, and
-        creator.
-      tags:
-        - Suppressions
-      parameters:
-        - name: policyId
-          in: query
-          description: Filter suppressions by Checkov policy ID.
-          schema:
-            type: string
-        - name: suppressionType
-          in: query
-          description: Filter by suppression scope.
-          schema:
-            type: string
-            enum:
-              - Policy
-              - Resources
-              - Accounts
-              - Tags
-        - name: offset
-          in: query
-          description: Number of records to skip for pagination.
-          schema:
-            type: integer
-            default: 0
-        - name: limit
-          in: query
-          description: Maximum number of records to return.
-          schema:
-            type: integer
-            default: 25
-      responses:
-        '200':
-          description: Suppression rules returned.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  totalCount:
-                    type: integer
-                    description: Total number of suppression rules.
-                  suppressions:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Suppression'
-        '401':
-          description: Unauthorized. Invalid or expired token.
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 components:
   securitySchemes:
     redlockAuth:
@@ -514,6 +640,37 @@ components:
         JWT token obtained from the Prisma Cloud /login endpoint. Pass the
         token value in the x-redlock-auth header. Tokens are valid for 10
         minutes.
+  responses:
+    BadRequest:
+      description: Invalid request parameters or body.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Invalid or expired authentication token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   schemas:
     Repository:
       type: object
@@ -532,7 +689,6 @@ components:
           description: Full repository name in owner/repo format.
         sourceType:
           type: string
-          description: VCS provider type.
           enum:
             - Github
             - Gitlab
@@ -541,6 +697,7 @@ components:
             - githubEnterprise
             - gitlabEnterprise
             - bitbucketEnterprise
+          description: VCS provider type.
         defaultBranch:
           type: string
           description: Default branch of the repository.
@@ -556,12 +713,12 @@ components:
           description: Timestamp of the most recent scan.
         lastScanStatus:
           type: string
-          description: Status of the most recent scan.
           enum:
             - completed
             - running
             - failed
             - pending
+          description: Status of the most recent scan.
         errorCounts:
           type: object
           description: Count of open errors by severity.
@@ -576,28 +733,43 @@ components:
               type: integer
             info:
               type: integer
-        frameworksDetected:
-          type: array
-          description: IaC frameworks detected in the repository.
-          items:
-            type: string
-            enum:
-              - Terraform
-              - CloudFormation
-              - Kubernetes
-              - Helm
-              - Dockerfile
-              - Serverless
-              - ARM
-              - Bicep
         createdAt:
           type: string
           format: date-time
-          description: Timestamp when the repository was onboarded.
-    ScanResult:
+          description: Timestamp when the repository was connected.
+    ScanIntegration:
       type: object
       properties:
-        scanId:
+        id:
+          type: string
+          description: Unique integration identifier.
+        name:
+          type: string
+          description: Integration name.
+        type:
+          type: string
+          description: CI/CD platform type.
+          enum:
+            - jenkins
+            - github_actions
+            - gitlab_ci
+            - circleci
+            - azure_pipelines
+            - bitbucket_pipelines
+            - other
+        repositoryId:
+          type: string
+          description: Repository this integration is associated with.
+        enabled:
+          type: boolean
+          description: Whether the integration is active.
+        createdAt:
+          type: string
+          format: date-time
+    ScanStatus:
+      type: object
+      properties:
+        scan_id:
           type: string
           description: Unique scan identifier.
         repositoryId:
@@ -608,12 +780,12 @@ components:
           description: Branch that was scanned.
         status:
           type: string
-          description: Current scan status.
           enum:
             - queued
             - running
             - completed
             - failed
+          description: Current scan status.
         startTime:
           type: string
           format: date-time
@@ -621,10 +793,9 @@ components:
         endTime:
           type: string
           format: date-time
-          description: Scan completion timestamp. Null if scan is still running.
+          description: Scan completion timestamp.
         scanTypes:
           type: array
-          description: Types of scans included in this run.
           items:
             type: string
             enum:
@@ -632,28 +803,15 @@ components:
               - sca
               - secrets
               - cicd
+          description: Types of scans included in this run.
         summary:
           type: object
-          description: >-
-            High-level scan result summary. Available after scan completion.
+          description: High-level scan result summary. Available after completion.
           properties:
             filesScanned:
               type: integer
-              description: Number of files analyzed.
             resourcesScanned:
               type: integer
-              description: Number of IaC resources evaluated.
-            errorsByType:
-              type: object
-              properties:
-                iac:
-                  type: integer
-                sca:
-                  type: integer
-                secrets:
-                  type: integer
-                cicd:
-                  type: integer
             errorsBySeverity:
               type: object
               properties:
@@ -667,6 +825,43 @@ components:
                   type: integer
                 info:
                   type: integer
+    Suppression:
+      type: object
+      properties:
+        suppressionId:
+          type: string
+          description: Unique suppression rule identifier.
+        policyId:
+          type: string
+          description: Checkov policy ID being suppressed.
+        policyName:
+          type: string
+          description: Human-readable policy name.
+        suppressionType:
+          type: string
+          enum:
+            - Policy
+            - Resources
+            - Accounts
+            - Tags
+          description: Scope of the suppression.
+        justification:
+          type: string
+          description: Reason provided for the suppression.
+        createdBy:
+          type: string
+          description: Email address of the user who created the suppression.
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when the suppression was created.
+        expirationDate:
+          type: string
+          format: date-time
+          description: Expiration date. Null if the suppression does not expire.
+        suppressedErrorCount:
+          type: integer
+          description: Number of errors currently suppressed by this rule.
     CodeError:
       type: object
       properties:
@@ -675,55 +870,50 @@ components:
           description: Unique error identifier.
         policyId:
           type: string
-          description: >-
-            Checkov policy ID that triggered the error (e.g., CKV_AWS_18,
-            BC_AWS_S3_19).
+          description: Checkov policy ID that triggered the error (e.g., CKV_AWS_18).
         policyName:
           type: string
           description: Human-readable name of the violated policy.
         severity:
           type: string
-          description: Error severity level.
           enum:
             - CRITICAL
             - HIGH
             - MEDIUM
             - LOW
             - INFO
+          description: Error severity level.
         category:
           type: string
-          description: Error category based on the type of scan that detected it.
           enum:
             - IAC
             - SCA
             - SECRETS
             - CICD
+          description: Error category based on the type of scan that detected it.
         status:
           type: string
-          description: Current status of the error.
           enum:
             - OPEN
             - SUPPRESSED
             - FIXED
+          description: Current status of the error.
         resourceName:
           type: string
-          description: >-
-            Name of the IaC resource where the error was detected (e.g.,
-            aws_s3_bucket.my_bucket).
+          description: Name of the IaC resource where the error was detected.
         resourceType:
           type: string
-          description: >-
-            Type of the IaC resource (e.g., aws_s3_bucket, google_compute_instance).
+          description: Type of the IaC resource.
         filePath:
           type: string
           description: Relative path to the file containing the error.
         fileLineRange:
           type: array
-          description: Start and end line numbers of the affected code block.
           items:
             type: integer
           minItems: 2
           maxItems: 2
+          description: Start and end line numbers of the affected code block.
         repositoryId:
           type: string
           description: Repository where the error was found.
@@ -741,23 +931,6 @@ components:
           type: string
           format: date-time
           description: Timestamp of the most recent scan where the error was found.
-        cveId:
-          type: string
-          description: >-
-            CVE identifier if the error is an SCA vulnerability finding.
-            Null for IaC errors.
-        packageName:
-          type: string
-          description: >-
-            Affected package name for SCA findings. Null for IaC errors.
-        packageVersion:
-          type: string
-          description: >-
-            Installed package version for SCA findings. Null for IaC errors.
-        fixedVersion:
-          type: string
-          description: >-
-            Fixed package version for SCA findings. Null if no fix is available.
     Fix:
       type: object
       properties:
@@ -772,13 +945,13 @@ components:
           description: Human-readable policy name.
         severity:
           type: string
-          description: Severity of the original finding.
           enum:
             - CRITICAL
             - HIGH
             - MEDIUM
             - LOW
             - INFO
+          description: Severity of the original finding.
         resourceName:
           type: string
           description: IaC resource name where the fix applies.
@@ -787,21 +960,19 @@ components:
           description: Relative path to the file requiring the fix.
         lineRange:
           type: array
-          description: Start and end line numbers of the code to be replaced.
           items:
             type: integer
           minItems: 2
           maxItems: 2
+          description: Start and end line numbers of the code to be replaced.
         originalCode:
           type: string
           description: Original code snippet that contains the misconfiguration.
         suggestedCode:
           type: string
-          description: >-
-            Suggested replacement code that resolves the misconfiguration.
+          description: Suggested replacement code that resolves the misconfiguration.
         framework:
           type: string
-          description: IaC framework of the affected file.
           enum:
             - Terraform
             - CloudFormation
@@ -810,81 +981,22 @@ components:
             - Dockerfile
             - ARM
             - Bicep
+          description: IaC framework of the affected file.
         repositoryId:
           type: string
           description: Repository where the fix applies.
         branch:
           type: string
           description: Branch where the fix applies.
-    Suppression:
+    ErrorResponse:
       type: object
       properties:
-        suppressionId:
-          type: string
-          description: Unique suppression rule identifier.
-        policyId:
-          type: string
-          description: Checkov policy ID being suppressed.
-        policyName:
-          type: string
-          description: Human-readable policy name.
-        suppressionType:
-          type: string
-          description: Scope of the suppression.
-          enum:
-            - Policy
-            - Resources
-            - Accounts
-            - Tags
-        justification:
-          type: string
-          description: Reason provided for the suppression.
-        createdBy:
-          type: string
-          description: Email address of the user who created the suppression.
-        createdAt:
-          type: string
-          format: date-time
-          description: Timestamp when the suppression was created.
-        expirationDate:
-          type: string
-          format: date-time
-          description: >-
-            Expiration date of the suppression. Null if the suppression does
-            not expire.
-        resources:
-          type: array
-          description: >-
-            Specific resources targeted by this suppression. Populated when
-            suppressionType is Resources.
-          items:
-            type: object
-            properties:
-              repositoryId:
-                type: string
-              filePath:
-                type: string
-              resourceId:
-                type: string
-        accountIds:
-          type: array
-          description: >-
-            Repository IDs targeted by this suppression. Populated when
-            suppressionType is Accounts.
-          items:
-            type: string
-        tags:
-          type: array
-          description: >-
-            Tag key-value pairs targeted by this suppression. Populated when
-            suppressionType is Tags.
-          items:
-            type: object
-            properties:
-              key:
-                type: string
-              value:
-                type: string
-        suppressedErrorCount:
+        status:
           type: integer
-          description: Number of errors currently suppressed by this rule.
+          description: HTTP status code.
+        message:
+          type: string
+          description: Human-readable error message.
+        error:
+          type: string
+          description: Error code.

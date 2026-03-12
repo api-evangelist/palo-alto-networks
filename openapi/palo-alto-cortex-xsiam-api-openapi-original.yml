@@ -1,59 +1,59 @@
 openapi: 3.1.0
 info:
-  title: Cortex XSIAM API
+  title: Cortex XSIAM REST API
   description: >-
-    REST API for the Cortex XSIAM AI-driven security operations platform
-    providing programmatic access to incident management, alert handling,
-    endpoint operations, XQL cross-data-source querying, data collection
-    monitoring, and audit logging. XSIAM unifies SOC capabilities including
-    SIEM, SOAR, ASM, and XDR into a single autonomous platform powered by
-    machine learning. All API requests use POST with JSON request bodies.
-    Authentication uses API key pairs consisting of an API Key ID and API
-    Key value.
+    REST API for the Cortex XSIAM (Extended Security Intelligence and Automation
+    Management) AI-driven security operations platform. Provides programmatic
+    access to incidents, alerts, endpoints, XQL queries, assets, audit logs,
+    and data source ingestion. XSIAM extends Cortex XDR with a full SOC platform
+    including SIEM, SOAR, and threat intelligence capabilities. Authentication
+    uses a custom HMAC-SHA256 scheme: generate an API key ID and secret from the
+    XSIAM settings, then include x-xdr-auth-id, x-xdr-nonce, x-xdr-timestamp,
+    and x-xdr-hmac-v2 headers on every request. All endpoints use POST with JSON
+    request bodies.
   version: '1.0'
   contact:
     name: Palo Alto Networks Developer Support
-    url: https://pan.dev/
+    url: https://pan.dev/cortex/docs/xsiam/
   license:
     name: Proprietary
     url: https://www.paloaltonetworks.com/legal
 servers:
   - url: https://api-{fqdn}/public_api/v1
-    description: Cortex XSIAM API server (region-specific).
+    description: Cortex XSIAM tenant API endpoint.
     variables:
       fqdn:
         description: >-
-          Your Cortex XSIAM tenant FQDN (e.g.,
-          xsiam-us.paloaltonetworks.com).
-        default: xsiam-us.paloaltonetworks.com
+          Tenant FQDN from the XSIAM settings page (e.g.,
+          example.xsiam.paloaltonetworks.com).
+        default: example.xsiam.paloaltonetworks.com
 security:
-  - apiKeyId: []
-    apiKey: []
+  - xsiamAuth: []
 tags:
   - name: Incidents
-    description: Incident lifecycle management operations.
+    description: Incident retrieval and management.
   - name: Alerts
-    description: Alert retrieval and management operations.
+    description: Alert retrieval and filtering.
   - name: Endpoints
-    description: Endpoint management and response actions.
+    description: Endpoint inventory management.
+  - name: Assets
+    description: Asset inventory management.
   - name: XQL
-    description: Cross-data-source query language operations.
-  - name: DataCollection
-    description: Data collection source monitoring and status.
-  - name: AuditLogs
-    description: Management audit log retrieval.
+    description: XQL query execution against the XSIAM data lake.
+  - name: Audit
+    description: Audit and management log retrieval.
+  - name: Ingestion
+    description: Data source configuration for log ingestion.
 paths:
   /incidents/get_incidents:
     post:
       operationId: getIncidents
-      summary: Get incidents
+      summary: List incidents
       description: >-
-        Returns a list of incidents matching the specified filters. XSIAM
-        incidents are AI-correlated groupings of alerts from multiple data
-        sources including XDR agents, network sensors, cloud sources, and
-        third-party integrations. Supports filtering by incident ID, status,
-        severity, creation time, and modification time. Returns up to 100
-        incidents per request with pagination support.
+        Returns a list of incidents matching the specified filter criteria.
+        XSIAM incidents correlate alerts from endpoint, network, cloud, and
+        SIEM data sources using AI-powered analytics. Supports filtering by
+        status, severity, and time range.
       tags:
         - Incidents
       requestBody:
@@ -68,21 +68,20 @@ paths:
                   properties:
                     filters:
                       type: array
-                      description: Array of filter objects to narrow results.
                       items:
                         $ref: '#/components/schemas/Filter'
+                      description: Filter criteria for incident list.
                     search_from:
                       type: integer
-                      description: Starting offset for pagination.
                       default: 0
                     search_to:
                       type: integer
-                      description: Ending offset for pagination.
+                      default: 100
                     sort:
-                      $ref: '#/components/schemas/SortCriteria'
+                      $ref: '#/components/schemas/SortOrder'
       responses:
         '200':
-          description: Incidents returned.
+          description: Incidents returned successfully.
           content:
             application/json:
               schema:
@@ -99,20 +98,23 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/Incident'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '402':
+        '403':
           $ref: '#/components/responses/Forbidden'
-  /alerts/get_alerts_multi_events:
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /alerts/get_alerts:
     post:
       operationId: getAlerts
-      summary: Get alerts with events
+      summary: Get alerts
       description: >-
-        Returns alerts matching the specified filters along with their
-        associated event data. Each alert includes the originating events,
-        source information, severity, MITRE ATT&CK mapping, and associated
-        artifacts. XSIAM alerts are ingested from multiple data sources
-        and correlated by the AI engine.
+        Returns alerts matching the specified filter criteria. XSIAM ingests
+        and normalizes alerts from endpoint agents, network sensors, cloud
+        providers, and third-party SIEM sources. Supports filtering by alert
+        category, severity, source, and time range.
       tags:
         - Alerts
       requestBody:
@@ -134,11 +136,12 @@ paths:
                       default: 0
                     search_to:
                       type: integer
+                      default: 100
                     sort:
-                      $ref: '#/components/schemas/SortCriteria'
+                      $ref: '#/components/schemas/SortOrder'
       responses:
         '200':
-          description: Alerts returned.
+          description: Alerts returned successfully.
           content:
             application/json:
               schema:
@@ -155,15 +158,211 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/Alert'
-  /endpoints/get_endpoint:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /xql/start_xql_query:
+    post:
+      operationId: startXqlQuery
+      summary: Execute XQL query
+      description: >-
+        Initiates an XQL (Extended Query Language) query against the XSIAM
+        data lake which includes endpoint telemetry, network logs, cloud
+        activity, and ingested SIEM data. Returns a query ID for retrieving
+        results asynchronously.
+      tags:
+        - XQL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - request_data
+              properties:
+                request_data:
+                  type: object
+                  required:
+                    - query
+                  properties:
+                    query:
+                      type: string
+                      description: XQL query string to execute.
+                    timeframe:
+                      type: object
+                      properties:
+                        relativeTime:
+                          type: string
+                          description: >-
+                            Relative time range (e.g., last_24_hours,
+                            last_7_days, last_30_days).
+                        startTime:
+                          type: integer
+                          description: Absolute start time as Unix epoch milliseconds.
+                        endTime:
+                          type: integer
+                          description: Absolute end time as Unix epoch milliseconds.
+                    max_results:
+                      type: integer
+                      default: 1000
+                      maximum: 10000
+      responses:
+        '200':
+          description: XQL query initiated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: string
+                    description: Query execution ID for retrieving results.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /xql/get_query_results:
+    post:
+      operationId: getXqlQueryResults
+      summary: Get XQL query results
+      description: >-
+        Retrieves the results of an XQL query previously initiated via
+        start_xql_query. Poll until status is SUCCESS or FAILED.
+      tags:
+        - XQL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - request_data
+              properties:
+                request_data:
+                  type: object
+                  required:
+                    - query_id
+                  properties:
+                    query_id:
+                      type: string
+                      description: Query ID returned by start_xql_query.
+                    pending_duration:
+                      type: integer
+                      description: Seconds to wait for query completion before returning.
+                      default: 0
+                    max_results:
+                      type: integer
+                      default: 1000
+                    format:
+                      type: string
+                      enum:
+                        - json
+                        - json_simple
+      responses:
+        '200':
+          description: XQL query results returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        enum:
+                          - PENDING
+                          - SUCCESS
+                          - FAILED
+                          - CANCELED
+                      number_of_results:
+                        type: integer
+                      query_cost:
+                        type: object
+                        additionalProperties:
+                          type: number
+                      remaining_quota:
+                        type: number
+                      results:
+                        type: object
+                        properties:
+                          data:
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /assets/list_assets:
+    post:
+      operationId: listAssets
+      summary: List assets
+      description: >-
+        Returns a list of assets discovered and tracked by XSIAM. Assets
+        represent devices, cloud resources, users, and service accounts observed
+        in the environment. Supports filtering by asset type, operating system,
+        and risk score.
+      tags:
+        - Assets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_data:
+                  type: object
+                  properties:
+                    filters:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Filter'
+                    search_from:
+                      type: integer
+                      default: 0
+                    search_to:
+                      type: integer
+                      default: 100
+                    sort:
+                      $ref: '#/components/schemas/SortOrder'
+      responses:
+        '200':
+          description: Assets returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      total_count:
+                        type: integer
+                      result_count:
+                        type: integer
+                      assets:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Asset'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /endpoints/get_endpoints:
     post:
       operationId: getEndpoints
-      summary: Get endpoints
+      summary: List endpoints
       description: >-
-        Returns a list of managed endpoints matching the specified filters.
-        Endpoint data includes agent version, operating system, IP addresses,
-        isolation status, last seen time, and content version. XSIAM manages
-        endpoints through the unified Cortex agent.
+        Returns a list of endpoints enrolled in XSIAM protection. Supports
+        filtering by endpoint ID, hostname, IP address, operating system, and
+        agent connection status.
       tags:
         - Endpoints
       requestBody:
@@ -185,11 +384,12 @@ paths:
                       default: 0
                     search_to:
                       type: integer
+                      default: 100
                     sort:
-                      $ref: '#/components/schemas/SortCriteria'
+                      $ref: '#/components/schemas/SortOrder'
       responses:
         '200':
-          description: Endpoints returned.
+          description: Endpoints returned successfully.
           content:
             application/json:
               schema:
@@ -206,136 +406,20 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/Endpoint'
-  /xql/start_xql_query:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /audits/management_logs/get_management_logs:
     post:
-      operationId: startXqlQuery
-      summary: Start XQL query
+      operationId: getManagementLogs
+      summary: Get audit management logs
       description: >-
-        Initiates an asynchronous XQL (Cross-Data-Source Query Language)
-        query. XQL enables searching across all ingested data sources
-        including endpoints, network, cloud, identity, and third-party
-        logs in a unified query language. Returns a query ID that can
-        be used to poll for results. Queries are executed asynchronously
-        to handle large datasets spanning multiple data lakes.
+        Retrieves audit management logs recording administrative actions
+        performed in the XSIAM console, including user logins, policy changes,
+        data source configuration, and API key management.
       tags:
-        - XQL
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                request_data:
-                  type: object
-                  required:
-                    - query
-                  properties:
-                    query:
-                      type: string
-                      description: >-
-                        XQL query string. Supports dataset selection, filtering,
-                        aggregation, and transformation operations.
-                    tenants:
-                      type: array
-                      items:
-                        type: string
-                      description: >-
-                        List of tenant IDs to query. Defaults to the current
-                        tenant if not specified.
-                    timeframe:
-                      type: object
-                      description: Time range for the query.
-                      properties:
-                        from:
-                          type: integer
-                          description: Start time as epoch timestamp in milliseconds.
-                        to:
-                          type: integer
-                          description: End time as epoch timestamp in milliseconds.
-                        relative_time:
-                          type: string
-                          description: >-
-                            Relative time range (e.g., '24 hours', '7 days',
-                            '30 days').
-      responses:
-        '200':
-          description: XQL query initiated.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  reply:
-                    type: string
-                    description: >-
-                      The query execution ID used to retrieve results via
-                      the get_query_results endpoint.
-  /xql/get_query_results:
-    post:
-      operationId: getXqlQueryResults
-      summary: Get XQL query results
-      description: >-
-        Retrieves the results of a previously initiated XQL query. If the
-        query is still executing, the response indicates the pending status.
-        For completed queries, returns the matching records with pagination
-        support. Large result sets may require multiple requests using the
-        stream_id for continuation.
-      tags:
-        - XQL
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                request_data:
-                  type: object
-                  required:
-                    - query_id
-                  properties:
-                    query_id:
-                      type: string
-                      description: The execution ID returned by start_xql_query.
-                    pending_result:
-                      type: boolean
-                      default: false
-                      description: >-
-                        If true, returns immediately even if the query is
-                        still running, indicating pending status.
-                    limit:
-                      type: integer
-                      default: 1000
-                      description: Maximum number of results to return.
-                    format:
-                      type: string
-                      enum:
-                        - json
-                        - csv
-                      default: json
-                      description: Output format for the results.
-      responses:
-        '200':
-          description: Query results returned.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  reply:
-                    $ref: '#/components/schemas/XQLResult'
-  /audits/management_logs:
-    post:
-      operationId: getAuditLogs
-      summary: Get management audit logs
-      description: >-
-        Returns management audit logs including user actions, configuration
-        changes, API activity, and administrative operations. Useful for
-        compliance monitoring, troubleshooting, and security reviews of
-        platform usage.
-      tags:
-        - AuditLogs
+        - Audit
       requestBody:
         required: true
         content:
@@ -355,11 +439,12 @@ paths:
                       default: 0
                     search_to:
                       type: integer
+                      default: 100
                     sort:
-                      $ref: '#/components/schemas/SortCriteria'
+                      $ref: '#/components/schemas/SortOrder'
       responses:
         '200':
-          description: Audit logs returned.
+          description: Management logs returned successfully.
           content:
             application/json:
               schema:
@@ -376,40 +461,72 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/AuditLog'
-  /data_collection/get_data_collection_status:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /ingestion/datasources:
     post:
-      operationId: getDataCollectionStatus
-      summary: Get data collection status
+      operationId: configureDatasource
+      summary: Configure data source
       description: >-
-        Returns the status of data collection sources configured in XSIAM.
-        Provides visibility into the health and throughput of data ingestion
-        pipelines including syslog collectors, API-based integrations,
-        cloud connectors, and agent data forwarding. Useful for monitoring
-        data ingestion gaps and troubleshooting collection issues.
+        Configures a new data source for log ingestion into XSIAM. Data sources
+        define the schema, parsing rules, and normalization mappings for
+        third-party log formats. Enables XSIAM to ingest and correlate data
+        from firewalls, cloud platforms, SaaS applications, and custom sources.
       tags:
-        - DataCollection
+        - Ingestion
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required:
+                - request_data
               properties:
                 request_data:
                   type: object
+                  required:
+                    - name
+                    - vendor
+                    - product
                   properties:
-                    filters:
-                      type: array
-                      items:
-                        $ref: '#/components/schemas/Filter'
-                    search_from:
-                      type: integer
-                      default: 0
-                    search_to:
-                      type: integer
+                    name:
+                      type: string
+                      description: Unique name for this data source configuration.
+                    vendor:
+                      type: string
+                      description: Vendor name of the data source (e.g., Palo Alto Networks).
+                    product:
+                      type: string
+                      description: Product name (e.g., PAN-OS, Prisma Access).
+                    type:
+                      type: string
+                      enum:
+                        - syslog
+                        - https
+                        - api
+                        - file
+                      description: Ingestion method for this data source.
+                    parsing_rule:
+                      type: string
+                      description: >-
+                        XDL (XSIAM Definition Language) parsing rule for
+                        extracting fields from raw log data.
+                    mapping_fields:
+                      type: object
+                      description: Field name mapping from source fields to XSIAM schema fields.
+                      additionalProperties:
+                        type: string
+                    enabled:
+                      type: boolean
+                      default: true
       responses:
         '200':
-          description: Data collection status returned.
+          description: Data source configured successfully.
           content:
             application/json:
               schema:
@@ -418,37 +535,67 @@ paths:
                   reply:
                     type: object
                     properties:
-                      total_count:
-                        type: integer
-                      result_count:
-                        type: integer
-                      sources:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/DataCollectionSource'
+                      datasource_id:
+                        type: string
+                        description: Unique identifier assigned to the new data source.
+                      name:
+                        type: string
+                      status:
+                        type: string
+                        enum:
+                          - ACTIVE
+                          - PENDING
+                          - ERROR
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
 components:
   securitySchemes:
-    apiKeyId:
+    xsiamAuth:
       type: apiKey
       in: header
-      name: x-xdr-auth-id
-      description: API Key ID from Cortex XSIAM Settings > Configurations > API Keys.
-    apiKey:
-      type: apiKey
-      in: header
-      name: Authorization
+      name: x-xdr-hmac-v2
       description: >-
-        API Key value. For Standard keys, the raw key. For Advanced keys,
-        a computed hash of the key with nonce and timestamp.
+        Cortex XSIAM uses a custom HMAC-SHA256 authentication scheme. Include
+        four headers on each request: x-xdr-auth-id (API key ID number),
+        x-xdr-nonce (64-character random string), x-xdr-timestamp (Unix epoch
+        milliseconds as a string), and x-xdr-hmac-v2 (SHA-256 hash of
+        api_key + nonce + timestamp). Standard and Advanced API key types are
+        supported; Advanced keys provide additional security through IP
+        allowlisting. Generate API keys from XSIAM Settings > Configurations >
+        API Keys.
   responses:
+    BadRequest:
+      description: Malformed request body or invalid parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     Unauthorized:
-      description: Missing or invalid API key credentials.
+      description: Missing or invalid authentication headers.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
     Forbidden:
-      description: Insufficient API key permissions for this operation.
+      description: Insufficient permissions for the requested operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: A resource with the specified name already exists.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: An internal server error occurred.
       content:
         application/json:
           schema:
@@ -456,7 +603,11 @@ components:
   schemas:
     Filter:
       type: object
-      description: Filter criteria for narrowing query results.
+      description: A filter criterion for querying XSIAM resources.
+      required:
+        - field
+        - operator
+        - value
       properties:
         field:
           type: string
@@ -465,40 +616,42 @@ components:
           type: string
           enum:
             - in
+            - contains
             - gte
             - lte
             - eq
             - neq
-            - contains
-          description: Comparison operator.
         value:
-          description: >-
-            Filter value. Type depends on operator; arrays for 'in',
-            scalars for comparison operators.
-    SortCriteria:
+          description: Filter value (string, integer, or array for the "in" operator).
+          oneOf:
+            - type: string
+            - type: integer
+            - type: array
+              items:
+                oneOf:
+                  - type: string
+                  - type: integer
+    SortOrder:
       type: object
+      description: Sorting specification for result sets.
       properties:
         field:
           type: string
-          description: Field to sort by.
         keyword:
           type: string
           enum:
             - asc
             - desc
-          default: asc
     Incident:
       type: object
+      description: A XSIAM incident correlating related alerts into a unified investigation.
       properties:
         incident_id:
           type: string
         incident_name:
           type: string
-        creation_time:
-          type: integer
-          description: Epoch timestamp in milliseconds.
-        modification_time:
-          type: integer
+        description:
+          type: string
         status:
           type: string
           enum:
@@ -512,102 +665,76 @@ components:
         severity:
           type: string
           enum:
-            - low
-            - medium
-            - high
             - critical
+            - high
+            - medium
+            - low
             - informational
-        description:
-          type: string
+            - unknown
         assigned_user_mail:
           type: string
         assigned_user_pretty_name:
           type: string
         alert_count:
           type: integer
-        host_count:
+        creation_time:
           type: integer
-        user_count:
+          description: Creation timestamp as Unix epoch milliseconds.
+        modification_time:
+          type: integer
+        detection_time:
           type: integer
         starred:
           type: boolean
-        detection_time:
-          type: integer
-        ai_score:
-          type: number
-          description: >-
-            XSIAM AI-generated incident confidence score between 0 and 100
-            indicating the likelihood that this incident is a true positive.
-        predicted_category:
+        xdr_url:
           type: string
-          description: >-
-            AI-predicted incident category based on alert correlation and
-            behavioral analysis.
-        data_sources:
+        mitre_tactics_ids_and_names:
           type: array
           items:
             type: string
-          description: >-
-            List of data sources that contributed alerts to this incident
-            (e.g., XDR Agent, Network, Cloud, Identity).
+        mitre_techniques_ids_and_names:
+          type: array
+          items:
+            type: string
     Alert:
       type: object
+      description: A XSIAM alert representing a detection from any ingested data source.
       properties:
         alert_id:
           type: string
+        detection_timestamp:
+          type: integer
         name:
+          type: string
+        category:
           type: string
         description:
           type: string
         severity:
           type: string
           enum:
-            - low
-            - medium
-            - high
             - critical
+            - high
+            - medium
+            - low
             - informational
-        category:
+            - unknown
+        source:
           type: string
-        action:
-          type: string
-        action_pretty:
-          type: string
+          description: Data source that generated this alert.
         host_name:
-          type: string
-        host_ip:
           type: string
         user_name:
           type: string
-        source:
+        action:
           type: string
-          description: >-
-            Alert source (e.g., XDR Agent, XDR Analytics, BIOC, Correlation
-            Rule, Third-Party).
-        mitre_tactic_id:
+        alert_type:
           type: string
-          description: MITRE ATT&CK tactic ID associated with the alert.
-        mitre_technique_id:
+        resolution_status:
           type: string
-          description: MITRE ATT&CK technique ID associated with the alert.
-        detection_timestamp:
-          type: integer
-        events:
-          type: array
-          items:
-            type: object
-            properties:
-              event_id:
-                type: string
-              event_type:
-                type: string
-              event_timestamp:
-                type: integer
-              raw_log:
-                type: string
-          description: Raw events associated with this alert.
     Endpoint:
       type: object
+      description: An endpoint enrolled in XSIAM protection.
       properties:
         endpoint_id:
           type: string
@@ -615,212 +742,118 @@ components:
           type: string
         endpoint_type:
           type: string
-        ip:
-          type: array
-          items:
-            type: string
-        os_type:
-          type: string
           enum:
-            - windows
-            - linux
-            - macos
-            - android
-        domain:
-          type: string
-        alias:
-          type: string
-        install_date:
-          type: integer
-        last_seen:
-          type: integer
-        content_version:
-          type: string
-        endpoint_version:
-          type: string
-        is_isolated:
-          type: string
-          enum:
-            - AGENT_ISOLATED
-            - AGENT_UNISOLATED
-            - AGENT_PENDING_ISOLATION
-            - AGENT_PENDING_ISOLATION_CANCELLATION
+            - SERVER
+            - WORKSTATION
+            - LAPTOP
         endpoint_status:
           type: string
           enum:
             - CONNECTED
             - DISCONNECTED
             - LOST
-        group_name:
-          type: string
-          description: Endpoint group assignment in XSIAM.
-        operational_status:
+            - UNINSTALLED
+        os_type:
           type: string
           enum:
-            - FULLY_PROTECTED
-            - PARTIALLY_PROTECTED
-            - PROTECTION_ERROR
-            - NOT_PROTECTED
-          description: Protection status of the endpoint agent.
-    XQLQuery:
+            - AGENT_OS_WINDOWS
+            - AGENT_OS_LINUX
+            - AGENT_OS_MAC
+        ip:
+          type: array
+          items:
+            type: string
+        users:
+          type: array
+          items:
+            type: string
+        domain:
+          type: string
+        first_seen:
+          type: integer
+        last_seen:
+          type: integer
+        endpoint_version:
+          type: string
+        content_version:
+          type: string
+        is_isolated:
+          type: string
+          enum:
+            - AGENT_ISOLATED
+            - AGENT_UNISOLATED
+            - PENDING_ISOLATION
+            - PENDING_UNISOLATION
+        scan_status:
+          type: string
+    Asset:
       type: object
+      description: An asset tracked in the XSIAM asset inventory.
       properties:
-        query_id:
+        asset_id:
           type: string
-          description: Unique identifier for the query execution.
-        query:
+        asset_name:
           type: string
-          description: The XQL query string that was executed.
-        status:
+        asset_type:
           type: string
           enum:
-            - PENDING
-            - PARTIAL_SUCCESS
-            - SUCCESS
-            - FAIL
-        start_time:
-          type: integer
-          description: Query execution start time as epoch timestamp.
-        end_time:
-          type: integer
-          description: Query execution end time as epoch timestamp.
-    XQLResult:
-      type: object
-      properties:
-        status:
+            - DEVICE
+            - CLOUD_RESOURCE
+            - USER
+            - SERVICE_ACCOUNT
+        operating_system:
           type: string
-          enum:
-            - SUCCESS
-            - PENDING
-            - PARTIAL_SUCCESS
-            - FAIL
-          description: Current status of the query execution.
-        number_of_results:
+        ip_addresses:
+          type: array
+          items:
+            type: string
+        risk_score:
+          type: number
+          description: Asset risk score (0.0 to 100.0).
+        first_seen:
           type: integer
-          description: Total number of matching records.
-        query_cost:
-          type: object
-          properties:
-            bytes_scanned:
-              type: integer
-            query_time_ms:
-              type: integer
-          description: Resource usage metrics for the query.
-        results:
-          type: object
-          properties:
-            stream_id:
-              type: string
-              description: >-
-                Stream ID for fetching additional results when the result
-                set exceeds the limit.
-            data:
-              type: array
-              items:
-                type: object
-                additionalProperties: true
-              description: >-
-                Array of result records. Schema varies based on the
-                XQL query and selected fields.
-        remaining_available_result_count:
+          description: First observation timestamp as Unix epoch milliseconds.
+        last_seen:
           type: integer
-          description: Number of additional results available via stream_id.
+        tags:
+          type: array
+          items:
+            type: string
+        sources:
+          type: array
+          items:
+            type: string
+          description: Data sources that reported this asset.
     AuditLog:
       type: object
+      description: An audit management log entry recording an administrative action.
       properties:
-        AUDIT_ID:
+        timestamp:
           type: integer
-        AUDIT_OWNER_NAME:
+          description: Action timestamp as Unix epoch milliseconds.
+        actor_primary_username:
           type: string
-        AUDIT_OWNER_EMAIL:
+        actor_email:
           type: string
-        AUDIT_ASSET_JSON:
+        actor_type:
           type: string
-        AUDIT_ASSET_NAMES:
+          enum:
+            - User
+            - API
+        sub_type:
           type: string
-        AUDIT_HOSTNAME:
-          type: string
-        AUDIT_RESULT:
+          description: Action subtype (e.g., Login, PolicyUpdate, DatasourceCreate).
+        result:
           type: string
           enum:
             - SUCCESS
             - FAIL
-        AUDIT_REASON:
+        reason:
           type: string
-        AUDIT_DESCRIPTION:
+        ip:
           type: string
-        AUDIT_ENTITY:
+        description:
           type: string
-        AUDIT_ENTITY_SUBTYPE:
-          type: string
-        AUDIT_SESSION_ID:
-          type: integer
-        AUDIT_CASE_ID:
-          type: integer
-        AUDIT_INSERT_TIME:
-          type: integer
-    DataCollectionSource:
-      type: object
-      properties:
-        source_id:
-          type: string
-          description: Unique identifier for the data collection source.
-        source_name:
-          type: string
-          description: Display name of the data source.
-        source_type:
-          type: string
-          enum:
-            - Syslog
-            - API
-            - CloudConnector
-            - AgentForwarding
-            - FileUpload
-            - Custom
-          description: Type of data collection mechanism.
-        vendor:
-          type: string
-          description: Vendor name of the data source product.
-        product:
-          type: string
-          description: Product name generating the data.
-        status:
-          type: string
-          enum:
-            - ACTIVE
-            - INACTIVE
-            - ERROR
-            - PENDING_CONFIGURATION
-          description: Current collection status.
-        last_event_received:
-          type: integer
-          description: >-
-            Epoch timestamp of the most recently received event from
-            this source.
-        events_per_second:
-          type: number
-          description: >-
-            Average event throughput in events per second over the last
-            hour.
-        total_events_24h:
-          type: integer
-          description: Total number of events received in the last 24 hours.
-        error_message:
-          type: string
-          description: >-
-            Error details if the source status is ERROR, otherwise null.
-        configuration:
-          type: object
-          properties:
-            collector_id:
-              type: string
-            protocol:
-              type: string
-            port:
-              type: integer
-            format:
-              type: string
-          description: Collection configuration details.
     ErrorResponse:
       type: object
       properties:

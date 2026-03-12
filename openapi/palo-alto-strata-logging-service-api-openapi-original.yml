@@ -2,15 +2,12 @@ openapi: 3.1.0
 info:
   title: Strata Logging Service API
   description: >-
-    REST API for the Strata Logging Service (formerly Cortex Data Lake).
-    Provides programmatic access to log forwarding profile management and
-    log query capabilities. Configure log forwarding destinations to send
-    firewall, threat, URL filtering, and other security logs to external
-    SIEM systems, HTTP endpoints, or email recipients in multiple output
-    formats. Submit log queries using SQL-like syntax to search and
-    retrieve security event data stored in the cloud-based logging
-    infrastructure. Requires an active Strata Logging Service or Cortex
-    Data Lake subscription.
+    Strata Logging Service API (formerly Cortex Data Lake) for log forwarding
+    configuration management. Provides programmatic control over log
+    forwarding profiles and their destinations including syslog servers,
+    HTTPS endpoints, and email recipients. Enables centralized management
+    of where SASE and NGFW log data is forwarded for SIEM integration,
+    compliance archival, and security operations workflows.
   version: '1.0'
   contact:
     name: Palo Alto Networks Developer Support
@@ -19,40 +16,34 @@ info:
     name: Proprietary
     url: https://www.paloaltonetworks.com/legal
 servers:
-  - url: https://api.sase.paloaltonetworks.com
-    description: Strata Logging Service production API server.
+  - url: https://api.sase.paloaltonetworks.com/logging-service/v1
+    description: Strata Logging Service API production server.
 security:
   - oauth2Bearer: []
 tags:
-  - name: LogForwarding
-    description: >-
-      Manage log forwarding profiles that define how and where security
-      logs are sent. Each profile specifies one or more destinations,
-      an output format, and optional log filters to control which events
-      are forwarded.
-  - name: Queries
-    description: >-
-      Submit and retrieve results of log queries. Queries use a SQL-like
-      syntax to search across firewall traffic, threat, URL filtering,
-      WildFire, authentication, and other log types stored in the Strata
-      Logging Service.
+  - name: Log Forwarding Profiles
+    description: Log forwarding profile management.
+  - name: Syslog Destinations
+    description: Syslog forwarding destination management.
+  - name: HTTPS Destinations
+    description: HTTPS forwarding destination management.
+  - name: Email Destinations
+    description: Email forwarding destination management.
 paths:
-  /logging-service/v1/profiles:
+  /log-forwarding-profiles:
     get:
       operationId: listLogForwardingProfiles
       summary: List log forwarding profiles
       description: >-
-        Returns all log forwarding profiles configured for the tenant.
-        Each profile defines one or more forwarding destinations, the
-        output format, log type filters, and whether the profile is
-        currently enabled. Supports pagination for tenants with many
-        profiles.
+        Returns the list of log forwarding profiles configured for the
+        tenant. Each profile can have multiple destinations of different
+        types and defines which log types are forwarded.
       tags:
-        - LogForwarding
+        - Log Forwarding Profiles
       parameters:
         - name: offset
           in: query
-          description: Pagination offset. Defaults to 0.
+          description: Number of results to skip for pagination.
           schema:
             type: integer
             default: 0
@@ -63,14 +54,9 @@ paths:
             type: integer
             default: 50
             maximum: 200
-        - name: enabled
-          in: query
-          description: Filter by enabled or disabled profiles.
-          schema:
-            type: boolean
       responses:
         '200':
-          description: List of log forwarding profiles.
+          description: Log forwarding profiles returned.
           content:
             application/json:
               schema:
@@ -78,255 +64,590 @@ paths:
                 properties:
                   total:
                     type: integer
-                    description: Total number of profiles matching the filter.
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
                   items:
                     type: array
                     items:
                       $ref: '#/components/schemas/LogForwardingProfile'
         '401':
-          description: Invalid or expired OAuth2 bearer token.
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Insufficient permissions to list profiles.
-        '429':
-          description: Rate limit exceeded.
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       operationId: createLogForwardingProfile
-      summary: Create a log forwarding profile
+      summary: Create log forwarding profile
       description: >-
-        Creates a new log forwarding profile. The profile must include at
-        least one destination and a log format. Destinations can be syslog
-        servers, HTTPS webhook endpoints, or email addresses. The optional
-        filter field accepts a log type or query expression to restrict
-        which events are forwarded.
+        Creates a new log forwarding profile. After creating a profile,
+        add destinations using the destination-specific endpoints.
       tags:
-        - LogForwarding
+        - Log Forwarding Profiles
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LogForwardingProfileCreate'
+              $ref: '#/components/schemas/LogForwardingProfileRequest'
       responses:
         '201':
-          description: Log forwarding profile created.
+          description: Log forwarding profile created successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/LogForwardingProfile'
         '400':
-          description: Invalid profile configuration or missing required fields.
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: Invalid or expired OAuth2 bearer token.
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Insufficient permissions to create profiles.
-        '409':
-          description: A profile with this name already exists.
-        '429':
-          description: Rate limit exceeded.
-  /logging-service/v1/profiles/{id}:
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /log-forwarding-profiles/{profile_id}:
+    get:
+      operationId: getLogForwardingProfile
+      summary: Get log forwarding profile
+      description: Returns full details for a specific log forwarding profile.
+      tags:
+        - Log Forwarding Profiles
+      parameters:
+        - name: profile_id
+          in: path
+          required: true
+          description: Unique identifier of the log forwarding profile.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Log forwarding profile details returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogForwardingProfile'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Log forwarding profile not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       operationId: updateLogForwardingProfile
-      summary: Update a log forwarding profile
-      description: >-
-        Updates an existing log forwarding profile by replacing its
-        configuration. All mutable fields must be provided in the request
-        body. Changes take effect within a few minutes as the logging
-        pipeline picks up the updated configuration.
+      summary: Update log forwarding profile
+      description: Updates an existing log forwarding profile configuration.
       tags:
-        - LogForwarding
+        - Log Forwarding Profiles
       parameters:
-        - name: id
+        - name: profile_id
           in: path
           required: true
-          description: Unique identifier of the log forwarding profile.
+          description: Unique identifier of the log forwarding profile to update.
           schema:
             type: string
-            format: uuid
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LogForwardingProfileUpdate'
+              $ref: '#/components/schemas/LogForwardingProfileRequest'
       responses:
         '200':
-          description: Log forwarding profile updated.
+          description: Log forwarding profile updated successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/LogForwardingProfile'
         '400':
-          description: Invalid profile configuration.
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: Invalid or expired OAuth2 bearer token.
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Insufficient permissions to update profiles.
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Profile not found.
-        '429':
-          description: Rate limit exceeded.
+          description: Log forwarding profile not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: deleteLogForwardingProfile
-      summary: Delete a log forwarding profile
-      description: >-
-        Deletes a log forwarding profile. Log forwarding for this profile
-        stops within a few minutes. This action is irreversible. Active
-        forwarding connections are terminated gracefully.
+      summary: Delete log forwarding profile
+      description: Deletes a log forwarding profile and all associated destinations.
       tags:
-        - LogForwarding
+        - Log Forwarding Profiles
       parameters:
-        - name: id
+        - name: profile_id
+          in: path
+          required: true
+          description: Unique identifier of the log forwarding profile to delete.
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Log forwarding profile deleted successfully.
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Log forwarding profile not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /log-forwarding-profiles/{profile_id}/destinations/syslog:
+    get:
+      operationId: listSyslogDestinations
+      summary: List syslog destinations
+      description: Returns the syslog destinations configured for a log forwarding profile.
+      tags:
+        - Syslog Destinations
+      parameters:
+        - name: profile_id
           in: path
           required: true
           description: Unique identifier of the log forwarding profile.
           schema:
             type: string
-            format: uuid
       responses:
-        '204':
-          description: Profile deleted successfully.
+        '200':
+          description: Syslog destinations returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SyslogDestination'
         '401':
-          description: Invalid or expired OAuth2 bearer token.
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Insufficient permissions to delete profiles.
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Profile not found.
-        '429':
-          description: Rate limit exceeded.
-  /logging-service/v1/queries:
+          description: Log forwarding profile not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
-      operationId: submitLogQuery
-      summary: Submit a log query
-      description: >-
-        Submits a log query for asynchronous execution. The query uses a
-        SQL-like syntax to search across log types including traffic,
-        threat, url, wildfire, auth, tunnel, userid, hip-match, and
-        globalprotect. Returns a query ID that can be used to poll for
-        results. Queries can scan up to 90 days of retained log data
-        depending on the subscription tier.
+      operationId: createSyslogDestination
+      summary: Create syslog destination
+      description: Adds a syslog destination to a log forwarding profile.
       tags:
-        - Queries
+        - Syslog Destinations
+      parameters:
+        - name: profile_id
+          in: path
+          required: true
+          description: Unique identifier of the log forwarding profile.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LogQuery'
+              $ref: '#/components/schemas/SyslogDestinationRequest'
       responses:
-        '202':
-          description: Query accepted for execution.
+        '201':
+          description: Syslog destination created successfully.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  queryId:
-                    type: string
-                    format: uuid
-                    description: Unique identifier for retrieving query results.
-                  status:
-                    type: string
-                    enum:
-                      - queued
-                      - running
-                    description: Current execution status of the query.
-                  submittedAt:
-                    type: string
-                    format: date-time
-                    description: Timestamp when the query was submitted.
+                $ref: '#/components/schemas/SyslogDestination'
         '400':
-          description: Invalid query syntax or unsupported log type.
+          description: Invalid request body.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    description: Error code.
-                  message:
-                    type: string
-                    description: Human-readable error message.
-                  details:
-                    type: string
-                    description: >-
-                      Additional details such as the position of the syntax
-                      error in the query.
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: Invalid or expired OAuth2 bearer token.
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Insufficient permissions to submit queries.
-        '429':
-          description: Rate limit exceeded or maximum concurrent queries reached.
-  /logging-service/v1/queries/{queryId}/results:
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Log forwarding profile not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /log-forwarding-profiles/{profile_id}/destinations/https:
     get:
-      operationId: getLogQueryResults
-      summary: Get log query results
-      description: >-
-        Retrieves the results of a previously submitted log query. If the
-        query is still executing, the response indicates the current status
-        and estimated progress. Once complete, results are returned as an
-        array of log records with pagination support. Large result sets
-        should be retrieved using the offset and limit parameters.
+      operationId: listHTTPSDestinations
+      summary: List HTTPS destinations
+      description: Returns the HTTPS destinations configured for a log forwarding profile.
       tags:
-        - Queries
+        - HTTPS Destinations
       parameters:
-        - name: queryId
+        - name: profile_id
           in: path
           required: true
-          description: Unique query identifier returned by the POST /logging-service/v1/queries endpoint.
+          description: Unique identifier of the log forwarding profile.
           schema:
             type: string
-            format: uuid
-        - name: offset
-          in: query
-          description: Pagination offset into the result set.
-          schema:
-            type: integer
-            default: 0
-        - name: limit
-          in: query
-          description: Maximum number of log records to return per page.
-          schema:
-            type: integer
-            default: 100
-            maximum: 10000
       responses:
         '200':
-          description: Query results returned.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LogQueryResult'
-        '202':
-          description: Query is still executing.
+          description: HTTPS destinations returned.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  queryId:
-                    type: string
-                    format: uuid
-                  status:
-                    type: string
-                    enum:
-                      - queued
-                      - running
-                  progress:
-                    type: number
-                    format: float
-                    description: Estimated completion progress from 0.0 to 1.0.
-                  estimatedCompletionTime:
-                    type: string
-                    format: date-time
-                    description: Estimated time when results will be available.
+                  total:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/HTTPSDestination'
         '401':
-          description: Invalid or expired OAuth2 bearer token.
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Query ID not found or has expired.
-        '410':
-          description: Query results have expired and are no longer available.
+          description: Log forwarding profile not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createHTTPSDestination
+      summary: Create HTTPS destination
+      description: Adds an HTTPS webhook destination to a log forwarding profile.
+      tags:
+        - HTTPS Destinations
+      parameters:
+        - name: profile_id
+          in: path
+          required: true
+          description: Unique identifier of the log forwarding profile.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HTTPSDestinationRequest'
+      responses:
+        '201':
+          description: HTTPS destination created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPSDestination'
+        '400':
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Log forwarding profile not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /log-forwarding-profiles/{profile_id}/destinations/email:
+    get:
+      operationId: listEmailDestinations
+      summary: List email destinations
+      description: Returns the email destinations configured for a log forwarding profile.
+      tags:
+        - Email Destinations
+      parameters:
+        - name: profile_id
+          in: path
+          required: true
+          description: Unique identifier of the log forwarding profile.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Email destinations returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EmailDestination'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Log forwarding profile not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createEmailDestination
+      summary: Create email destination
+      description: Adds an email destination to a log forwarding profile.
+      tags:
+        - Email Destinations
+      parameters:
+        - name: profile_id
+          in: path
+          required: true
+          description: Unique identifier of the log forwarding profile.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailDestinationRequest'
+      responses:
+        '201':
+          description: Email destination created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailDestination'
+        '400':
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Log forwarding profile not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /log-forwarding-profiles/{profile_id}/status:
+    get:
+      operationId: getLogForwardingStatus
+      summary: Get log forwarding profile status
+      description: >-
+        Returns the current operational status of a log forwarding profile
+        including per-destination connectivity health, last successful
+        delivery timestamps, and error counts.
+      tags:
+        - Log Forwarding Profiles
+      parameters:
+        - name: profile_id
+          in: path
+          required: true
+          description: Unique identifier of the log forwarding profile.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Log forwarding profile status returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForwardingStatus'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Log forwarding profile not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   securitySchemes:
     oauth2Bearer:
@@ -334,55 +655,24 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: >-
-        OAuth 2.0 bearer token obtained from the Palo Alto Networks identity
-        service at https://auth.apps.paloaltonetworks.com. Use the
-        client_credentials grant type with a service account that has the
-        Strata Logging Service API scope enabled.
+        OAuth 2.0 Bearer token for SASE platform authentication. Obtain
+        using the client_credentials grant with your SASE service account
+        client ID and client secret.
   schemas:
     LogForwardingProfile:
       type: object
       properties:
-        id:
+        profile_id:
           type: string
-          format: uuid
-          description: Unique identifier of the log forwarding profile.
+          description: Unique identifier of the profile.
         name:
           type: string
-          description: Human-readable name of the profile.
+          description: Display name of the profile.
         description:
           type: string
-          description: Optional description of the profile purpose.
-        destinations:
+          description: Description of the profile's purpose.
+        log_types:
           type: array
-          description: >-
-            One or more forwarding destinations. Each destination defines
-            a transport type and connection details.
-          items:
-            $ref: '#/components/schemas/ForwardingDestination'
-        format:
-          type: string
-          enum:
-            - csv
-            - leef
-            - cef
-            - json
-            - parquet
-          description: >-
-            Output format for forwarded log records. CSV and JSON are
-            widely supported. CEF and LEEF are optimized for SIEM
-            integrations. Parquet is optimized for data lake storage.
-        filter:
-          type: string
-          description: >-
-            Log filter expression to restrict which events are forwarded.
-            Supports log type selectors (e.g., log_type eq traffic) and
-            field-level conditions. When omitted, all log types are
-            forwarded.
-        logTypes:
-          type: array
-          description: >-
-            Specific log types to forward. When specified, only these log
-            types are forwarded regardless of the filter expression.
           items:
             type: string
             enum:
@@ -391,323 +681,293 @@ components:
               - url
               - wildfire
               - auth
-              - tunnel
-              - userid
-              - hip-match
-              - globalprotect
               - decryption
-              - config
+              - globalprotect
               - system
+              - config
+          description: Log types included in this forwarding profile.
         enabled:
           type: boolean
-          description: Whether the profile is currently active and forwarding logs.
-        createdAt:
+          description: Whether this profile is actively forwarding logs.
+        destination_count:
+          type: integer
+          description: Total number of configured destinations.
+        created_at:
           type: string
           format: date-time
-          description: Timestamp when the profile was created.
-        updatedAt:
+        updated_at:
           type: string
           format: date-time
-          description: Timestamp when the profile was last modified.
-        createdBy:
+    LogForwardingProfileRequest:
+      type: object
+      required:
+        - name
+        - log_types
+      properties:
+        name:
           type: string
-          description: Email or identifier of the user who created the profile.
-        status:
+          description: Display name for the profile.
+        description:
           type: string
-          enum:
-            - active
-            - paused
-            - error
-          description: >-
-            Current operational status. Active means logs are being
-            forwarded. Paused means the profile is disabled. Error
-            indicates a connectivity or authentication issue with a
-            destination.
-        lastForwardedAt:
-          type: string
-          format: date-time
-          description: Timestamp of the most recently forwarded log record.
-    ForwardingDestination:
+          description: Optional description.
+        log_types:
+          type: array
+          items:
+            type: string
+            enum:
+              - traffic
+              - threat
+              - url
+              - wildfire
+              - auth
+              - decryption
+              - globalprotect
+              - system
+              - config
+          description: Log types to include in forwarding.
+        enabled:
+          type: boolean
+          default: true
+    SyslogDestination:
       type: object
       properties:
-        type:
+        destination_id:
           type: string
-          enum:
-            - syslog
-            - https
-            - email
-          description: Transport type for this destination.
-        host:
+          description: Unique identifier of the syslog destination.
+        name:
           type: string
-          description: >-
-            Hostname or IP address for syslog and HTTPS destinations.
-            Not applicable for email destinations.
+          description: Display name of the destination.
+        server:
+          type: string
+          description: Syslog server hostname or IP address.
         port:
           type: integer
-          description: >-
-            Port number for syslog and HTTPS destinations. Common defaults
-            are 514 for syslog UDP, 6514 for syslog TLS, and 443 for HTTPS.
+          description: Syslog server port.
         protocol:
           type: string
           enum:
-            - tcp
-            - udp
-            - tls
-          description: >-
-            Transport protocol for syslog destinations. TLS is recommended
-            for production use.
-        url:
+            - UDP
+            - TCP
+            - SSL
+          description: Transport protocol for syslog delivery.
+        format:
+          type: string
+          enum:
+            - IETF
+            - BSD
+            - CSV
+          description: Syslog message format.
+        facility:
+          type: string
+          description: Syslog facility value.
+        enabled:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+    SyslogDestinationRequest:
+      type: object
+      required:
+        - name
+        - server
+        - port
+        - protocol
+      properties:
+        name:
+          type: string
+          description: Display name for this syslog destination.
+        server:
+          type: string
+          description: Syslog server hostname or IP address.
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          description: Syslog server port number.
+        protocol:
+          type: string
+          enum:
+            - UDP
+            - TCP
+            - SSL
+          description: Transport protocol.
+        format:
+          type: string
+          enum:
+            - IETF
+            - BSD
+            - CSV
+          default: IETF
+        facility:
+          type: string
+          default: LOG_USER
+        enabled:
+          type: boolean
+          default: true
+    HTTPSDestination:
+      type: object
+      properties:
+        destination_id:
+          type: string
+          description: Unique identifier of the HTTPS destination.
+        name:
+          type: string
+          description: Display name of the destination.
+        uri:
           type: string
           format: uri
-          description: >-
-            Full webhook URL for HTTPS destinations. The logging service
-            sends POST requests with log records in the configured format.
-        emailAddresses:
-          type: array
-          description: >-
-            Recipient email addresses for email destinations. Log batches
-            are sent as attachments.
-          items:
-            type: string
-            format: email
-        authHeader:
+          description: HTTPS endpoint URL where logs are posted.
+        http_method:
           type: string
-          description: >-
-            Optional Authorization header value for HTTPS destinations.
-            Stored encrypted. Sent with each webhook request.
-        tlsVerify:
+          enum:
+            - POST
+            - PUT
+          description: HTTP method used to deliver logs.
+        tls_verify:
           type: boolean
-          description: >-
-            Whether to verify TLS certificates for syslog TLS and HTTPS
-            destinations. Defaults to true.
-          default: true
-    LogForwardingProfileCreate:
+          description: Whether TLS certificate verification is enabled.
+        enabled:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+    HTTPSDestinationRequest:
       type: object
       required:
         - name
-        - destinations
-        - format
+        - uri
       properties:
         name:
           type: string
-          description: >-
-            Unique name for the profile. Must be between 1 and 256
-            characters.
-          minLength: 1
-          maxLength: 256
-        description:
+          description: Display name for this HTTPS destination.
+        uri:
           type: string
-          description: Optional description of the profile purpose.
-          maxLength: 1024
-        destinations:
-          type: array
-          description: One or more forwarding destinations.
-          minItems: 1
-          items:
-            $ref: '#/components/schemas/ForwardingDestination'
-        format:
+          format: uri
+          description: HTTPS endpoint URL.
+        http_method:
           type: string
           enum:
-            - csv
-            - leef
-            - cef
-            - json
-            - parquet
-        filter:
-          type: string
-          description: >-
-            Log filter expression. When omitted, all log types are
-            forwarded.
-        logTypes:
-          type: array
-          description: Specific log types to forward.
-          items:
+            - POST
+            - PUT
+          default: POST
+        headers:
+          type: object
+          description: Additional HTTP headers to include in log delivery requests.
+          additionalProperties:
             type: string
-            enum:
-              - traffic
-              - threat
-              - url
-              - wildfire
-              - auth
-              - tunnel
-              - userid
-              - hip-match
-              - globalprotect
-              - decryption
-              - config
-              - system
+        tls_verify:
+          type: boolean
+          default: true
         enabled:
           type: boolean
-          description: Whether to activate the profile immediately.
           default: true
-    LogForwardingProfileUpdate:
+    EmailDestination:
+      type: object
+      properties:
+        destination_id:
+          type: string
+          description: Unique identifier of the email destination.
+        name:
+          type: string
+          description: Display name of the destination.
+        gateway:
+          type: string
+          description: SMTP server hostname.
+        from:
+          type: string
+          format: email
+          description: Sender email address.
+        to:
+          type: string
+          format: email
+          description: Recipient email address.
+        and_also_to:
+          type: string
+          format: email
+          description: Additional recipient email address.
+        enabled:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+    EmailDestinationRequest:
       type: object
       required:
         - name
-        - destinations
-        - format
+        - gateway
+        - from
+        - to
       properties:
         name:
           type: string
-          description: Updated profile name.
-          minLength: 1
-          maxLength: 256
-        description:
+          description: Display name for this email destination.
+        gateway:
           type: string
-          description: Updated profile description.
-          maxLength: 1024
-        destinations:
-          type: array
-          description: Updated forwarding destinations.
-          minItems: 1
-          items:
-            $ref: '#/components/schemas/ForwardingDestination'
-        format:
+          description: SMTP server hostname or IP address.
+        from:
           type: string
-          enum:
-            - csv
-            - leef
-            - cef
-            - json
-            - parquet
-        filter:
+          format: email
+          description: Sender email address.
+        to:
           type: string
-          description: Updated log filter expression.
-        logTypes:
-          type: array
-          description: Updated list of log types to forward.
-          items:
-            type: string
-            enum:
-              - traffic
-              - threat
-              - url
-              - wildfire
-              - auth
-              - tunnel
-              - userid
-              - hip-match
-              - globalprotect
-              - decryption
-              - config
-              - system
+          format: email
+          description: Primary recipient email address.
+        and_also_to:
+          type: string
+          format: email
+          description: Additional recipient email address.
         enabled:
           type: boolean
-          description: Whether the profile should be active.
-    LogQuery:
-      type: object
-      required:
-        - query
-      properties:
-        query:
-          type: string
-          description: >-
-            SQL-like query string for searching logs. Supports SELECT,
-            FROM, WHERE, GROUP BY, ORDER BY, and LIMIT clauses. The FROM
-            clause specifies the log type (e.g., FROM traffic, FROM threat).
-            Field names correspond to log schema columns documented in
-            the Strata Logging Service reference.
-          examples:
-            - >-
-              SELECT source_ip, dest_ip, action, bytes_sent FROM traffic
-              WHERE action = 'deny' AND time_generated > '2025-01-01T00:00:00Z'
-              ORDER BY time_generated DESC LIMIT 1000
-            - >-
-              SELECT src, dst, severity, threat_name FROM threat
-              WHERE severity IN ('critical', 'high')
-              AND time_generated > now() - interval '24 hours'
-        startTime:
-          type: string
-          format: date-time
-          description: >-
-            Lower bound of the time range to search. Overrides any time
-            conditions in the query WHERE clause.
-        endTime:
-          type: string
-          format: date-time
-          description: >-
-            Upper bound of the time range to search. Overrides any time
-            conditions in the query WHERE clause.
-        maxResults:
-          type: integer
-          description: >-
-            Maximum number of records to return. Overrides any LIMIT clause
-            in the query. Defaults to 10000.
-          default: 10000
-          maximum: 1000000
-    LogQueryResult:
+          default: true
+    ForwardingStatus:
       type: object
       properties:
-        queryId:
+        profile_id:
           type: string
-          format: uuid
-          description: Unique identifier of the query.
-        status:
+          description: Log forwarding profile identifier.
+        overall_status:
           type: string
           enum:
-            - completed
-            - partial
+            - healthy
+            - degraded
             - error
-          description: >-
-            Final status of the query. Completed means all results are
-            available. Partial indicates the query hit a time or resource
-            limit and results may be incomplete. Error indicates a query
-            execution failure.
-        totalRecords:
-          type: integer
-          description: Total number of records matching the query.
-        returnedRecords:
-          type: integer
-          description: Number of records returned in this page.
-        offset:
-          type: integer
-          description: Pagination offset of this result page.
-        executionTimeMs:
-          type: integer
-          description: Query execution time in milliseconds.
-        columns:
+          description: Overall health status of the forwarding profile.
+        destinations:
           type: array
-          description: >-
-            Column metadata describing the fields in each log record.
-            Order matches the fields in each record object.
+          description: Per-destination status details.
           items:
             type: object
             properties:
-              name:
+              destination_id:
                 type: string
-                description: Column name.
-              type:
+              destination_type:
                 type: string
-                description: >-
-                  Data type of the column (e.g., string, integer, timestamp,
-                  ip_address).
-        records:
-          type: array
-          description: Array of log records matching the query.
-          items:
-            type: object
-            additionalProperties: true
-            description: >-
-              A single log record. Fields correspond to the columns array.
-              Common fields include time_generated, source_ip, dest_ip,
-              action, app, rule_name, and severity. The exact fields depend
-              on the log type and SELECT clause.
-        completedAt:
-          type: string
-          format: date-time
-          description: Timestamp when the query finished execution.
+                enum:
+                  - syslog
+                  - https
+                  - email
+              status:
+                type: string
+                enum:
+                  - healthy
+                  - error
+                  - disabled
+              last_successful_delivery:
+                type: string
+                format: date-time
+              error_count_24h:
+                type: integer
+              last_error:
+                type: string
+    ErrorResponse:
+      type: object
+      properties:
         error:
-          type: object
-          description: Error details when status is error.
-          properties:
-            code:
-              type: string
-              description: Machine-readable error code.
-            message:
-              type: string
-              description: Human-readable error message.
-            position:
-              type: integer
-              description: >-
-                Character position in the query string where a syntax
-                error was detected, if applicable.
+          type: string
+          description: Error code identifying the error type.
+        message:
+          type: string
+          description: Human-readable description of the error.
+        request_id:
+          type: string
+          description: Request identifier for support correlation.

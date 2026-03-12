@@ -1,363 +1,447 @@
 asyncapi: 2.6.0
 info:
   title: Cortex XSIAM Data Ingestion
-  version: '1.0'
-  description: >-
-    Cortex XSIAM provides HTTP-based data ingestion endpoints for collecting
-    log and event data from external sources. Data can be ingested as raw log
-    events, parsed and normalized events, CEF-formatted alerts, or
-    JSON-formatted parsed alerts. The HTTP collector endpoints accept POST
-    requests with compressed or uncompressed payloads and require API key
-    authentication via the x-xdr-auth-id and Authorization headers. Ingested
-    data is processed by the XSIAM correlation and analytics engines for
-    threat detection, investigation, and automated response. Data ingestion
-    supports high-throughput streaming for SIEM replacement and XDR-native
-    data lake consolidation.
+  version: 1.0.0
+  description: >
+    Cortex XSIAM Data Ingestion provides streaming log and event ingestion
+    endpoints for collecting security telemetry from external data sources
+    into the XSIAM data lake. The ingestion service accepts data via HTTPS
+    with streaming support, enabling high-throughput log collection for SIEM
+    replacement and XDR-native data lake consolidation. Supported ingestion
+    methods include Syslog forwarding over TCP/UDP/TLS, HTTPS log forwarding
+    via REST endpoints, and XDR data forwarding from integrated Palo Alto
+    Networks products. Ingested data is processed by the XSIAM correlation
+    and analytics engines for threat detection, investigation, and automated
+    response. Each ingestion event results in normalized data being indexed
+    into the appropriate XSIAM dataset identified by vendor, product, and
+    log type.
   contact:
     name: Palo Alto Networks Developer Support
     url: https://pan.dev/
+    email: support@paloaltonetworks.com
   license:
     name: Proprietary
     url: https://www.paloaltonetworks.com/legal
+
 servers:
-  collector:
+  xsiam-collector:
     url: 'https://api-{fqdn}/logs/v1/event'
     protocol: https
-    description: >-
-      Cortex XSIAM HTTP collector endpoint for log and event data ingestion.
-      The FQDN is specific to your XSIAM tenant and can be found in
-      Settings > Configurations > Data Collection > HTTP Collectors. All
-      requests require API key authentication using the x-xdr-auth-id header
-      (key ID) and the Authorization header (API key value). Payloads may be
-      gzip-compressed using the Content-Encoding: gzip header.
+    description: >
+      Cortex XSIAM HTTP log collector endpoint for streaming log and event
+      data ingestion. The FQDN is specific to the XSIAM tenant and is
+      found in Settings > Configurations > Data Collection > HTTP Collectors.
+      All requests require API key authentication using the x-xdr-auth-id
+      header (key ID) and the Authorization header (API key value). Payloads
+      may be gzip-compressed using the Content-Encoding: gzip header for
+      improved throughput efficiency.
     variables:
       fqdn:
-        description: >-
-          Your XSIAM tenant fully qualified domain name, such as
+        description: >
+          The XSIAM tenant fully qualified domain name, such as
           xsiam-tenant.xdr.us.paloaltonetworks.com.
+    security:
+      - apiKeyAuth: []
+
+  syslog-receiver:
+    url: '{syslogHost}:{syslogPort}'
+    protocol: tcp
+    description: >
+      Syslog receiver endpoint for forwarding logs from external systems
+      using Syslog over TCP, UDP, or TLS. Configure the source system to
+      forward Syslog messages (RFC 3164 or RFC 5424) to this endpoint.
+      TLS encryption is supported for secure log forwarding.
+    variables:
+      syslogHost:
+        description: Hostname or IP address of the XSIAM Syslog receiver.
+      syslogPort:
+        description: Port number for Syslog ingestion (default 514 for UDP/TCP, 6514 for TLS).
+
+tags:
+  - name: ingestion
+    description: Log and event data ingestion into the XSIAM data lake
+  - name: logs
+    description: Raw log data submission and forwarding events
+  - name: xsiam
+    description: Cortex XSIAM platform data collection events
+  - name: streaming
+    description: High-throughput streaming data ingestion operations
+
+defaultContentType: application/json
+
 channels:
-  /logs/v1/event:
-    description: >-
-      Channel for ingesting raw log events via the HTTP collector. Raw events
-      are submitted as unstructured or semi-structured log data that XSIAM
-      parses and normalizes using built-in and custom parsing rules. Supports
-      batch ingestion of multiple log entries per request. Each event must
-      include a log_type, vendor, and product to route the data to the
-      correct parsing pipeline.
+  log_data/ingested:
+    description: >
+      Event channel for raw log data ingestion. Logs are submitted to the
+      XSIAM HTTP collector endpoint as structured JSON batches. Each log
+      entry must include dataset, vendor, product, log_type, and raw_log
+      fields to route the data to the correct parsing pipeline. The XSIAM
+      ingestion engine parses, normalizes, and indexes the log data into
+      the appropriate dataset for analytics and correlation.
     subscribe:
-      operationId: onRawLogEvent
-      summary: Ingest raw log events
+      operationId: onLogDataIngested
+      summary: Raw log data ingested into XSIAM
+      description: >
+        Fired when raw log data is submitted to the XSIAM log ingestion
+        endpoint. The payload conforms to the XSIAM HTTP collector schema
+        with dataset routing metadata and raw log content.
       message:
-        $ref: '#/components/messages/RawLogEvent'
-  /logs/v1/xsiam:
-    description: >-
-      Channel for ingesting parsed and normalized events directly into the
-      XSIAM data lake. Pre-parsed events bypass the ingestion parsing
-      pipeline and are indexed directly into the appropriate dataset. Use
-      this endpoint when the source system has already normalized the event
-      data into XSIAM-compatible field mappings.
+        $ref: '#/components/messages/LogDataIngested'
+      bindings:
+        http:
+          method: POST
+
+  event_data/ingested:
+    description: >
+      Event channel for structured event data ingestion. Pre-parsed events
+      with normalized field mappings are submitted directly to the XSIAM
+      data lake, bypassing the raw log parsing pipeline. Each event must
+      include dataset, vendor, product, log_type, and timestamp metadata
+      along with the normalized event fields. Used when the source system
+      has already normalized data into XSIAM-compatible field mappings.
     subscribe:
-      operationId: onParsedEvent
-      summary: Ingest parsed and normalized events
+      operationId: onEventDataIngested
+      summary: Structured event data ingested into XSIAM
+      description: >
+        Fired when pre-normalized event data is submitted to the XSIAM
+        event ingestion endpoint for direct indexing into the data lake
+        without additional parsing.
       message:
-        $ref: '#/components/messages/ParsedEvent'
-  /logs/v1/insert/cef:
-    description: >-
-      Channel for ingesting CEF (Common Event Format) formatted alerts.
-      CEF is a standard log format used by many security products. XSIAM
-      parses the CEF header and extension fields and maps them to the
-      unified data model for correlation with other data sources.
+        $ref: '#/components/messages/EventDataIngested'
+      bindings:
+        http:
+          method: POST
+
+  xdr_data/forwarded:
+    description: >
+      Event channel for XDR data forwarding from integrated Palo Alto
+      Networks products including PAN-OS firewalls, Prisma Access, Cortex
+      XDR agents, and other Strata products. Forwarded XDR data is
+      automatically normalized and correlated within XSIAM for unified
+      threat detection and investigation across the Palo Alto Networks
+      security platform.
     subscribe:
-      operationId: onCEFAlert
-      summary: Ingest CEF-formatted alerts
+      operationId: onXdrDataForwarded
+      summary: XDR data forwarded from a Palo Alto Networks product
+      description: >
+        Fired when telemetry data is forwarded from an integrated XDR-enabled
+        product. The payload includes product identification, tenant context,
+        event identification, and the forwarded log content.
       message:
-        $ref: '#/components/messages/CEFAlert'
-  /logs/v1/insert/json:
-    description: >-
-      Channel for ingesting JSON-formatted parsed alerts. JSON alerts
-      contain structured key-value pairs representing security detections
-      from external systems. XSIAM indexes the alert fields and correlates
-      them with endpoint, network, and cloud data for unified investigation.
-    subscribe:
-      operationId: onJSONAlert
-      summary: Ingest JSON-formatted parsed alerts
-      message:
-        $ref: '#/components/messages/JSONAlert'
+        $ref: '#/components/messages/XdrDataForwarded'
+      bindings:
+        http:
+          method: POST
+
 components:
   messages:
-    RawLogEvent:
-      name: RawLogEvent
-      title: Raw Log Event
-      summary: >-
-        A raw log event submitted to the XSIAM HTTP collector for parsing
-        and normalization. The body contains the unstructured or
-        semi-structured log data.
+    LogDataIngested:
+      name: LogDataIngested
+      title: Log Data Ingested
+      summary: >
+        Raw log data submitted to the XSIAM HTTP log collector for parsing
+        and ingestion into the data lake
       contentType: application/json
-      payload:
+      headers:
         type: object
         properties:
-          log_type:
+          x-xdr-auth-id:
             type: string
-            description: >-
-              Log type identifier used to route the event to the correct
-              parsing pipeline, such as syslog, firewall, or endpoint.
-          vendor:
+            description: >
+              API key identifier for authenticating requests to the XSIAM
+              HTTP collector. Provided as a numeric string.
+          Authorization:
             type: string
-            description: >-
-              Name of the vendor producing the log data, used in combination
-              with product to identify the parsing rule.
-          product:
+            description: >
+              API key value for authenticating requests to the XSIAM HTTP
+              collector. Provided as a Bearer token or raw key string.
+          Content-Encoding:
             type: string
-            description: >-
-              Name of the product producing the log data, such as a specific
-              firewall model, EDR agent, or cloud service.
-          body:
-            type: string
-            description: >-
-              The raw log event content. May be a syslog message, CSV line,
-              JSON string, or any other log format supported by the configured
-              parsing rules.
-        required:
-          - log_type
-          - vendor
-          - product
-          - body
-    ParsedEvent:
-      name: ParsedEvent
-      title: Parsed and Normalized Event
-      summary: >-
-        A pre-parsed and normalized event for direct ingestion into the XSIAM
-        data lake. Fields must conform to the XSIAM unified data model.
-      contentType: application/json
-      payload:
-        type: object
-        properties:
-          event_type:
-            type: string
-            description: >-
-              Event type identifier that determines the target dataset and
-              schema, such as NETWORK, PROCESS, FILE, REGISTRY, or AUTH.
-          fields:
-            $ref: '#/components/schemas/ParsedEventData'
-        required:
-          - event_type
-          - fields
-    CEFAlert:
-      name: CEFAlert
-      title: CEF-Formatted Alert
-      summary: >-
-        An alert formatted in Common Event Format (CEF) for ingestion into
-        XSIAM. The CEF header contains version, vendor, product, version,
-        signature ID, name, and severity fields.
-      contentType: application/json
-      payload:
-        type: object
-        properties:
-          cef_header:
-            type: string
-            description: >-
-              The CEF header string in the format:
-              CEF:Version|Device Vendor|Device Product|Device Version|Signature ID|Name|Severity|
-              Example: CEF:0|PaloAlto|Firewall|10.2|100|Threat Detected|8|
-          extension:
-            type: string
-            description: >-
-              The CEF extension containing key-value pairs of event attributes.
-              Keys follow the CEF standard field names such as src, dst, dpt,
-              spt, act, msg, cs1, cs2, and custom labels.
-        required:
-          - cef_header
-          - extension
-    JSONAlert:
-      name: JSONAlert
-      title: JSON-Formatted Parsed Alert
-      summary: >-
-        A structured JSON alert from an external security system for ingestion
-        and correlation in XSIAM.
-      contentType: application/json
-      payload:
-        type: object
-        properties:
-          alert_name:
-            type: string
-            description: Name or title of the alert from the source system.
-          severity:
-            type: string
+            description: >
+              Content encoding of the request body. Use 'gzip' for
+              compressed payloads to improve ingestion throughput.
             enum:
-              - informational
-              - low
-              - medium
-              - high
-              - critical
-            description: Alert severity level.
-          local_ip:
-            type: string
-            description: Local (source) IP address involved in the alert.
-          local_port:
-            type: integer
-            description: Local (source) port number involved in the alert.
-          remote_ip:
-            type: string
-            description: Remote (destination) IP address involved in the alert.
-          remote_port:
-            type: integer
-            description: Remote (destination) port number involved in the alert.
-          action:
-            type: string
-            description: Action taken by the source system in response to the detection.
-          timestamp:
-            type: string
-            format: date-time
-            description: Timestamp of the alert from the source system.
-          vendor:
-            type: string
-            description: Vendor name of the source system generating the alert.
-          product:
-            type: string
-            description: Product name of the source system generating the alert.
-        required:
-          - alert_name
-          - severity
+              - gzip
+              - identity
+      payload:
+        $ref: '#/components/schemas/LogDataPayload'
+      examples:
+        - name: FirewallTrafficLogIngestion
+          summary: Batch of PAN-OS firewall traffic logs ingested via HTTP collector
+          payload:
+            dataset: firewall_traffic_raw
+            vendor: Palo Alto Networks
+            product: PAN-OS
+            log_type: traffic
+            raw_log: >-
+              Nov 15 10:32:01 PA-3260 1,2024/01/15 10:32:01,012345678901,TRAFFIC,end,
+              2049,2024/01/15 10:32:01,10.0.1.100,10.0.2.200,0.0.0.0,0.0.0.0,
+              allow-web,,,web-browsing,vsys1,trust,untrust,ethernet1/1,ethernet1/2,
+              default,2024/01/15 10:32:01,12345,1,54321,80,0,0,0x19,tcp,allow,1500,800,700
+            timestamp: '2024-01-15T10:32:01.000Z'
+            tenant_id: xsiam-tenant-001
+            event_id: evt-20240115-103201-001
+
+    EventDataIngested:
+      name: EventDataIngested
+      title: Event Data Ingested
+      summary: >
+        Structured and normalized event data submitted directly to the XSIAM
+        data lake for indexing without additional parsing
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/EventDataPayload'
+      examples:
+        - name: AuthenticationEventIngestion
+          summary: Normalized authentication event submitted directly to data lake
+          payload:
+            dataset: authentication_events
+            vendor: Microsoft
+            product: Active Directory
+            log_type: authentication
+            raw_log: '{"EventID":4625,"AccountName":"jsmith","LogonType":3,"FailureReason":"Unknown user name or bad password"}'
+            timestamp: '2024-01-15T10:28:00.000Z'
+            tenant_id: xsiam-tenant-001
+            event_id: evt-20240115-102800-002
+
+    XdrDataForwarded:
+      name: XdrDataForwarded
+      title: XDR Data Forwarded
+      summary: >
+        Telemetry data forwarded from a Palo Alto Networks XDR-enabled
+        product to XSIAM for unified detection and correlation
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/XdrDataPayload'
+      examples:
+        - name: CortexXdrAgentForwarding
+          summary: Endpoint telemetry forwarded from Cortex XDR agent
+          payload:
+            dataset: xdr_agent_raw
+            vendor: Palo Alto Networks
+            product: Cortex XDR Agent
+            log_type: xdr_data
+            raw_log: '{"type":"PROCESS_EVENT","hostname":"WORKSTATION-042","pid":4821,"process_name":"powershell.exe","command_line":"powershell.exe -enc base64encodedcommand","user":"DOMAIN\\jsmith"}'
+            timestamp: '2024-01-15T10:35:00.000Z'
+            tenant_id: xsiam-tenant-001
+            event_id: evt-20240115-103500-003
+
   schemas:
-    LogEvent:
+    LogDataPayload:
       type: object
-      description: >-
-        Schema for a raw log event entry in the ingestion batch. Represents
-        a single log line or record from an external data source.
+      description: >
+        The payload structure for raw log data ingestion via the XSIAM HTTP
+        collector. Contains routing metadata to direct the log to the correct
+        parsing pipeline, the raw log content, and optional event
+        identification fields.
+      required:
+        - dataset
+        - vendor
+        - product
+        - log_type
+        - raw_log
+        - timestamp
+        - tenant_id
+        - event_id
       properties:
+        dataset:
+          type: string
+          description: >
+            The target XSIAM dataset name that this log data should be
+            indexed into. Dataset names correspond to XSIAM data lake
+            tables and determine the schema applied during normalization.
+          example: firewall_traffic_raw
+        vendor:
+          type: string
+          description: >
+            The name of the vendor that produced the log data. Used in
+            combination with product and log_type to identify the correct
+            parsing rule for normalizing the raw log content.
+          example: Palo Alto Networks
+        product:
+          type: string
+          description: >
+            The name of the specific product or component that generated the
+            log. Used in combination with vendor and log_type to route the
+            log to the appropriate XSIAM parsing pipeline.
+          example: PAN-OS
         log_type:
           type: string
-          description: Log type identifier for parsing pipeline routing.
-        vendor:
-          type: string
-          description: Vendor name of the log source.
-        product:
-          type: string
-          description: Product name of the log source.
-        body:
-          type: string
-          description: Raw log content.
-        timestamp:
-          type: string
-          format: date-time
-          description: >-
-            Timestamp of the log event. If not provided, the ingestion time
-            is used.
-        collector_name:
-          type: string
-          description: Name of the HTTP collector profile receiving the data.
-    ParsedEventData:
-      type: object
-      description: >-
-        Key-value map of parsed event fields conforming to the XSIAM unified
-        data model. Field names and types must match the target dataset schema.
-      properties:
-        _time:
-          type: string
-          format: date-time
-          description: Event timestamp in ISO 8601 format.
-        action_type:
-          type: string
-          description: Type of action observed in the event.
-        actor_process_name:
-          type: string
-          description: Name of the process that initiated the event.
-        actor_process_pid:
-          type: integer
-          description: Process ID of the initiating process.
-        agent_hostname:
-          type: string
-          description: Hostname of the agent reporting the event.
-        agent_ip:
-          type: string
-          description: IP address of the agent reporting the event.
-        dst_ip:
-          type: string
-          description: Destination IP address.
-        dst_port:
-          type: integer
-          description: Destination port number.
-        src_ip:
-          type: string
-          description: Source IP address.
-        src_port:
-          type: integer
-          description: Source port number.
-      additionalProperties: true
-    CEFData:
-      type: object
-      description: >-
-        Parsed representation of a CEF-formatted event with header fields
-        and extension attributes separated into structured fields.
-      properties:
-        version:
-          type: integer
-          description: CEF format version number.
-        deviceVendor:
-          type: string
-          description: Vendor of the device generating the event.
-        deviceProduct:
-          type: string
-          description: Product name of the device generating the event.
-        deviceVersion:
-          type: string
-          description: Version of the device or product.
-        signatureId:
-          type: string
-          description: Unique identifier for the event type or rule.
-        name:
-          type: string
-          description: Human-readable name of the event.
-        severity:
-          type: integer
-          description: Event severity as an integer from 0 (lowest) to 10 (highest).
-        extensions:
-          type: object
-          description: Key-value pairs of CEF extension fields.
-          additionalProperties:
-            type: string
-    AlertData:
-      type: object
-      description: >-
-        Schema for a JSON-formatted alert record from an external security
-        system ingested into XSIAM for correlation and investigation.
-      properties:
-        alert_name:
-          type: string
-          description: Name or title of the alert.
-        severity:
-          type: string
-          enum:
-            - informational
-            - low
-            - medium
-            - high
-            - critical
-        local_ip:
-          type: string
-          description: Local IP address.
-        local_port:
-          type: integer
-          description: Local port number.
-        remote_ip:
-          type: string
-          description: Remote IP address.
-        remote_port:
-          type: integer
-          description: Remote port number.
-        action:
-          type: string
-          description: Action taken by the source system.
-        vendor:
-          type: string
-          description: Vendor name of the source system.
-        product:
-          type: string
-          description: Product name of the source system.
-        timestamp:
-          type: string
-          format: date-time
-          description: Timestamp of the alert.
+          description: >
+            The log type identifier that classifies the nature of the log
+            content, such as traffic, threat, authentication, or syslog.
+            Used to select the correct normalization schema.
+          example: traffic
         raw_log:
           type: string
-          description: Original raw log data if available.
+          description: >
+            The raw log content in its original format as produced by the
+            source system. May be a syslog message, CSV line, JSON string,
+            CEF record, or any other log format supported by the configured
+            XSIAM parsing rules.
+          example: 'Nov 15 10:32:01 PA-3260 1,2024/01/15...'
+        timestamp:
+          type: string
+          format: date-time
+          description: >
+            The ISO 8601 date-time string indicating when this log event
+            occurred at the source. If not provided, the ingestion receipt
+            time is used as the event timestamp.
+          example: '2024-01-15T10:32:01.000Z'
+        tenant_id:
+          type: string
+          description: >
+            The XSIAM tenant identifier that this log data belongs to.
+            Used for multi-tenant environments to route data to the correct
+            tenant data lake partition.
+          example: xsiam-tenant-001
+        event_id:
+          type: string
+          description: >
+            A unique identifier for this individual log event, generated by
+            the submitting system or the XSIAM ingestion service. Used for
+            deduplication and event correlation tracking.
+          example: evt-20240115-103201-001
+
+    EventDataPayload:
+      type: object
+      description: >
+        The payload structure for pre-normalized event data ingestion directly
+        into the XSIAM data lake. Contains all required routing metadata plus
+        the normalized event content for direct dataset indexing.
+      required:
+        - dataset
+        - vendor
+        - product
+        - log_type
+        - raw_log
+        - timestamp
+        - tenant_id
+        - event_id
+      properties:
+        dataset:
+          type: string
+          description: >
+            The target XSIAM dataset name for direct indexing. Must match an
+            existing dataset schema in the XSIAM data lake.
+          example: authentication_events
+        vendor:
+          type: string
+          description: >
+            The vendor that produced the source event data.
+          example: Microsoft
+        product:
+          type: string
+          description: >
+            The product that generated the source event.
+          example: Active Directory
+        log_type:
+          type: string
+          description: >
+            The log type or event category identifier for schema selection
+            during indexing.
+          example: authentication
+        raw_log:
+          type: string
+          description: >
+            The original raw event content from the source system, preserved
+            alongside normalized fields for audit and reprocessing purposes.
+          example: '{"EventID":4625,"AccountName":"jsmith",...}'
+        timestamp:
+          type: string
+          format: date-time
+          description: >
+            The ISO 8601 date-time string indicating when the original event
+            occurred at the source system.
+          example: '2024-01-15T10:28:00.000Z'
+        tenant_id:
+          type: string
+          description: >
+            The XSIAM tenant identifier for multi-tenant data routing.
+          example: xsiam-tenant-001
+        event_id:
+          type: string
+          description: >
+            A unique identifier for this event record used for deduplication
+            and correlation reference.
+          example: evt-20240115-102800-002
+
+    XdrDataPayload:
+      type: object
+      description: >
+        The payload structure for XDR data forwarding from integrated Palo
+        Alto Networks products. Contains product identification, tenant
+        context, event identification, and the forwarded telemetry content
+        for correlation in the XSIAM unified data lake.
+      required:
+        - dataset
+        - vendor
+        - product
+        - log_type
+        - raw_log
+        - timestamp
+        - tenant_id
+        - event_id
+      properties:
+        dataset:
+          type: string
+          description: >
+            The target XSIAM dataset name for the forwarded XDR data.
+          example: xdr_agent_raw
+        vendor:
+          type: string
+          description: >
+            The Palo Alto Networks product vendor designation for the
+            forwarding source. Typically 'Palo Alto Networks'.
+          example: Palo Alto Networks
+        product:
+          type: string
+          description: >
+            The specific Palo Alto Networks product forwarding XDR data,
+            such as Cortex XDR Agent, PAN-OS, Prisma Access, or
+            Strata Logging Service.
+          example: Cortex XDR Agent
+        log_type:
+          type: string
+          description: >
+            The XDR data type or telemetry category being forwarded
+            (e.g., xdr_data, endpoint_event, network_event).
+          example: xdr_data
+        raw_log:
+          type: string
+          description: >
+            The raw XDR telemetry content as serialized JSON from the
+            forwarding product. Contains all available event fields from
+            the source product's data model.
+          example: '{"type":"PROCESS_EVENT","hostname":"WORKSTATION-042",...}'
+        timestamp:
+          type: string
+          format: date-time
+          description: >
+            The ISO 8601 date-time string indicating when the XDR event
+            was captured by the source product.
+          example: '2024-01-15T10:35:00.000Z'
+        tenant_id:
+          type: string
+          description: >
+            The XSIAM tenant identifier to which this XDR data belongs.
+            Ensures forwarded data is routed to the correct tenant
+            environment in multi-tenant deployments.
+          example: xsiam-tenant-001
+        event_id:
+          type: string
+          description: >
+            A unique identifier for this forwarded XDR event, used for
+            deduplication, correlation, and audit trail tracking.
+          example: evt-20240115-103500-003
+
+  securitySchemes:
+    apiKeyAuth:
+      type: httpApiKey
+      description: >
+        API key authentication for XSIAM HTTP collector endpoints. Requires
+        two headers: x-xdr-auth-id containing the API key ID (numeric), and
+        Authorization containing the API key value. Both are generated in
+        XSIAM Settings > Configurations > Integrations > API Keys.
+      name: Authorization
+      in: header

@@ -1,53 +1,60 @@
 openapi: 3.1.0
 info:
-  title: Cortex Xpanse API
+  title: Cortex Xpanse REST API
   description: >-
-    REST API for the Cortex Xpanse attack surface management platform
-    providing programmatic access to external asset discovery, internet
-    exposure assessment, service enumeration, incident tracking, and alert
-    management. Xpanse continuously scans the internet to identify
-    organization-owned assets, services, and exposures. All API requests
-    use POST with JSON request bodies. Authentication uses API key pairs
-    consisting of an API Key ID and API Key value.
+    REST API for the Cortex Xpanse attack surface management (ASM) platform.
+    Provides programmatic access to internet-exposed asset discovery, attack
+    surface incident management, attack surface rules, exposed service
+    enumeration, IP range ownership, and audit logs. Cortex Xpanse
+    continuously discovers and monitors internet-facing infrastructure to
+    identify exposures before attackers do. Authentication uses a custom
+    HMAC-SHA256 scheme identical to Cortex XDR: include x-xdr-auth-id,
+    x-xdr-nonce, x-xdr-timestamp, and x-xdr-hmac-v2 headers on every
+    request. Role-based access control (RBAC) API key pairs determine which
+    data and operations are accessible. All endpoints use POST with JSON
+    request bodies.
   version: '1.0'
   contact:
     name: Palo Alto Networks Developer Support
-    url: https://pan.dev/
+    url: https://pan.dev/cortex/docs/xpanse/
   license:
     name: Proprietary
     url: https://www.paloaltonetworks.com/legal
 servers:
   - url: https://api-{fqdn}/public_api/v1
-    description: Cortex Xpanse API server (region-specific).
+    description: Cortex Xpanse tenant API endpoint.
     variables:
       fqdn:
         description: >-
-          Your Cortex Xpanse tenant FQDN (e.g.,
-          xpanse-us.paloaltonetworks.com).
-        default: xpanse-us.paloaltonetworks.com
+          Tenant FQDN from the Xpanse settings page (e.g.,
+          example.xpanse.paloaltonetworks.com).
+        default: example.xpanse.paloaltonetworks.com
 security:
-  - apiKeyId: []
-    apiKey: []
+  - xpanseAuth: []
 tags:
   - name: Assets
-    description: External asset discovery and inventory operations.
-  - name: Services
-    description: Internet-facing service enumeration and detail retrieval.
+    description: Internet-exposed asset discovery and enumeration.
   - name: Incidents
-    description: Attack surface incident management operations.
-  - name: Alerts
-    description: Attack surface alert retrieval and management.
+    description: Attack surface incident management.
+  - name: AttackSurfaceRules
+    description: Attack surface rule configuration and management.
+  - name: Services
+    description: Exposed network service enumeration.
+  - name: IPRanges
+    description: Owned IP range management.
+  - name: Audit
+    description: Audit and management log retrieval.
 paths:
-  /assets/get_assets:
+  /assets/get_assets_internet_exposure:
     post:
-      operationId: getAssets
-      summary: Get assets
+      operationId: getAssetsInternetExposure
+      summary: Get internet-exposed assets
       description: >-
-        Returns a list of external-facing assets discovered by Xpanse
-        matching the specified filters. Assets include domains, IP ranges,
-        certificates, and cloud resources. Supports filtering by asset
-        type, name, status, and discovery time. Returns up to 100 assets
-        per request with pagination support.
+        Returns a list of assets with internet exposure discovered by Xpanse.
+        Assets include servers, cloud instances, network devices, and any
+        internet-facing infrastructure. Supports filtering by asset type,
+        business unit, tags, and exposure classification. Use this endpoint
+        to inventory all externally visible infrastructure.
       tags:
         - Assets
       requestBody:
@@ -62,21 +69,20 @@ paths:
                   properties:
                     filters:
                       type: array
-                      description: Array of filter objects to narrow results.
                       items:
                         $ref: '#/components/schemas/Filter'
+                      description: Filter criteria for asset list.
                     search_from:
                       type: integer
-                      description: Starting offset for pagination.
                       default: 0
                     search_to:
                       type: integer
-                      description: Ending offset for pagination.
+                      default: 100
                     sort:
-                      $ref: '#/components/schemas/SortCriteria'
+                      $ref: '#/components/schemas/SortOrder'
       responses:
         '200':
-          description: Assets returned.
+          description: Internet-exposed assets returned successfully.
           content:
             application/json:
               schema:
@@ -89,23 +95,26 @@ paths:
                         type: integer
                       result_count:
                         type: integer
-                      assets:
+                      assets_internet_exposure:
                         type: array
                         items:
-                          $ref: '#/components/schemas/Asset'
+                          $ref: '#/components/schemas/AssetInternetExposure'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '402':
+        '403':
           $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /assets/get_asset_internet_exposure:
     post:
       operationId: getAssetInternetExposure
-      summary: Get asset internet exposure
+      summary: Get single asset details
       description: >-
-        Returns detailed internet exposure information for a specific
-        asset including open ports, running services, certificates,
-        associated vulnerabilities, and exposure severity. Provides a
-        comprehensive view of the asset's attack surface.
+        Returns detailed information about a specific internet-exposed asset
+        identified by its asset ID. Includes all services, certificates,
+        observations, and associated business context data.
       tags:
         - Assets
       requestBody:
@@ -114,6 +123,8 @@ paths:
           application/json:
             schema:
               type: object
+              required:
+                - request_data
               properties:
                 request_data:
                   type: object
@@ -122,65 +133,12 @@ paths:
                   properties:
                     asm_id_list:
                       type: array
-                      description: List of asset ASM IDs to retrieve exposure details for.
                       items:
                         type: string
+                      description: List of asset IDs to retrieve details for.
       responses:
         '200':
-          description: Asset exposure details returned.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  reply:
-                    type: object
-                    properties:
-                      total_count:
-                        type: integer
-                      assets_internet_exposure:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/AssetInternetExposure'
-  /services/get_services:
-    post:
-      operationId: getServices
-      summary: Get services
-      description: >-
-        Returns a list of internet-facing services discovered across
-        the organization's external attack surface. Services represent
-        active network services detected on owned assets, including web
-        servers, mail servers, DNS, VPNs, and remote access services.
-        Supports filtering by service type, port, protocol, and status.
-      tags:
-        - Services
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                request_data:
-                  type: object
-                  properties:
-                    filters:
-                      type: array
-                      description: Array of filter objects to narrow results.
-                      items:
-                        $ref: '#/components/schemas/Filter'
-                    search_from:
-                      type: integer
-                      description: Starting offset for pagination.
-                      default: 0
-                    search_to:
-                      type: integer
-                      description: Ending offset for pagination.
-                    sort:
-                      $ref: '#/components/schemas/SortCriteria'
-      responses:
-        '200':
-          description: Services returned.
+          description: Asset details returned successfully.
           content:
             application/json:
               schema:
@@ -193,20 +151,25 @@ paths:
                         type: integer
                       result_count:
                         type: integer
-                      services:
+                      assets_internet_exposure:
                         type: array
                         items:
-                          $ref: '#/components/schemas/Service'
-  /incidents/get_incidents:
+                          $ref: '#/components/schemas/AssetInternetExposureDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /incident_management/get_incidents:
     post:
       operationId: getIncidents
-      summary: Get incidents
+      summary: Get attack surface incidents
       description: >-
-        Returns a list of attack surface incidents matching the specified
-        filters. Incidents represent security issues discovered on the
-        external attack surface such as exposed services, vulnerable
-        software, expired certificates, and misconfigured assets. Supports
-        filtering by severity, status, type, and creation time.
+        Returns a list of attack surface incidents. Xpanse incidents represent
+        confirmed exposures that require remediation such as unintended services,
+        misconfigured certificates, or shadow IT. Supports filtering by status,
+        severity, type, and assignee.
       tags:
         - Incidents
       requestBody:
@@ -221,21 +184,19 @@ paths:
                   properties:
                     filters:
                       type: array
-                      description: Array of filter objects to narrow results.
                       items:
                         $ref: '#/components/schemas/Filter'
                     search_from:
                       type: integer
-                      description: Starting offset for pagination.
                       default: 0
                     search_to:
                       type: integer
-                      description: Ending offset for pagination.
+                      default: 100
                     sort:
-                      $ref: '#/components/schemas/SortCriteria'
+                      $ref: '#/components/schemas/SortOrder'
       responses:
         '200':
-          description: Incidents returned.
+          description: Attack surface incidents returned successfully.
           content:
             application/json:
               schema:
@@ -251,16 +212,21 @@ paths:
                       incidents:
                         type: array
                         items:
-                          $ref: '#/components/schemas/Incident'
-  /incidents/update_incident:
+                          $ref: '#/components/schemas/AsmIncident'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /incident_management/update_incident:
     post:
       operationId: updateIncident
-      summary: Update incident
+      summary: Update attack surface incident
       description: >-
-        Updates an attack surface incident's fields including status,
-        assignee, severity, and resolution comments. Supports updating
-        multiple fields in a single request. Used for incident triage
-        and remediation tracking workflows.
+        Updates the status, assignee, severity, or resolution details of an
+        attack surface incident. Use this endpoint to track remediation
+        progress and close incidents after the exposure has been addressed.
       tags:
         - Incidents
       requestBody:
@@ -269,44 +235,49 @@ paths:
           application/json:
             schema:
               type: object
+              required:
+                - request_data
               properties:
                 request_data:
                   type: object
                   required:
                     - incident_id
-                    - update_data
                   properties:
                     incident_id:
                       type: string
-                      description: The incident ID to update.
-                    update_data:
-                      type: object
-                      properties:
-                        status:
-                          type: string
-                          enum:
-                            - new
-                            - under_investigation
-                            - resolved_threat_handled
-                            - resolved_known_issue
-                            - resolved_duplicate
-                            - resolved_false_positive
-                            - resolved_other
-                        assigned_user_mail:
-                          type: string
-                          format: email
-                        severity:
-                          type: string
-                          enum:
-                            - low
-                            - medium
-                            - high
-                            - critical
-                        resolve_comment:
-                          type: string
+                      description: Unique identifier of the attack surface incident.
+                    status:
+                      type: string
+                      enum:
+                        - new
+                        - under_investigation
+                        - resolved
+                        - resolved_no_risk
+                        - resolved_risk_accepted
+                        - resolved_contested_asset
+                        - resolved_remediated_automatically
+                    assigned_user_mail:
+                      type: string
+                      description: Email of the user to assign the incident to.
+                    assigned_user_pretty_name:
+                      type: string
+                    severity:
+                      type: string
+                      enum:
+                        - critical
+                        - high
+                        - medium
+                        - low
+                        - informational
+                    resolve_comment:
+                      type: string
+                      description: Resolution comment when closing an incident.
+                    comment:
+                      type: string
+                      description: Comment to add to the incident.
       responses:
         '200':
-          description: Incident updated.
+          description: Attack surface incident updated successfully.
           content:
             application/json:
               schema:
@@ -314,18 +285,23 @@ paths:
                 properties:
                   reply:
                     type: boolean
-  /alerts/get_alerts:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /attack_surface_rules/get_attack_surface_rules:
     post:
-      operationId: getAlerts
-      summary: Get alerts
+      operationId: getAttackSurfaceRules
+      summary: Get attack surface rules
       description: >-
-        Returns a list of attack surface alerts matching the specified
-        filters. Alerts are generated when Xpanse detects new exposures,
-        policy violations, or changes to the external attack surface.
-        Each alert includes details about the affected asset, the type
-        of exposure, and recommended remediation steps.
+        Returns the configured attack surface rules. Attack surface rules define
+        the criteria Xpanse uses to classify exposures as incidents, including
+        service type, port, protocol, and risk classification logic. Rules can
+        be enabled, disabled, or customized per business context.
       tags:
-        - Alerts
+        - AttackSurfaceRules
       requestBody:
         required: true
         content:
@@ -338,21 +314,19 @@ paths:
                   properties:
                     filters:
                       type: array
-                      description: Array of filter objects to narrow results.
                       items:
                         $ref: '#/components/schemas/Filter'
                     search_from:
                       type: integer
-                      description: Starting offset for pagination.
                       default: 0
                     search_to:
                       type: integer
-                      description: Ending offset for pagination.
+                      default: 100
                     sort:
-                      $ref: '#/components/schemas/SortCriteria'
+                      $ref: '#/components/schemas/SortOrder'
       responses:
         '200':
-          description: Alerts returned.
+          description: Attack surface rules returned successfully.
           content:
             application/json:
               schema:
@@ -365,33 +339,284 @@ paths:
                         type: integer
                       result_count:
                         type: integer
-                      alerts:
+                      attack_surface_rules:
                         type: array
                         items:
-                          $ref: '#/components/schemas/Alert'
+                          $ref: '#/components/schemas/AttackSurfaceRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /attack_surface_rules/update_attack_surface_rule:
+    post:
+      operationId: updateAttackSurfaceRule
+      summary: Update attack surface rule
+      description: >-
+        Updates the configuration of an attack surface rule, such as enabling
+        or disabling it, changing its severity, or modifying the scope of
+        assets it applies to.
+      tags:
+        - AttackSurfaceRules
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - request_data
+              properties:
+                request_data:
+                  type: object
+                  required:
+                    - attack_surface_rule_id
+                  properties:
+                    attack_surface_rule_id:
+                      type: string
+                      description: Unique identifier of the attack surface rule.
+                    enabled_status:
+                      type: string
+                      enum:
+                        - ON
+                        - OFF
+                    severity:
+                      type: string
+                      enum:
+                        - critical
+                        - high
+                        - medium
+                        - low
+                        - informational
+                    remediation_guidance:
+                      type: string
+                      description: Updated remediation guidance text.
+      responses:
+        '200':
+          description: Attack surface rule updated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /services/get_services:
+    post:
+      operationId: getServices
+      summary: Get exposed services
+      description: >-
+        Returns a list of internet-exposed network services discovered by
+        Xpanse. Services represent open ports and protocols observed on
+        internet-facing assets. Supports filtering by service type, port,
+        protocol, country, and associated asset.
+      tags:
+        - Services
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_data:
+                  type: object
+                  properties:
+                    filters:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Filter'
+                    search_from:
+                      type: integer
+                      default: 0
+                    search_to:
+                      type: integer
+                      default: 100
+                    sort:
+                      $ref: '#/components/schemas/SortOrder'
+      responses:
+        '200':
+          description: Exposed services returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      total_count:
+                        type: integer
+                      result_count:
+                        type: integer
+                      services:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ExposedService'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /ip_range/get_owned_ip_ranges:
+    post:
+      operationId: getOwnedIpRanges
+      summary: Get owned IP ranges
+      description: >-
+        Returns the IP ranges registered as owned by the organization in
+        Xpanse. Owned IP ranges define the scope of internet-facing
+        infrastructure that Xpanse monitors for exposures. Includes both
+        manually configured ranges and auto-discovered ranges attributed
+        to the organization.
+      tags:
+        - IPRanges
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_data:
+                  type: object
+                  properties:
+                    filters:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Filter'
+                    search_from:
+                      type: integer
+                      default: 0
+                    search_to:
+                      type: integer
+                      default: 100
+                    sort:
+                      $ref: '#/components/schemas/SortOrder'
+      responses:
+        '200':
+          description: Owned IP ranges returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      total_count:
+                        type: integer
+                      result_count:
+                        type: integer
+                      owned_ip_ranges:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/OwnedIpRange'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /audit/get_audit_management_logs:
+    post:
+      operationId: getAuditManagementLogs
+      summary: Get audit management logs
+      description: >-
+        Retrieves audit management logs recording administrative actions
+        performed in the Xpanse console, including user logins, IP range
+        modifications, rule configuration changes, and API key management.
+      tags:
+        - Audit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_data:
+                  type: object
+                  properties:
+                    filters:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Filter'
+                    search_from:
+                      type: integer
+                      default: 0
+                    search_to:
+                      type: integer
+                      default: 100
+                    sort:
+                      $ref: '#/components/schemas/SortOrder'
+      responses:
+        '200':
+          description: Audit management logs returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      total_count:
+                        type: integer
+                      result_count:
+                        type: integer
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AuditLog'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 components:
   securitySchemes:
-    apiKeyId:
+    xpanseAuth:
       type: apiKey
       in: header
-      name: x-xdr-auth-id
-      description: API Key ID from Cortex Xpanse Settings > Configurations > API Keys.
-    apiKey:
-      type: apiKey
-      in: header
-      name: Authorization
+      name: x-xdr-hmac-v2
       description: >-
-        API Key value. For Standard keys, the raw key. For Advanced keys,
-        a computed hash of the key with nonce and timestamp.
+        Cortex Xpanse uses a custom HMAC-SHA256 authentication scheme with
+        RBAC API key pairs. Include four headers: x-xdr-auth-id (API key ID),
+        x-xdr-nonce (64-character random string), x-xdr-timestamp (Unix epoch
+        milliseconds), and x-xdr-hmac-v2 (SHA-256 hash of api_key + nonce +
+        timestamp). API keys are scoped with RBAC roles controlling which
+        Xpanse data and operations are accessible. Generate keys from Xpanse
+        Settings > Configurations > API Keys.
   responses:
+    BadRequest:
+      description: Malformed request body or invalid parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     Unauthorized:
-      description: Missing or invalid API key credentials.
+      description: Missing or invalid authentication headers.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
     Forbidden:
-      description: Insufficient API key permissions for this operation.
+      description: Insufficient RBAC permissions for the requested operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: An internal server error occurred.
       content:
         application/json:
           schema:
@@ -399,7 +624,11 @@ components:
   schemas:
     Filter:
       type: object
-      description: Filter criteria for narrowing query results.
+      description: A filter criterion for querying Xpanse resources.
+      required:
+        - field
+        - operator
+        - value
       properties:
         field:
           type: string
@@ -408,323 +637,367 @@ components:
           type: string
           enum:
             - in
+            - contains
             - gte
             - lte
             - eq
             - neq
-            - contains
-          description: Comparison operator.
         value:
-          description: >-
-            Filter value. Type depends on operator; arrays for 'in',
-            scalars for comparison operators.
-    SortCriteria:
+          description: Filter value (string, integer, or array for "in" operator).
+          oneOf:
+            - type: string
+            - type: integer
+            - type: array
+              items:
+                oneOf:
+                  - type: string
+                  - type: integer
+    SortOrder:
       type: object
+      description: Sorting specification for result sets.
       properties:
         field:
           type: string
-          description: Field to sort by.
         keyword:
           type: string
           enum:
             - asc
             - desc
-          default: asc
-    Asset:
+    AssetInternetExposure:
       type: object
+      description: Summary of an internet-exposed asset discovered by Xpanse.
       properties:
-        asm_id:
+        asm_id_list:
+          type: array
+          items:
+            type: string
+          description: List of ASM identifiers for this asset.
+        asset_name:
           type: string
-          description: Unique identifier for the asset in Xpanse.
-        name:
-          type: string
-          description: Display name of the asset.
-        type:
+          description: Asset hostname, IP address, or identifier.
+        asset_type:
           type: string
           enum:
-            - DOMAIN
-            - RESPONSIVE_IP
             - CERTIFICATE
-            - CLOUD_RESOURCE
-            - SUBNET
-          description: Type of external asset.
-        ip_ranges:
+            - CLOUD_COMPUTE_INSTANCE
+            - CLOUD_LOAD_BALANCER
+            - CLOUD_OBJECT_STORAGE
+            - DOMAIN
+            - NETWORKING_DEVICE
+            - ON_PREM_SERVER
+            - UNMANAGED_NETWORK_DEVICE
+        ip_address:
+          type: array
+          items:
+            type: string
+          description: IP addresses associated with this asset.
+        domain:
+          type: array
+          items:
+            type: string
+          description: Domain names associated with this asset.
+        ipv6_address:
+          type: array
+          items:
+            type: string
+        cloud_id:
+          type: string
+          description: Cloud provider resource identifier.
+        cloud_provider:
+          type: string
+          enum:
+            - AWS
+            - Azure
+            - GCP
+            - OTHER
+        externally_detected_providers:
+          type: array
+          items:
+            type: string
+        business_units:
+          type: array
+          items:
+            type: string
+          description: Business units associated with this asset.
+        tags:
           type: array
           items:
             type: object
             properties:
-              first_ip:
+              key:
                 type: string
-              last_ip:
+              value:
                 type: string
-          description: IP address ranges associated with the asset.
-        domain:
-          type: string
-          description: Domain name associated with the asset.
-        certificate_info:
-          type: object
-          properties:
-            issuer:
-              type: string
-            subject:
-              type: string
-            serial_number:
-              type: string
-            not_before:
-              type: integer
-              description: Certificate validity start as epoch timestamp.
-            not_after:
-              type: integer
-              description: Certificate validity end as epoch timestamp.
-            is_expired:
-              type: boolean
-        tags:
-          type: array
-          items:
-            type: string
-          description: Tags assigned to the asset.
-        externally_detected_providers:
-          type: array
-          items:
-            type: string
-          description: Cloud or hosting providers detected for the asset.
-        business_units:
-          type: array
-          items:
-            type: string
-          description: Business units associated with the asset.
-        first_observed:
+        created:
           type: integer
-          description: Epoch timestamp when the asset was first discovered.
+          description: Asset first discovery timestamp as Unix epoch milliseconds.
         last_observed:
           type: integer
-          description: Epoch timestamp when the asset was last seen.
-        has_active_alerts:
-          type: boolean
-          description: Whether the asset has active unresolved alerts.
-    AssetInternetExposure:
-      type: object
-      properties:
-        asm_id:
-          type: string
-        name:
-          type: string
-        type:
-          type: string
-        ip_address:
-          type: array
-          items:
-            type: string
-          description: IP addresses associated with the exposure.
-        domain:
-          type: string
-        active_service_ids:
-          type: array
-          items:
-            type: string
-          description: IDs of active services running on the asset.
-        active_external_services_types:
-          type: array
-          items:
-            type: string
-          description: Types of active external services (e.g., HTTP, SSH, RDP).
-        has_xdr_agent:
-          type: boolean
-          description: Whether a Cortex XDR agent is installed on the asset.
-        certificate_details:
-          type: object
+          description: Most recent observation timestamp as Unix epoch milliseconds.
+    AssetInternetExposureDetail:
+      allOf:
+        - $ref: '#/components/schemas/AssetInternetExposure'
+        - type: object
+          description: Detailed asset information including all services and observations.
           properties:
-            issuer:
-              type: string
-            subject:
-              type: string
-            not_after:
-              type: integer
-            signature_algorithm:
-              type: string
-            key_length:
-              type: integer
-        cloud_details:
-          type: object
-          properties:
-            provider:
-              type: string
-              enum:
-                - AWS
-                - Azure
-                - GCP
-                - Other
-            region:
-              type: string
-            account_id:
-              type: string
-            instance_id:
-              type: string
-        exposure_severity:
-          type: string
-          enum:
-            - LOW
-            - MEDIUM
-            - HIGH
-            - CRITICAL
-          description: Overall severity of the internet exposure.
-        last_observed:
-          type: integer
-    Service:
+            service_list:
+              type: array
+              items:
+                $ref: '#/components/schemas/ExposedService'
+            certificate:
+              type: object
+              description: TLS certificate details if applicable.
+              properties:
+                issuer:
+                  type: string
+                subject:
+                  type: string
+                valid_from:
+                  type: string
+                  format: date
+                valid_to:
+                  type: string
+                  format: date
+                sha256:
+                  type: string
+            active_service_ids:
+              type: array
+              items:
+                type: string
+            all_service_ids:
+              type: array
+              items:
+                type: string
+    AsmIncident:
       type: object
-      properties:
-        service_id:
-          type: string
-          description: Unique identifier for the discovered service.
-        service_name:
-          type: string
-          description: Human-readable name of the service.
-        service_type:
-          type: string
-          enum:
-            - HttpServer
-            - SshServer
-            - RdpServer
-            - FtpServer
-            - DnsServer
-            - SmtpServer
-            - VpnServer
-            - DatabaseServer
-            - Other
-          description: Classification of the service type.
-        ip_address:
-          type: string
-          description: IP address where the service is running.
-        domain:
-          type: string
-          description: Domain name resolving to the service.
-        port:
-          type: integer
-          description: Network port the service is listening on.
-        protocol:
-          type: string
-          enum:
-            - TCP
-            - UDP
-          description: Transport protocol used by the service.
-        is_active:
-          type: boolean
-          description: Whether the service is currently active.
-        discovery_type:
-          type: string
-          enum:
-            - ColocatedOnIp
-            - DirectlyDiscovered
-            - ResolvesToIp
-          description: How the service was discovered.
-        business_units:
-          type: array
-          items:
-            type: string
-        externally_detected_providers:
-          type: array
-          items:
-            type: string
-        first_observed:
-          type: integer
-          description: Epoch timestamp when the service was first discovered.
-        last_observed:
-          type: integer
-          description: Epoch timestamp when the service was last observed active.
-    Incident:
-      type: object
+      description: An attack surface incident representing a confirmed exposure requiring remediation.
       properties:
         incident_id:
           type: string
+          description: Unique attack surface incident identifier.
         incident_name:
           type: string
-        creation_time:
-          type: integer
-          description: Epoch timestamp in milliseconds.
-        modification_time:
-          type: integer
-        status:
-          type: string
-          enum:
-            - new
-            - under_investigation
-            - resolved_threat_handled
-            - resolved_known_issue
-            - resolved_duplicate
-            - resolved_false_positive
-            - resolved_other
-        severity:
-          type: string
-          enum:
-            - low
-            - medium
-            - high
-            - critical
-            - informational
-        description:
-          type: string
-        assigned_user_mail:
-          type: string
-        alert_count:
-          type: integer
-        attack_surface_rule_name:
-          type: string
-          description: The attack surface rule that triggered this incident.
-        affected_assets:
-          type: array
-          items:
-            type: string
-          description: List of ASM IDs for assets affected by this incident.
-        starred:
-          type: boolean
-    Alert:
-      type: object
-      properties:
-        alert_id:
-          type: string
-        name:
-          type: string
-          description: Display name of the alert.
-        description:
-          type: string
-        severity:
-          type: string
-          enum:
-            - low
-            - medium
-            - high
-            - critical
-            - informational
         status:
           type: string
           enum:
             - new
             - under_investigation
             - resolved
-        alert_type:
+            - resolved_no_risk
+            - resolved_risk_accepted
+            - resolved_contested_asset
+            - resolved_remediated_automatically
+        severity:
           type: string
-          description: Type of attack surface alert.
-        attack_surface_rule_id:
-          type: string
-          description: ID of the rule that generated this alert.
-        attack_surface_rule_name:
-          type: string
-          description: Name of the rule that generated this alert.
-        affected_asset_ids:
+          enum:
+            - critical
+            - high
+            - medium
+            - low
+            - informational
+        incident_type:
           type: array
           items:
             type: string
-          description: ASM IDs of assets associated with this alert.
+          description: Attack surface rule types that triggered this incident.
+        assigned_user_mail:
+          type: string
+        assigned_user_pretty_name:
+          type: string
+        alert_count:
+          type: integer
+        description:
+          type: string
+        creation_time:
+          type: integer
+          description: Incident creation timestamp as Unix epoch milliseconds.
+        modification_time:
+          type: integer
+        resolved_by:
+          type: string
+        resolve_comment:
+          type: string
+        tags:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              value:
+                type: string
+    AttackSurfaceRule:
+      type: object
+      description: >-
+        An attack surface rule defining criteria for classifying internet
+        exposures as incidents.
+      properties:
+        attack_surface_rule_id:
+          type: string
+        attack_surface_rule_name:
+          type: string
+        category:
+          type: string
+          description: Rule category (e.g., Unencrypted, Misconfigured, Unauthorized).
+        description:
+          type: string
         remediation_guidance:
           type: string
-          description: Recommended steps to remediate the exposure.
-        external_id:
+        enabled_status:
           type: string
-        detection_timestamp:
+          enum:
+            - ON
+            - OFF
+        severity:
+          type: string
+          enum:
+            - critical
+            - high
+            - medium
+            - low
+            - informational
+        created:
           type: integer
-          description: Epoch timestamp when the alert was generated.
-        last_modified:
+        modified:
           type: integer
+        release_status:
+          type: string
+          enum:
+            - GA
+            - BETA
+    ExposedService:
+      type: object
+      description: An internet-exposed network service discovered on an asset.
+      properties:
+        service_id:
+          type: string
+        service_name:
+          type: string
+          description: Service name or protocol (e.g., HTTPS, SSH, RDP).
+        service_type:
+          type: string
+          enum:
+            - APPLICATION_SERVER
+            - CLOUD_STORAGE
+            - DATABASE
+            - NETWORKING
+            - REMOTE_DESKTOP
+            - UNCLASSIFIED
+            - WEB
+        ip_address:
+          type: array
+          items:
+            type: string
+        domain:
+          type: array
+          items:
+            type: string
+        port:
+          type: integer
+          description: TCP/UDP port number.
+        protocol:
+          type: string
+          enum:
+            - TCP
+            - UDP
+        provider:
+          type: array
+          items:
+            type: string
+          description: Cloud or hosting providers detected for this service.
+        business_units:
+          type: array
+          items:
+            type: string
+        created:
+          type: integer
+          description: Service first discovery timestamp as Unix epoch milliseconds.
+        last_observed:
+          type: integer
+        is_active:
+          type: string
+          enum:
+            - Active
+            - Inactive
+            - Unconfirmed
+        discovery_type:
+          type: string
+          enum:
+            - ColocatedOnIp
+            - DirectlyDiscovered
+            - CSP
+            - CertificateAssociation
+    OwnedIpRange:
+      type: object
+      description: An IP range owned by the organization and monitored by Xpanse.
+      properties:
+        range_id:
+          type: string
+        cidr:
+          type: string
+          description: IP range in CIDR notation (e.g., 203.0.113.0/24).
+        first_ip:
+          type: string
+        last_ip:
+          type: string
+        range_size:
+          type: integer
+          description: Number of IP addresses in the range.
+        business_units:
+          type: array
+          items:
+            type: string
+        attribution_reason:
+          type: string
+          enum:
+            - RIR
+            - InternallyAttributed
+            - ExternallyAttributed
+        created:
+          type: integer
+          description: Range creation timestamp as Unix epoch milliseconds.
+        modified:
+          type: integer
+        tags:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              value:
+                type: string
+    AuditLog:
+      type: object
+      description: An audit management log entry recording an administrative action.
+      properties:
+        timestamp:
+          type: integer
+          description: Action timestamp as Unix epoch milliseconds.
+        actor_primary_username:
+          type: string
+        actor_email:
+          type: string
+        actor_type:
+          type: string
+          enum:
+            - User
+            - API
+        sub_type:
+          type: string
+          description: Action subtype (e.g., Login, IpRangeModified, RuleUpdated).
+        result:
+          type: string
+          enum:
+            - SUCCESS
+            - FAIL
+        reason:
+          type: string
+        ip:
+          type: string
+          description: Source IP address of the action.
+        description:
+          type: string
     ErrorResponse:
       type: object
       properties:

@@ -3,14 +3,14 @@ info:
   title: Prisma Cloud DSPM API
   description: >-
     REST API for Prisma Cloud Data Security Posture Management (DSPM) providing
-    programmatic access to data store discovery, data asset classification,
-    and data risk assessment across multi-cloud environments. The API enables
-    visibility into where sensitive data resides, how it is classified, what
-    risks are associated with it, and whether it complies with data governance
-    policies. DSPM automatically discovers data stores in AWS, Azure, and GCP
-    including databases, object storage, file shares, and data warehouses.
-    Authentication requires a JWT token obtained from the Prisma Cloud /login
-    endpoint, passed via the x-redlock-auth header.
+    programmatic access to data asset discovery, risk assessment, data store
+    inventory, data classification results, DSPM policies, and data security
+    alerts across multi-cloud environments. The API enables visibility into
+    where sensitive data resides, how it is classified, what risks are
+    associated with it, and whether it complies with data governance policies.
+    DSPM automatically discovers data stores in AWS, Azure, and GCP including
+    databases, object storage, file shares, and data warehouses. Authentication
+    requires a JWT token obtained from the Prisma Cloud /login endpoint.
   version: '1.0'
   contact:
     name: Palo Alto Networks Developer Support
@@ -34,36 +34,338 @@ servers:
   - url: https://api.ca.prismacloud.io
     description: Prisma Cloud API (Canada).
 security:
-  - redlockAuth: []
+  - bearerAuth: []
 tags:
-  - name: DataStores
-    description: >-
-      Discovery and inventory of cloud data stores such as databases, object
-      storage buckets, file shares, and data warehouses.
   - name: DataAssets
-    description: >-
-      Individual data assets within data stores including tables, columns,
-      objects, and files.
-  - name: Classifications
-    description: >-
-      Data classification labels and sensitivity levels applied to discovered
-      data assets.
+    description: Data asset discovery and inventory operations.
   - name: Risks
-    description: >-
-      Data security risks identified across data stores and assets based on
-      exposure, access patterns, and classification sensitivity.
+    description: Data security risk identification and management.
+  - name: DataStores
+    description: Data store inventory and discovery operations.
+  - name: Classifications
+    description: Data classification results and taxonomy operations.
+  - name: Policies
+    description: DSPM policy management operations.
+  - name: Alerts
+    description: Data security alert management operations.
 paths:
+  /dspm/api/v1/data-assets:
+    get:
+      operationId: listDataAssets
+      summary: List data assets
+      description: >-
+        Returns a list of individual data assets discovered within cloud data
+        stores. Data assets represent granular data objects such as database
+        tables, columns containing sensitive data, S3 object prefixes, and
+        file share directories. Each asset includes its classification labels
+        and sensitivity level.
+      tags:
+        - DataAssets
+      parameters:
+        - name: offset
+          in: query
+          description: Number of records to skip for pagination.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of records to return.
+          schema:
+            type: integer
+            default: 25
+        - name: dataStoreId
+          in: query
+          description: Filter assets by parent data store ID.
+          schema:
+            type: string
+        - name: classificationLabel
+          in: query
+          description: Filter by classification label (e.g., PII, PHI, PCI).
+          schema:
+            type: string
+        - name: sensitivityLevel
+          in: query
+          description: Filter by sensitivity level.
+          schema:
+            type: string
+            enum:
+              - public
+              - internal
+              - confidential
+              - restricted
+        - name: search
+          in: query
+          description: Search term to filter by asset name or path.
+          schema:
+            type: string
+        - name: sortBy
+          in: query
+          description: Field to sort results by.
+          schema:
+            type: string
+            enum:
+              - name
+              - sensitivityLevel
+              - discoveredAt
+        - name: sortOrder
+          in: query
+          description: Sort order direction.
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+            default: desc
+      responses:
+        '200':
+          description: Data assets returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalCount:
+                    type: integer
+                    description: Total number of data assets matching filters.
+                  dataAssets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DataAsset'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /dspm/api/v1/data-assets/{id}:
+    get:
+      operationId: getDataAsset
+      summary: Get data asset details
+      description: >-
+        Returns detailed information about a specific data asset including
+        its full classification summary, sample findings, associated data
+        store details, and risk posture.
+      tags:
+        - DataAssets
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique data asset identifier.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Data asset details returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataAsset'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /dspm/api/v1/risks:
+    get:
+      operationId: listRisks
+      summary: List data risks
+      description: >-
+        Returns data security risks identified across all monitored data stores
+        and assets. Risks are generated when sensitive data is found in data
+        stores with insecure configurations such as public access, missing
+        encryption, or excessive permissions.
+      tags:
+        - Risks
+      parameters:
+        - name: offset
+          in: query
+          description: Number of records to skip for pagination.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of records to return.
+          schema:
+            type: integer
+            default: 25
+        - name: riskLevel
+          in: query
+          description: Filter by risk severity level.
+          schema:
+            type: string
+            enum:
+              - critical
+              - high
+              - medium
+              - low
+        - name: status
+          in: query
+          description: Filter by risk status.
+          schema:
+            type: string
+            enum:
+              - open
+              - remediated
+              - suppressed
+              - acknowledged
+        - name: cloudProvider
+          in: query
+          description: Filter by cloud provider.
+          schema:
+            type: string
+            enum:
+              - aws
+              - azure
+              - gcp
+        - name: search
+          in: query
+          description: Search term to filter by risk title or data store name.
+          schema:
+            type: string
+        - name: sortBy
+          in: query
+          description: Field to sort results by.
+          schema:
+            type: string
+            enum:
+              - riskLevel
+              - detectedAt
+        - name: sortOrder
+          in: query
+          description: Sort order direction.
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+            default: desc
+      responses:
+        '200':
+          description: Data risks returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalCount:
+                    type: integer
+                    description: Total number of data risks matching filters.
+                  risks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DataRisk'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /dspm/api/v1/risks/{id}:
+    get:
+      operationId: getRisk
+      summary: Get risk details
+      description: >-
+        Returns detailed information for a specific data security risk including
+        full risk description, affected data store details, impacted data
+        assets, and step-by-step remediation guidance.
+      tags:
+        - Risks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique risk identifier.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Risk details returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataRisk'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /dspm/api/v1/risks/{id}/status:
+    put:
+      operationId: updateRiskStatus
+      summary: Update risk status
+      description: >-
+        Updates the status of a specific data security risk. Use this endpoint
+        to acknowledge, suppress, or mark a risk as remediated after applying
+        corrective actions to the affected data store.
+      tags:
+        - Risks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique risk identifier.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - open
+                    - remediated
+                    - suppressed
+                    - acknowledged
+                  description: New status for the risk.
+                comment:
+                  type: string
+                  description: Comment explaining the status change.
+      responses:
+        '200':
+          description: Risk status updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataRisk'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /dspm/api/v1/data-stores:
     get:
       operationId: listDataStores
-      summary: List discovered data stores
+      summary: List data stores inventory
       description: >-
         Returns a list of all cloud data stores discovered by Prisma Cloud
-        DSPM. Data stores include relational databases (RDS, Cloud SQL, Azure
-        SQL), NoSQL databases (DynamoDB, Cosmos DB), object storage (S3, GCS,
-        Azure Blob), file shares, data warehouses (Redshift, BigQuery,
-        Snowflake), and other cloud-native data services. Supports filtering
-        by cloud provider, region, service type, and risk level.
+        DSPM. Includes relational databases, NoSQL databases, object storage,
+        file shares, data warehouses, and other cloud-native data services.
+        Supports filtering by cloud provider, region, service type, and risk
+        level.
       tags:
         - DataStores
       parameters:
@@ -148,7 +450,7 @@ paths:
             default: desc
       responses:
         '200':
-          description: Data stores returned.
+          description: Data stores returned successfully.
           content:
             application/json:
               schema:
@@ -161,201 +463,24 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/DataStore'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Unauthorized. Invalid or expired token.
-  /dspm/api/v1/data-stores/{id}/details:
-    get:
-      operationId: getDataStoreDetails
-      summary: Get data store details
-      description: >-
-        Returns detailed information about a specific data store including
-        its full classification summary, associated data assets, access
-        configuration, encryption status, network exposure, and risk
-        assessment. This endpoint provides the deepest level of detail
-        available for a single data store.
-      tags:
-        - DataStores
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Unique data store identifier.
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Data store details returned.
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/DataStore'
-                  - type: object
-                    properties:
-                      accessConfiguration:
-                        type: object
-                        description: Access control configuration details.
-                        properties:
-                          isPubliclyAccessible:
-                            type: boolean
-                            description: Whether the data store is accessible from the internet.
-                          authenticationRequired:
-                            type: boolean
-                            description: Whether authentication is enforced for access.
-                          accessPolicies:
-                            type: array
-                            description: IAM policies or ACLs governing access.
-                            items:
-                              type: object
-                              properties:
-                                principalType:
-                                  type: string
-                                  enum:
-                                    - user
-                                    - role
-                                    - service
-                                    - group
-                                    - public
-                                principalId:
-                                  type: string
-                                permissions:
-                                  type: array
-                                  items:
-                                    type: string
-                                isOverPrivileged:
-                                  type: boolean
-                      networkExposure:
-                        type: object
-                        description: Network exposure details for the data store.
-                        properties:
-                          isInternetFacing:
-                            type: boolean
-                          vpcId:
-                            type: string
-                          subnetIds:
-                            type: array
-                            items:
-                              type: string
-                          securityGroupIds:
-                            type: array
-                            items:
-                              type: string
-                          allowedCidrBlocks:
-                            type: array
-                            items:
-                              type: string
-                      dataAssets:
-                        type: array
-                        description: Data assets contained within this data store.
-                        items:
-                          $ref: '#/components/schemas/DataAsset'
-                      risks:
-                        type: array
-                        description: Active risks associated with this data store.
-                        items:
-                          $ref: '#/components/schemas/DataRisk'
-        '401':
-          description: Unauthorized. Invalid or expired token.
-        '404':
-          description: Data store not found.
-  /dspm/api/v1/data-assets:
-    get:
-      operationId: listDataAssets
-      summary: List data assets
-      description: >-
-        Returns a list of individual data assets discovered within cloud data
-        stores. Data assets represent the granular data objects such as database
-        tables, columns containing sensitive data, S3 object prefixes, and
-        file share directories. Each asset includes its classification labels
-        and sensitivity level.
-      tags:
-        - DataAssets
-      parameters:
-        - name: offset
-          in: query
-          description: Number of records to skip for pagination.
-          schema:
-            type: integer
-            default: 0
-        - name: limit
-          in: query
-          description: Maximum number of records to return.
-          schema:
-            type: integer
-            default: 25
-        - name: dataStoreId
-          in: query
-          description: Filter assets by parent data store ID.
-          schema:
-            type: string
-        - name: classificationLabel
-          in: query
-          description: >-
-            Filter by classification label (e.g., PII, PHI, PCI, Financial,
-            Credentials).
-          schema:
-            type: string
-        - name: sensitivityLevel
-          in: query
-          description: Filter by sensitivity level.
-          schema:
-            type: string
-            enum:
-              - public
-              - internal
-              - confidential
-              - restricted
-        - name: search
-          in: query
-          description: Search term to filter by asset name or path.
-          schema:
-            type: string
-        - name: sortBy
-          in: query
-          description: Field to sort results by.
-          schema:
-            type: string
-            enum:
-              - name
-              - sensitivityLevel
-              - classificationLabel
-              - discoveredAt
-        - name: sortOrder
-          in: query
-          description: Sort order direction.
-          schema:
-            type: string
-            enum:
-              - asc
-              - desc
-            default: desc
-      responses:
-        '200':
-          description: Data assets returned.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  totalCount:
-                    type: integer
-                    description: Total number of data assets matching filters.
-                  dataAssets:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/DataAsset'
-        '401':
-          description: Unauthorized. Invalid or expired token.
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /dspm/api/v1/classifications:
     get:
       operationId: listClassifications
-      summary: List data classifications
+      summary: List data classification results
       description: >-
         Returns the data classification taxonomy used by Prisma Cloud DSPM,
         including built-in and custom classification labels. Each classification
-        includes the label name, description, data patterns or rules used
-        for detection, associated regulatory frameworks, and the sensitivity
-        level assigned to data matching the classification.
+        includes the label name, description, detection patterns, associated
+        regulatory frameworks, and the sensitivity level assigned to matching
+        data.
       tags:
         - Classifications
       parameters:
@@ -391,12 +516,12 @@ paths:
             type: boolean
         - name: search
           in: query
-          description: Search term to filter by classification name or description.
+          description: Search term to filter by classification name.
           schema:
             type: string
       responses:
         '200':
-          description: Classifications returned.
+          description: Data classifications returned successfully.
           content:
             application/json:
               schema:
@@ -410,21 +535,22 @@ paths:
                     items:
                       $ref: '#/components/schemas/Classification'
         '401':
-          description: Unauthorized. Invalid or expired token.
-  /dspm/api/v1/data-risks:
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /dspm/api/v1/policies:
     get:
-      operationId: listDataRisks
-      summary: List data security risks
+      operationId: listDSPMPolicies
+      summary: List DSPM policies
       description: >-
-        Returns data security risks identified across all monitored data stores
-        and assets. Risks are generated when sensitive data is found in data
-        stores with insecure configurations such as public access, missing
-        encryption, excessive permissions, cross-region replication to
-        unapproved regions, or lack of audit logging. Each risk includes
-        its severity, affected data store, risk category, and recommended
-        remediation.
+        Returns a list of DSPM policies that define data security requirements
+        and governance rules. Policies specify which data classification labels
+        and sensitivity levels require specific security controls such as
+        encryption, access restrictions, and audit logging.
       tags:
-        - Risks
+        - Policies
       parameters:
         - name: offset
           in: query
@@ -438,9 +564,64 @@ paths:
           schema:
             type: integer
             default: 25
-        - name: riskLevel
+        - name: enabled
           in: query
-          description: Filter by risk severity level.
+          description: Filter by policy enabled status.
+          schema:
+            type: boolean
+        - name: search
+          in: query
+          description: Search term to filter by policy name.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: DSPM policies returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalCount:
+                    type: integer
+                    description: Total number of DSPM policies.
+                  policies:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DSPMPolicy'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /dspm/api/v1/alerts:
+    get:
+      operationId: listDataSecurityAlerts
+      summary: List data security alerts
+      description: >-
+        Returns data security alerts generated when sensitive data exposure
+        conditions are detected. Alerts are triggered by new public data
+        store discoveries, anomalous data access patterns, policy violations,
+        and newly identified sensitive data in previously clean data stores.
+      tags:
+        - Alerts
+      parameters:
+        - name: offset
+          in: query
+          description: Number of records to skip for pagination.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of records to return.
+          schema:
+            type: integer
+            default: 25
+        - name: severity
+          in: query
+          description: Filter alerts by severity level.
           schema:
             type: string
             enum:
@@ -448,35 +629,15 @@ paths:
               - high
               - medium
               - low
-        - name: riskCategory
-          in: query
-          description: Filter by risk category.
-          schema:
-            type: string
-            enum:
-              - publicExposure
-              - encryptionMissing
-              - excessivePermissions
-              - dataResidency
-              - auditLogging
-              - backupMissing
-              - crossAccountAccess
-              - sensitiveDataExposure
         - name: status
           in: query
-          description: Filter by risk status.
+          description: Filter by alert status.
           schema:
             type: string
             enum:
               - open
-              - remediated
-              - suppressed
-              - acknowledged
-        - name: dataStoreId
-          in: query
-          description: Filter by specific data store ID.
-          schema:
-            type: string
+              - dismissed
+              - resolved
         - name: cloudProvider
           in: query
           description: Filter by cloud provider.
@@ -486,33 +647,21 @@ paths:
               - aws
               - azure
               - gcp
-        - name: search
+        - name: start_time
           in: query
-          description: Search term to filter by risk title or data store name.
+          description: Start of time range filter (ISO 8601 format).
           schema:
             type: string
-        - name: sortBy
+            format: date-time
+        - name: end_time
           in: query
-          description: Field to sort results by.
+          description: End of time range filter (ISO 8601 format).
           schema:
             type: string
-            enum:
-              - riskLevel
-              - riskCategory
-              - dataStoreName
-              - detectedAt
-        - name: sortOrder
-          in: query
-          description: Sort order direction.
-          schema:
-            type: string
-            enum:
-              - asc
-              - desc
-            default: desc
+            format: date-time
       responses:
         '200':
-          description: Data risks returned.
+          description: Data security alerts returned successfully.
           content:
             application/json:
               schema:
@@ -520,125 +669,60 @@ paths:
                 properties:
                   totalCount:
                     type: integer
-                    description: Total number of data risks matching filters.
-                  dataRisks:
+                    description: Total number of alerts matching filters.
+                  alerts:
                     type: array
                     items:
-                      $ref: '#/components/schemas/DataRisk'
+                      $ref: '#/components/schemas/DataSecurityAlert'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Unauthorized. Invalid or expired token.
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 components:
   securitySchemes:
-    redlockAuth:
-      type: apiKey
-      in: header
-      name: x-redlock-auth
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
       description: >-
-        JWT token obtained from the Prisma Cloud /login endpoint. Pass the
-        token value in the x-redlock-auth header. Tokens are valid for 10
-        minutes.
+        JWT token obtained from the Prisma Cloud /login endpoint. Valid for
+        10 minutes. Include as Authorization: Bearer <token> in request headers.
+  responses:
+    BadRequest:
+      description: Invalid request parameters or body.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Invalid or expired JWT token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   schemas:
-    DataStore:
-      type: object
-      properties:
-        id:
-          type: string
-          description: Unique data store identifier in Prisma Cloud.
-        name:
-          type: string
-          description: >-
-            Name of the data store as it appears in the cloud provider
-            (e.g., S3 bucket name, RDS instance identifier).
-        cloudProvider:
-          type: string
-          description: Cloud provider where the data store is hosted.
-          enum:
-            - aws
-            - azure
-            - gcp
-        cloudAccountId:
-          type: string
-          description: Cloud account ID that owns the data store.
-        cloudAccountName:
-          type: string
-          description: Display name of the cloud account.
-        region:
-          type: string
-          description: Cloud region where the data store is located.
-        serviceType:
-          type: string
-          description: Category of the data store service.
-          enum:
-            - relationalDatabase
-            - noSqlDatabase
-            - objectStorage
-            - fileShare
-            - dataWarehouse
-            - dataLake
-            - cache
-            - messageQueue
-        serviceName:
-          type: string
-          description: >-
-            Specific cloud service name (e.g., Amazon S3, Amazon RDS,
-            Azure Blob Storage, Google Cloud SQL, Amazon DynamoDB).
-        resourceArn:
-          type: string
-          description: >-
-            Cloud provider resource identifier (ARN for AWS, resource ID for
-            Azure, resource name for GCP).
-        encryptionEnabled:
-          type: boolean
-          description: Whether encryption at rest is enabled.
-        encryptionType:
-          type: string
-          description: Type of encryption applied.
-          enum:
-            - none
-            - providerManaged
-            - customerManaged
-            - clientSide
-        isPubliclyAccessible:
-          type: boolean
-          description: Whether the data store is accessible from the public internet.
-        riskLevel:
-          type: string
-          description: >-
-            Overall risk level computed from data sensitivity and security
-            posture.
-          enum:
-            - critical
-            - high
-            - medium
-            - low
-        sensitiveDataCount:
-          type: integer
-          description: Number of sensitive data assets found in this data store.
-        classificationLabels:
-          type: array
-          description: Distinct classification labels found in the data store.
-          items:
-            type: string
-        dataAssetCount:
-          type: integer
-          description: Total number of data assets discovered in this data store.
-        sizeBytes:
-          type: integer
-          format: int64
-          description: Approximate size of the data store in bytes.
-        tags:
-          type: object
-          description: Cloud provider tags applied to the data store resource.
-          additionalProperties:
-            type: string
-        discoveredAt:
-          type: string
-          format: date-time
-          description: Timestamp when the data store was first discovered by DSPM.
-        lastScannedAt:
-          type: string
-          format: date-time
-          description: Timestamp of the most recent data classification scan.
     DataAsset:
       type: object
       properties:
@@ -658,7 +742,6 @@ components:
             prefix, directory name).
         assetType:
           type: string
-          description: Type of data asset.
           enum:
             - table
             - column
@@ -668,29 +751,25 @@ components:
             - collection
             - index
             - schema
+          description: Type of data asset.
         path:
           type: string
-          description: >-
-            Full path to the data asset within the data store (e.g.,
-            database/schema/table/column or bucket/prefix/).
+          description: Full path to the data asset within the data store.
         classificationLabels:
           type: array
-          description: Classification labels applied to this data asset.
           items:
             type: string
+          description: Classification labels applied to this data asset.
         sensitivityLevel:
           type: string
-          description: Sensitivity level based on the most sensitive classification.
           enum:
             - public
             - internal
             - confidential
             - restricted
+          description: Sensitivity level based on the most sensitive classification.
         sampleFindings:
           type: array
-          description: >-
-            Sample data patterns found during classification. Values are
-            masked for security.
           items:
             type: object
             properties:
@@ -699,21 +778,17 @@ components:
                 description: Classification label matched.
               pattern:
                 type: string
-                description: >-
-                  Pattern description (e.g., email address, SSN, credit card
-                  number).
+                description: Pattern description.
               count:
                 type: integer
-                description: Approximate number of matching records or objects.
+                description: Approximate number of matching records.
               sampleValue:
                 type: string
-                description: >-
-                  Masked sample value showing the pattern match (e.g.,
-                  j***@example.com, ***-**-1234).
+                description: Masked sample value showing the pattern match.
+          description: Sample data patterns found during classification.
         recordCount:
           type: integer
-          description: >-
-            Approximate number of records or objects in this data asset.
+          description: Approximate number of records in this data asset.
         discoveredAt:
           type: string
           format: date-time
@@ -722,6 +797,166 @@ components:
           type: string
           format: date-time
           description: Timestamp of the most recent classification scan.
+    DataRisk:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique risk identifier.
+        title:
+          type: string
+          description: Short description of the risk.
+        description:
+          type: string
+          description: Detailed explanation of the risk and its potential impact.
+        riskLevel:
+          type: string
+          enum:
+            - critical
+            - high
+            - medium
+            - low
+          description: Severity of the risk.
+        riskCategory:
+          type: string
+          enum:
+            - publicExposure
+            - encryptionMissing
+            - excessivePermissions
+            - dataResidency
+            - auditLogging
+            - backupMissing
+            - crossAccountAccess
+            - sensitiveDataExposure
+          description: Category of the data security risk.
+        status:
+          type: string
+          enum:
+            - open
+            - remediated
+            - suppressed
+            - acknowledged
+          description: Current status of the risk.
+        dataStoreId:
+          type: string
+          description: Data store where the risk was identified.
+        dataStoreName:
+          type: string
+          description: Name of the affected data store.
+        cloudProvider:
+          type: string
+          enum:
+            - aws
+            - azure
+            - gcp
+          description: Cloud provider of the affected data store.
+        cloudAccountId:
+          type: string
+          description: Cloud account ID of the affected data store.
+        region:
+          type: string
+          description: Cloud region of the affected data store.
+        affectedClassifications:
+          type: array
+          items:
+            type: string
+          description: Classification labels of sensitive data at risk.
+        affectedDataAssetCount:
+          type: integer
+          description: Number of data assets affected by this risk.
+        remediation:
+          type: object
+          properties:
+            description:
+              type: string
+              description: Human-readable description of the recommended remediation.
+            steps:
+              type: array
+              items:
+                type: string
+              description: Step-by-step remediation instructions.
+            automatedRemediationAvailable:
+              type: boolean
+              description: Whether automated remediation is available.
+          description: Recommended remediation steps.
+        detectedAt:
+          type: string
+          format: date-time
+          description: Timestamp when the risk was first detected.
+        lastEvaluatedAt:
+          type: string
+          format: date-time
+          description: Timestamp of the most recent risk evaluation.
+    DataStore:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique data store identifier in Prisma Cloud.
+        name:
+          type: string
+          description: Name of the data store as it appears in the cloud provider.
+        cloudProvider:
+          type: string
+          enum:
+            - aws
+            - azure
+            - gcp
+          description: Cloud provider where the data store is hosted.
+        cloudAccountId:
+          type: string
+          description: Cloud account ID that owns the data store.
+        region:
+          type: string
+          description: Cloud region where the data store is located.
+        serviceType:
+          type: string
+          enum:
+            - relationalDatabase
+            - noSqlDatabase
+            - objectStorage
+            - fileShare
+            - dataWarehouse
+            - dataLake
+            - cache
+            - messageQueue
+          description: Category of the data store service.
+        serviceName:
+          type: string
+          description: Specific cloud service name (e.g., Amazon S3, Amazon RDS).
+        encryptionEnabled:
+          type: boolean
+          description: Whether encryption at rest is enabled.
+        isPubliclyAccessible:
+          type: boolean
+          description: Whether the data store is accessible from the public internet.
+        riskLevel:
+          type: string
+          enum:
+            - critical
+            - high
+            - medium
+            - low
+          description: Overall risk level computed from data sensitivity and security posture.
+        sensitiveDataCount:
+          type: integer
+          description: Number of sensitive data assets found in this data store.
+        classificationLabels:
+          type: array
+          items:
+            type: string
+          description: Distinct classification labels found in the data store.
+        dataAssetCount:
+          type: integer
+          description: Total number of data assets discovered in this data store.
+        discoveredAt:
+          type: string
+          format: date-time
+          description: Timestamp when the data store was first discovered by DSPM.
+        lastScannedAt:
+          type: string
+          format: date-time
+          description: Timestamp of the most recent data classification scan.
     Classification:
       type: object
       properties:
@@ -730,15 +965,12 @@ components:
           description: Unique classification identifier.
         name:
           type: string
-          description: >-
-            Classification label name (e.g., Email Address, Social Security
-            Number, Credit Card Number, Medical Record Number).
+          description: Classification label name.
         description:
           type: string
           description: Detailed description of what the classification detects.
         category:
           type: string
-          description: Broad category of the classification.
           enum:
             - PII
             - PHI
@@ -747,26 +979,20 @@ components:
             - Credentials
             - Intellectual Property
             - Custom
+          description: Broad category of the classification.
         sensitivityLevel:
           type: string
-          description: >-
-            Default sensitivity level assigned to data matching this
-            classification.
           enum:
             - public
             - internal
             - confidential
             - restricted
+          description: Default sensitivity level for data matching this classification.
         isBuiltIn:
           type: boolean
-          description: >-
-            Whether this is a built-in classification provided by Prisma
-            Cloud or a custom classification.
+          description: Whether this is a built-in or custom classification.
         regulatoryFrameworks:
           type: array
-          description: >-
-            Regulatory frameworks and standards that reference this data
-            classification.
           items:
             type: string
             enum:
@@ -777,160 +1003,144 @@ components:
               - SOX
               - GLBA
               - FERPA
-              - PIPEDA
-              - LGPD
-        detectionPatterns:
-          type: array
-          description: >-
-            Detection patterns or rules used to identify data matching this
-            classification.
-          items:
-            type: object
-            properties:
-              patternType:
-                type: string
-                description: Type of detection pattern.
-                enum:
-                  - regex
-                  - dictionary
-                  - machinelearning
-                  - proximity
-              description:
-                type: string
-                description: Human-readable description of the pattern.
-              confidenceLevel:
-                type: string
-                description: Confidence level of detection matches.
-                enum:
-                  - high
-                  - medium
-                  - low
+          description: Regulatory frameworks referencing this data classification.
         dataStoreCount:
           type: integer
-          description: >-
-            Number of data stores where data matching this classification
-            has been found.
+          description: Number of data stores where matching data has been found.
         dataAssetCount:
           type: integer
-          description: >-
-            Number of data assets matching this classification.
-        createdAt:
-          type: string
-          format: date-time
-          description: Timestamp when the classification was created.
-        updatedAt:
-          type: string
-          format: date-time
-          description: Timestamp when the classification was last modified.
-    DataRisk:
+          description: Number of data assets matching this classification.
+    DSPMPolicy:
       type: object
       properties:
         id:
           type: string
-          description: Unique risk identifier.
-        title:
+          description: Unique DSPM policy identifier.
+        name:
           type: string
-          description: >-
-            Short description of the risk (e.g., "S3 bucket with PII data
-            is publicly accessible").
+          description: Policy name.
         description:
           type: string
-          description: Detailed explanation of the risk and its potential impact.
-        riskLevel:
+          description: Policy description.
+        enabled:
+          type: boolean
+          description: Whether the policy is currently active.
+        severity:
           type: string
-          description: Severity of the risk based on data sensitivity and exposure.
           enum:
             - critical
             - high
             - medium
             - low
-        riskCategory:
+          description: Severity level of violations detected by this policy.
+        classification:
           type: string
-          description: Category of the data security risk.
+          description: Classification label this policy governs.
+        requiredControls:
+          type: array
+          items:
+            type: string
+            enum:
+              - encryption
+              - accessRestriction
+              - auditLogging
+              - backup
+              - networkIsolation
+          description: Security controls required for data matching this policy.
+        cloudProviders:
+          type: array
+          items:
+            type: string
+            enum:
+              - aws
+              - azure
+              - gcp
+          description: Cloud providers this policy applies to.
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+    DataSecurityAlert:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique alert identifier.
+        title:
+          type: string
+          description: Short description of the alert condition.
+        description:
+          type: string
+          description: Detailed alert description.
+        severity:
+          type: string
           enum:
-            - publicExposure
-            - encryptionMissing
-            - excessivePermissions
-            - dataResidency
-            - auditLogging
-            - backupMissing
-            - crossAccountAccess
-            - sensitiveDataExposure
+            - critical
+            - high
+            - medium
+            - low
+          description: Alert severity level.
         status:
           type: string
-          description: Current status of the risk.
           enum:
             - open
-            - remediated
-            - suppressed
-            - acknowledged
+            - dismissed
+            - resolved
+          description: Current alert status.
+        alertType:
+          type: string
+          description: Category of data security alert.
+          enum:
+            - newPublicDataStore
+            - newSensitiveData
+            - accessAnomaly
+            - policyViolation
+            - dataExfiltration
         dataStoreId:
           type: string
-          description: Data store where the risk was identified.
+          description: Affected data store identifier.
         dataStoreName:
           type: string
           description: Name of the affected data store.
         cloudProvider:
           type: string
-          description: Cloud provider of the affected data store.
           enum:
             - aws
             - azure
             - gcp
+          description: Cloud provider of the affected data store.
         cloudAccountId:
           type: string
-          description: Cloud account ID of the affected data store.
+          description: Cloud account identifier.
         region:
           type: string
           description: Cloud region of the affected data store.
         affectedClassifications:
           type: array
-          description: >-
-            Classification labels of sensitive data at risk in the affected
-            data store.
           items:
             type: string
-        affectedDataAssetCount:
-          type: integer
-          description: Number of data assets affected by this risk.
-        remediation:
-          type: object
-          description: Recommended remediation steps.
-          properties:
-            description:
-              type: string
-              description: >-
-                Human-readable description of the recommended remediation
-                action.
-            steps:
-              type: array
-              description: Step-by-step remediation instructions.
-              items:
-                type: string
-            cliCommand:
-              type: string
-              description: >-
-                Cloud CLI command to remediate the risk, if applicable.
-            automatedRemediationAvailable:
-              type: boolean
-              description: >-
-                Whether automated remediation is available through Prisma
-                Cloud.
-        relatedPolicyId:
-          type: string
-          description: >-
-            Prisma Cloud policy ID associated with this risk, if applicable.
+          description: Data classification labels involved in the alert.
         detectedAt:
           type: string
           format: date-time
-          description: Timestamp when the risk was first detected.
-        lastEvaluatedAt:
+          description: Timestamp when the alert was generated.
+        resolvedAt:
           type: string
           format: date-time
-          description: Timestamp of the most recent risk evaluation.
-        remediatedAt:
+          description: Timestamp when the alert was resolved. Null if still open.
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          description: HTTP status code.
+        message:
           type: string
-          format: date-time
-          description: >-
-            Timestamp when the risk was remediated. Null if the risk is still
-            open.
+          description: Human-readable error message.
+        error:
+          type: string
+          description: Error code.

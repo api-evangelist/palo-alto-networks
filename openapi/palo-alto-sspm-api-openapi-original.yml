@@ -2,16 +2,12 @@ openapi: 3.1.0
 info:
   title: SaaS Security Posture Management API
   description: >-
-    REST API for the Palo Alto Networks SaaS Security Posture Management
-    (SSPM) service providing programmatic access to SaaS application
-    security assessments, misconfiguration detection, and compliance
-    monitoring. Enables automated retrieval of connected SaaS application
-    inventories, security assessment results with remediation guidance,
-    supported application catalog browsing, and Jira integration
-    management for ticketing workflows. Designed for security operations
-    teams to monitor and remediate SaaS misconfigurations at scale.
-    Authentication uses OAuth2 bearer tokens obtained from the Palo Alto
-    Networks identity provider.
+    SaaS Security Posture Management (SSPM) API for assessing and improving
+    the security posture of connected SaaS applications. Enables onboarding
+    of SaaS applications, retrieval of posture check results, management of
+    remediation status, browsing the SaaS application catalog, and
+    configuration of Jira integrations for ticketing workflows. Part of the
+    Palo Alto Networks SASE platform.
   version: '1.0'
   contact:
     name: Palo Alto Networks Developer Support
@@ -20,307 +16,362 @@ info:
     name: Proprietary
     url: https://www.paloaltonetworks.com/legal
 servers:
-  - url: https://api.sase.paloaltonetworks.com
-    description: SASE API gateway for SSPM operations.
+  - url: https://api.sase.paloaltonetworks.com/sspm
+    description: SASE SSPM API production server.
 security:
-  - bearerAuth: []
+  - oauth2Bearer: []
 tags:
-  - name: Applications
-    description: >-
-      Connected SaaS application inventory and assessment operations.
-  - name: Assessments
-    description: >-
-      Security assessment retrieval for misconfiguration detection
-      and compliance monitoring.
-  - name: Catalog
-    description: >-
-      Supported SaaS application catalog for discovering available
-      integrations.
+  - name: Apps
+    description: SaaS application onboarding and management.
+  - name: Posture Checks
+    description: Security posture check results and remediation status.
+  - name: App Catalog
+    description: SaaS application catalog and metadata.
   - name: Integrations
-    description: >-
-      Third-party integration management for ticketing and workflow
-      automation.
+    description: Third-party integrations including Jira ticketing.
 paths:
-  /sspm/v1/applications:
+  /v1/apps:
     get:
-      operationId: listSSPMApplications
-      summary: List connected applications
+      operationId: listOnboardedApps
+      summary: List onboarded SaaS applications
       description: >-
-        Returns a list of all SaaS applications connected to the SSPM
-        service for security posture monitoring. Each application includes
-        its connection status, number of assessed configurations, risk
-        score, and the last assessment timestamp. Connected applications
-        are continuously monitored for security misconfigurations and
-        compliance violations.
+        Returns the list of SaaS applications that have been onboarded to
+        SSPM for posture assessment. Each entry includes the application
+        type, connection status, and summary counts of posture check results
+        by severity.
       tags:
-        - Applications
+        - Apps
       parameters:
-        - name: tsg_id
-          in: header
-          required: true
-          description: TSG ID to scope the application query.
-          schema:
-            type: string
         - name: status
           in: query
-          required: false
           description: Filter applications by connection status.
           schema:
             type: string
             enum:
               - connected
               - disconnected
-              - error
               - pending
-        - name: risk_level
-          in: query
-          required: false
-          description: Filter applications by risk level.
-          schema:
-            type: string
-            enum:
-              - critical
-              - high
-              - medium
-              - low
-      responses:
-        '200':
-          description: Connected applications returned.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  total_count:
-                    type: integer
-                    description: Total number of connected applications.
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/SSPMApplication'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-  /sspm/v1/applications/{id}/assessments:
-    get:
-      operationId: getApplicationAssessments
-      summary: Get assessments for an application
-      description: >-
-        Returns the security assessment results for a specific connected
-        SaaS application. Assessments identify configuration settings
-        that deviate from security best practices, compliance frameworks,
-        or organizational policies. Each assessment includes the check
-        name, current status, severity, affected setting, and remediation
-        guidance. Results can be filtered by status or severity to focus
-        on actionable findings.
-      tags:
-        - Assessments
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: >-
-            Unique identifier of the connected application to retrieve
-            assessments for.
-          schema:
-            type: string
-        - name: tsg_id
-          in: header
-          required: true
-          description: TSG ID to scope the assessment query.
-          schema:
-            type: string
-        - name: status
-          in: query
-          required: false
-          description: Filter assessments by check status.
-          schema:
-            type: string
-            enum:
-              - pass
-              - fail
-              - warning
               - error
-              - not_applicable
-        - name: severity
-          in: query
-          required: false
-          description: Filter assessments by severity level.
-          schema:
-            type: string
-            enum:
-              - critical
-              - high
-              - medium
-              - low
-              - informational
-        - name: framework
-          in: query
-          required: false
-          description: >-
-            Filter assessments by compliance framework (e.g., CIS,
-            NIST, SOC2).
-          schema:
-            type: string
         - name: offset
           in: query
-          required: false
-          description: Pagination offset.
+          description: Number of results to skip for pagination.
           schema:
             type: integer
             default: 0
         - name: limit
           in: query
-          required: false
-          description: Maximum number of assessments to return.
+          description: Maximum number of applications to return.
           schema:
             type: integer
             default: 50
             maximum: 200
       responses:
         '200':
-          description: Assessments returned.
+          description: Onboarded applications returned.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  application_id:
-                    type: string
-                    description: ID of the assessed application.
-                  application_name:
-                    type: string
-                    description: Name of the assessed application.
-                  total_count:
+                  total:
                     type: integer
-                    description: Total number of assessment checks.
-                  pass_count:
+                  offset:
                     type: integer
-                    description: Number of checks that passed.
-                  fail_count:
+                  limit:
                     type: integer
-                    description: Number of checks that failed.
                   items:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Assessment'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-  /sspm/v1/catalog:
-    get:
-      operationId: listCatalogEntries
-      summary: List supported applications
-      description: >-
-        Returns the catalog of SaaS applications supported by the SSPM
-        service. Each catalog entry includes the application name,
-        category, supported assessment checks, required permissions for
-        connection, and setup instructions. Use this endpoint to discover
-        which applications can be onboarded for security posture
-        monitoring.
-      tags:
-        - Catalog
-      parameters:
-        - name: category
-          in: query
-          required: false
-          description: Filter catalog entries by application category.
-          schema:
-            type: string
-            enum:
-              - collaboration
-              - crm
-              - cloud_infrastructure
-              - identity_provider
-              - email
-              - file_storage
-              - project_management
-              - hr
-              - finance
-        - name: search
-          in: query
-          required: false
-          description: >-
-            Search term to filter catalog entries by application name.
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Catalog entries returned.
+                      $ref: '#/components/schemas/OnboardedApp'
+        '400':
+          description: Invalid query parameters.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  total_count:
-                    type: integer
-                    description: Total number of supported applications.
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/CatalogEntry'
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-  /sspm/v1/integrations/jira:
-    get:
-      operationId: getJiraIntegration
-      summary: Get Jira integration
-      description: >-
-        Returns the current Jira integration configuration for the
-        specified Tenant Service Group. The Jira integration enables
-        automatic creation of Jira tickets for failed security assessment
-        checks, providing a workflow for tracking and remediating SaaS
-        misconfigurations. Includes the Jira instance URL, project
-        configuration, issue type mappings, and connection status.
-      tags:
-        - Integrations
-      parameters:
-        - name: tsg_id
-          in: header
-          required: true
-          description: TSG ID to scope the integration query.
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Jira integration configuration returned.
+          description: Invalid or missing Bearer token.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JiraIntegration'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          description: No Jira integration configured for this TSG.
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
     post:
-      operationId: createJiraIntegration
-      summary: Create or update Jira integration
+      operationId: onboardApp
+      summary: Onboard new application
       description: >-
-        Creates or updates the Jira integration configuration for the
-        specified Tenant Service Group. Configures automatic ticket
-        creation for failed SSPM assessment checks. Requires a valid
-        Jira instance URL, API token for authentication, project key,
-        and issue type mapping. The integration validates connectivity
-        to the Jira instance before saving the configuration.
+        Onboards a new SaaS application to SSPM for posture assessment.
+        Requires specifying the application type and providing the OAuth
+        consent or API credentials needed to connect to the application.
+        After onboarding, SSPM performs an initial posture scan.
       tags:
-        - Integrations
+        - Apps
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OnboardAppRequest'
+      responses:
+        '201':
+          description: Application onboarded successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardedApp'
+        '400':
+          description: Invalid request body or unsupported application type.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Application of this type is already onboarded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/apps/{app_id}:
+    delete:
+      operationId: removeApp
+      summary: Remove onboarded application
+      description: >-
+        Removes a previously onboarded SaaS application from SSPM. This
+        stops posture scanning for the application and removes all associated
+        check results. This action cannot be undone.
+      tags:
+        - Apps
       parameters:
-        - name: tsg_id
-          in: header
+        - name: app_id
+          in: path
           required: true
-          description: TSG ID to configure the Jira integration for.
+          description: Unique identifier of the onboarded application.
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Application removed successfully.
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Application not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/posture-checks:
+    get:
+      operationId: listPostureChecks
+      summary: List posture check results
+      description: >-
+        Returns posture check results across all onboarded SaaS applications.
+        Supports filtering by application, check type, severity, and
+        remediation status. Each check result indicates whether a specific
+        security best practice is implemented in the connected application.
+      tags:
+        - Posture Checks
+      parameters:
+        - name: app_id
+          in: query
+          description: Filter checks by onboarded application ID.
+          schema:
+            type: string
+        - name: check_type
+          in: query
+          description: Filter by check category type.
+          schema:
+            type: string
+            enum:
+              - access_control
+              - authentication
+              - data_protection
+              - logging
+              - network_security
+              - configuration
+        - name: severity
+          in: query
+          description: Filter by check severity level.
+          schema:
+            type: string
+            enum:
+              - informational
+              - low
+              - medium
+              - high
+              - critical
+        - name: status
+          in: query
+          description: Filter by remediation status.
+          schema:
+            type: string
+            enum:
+              - pass
+              - fail
+              - error
+              - suppressed
+        - name: offset
+          in: query
+          description: Number of results to skip for pagination.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of check results to return.
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+      responses:
+        '200':
+          description: Posture check results returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PostureCheck'
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/posture-checks/{check_id}:
+    get:
+      operationId: getPostureCheck
+      summary: Get posture check details
+      description: >-
+        Returns full details for a specific posture check result including
+        the check description, affected configuration, remediation guidance,
+        and compliance framework mappings.
+      tags:
+        - Posture Checks
+      parameters:
+        - name: check_id
+          in: path
+          required: true
+          description: Unique identifier of the posture check result.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Posture check details returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostureCheck'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Posture check not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/posture-checks/{check_id}/status:
+    put:
+      operationId: updatePostureCheckStatus
+      summary: Update posture check status
+      description: >-
+        Updates the remediation status of a posture check result. Use this
+        endpoint to mark checks as suppressed with a justification, or to
+        mark remediated checks for re-evaluation.
+      tags:
+        - Posture Checks
+      parameters:
+        - name: check_id
+          in: path
+          required: true
+          description: Unique identifier of the posture check result.
           schema:
             type: string
       requestBody:
@@ -330,390 +381,429 @@ paths:
             schema:
               type: object
               required:
-                - jira_url
-                - api_token
-                - user_email
-                - project_key
+                - status
               properties:
-                jira_url:
+                status:
                   type: string
-                  format: uri
-                  description: >-
-                    Base URL of the Jira instance (e.g.,
-                    https://yourcompany.atlassian.net).
-                api_token:
-                  type: string
-                  description: >-
-                    Jira API token for authentication. Encrypted at rest.
-                user_email:
-                  type: string
-                  format: email
-                  description: >-
-                    Email address of the Jira user associated with the
-                    API token.
-                project_key:
+                  enum:
+                    - suppressed
+                    - pending_remediation
+                  description: New status to set for the check.
+                justification:
                   type: string
                   description: >-
-                    Jira project key where tickets will be created (e.g.,
-                    SEC, SSPM).
-                issue_type:
-                  type: string
-                  default: Task
-                  description: >-
-                    Jira issue type for created tickets (e.g., Task, Bug,
-                    Story).
-                severity_mapping:
-                  type: object
-                  description: >-
-                    Maps SSPM severity levels to Jira priority levels.
-                  properties:
-                    critical:
-                      type: string
-                      default: Highest
-                    high:
-                      type: string
-                      default: High
-                    medium:
-                      type: string
-                      default: Medium
-                    low:
-                      type: string
-                      default: Low
-                auto_create_tickets:
-                  type: boolean
-                  default: true
-                  description: >-
-                    When true, automatically creates Jira tickets for
-                    new failed assessment checks.
-                auto_close_tickets:
-                  type: boolean
-                  default: false
-                  description: >-
-                    When true, automatically transitions Jira tickets
-                    to done when the assessment check passes.
+                    Reason for suppressing the check. Required when setting
+                    status to suppressed.
+                  maxLength: 1024
       responses:
         '200':
-          description: Jira integration configured.
+          description: Check status updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostureCheck'
+        '400':
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Posture check not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/app-catalog:
+    get:
+      operationId: listAppCatalog
+      summary: List SaaS application catalog
+      description: >-
+        Returns the catalog of SaaS applications supported for SSPM posture
+        assessment. Each entry describes the application, the number of
+        available posture checks, and supported compliance frameworks.
+      tags:
+        - App Catalog
+      parameters:
+        - name: category
+          in: query
+          description: Filter by application category.
+          schema:
+            type: string
+        - name: offset
+          in: query
+          description: Number of results to skip for pagination.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of catalog entries to return.
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+      responses:
+        '200':
+          description: Application catalog returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CatalogApp'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/jira-integrations:
+    get:
+      operationId: listJiraIntegrations
+      summary: List Jira integrations
+      description: >-
+        Returns the configured Jira integrations for automatically creating
+        tickets when posture check failures are detected. Each integration
+        specifies the Jira project, issue type, and mapping from check
+        severity to ticket priority.
+      tags:
+        - Integrations
+      responses:
+        '200':
+          description: Jira integrations returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/JiraIntegration'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createJiraIntegration
+      summary: Create Jira integration
+      description: >-
+        Creates a new Jira integration for automatic ticket creation when
+        SSPM posture check failures are detected. Requires a valid Jira
+        server URL, API token, and project configuration.
+      tags:
+        - Integrations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JiraIntegrationRequest'
+      responses:
+        '201':
+          description: Jira integration created successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/JiraIntegration'
         '400':
-          $ref: '#/components/responses/BadRequest'
+          description: Invalid request body or Jira configuration.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          $ref: '#/components/responses/Forbidden'
-        '422':
-          description: >-
-            Unable to connect to the specified Jira instance. Verify
-            the URL and credentials.
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 components:
   securitySchemes:
-    bearerAuth:
-      type: oauth2
-      flows:
-        clientCredentials:
-          tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
-          scopes: {}
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
       description: >-
-        OAuth2 client credentials flow. Obtain an access token from the
-        Palo Alto Networks identity provider and include it as a Bearer
-        token in the Authorization header.
-  responses:
-    BadRequest:
-      description: The request body is malformed or contains invalid parameters.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Unauthorized:
-      description: Missing or invalid OAuth2 bearer token.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Forbidden:
-      description: Insufficient permissions for this operation.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    NotFound:
-      description: The requested resource was not found.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
+        OAuth 2.0 Bearer token for SASE platform authentication. Obtain
+        using the client_credentials grant with your SASE service account
+        client ID and client secret.
   schemas:
-    SSPMApplication:
+    OnboardedApp:
       type: object
       properties:
-        id:
+        app_id:
           type: string
-          description: Unique identifier for the connected application.
-        name:
+          description: Unique identifier for the onboarded application.
+        app_type:
           type: string
-          description: Display name of the SaaS application.
-        vendor:
+          description: Application type identifier (e.g., google_workspace, microsoft_365).
+        display_name:
           type: string
-          description: Application vendor name.
-        category:
-          type: string
-          enum:
-            - collaboration
-            - crm
-            - cloud_infrastructure
-            - identity_provider
-            - email
-            - file_storage
-            - project_management
-            - hr
-            - finance
-          description: Application category.
+          description: Human-readable name for the onboarded application instance.
         status:
           type: string
           enum:
             - connected
             - disconnected
-            - error
             - pending
+            - error
           description: Current connection status.
-        risk_score:
-          type: integer
-          description: Aggregate risk score (0-100) based on assessment results.
-        risk_level:
+        tenant_id:
           type: string
-          enum:
-            - critical
-            - high
-            - medium
-            - low
-          description: Risk level derived from the risk score.
-        total_checks:
-          type: integer
-          description: Total number of assessment checks for this application.
-        failed_checks:
-          type: integer
-          description: Number of assessment checks currently failing.
-        passed_checks:
-          type: integer
-          description: Number of assessment checks currently passing.
-        last_assessment_at:
+          description: Tenant or domain identifier within the SaaS application.
+        check_summary:
+          type: object
+          description: Summary counts of posture check results by severity.
+          properties:
+            critical:
+              type: integer
+            high:
+              type: integer
+            medium:
+              type: integer
+            low:
+              type: integer
+            pass:
+              type: integer
+        last_scanned_at:
           type: string
           format: date-time
-          description: Timestamp of the most recent assessment run.
-        connected_at:
+          description: Timestamp of the most recent posture scan.
+        onboarded_at:
           type: string
           format: date-time
-          description: Timestamp when the application was connected.
-        tsg_id:
+          description: Timestamp when the application was onboarded.
+    OnboardAppRequest:
+      type: object
+      required:
+        - app_type
+      properties:
+        app_type:
           type: string
-          description: TSG ID that owns this application connection.
-    Assessment:
+          description: Application type to onboard (e.g., google_workspace, microsoft_365, salesforce).
+        display_name:
+          type: string
+          description: Optional display name for this application instance.
+        credentials:
+          type: object
+          description: Authentication credentials required to connect to the application.
+          additionalProperties: true
+    PostureCheck:
       type: object
       properties:
-        assessment_id:
+        check_id:
           type: string
-          description: Unique identifier for the assessment check.
+          description: Unique identifier of the posture check result.
+        app_id:
+          type: string
+          description: ID of the onboarded application this check applies to.
         check_name:
           type: string
-          description: >-
-            Name of the security check (e.g., MFA enforcement, password
-            policy, sharing settings).
-        description:
+          description: Name of the security posture check.
+        check_type:
           type: string
-          description: Detailed description of what the check evaluates.
+          enum:
+            - access_control
+            - authentication
+            - data_protection
+            - logging
+            - network_security
+            - configuration
+          description: Category of the posture check.
+        severity:
+          type: string
+          enum:
+            - informational
+            - low
+            - medium
+            - high
+            - critical
+          description: Severity level if the check fails.
         status:
           type: string
           enum:
             - pass
             - fail
-            - warning
             - error
-            - not_applicable
-          description: Current status of the assessment check.
-        severity:
+            - suppressed
+          description: Current result status of the check.
+        description:
           type: string
-          enum:
-            - critical
-            - high
-            - medium
-            - low
-            - informational
-          description: Severity level of the finding when the check fails.
-        category:
+          description: Description of what the check evaluates.
+        remediation:
           type: string
-          description: >-
-            Assessment category (e.g., authentication, authorization,
-            data_protection, logging).
-        frameworks:
+          description: Step-by-step remediation guidance for failed checks.
+        compliance_frameworks:
           type: array
           items:
             type: string
-          description: >-
-            Compliance frameworks this check maps to (e.g., CIS, NIST,
-            SOC2, ISO27001).
-        affected_setting:
-          type: string
-          description: >-
-            The specific SaaS application setting evaluated by this
-            check.
-        current_value:
-          type: string
-          description: The current value of the affected setting.
-        recommended_value:
-          type: string
-          description: The recommended value for the affected setting.
-        remediation:
-          type: string
-          description: >-
-            Step-by-step remediation guidance for addressing a failed
-            check.
-        jira_ticket_key:
-          type: string
-          description: >-
-            Jira ticket key if a ticket was created for this finding.
-            Null if no Jira integration or no ticket created.
+          description: Compliance frameworks this check maps to (e.g., CIS, SOC2, ISO27001).
         last_evaluated_at:
           type: string
           format: date-time
-          description: Timestamp of the most recent evaluation.
-    CatalogEntry:
+          description: Timestamp when the check was last evaluated.
+        suppression_justification:
+          type: string
+          description: Justification text if the check is suppressed.
+    CatalogApp:
       type: object
       properties:
-        catalog_id:
+        app_type:
           type: string
-          description: Unique identifier for the catalog entry.
-        name:
+          description: Application type identifier used for onboarding.
+        display_name:
           type: string
-          description: Name of the SaaS application.
-        vendor:
-          type: string
-          description: Application vendor name.
+          description: Human-readable application name.
         category:
           type: string
-          enum:
-            - collaboration
-            - crm
-            - cloud_infrastructure
-            - identity_provider
-            - email
-            - file_storage
-            - project_management
-            - hr
-            - finance
-          description: Application category.
-        description:
-          type: string
-          description: >-
-            Description of the application and supported security
-            assessment capabilities.
-        total_checks:
+          description: Application category (e.g., collaboration, crm, storage).
+        check_count:
           type: integer
-          description: >-
-            Number of security assessment checks available for this
-            application.
-        supported_frameworks:
+          description: Number of posture checks available for this application.
+        compliance_frameworks:
           type: array
           items:
             type: string
-          description: >-
-            Compliance frameworks supported by the assessment checks
-            (e.g., CIS, NIST, SOC2).
-        required_permissions:
-          type: array
-          items:
-            type: string
-          description: >-
-            Permissions required in the SaaS application to enable
-            SSPM monitoring (e.g., read-only admin, security admin).
-        setup_url:
+          description: Compliance frameworks covered by checks for this application.
+        logo_url:
           type: string
           format: uri
-          description: >-
-            Documentation URL with setup instructions for connecting
-            this application.
-        icon_url:
-          type: string
-          format: uri
-          description: URL for the application icon.
+          description: URL to the application logo.
     JiraIntegration:
       type: object
       properties:
-        integration_id:
+        id:
           type: string
-          description: Unique identifier for the Jira integration.
-        tsg_id:
+          description: Unique identifier of the Jira integration.
+        name:
           type: string
-          description: TSG ID this integration belongs to.
+          description: Display name for the integration.
         jira_url:
           type: string
           format: uri
-          description: Base URL of the connected Jira instance.
-        user_email:
-          type: string
-          format: email
-          description: Email address of the Jira authentication user.
+          description: Base URL of the Jira server or cloud instance.
         project_key:
           type: string
-          description: Jira project key for ticket creation.
+          description: Jira project key where tickets are created.
         issue_type:
           type: string
-          description: Jira issue type used for created tickets.
-        severity_mapping:
-          type: object
-          description: Mapping of SSPM severity levels to Jira priorities.
-          properties:
-            critical:
-              type: string
-            high:
-              type: string
-            medium:
-              type: string
-            low:
-              type: string
-        auto_create_tickets:
+          description: Jira issue type for created tickets (e.g., Bug, Task).
+        enabled:
           type: boolean
-          description: Whether tickets are auto-created for failed checks.
-        auto_close_tickets:
-          type: boolean
-          description: Whether tickets are auto-closed when checks pass.
-        status:
-          type: string
-          enum:
-            - connected
-            - disconnected
-            - error
-          description: Current connection status to the Jira instance.
-        tickets_created:
-          type: integer
-          description: Total number of Jira tickets created by this integration.
-        last_sync_at:
-          type: string
-          format: date-time
-          description: Timestamp of the last successful sync with Jira.
+          description: Whether the integration is actively creating tickets.
         created_at:
           type: string
           format: date-time
-          description: Timestamp when the integration was created.
-        updated_at:
+    JiraIntegrationRequest:
+      type: object
+      required:
+        - name
+        - jira_url
+        - project_key
+        - api_token
+        - email
+      properties:
+        name:
           type: string
-          format: date-time
-          description: Timestamp when the integration was last modified.
+          description: Display name for this integration.
+        jira_url:
+          type: string
+          format: uri
+          description: Base URL of the Jira server or cloud instance.
+        project_key:
+          type: string
+          description: Jira project key where tickets will be created.
+        issue_type:
+          type: string
+          description: Jira issue type (e.g., Bug, Task, Story).
+          default: Bug
+        api_token:
+          type: string
+          description: Jira API token for authentication.
+          writeOnly: true
+        email:
+          type: string
+          format: email
+          description: Email address associated with the Jira API token.
+        severity_mapping:
+          type: object
+          description: Mapping from SSPM severity levels to Jira priorities.
+          additionalProperties:
+            type: string
     ErrorResponse:
       type: object
       properties:
-        error_code:
-          type: integer
-          description: Machine-readable error code.
+        error:
+          type: string
+          description: Error code identifying the error type.
         message:
           type: string
-          description: Human-readable error message.
-        details:
+          description: Human-readable description of the error.
+        request_id:
           type: string
-          description: Additional context about the error.
+          description: Request identifier for support correlation.

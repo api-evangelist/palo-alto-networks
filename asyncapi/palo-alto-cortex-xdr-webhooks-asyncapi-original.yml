@@ -1,231 +1,261 @@
 asyncapi: 2.6.0
 info:
-  title: Cortex XDR Alert & Incident Webhooks
-  version: '1.0'
-  description: >-
-    Cortex XDR sends real-time webhook notifications when alerts are triggered
-    and incidents are created or updated. Webhooks are configured in Cortex XDR
-    Settings > Notifications > External Applications and deliver HTTP POST
-    requests with JSON payloads to registered endpoint URLs. Alerts originate
-    from analytics engines, BIOC rules, IOC matches, and third-party
-    integrations. Incidents are automatically created by correlating related
-    alerts across endpoints, network, and cloud data sources. Webhook
+  title: Cortex XDR Webhooks
+  version: 1.0.0
+  description: >
+    Cortex XDR Webhooks provide real-time incident and alert notifications
+    for security events detected across endpoints, networks, and cloud
+    workloads. Webhooks are configured in Cortex XDR Settings >
+    Notifications > External Applications and deliver HTTP POST requests
+    with JSON payloads to registered HTTPS endpoints whenever incident and
+    alert lifecycle events occur. Events include incident creation, status
+    changes, severity changes, and new alert generation. Webhook
     notifications enable integration with SOAR platforms, ticketing systems,
     and custom automation workflows for accelerated incident response.
   contact:
     name: Palo Alto Networks Developer Support
     url: https://pan.dev/
+    email: support@paloaltonetworks.com
   license:
     name: Proprietary
     url: https://www.paloaltonetworks.com/legal
+
 servers:
-  webhook:
+  customer-webhook:
     url: '{webhookUrl}'
     protocol: https
-    description: >-
-      Your webhook endpoint URL configured in Cortex XDR Settings >
-      Notifications > External Applications. The endpoint must accept POST
-      requests with JSON payloads and return a 2xx response. Configure
-      notification profiles to select which alert and incident events trigger
-      webhook delivery.
+    description: >
+      Customer-configured HTTPS endpoint to receive Cortex XDR webhook
+      notifications. The endpoint must accept POST requests with JSON
+      payloads and return a 2xx HTTP response. Configure the webhook URL
+      in Cortex XDR Settings > Notifications > External Applications and
+      assign it to one or more notification profiles.
     variables:
       webhookUrl:
-        description: The URL of your registered webhook endpoint.
+        description: >
+          The fully-qualified HTTPS URL of the customer's webhook receiver
+          endpoint, as configured in the Cortex XDR notification settings.
+    security:
+      - hmacSignature: []
+
+tags:
+  - name: incidents
+    description: Cortex XDR security incident lifecycle events
+  - name: alerts
+    description: Cortex XDR detection alert events
+  - name: webhooks
+    description: Outbound webhook event delivery to customer endpoints
+  - name: xdr
+    description: Extended Detection and Response platform events
+
+defaultContentType: application/json
+
 channels:
-  /incident/created:
-    description: >-
-      Channel for new incident notifications. Cortex XDR sends a webhook when
-      a new incident is created by correlating one or more related alerts.
-      Incidents group alerts that share common attributes such as endpoints,
-      users, or attack patterns into a single investigation context.
+  incident/created:
+    description: >
+      Triggered when a new incident is created in Cortex XDR. Incidents are
+      automatically created by correlating one or more related alerts that
+      share common attributes such as affected endpoints, users, or attack
+      patterns. This event signals the beginning of a new investigation
+      context.
     subscribe:
       operationId: onIncidentCreated
-      summary: New incident created notification
+      summary: New incident created
+      description: >
+        Fired when Cortex XDR creates a new incident by correlating related
+        alerts into a unified attack story. The payload contains the incident
+        identifier, name, creation time, initial severity, alert count, and
+        assigned user information.
       message:
-        $ref: '#/components/messages/IncidentNotification'
-  /incident/updated:
-    description: >-
-      Channel for incident update notifications. Triggered when an incident's
-      status, severity, or assignment changes. Updates include status
-      transitions (new, under investigation, resolved), severity
-      reclassification, analyst assignment changes, and the addition of new
-      correlated alerts to an existing incident.
+        $ref: '#/components/messages/IncidentCreated'
+      bindings:
+        http:
+          method: POST
+
+  incident/status_changed:
+    description: >
+      Triggered when an existing incident's investigation status changes.
+      Status transitions include moving from new to under_investigation,
+      or from under_investigation to any resolved state. This event
+      enables downstream systems to track investigation lifecycle progress.
     subscribe:
-      operationId: onIncidentUpdated
-      summary: Incident updated notification
+      operationId: onIncidentStatusChanged
+      summary: Incident investigation status changed
+      description: >
+        Fired when an analyst updates the investigation status of an incident
+        or when automated workflows transition an incident to a resolved
+        state. The payload reflects the new status at the time of the event.
       message:
-        $ref: '#/components/messages/IncidentNotification'
-  /alert/new:
-    description: >-
-      Channel for new alert notifications. Triggered when a new alert is
-      generated by Cortex XDR analytics engines, BIOC (Behavioral Indicator
-      of Compromise) rules, IOC matches, or third-party detection sources.
-      Alerts represent individual suspicious or malicious activities detected
-      across endpoints, network traffic, and cloud workloads.
+        $ref: '#/components/messages/IncidentUpdated'
+      bindings:
+        http:
+          method: POST
+
+  incident/severity_changed:
+    description: >
+      Triggered when an incident's severity level is elevated or reduced,
+      either automatically due to new correlated alerts or manually by
+      an analyst overriding the calculated severity.
     subscribe:
-      operationId: onAlertNew
-      summary: New alert triggered notification
+      operationId: onIncidentSeverityChanged
+      summary: Incident severity level changed
+      description: >
+        Fired when the severity of an incident changes, allowing downstream
+        systems such as ticketing tools and escalation workflows to
+        re-prioritize accordingly. The payload contains the updated severity
+        value.
       message:
-        $ref: '#/components/messages/AlertNotification'
-  /alert/excluded:
-    description: >-
-      Channel for excluded alert notifications. Triggered when a newly
-      generated alert matches a configured exclusion rule and is automatically
-      excluded from incident creation and investigation queues. Exclusion
-      rules are defined in Cortex XDR to suppress known benign activity and
-      reduce alert fatigue.
+        $ref: '#/components/messages/IncidentUpdated'
+      bindings:
+        http:
+          method: POST
+
+  alert/created:
+    description: >
+      Triggered when a new alert is generated by Cortex XDR analytics
+      engines, BIOC (Behavioral Indicator of Compromise) rules, IOC
+      matches, endpoint agents, or third-party integrated data sources.
+      Alerts represent individual suspicious or malicious activities
+      detected across the protected environment.
     subscribe:
-      operationId: onAlertExcluded
-      summary: Alert excluded notification
+      operationId: onAlertCreated
+      summary: New alert generated
+      description: >
+        Fired when Cortex XDR creates a new individual alert. The payload
+        contains the alert name, incident association, creation and
+        modification times, status, severity, alert count, assigned user,
+        description, and alert source information.
       message:
-        $ref: '#/components/messages/AlertNotification'
+        $ref: '#/components/messages/AlertCreated'
+      bindings:
+        http:
+          method: POST
+
 components:
   messages:
-    IncidentNotification:
-      name: IncidentNotification
-      title: Cortex XDR Incident Notification
-      summary: >-
-        Webhook payload sent when an incident is created or updated in
-        Cortex XDR. Contains incident metadata, correlated alert counts,
-        affected hosts and users, and current investigation status.
+    IncidentCreated:
+      name: IncidentCreated
+      title: Incident Created
+      summary: A new Cortex XDR incident has been created
       contentType: application/json
       payload:
-        type: object
-        properties:
-          incidentId:
-            type: string
-            description: Unique incident identifier assigned by Cortex XDR.
-          name:
-            type: string
-            description: >-
-              Auto-generated or analyst-assigned incident name summarizing the
-              correlated threat activity.
-          description:
-            type: string
-            description: >-
-              Detailed description of the incident including correlated alert
-              summary and affected scope.
-          severity:
-            type: string
-            enum:
-              - informational
-              - low
-              - medium
-              - high
-              - critical
-            description: >-
-              Incident severity level determined by the highest-severity
-              correlated alert or manual analyst override.
-          status:
-            type: string
-            enum:
-              - new
-              - under_investigation
-              - resolved_threat_handled
-              - resolved_known_issue
-              - resolved_duplicate
-              - resolved_false_positive
-              - resolved_other
-            description: Current incident investigation status.
-          assignedTo:
-            type: string
-            description: >-
-              Email address or username of the analyst assigned to investigate
-              the incident.
-          alertCount:
-            type: integer
-            description: Total number of alerts correlated into this incident.
-          hosts:
-            type: array
-            description: List of affected hosts involved in the incident.
-            items:
-              $ref: '#/components/schemas/EndpointInfo'
-          users:
-            type: array
-            description: List of affected users associated with the incident.
-            items:
-              $ref: '#/components/schemas/UserInfo'
-          creationTime:
-            type: string
-            format: date-time
-            description: Timestamp when the incident was first created.
-          modificationTime:
-            type: string
-            format: date-time
-            description: Timestamp of the most recent incident update.
-    AlertNotification:
-      name: AlertNotification
-      title: Cortex XDR Alert Notification
-      summary: >-
-        Webhook payload sent when a new alert is triggered or an alert is
-        excluded by a configured exclusion rule in Cortex XDR.
+        $ref: '#/components/schemas/IncidentPayload'
+      examples:
+        - name: RansomwareIncidentCreated
+          summary: New ransomware incident created from correlated endpoint alerts
+          payload:
+            name: Ransomware Activity Detected on WORKSTATION-042
+            incident_id: '5001'
+            creation_time: 1705312200000
+            modification_time: 1705312200000
+            status: new
+            severity: high
+            alert_count: 3
+            assigned_user_mail: unassigned@example.com
+            description: Multiple alerts indicating ransomware behavior on endpoint
+            alert_sources:
+              - XDR Agent
+              - XDR Analytics BIOC
+
+    IncidentUpdated:
+      name: IncidentUpdated
+      title: Incident Updated
+      summary: A Cortex XDR incident status or severity has changed
       contentType: application/json
       payload:
-        type: object
-        properties:
-          alertId:
-            type: string
-            description: Unique alert identifier assigned by Cortex XDR.
-          name:
-            type: string
-            description: Alert name derived from the detection rule or analytics engine.
-          category:
-            type: string
+        $ref: '#/components/schemas/IncidentPayload'
+      examples:
+        - name: IncidentUnderInvestigation
+          summary: Analyst assigns and begins investigating an incident
+          payload:
+            name: Ransomware Activity Detected on WORKSTATION-042
+            incident_id: '5001'
+            creation_time: 1705312200000
+            modification_time: 1705315800000
+            status: under_investigation
+            severity: high
+            alert_count: 5
+            assigned_user_mail: analyst@example.com
+            description: Multiple alerts indicating ransomware behavior on endpoint
+            alert_sources:
+              - XDR Agent
+              - XDR Analytics BIOC
+
+    AlertCreated:
+      name: AlertCreated
+      title: Alert Created
+      summary: A new Cortex XDR alert has been generated
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/AlertPayload'
+      examples:
+        - name: MaliciousProcessAlert
+          summary: New alert for a malicious process execution on an endpoint
+          payload:
+            name: Malicious Process Execution - Mimikatz
+            incident_id: '5001'
+            creation_time: 1705312200000
+            modification_time: 1705312200000
+            status: new
+            severity: high
+            alert_count: 1
+            assigned_user_mail: unassigned@example.com
             description: >-
-              Alert category indicating the type of threat detected, such as
-              malware, exploit, phishing, command-and-control, or lateral
-              movement.
-          severity:
-            type: string
-            enum:
-              - informational
-              - low
-              - medium
-              - high
-              - critical
-            description: Alert severity as determined by the triggering detection rule.
-          action:
-            type: string
-            enum:
-              - detected
-              - prevented
-              - blocked
-              - reported
-              - excluded
-            description: >-
-              Action taken by the Cortex XDR agent or analytics engine in
-              response to the detected activity.
-          endpoint:
-            $ref: '#/components/schemas/EndpointInfo'
-          user:
-            $ref: '#/components/schemas/UserInfo'
-          timestamp:
-            type: string
-            format: date-time
-            description: Timestamp when the alert was generated.
+              Mimikatz credential dumping tool execution detected on
+              WORKSTATION-042 under user context DOMAIN\jsmith
+            alert_sources:
+              - XDR Agent
+
   schemas:
-    IncidentSummary:
+    IncidentPayload:
       type: object
-      description: >-
-        Summary representation of a Cortex XDR incident for cross-reference
-        in alert payloads and related notifications.
+      description: >
+        The payload delivered to the webhook endpoint for Cortex XDR incident
+        lifecycle events including creation, status changes, and severity
+        changes. Contains incident metadata, alert aggregation counts,
+        assignment information, and data source attribution.
+      required:
+        - name
+        - incident_id
+        - creation_time
+        - modification_time
+        - status
+        - severity
+        - alert_count
+        - alert_sources
       properties:
-        incidentId:
-          type: string
-          description: Unique incident identifier.
         name:
           type: string
-          description: Incident name.
-        severity:
+          description: >
+            Human-readable name of the incident, either auto-generated by
+            Cortex XDR from the correlated alert details or manually assigned
+            by an analyst during investigation.
+          example: Ransomware Activity Detected on WORKSTATION-042
+        incident_id:
           type: string
-          enum:
-            - informational
-            - low
-            - medium
-            - high
-            - critical
+          description: >
+            The unique numeric identifier for the incident, assigned by
+            Cortex XDR upon creation. Used to reference the incident in all
+            subsequent API operations and webhook events.
+          example: '5001'
+        creation_time:
+          type: integer
+          description: >
+            Unix epoch timestamp in milliseconds indicating when the incident
+            was first created by Cortex XDR's correlation engine.
+          example: 1705312200000
+        modification_time:
+          type: integer
+          description: >
+            Unix epoch timestamp in milliseconds indicating the most recent
+            modification to the incident, including status changes, severity
+            updates, alert additions, and analyst assignments.
+          example: 1705315800000
         status:
           type: string
+          description: >
+            The current investigation status of the incident at the time this
+            webhook notification was dispatched.
           enum:
             - new
             - under_investigation
@@ -233,96 +263,172 @@ components:
             - resolved_known_issue
             - resolved_duplicate
             - resolved_false_positive
-            - resolved_other
-        alertCount:
-          type: integer
-          description: Number of correlated alerts in the incident.
-        creationTime:
-          type: string
-          format: date-time
-    AlertSummary:
-      type: object
-      description: >-
-        Summary representation of a Cortex XDR alert for cross-reference
-        in incident payloads and related notifications.
-      properties:
-        alertId:
-          type: string
-          description: Unique alert identifier.
-        name:
-          type: string
-          description: Alert name.
-        category:
-          type: string
-          description: Alert threat category.
+            - resolved_auto
+          example: new
         severity:
           type: string
+          description: >
+            The current severity level of the incident, determined by the
+            highest-severity correlated alert or manually overridden by an
+            analyst. Drives prioritization in incident queues and escalation
+            workflows.
           enum:
-            - informational
             - low
             - medium
             - high
             - critical
-        action:
+          example: high
+        alert_count:
+          type: integer
+          description: >
+            The total number of individual alerts that have been correlated
+            and grouped into this incident at the time of this notification.
+          minimum: 1
+          example: 3
+        assigned_user_mail:
           type: string
-          description: Action taken on the alert.
-        timestamp:
-          type: string
-          format: date-time
-    EndpointInfo:
-      type: object
-      description: >-
-        Information about an endpoint (host) involved in an alert or incident.
-      properties:
-        endpointId:
-          type: string
-          description: Unique endpoint identifier in Cortex XDR.
-        hostname:
-          type: string
-          description: Hostname of the endpoint.
-        ip:
-          type: string
-          description: IP address of the endpoint at the time of detection.
-        os:
-          type: string
-          enum:
-            - windows
-            - macos
-            - linux
-            - android
-            - chromeos
-          description: Operating system of the endpoint.
-        osVersion:
-          type: string
-          description: Operating system version string.
-        agentVersion:
-          type: string
-          description: Cortex XDR agent version installed on the endpoint.
-        isolationStatus:
-          type: string
-          enum:
-            - connected
-            - isolated
-            - pending_isolation
-          description: Current network isolation status of the endpoint.
-    UserInfo:
-      type: object
-      description: >-
-        Information about a user associated with an alert or incident.
-      properties:
-        userId:
-          type: string
-          description: User identifier from the identity source.
-        username:
-          type: string
-          description: Username or login name.
-        domain:
-          type: string
-          description: User domain or directory context.
-        email:
-          type: string
+          description: >
+            The email address of the analyst currently assigned to investigate
+            this incident. Empty string when the incident is unassigned.
           format: email
-          description: User email address if available.
-        department:
+          example: analyst@example.com
+        description:
           type: string
-          description: Organizational department of the user.
+          description: >
+            A detailed description of the incident providing context about the
+            detected threat activity, affected assets, and attack scope. May
+            be auto-generated from correlated alert content or manually
+            authored by an analyst.
+          example: Multiple alerts indicating ransomware behavior on endpoint
+        alert_sources:
+          type: array
+          description: >
+            List of detection source identifiers that contributed alerts to
+            this incident. Identifies which Cortex XDR engines, modules, or
+            integrated third-party products generated the underlying alerts.
+          items:
+            type: string
+            description: >
+              Name of a detection source that contributed at least one alert
+              to this incident.
+          example:
+            - XDR Agent
+            - XDR Analytics BIOC
+
+    AlertPayload:
+      type: object
+      description: >
+        The payload delivered to the webhook endpoint for Cortex XDR alert
+        creation events. Contains alert identification, incident association,
+        timing metadata, status, severity, alert aggregation counts, assignee
+        information, description, and contributing data sources.
+      required:
+        - name
+        - incident_id
+        - creation_time
+        - modification_time
+        - status
+        - severity
+        - alert_count
+        - alert_sources
+      properties:
+        name:
+          type: string
+          description: >
+            Human-readable name of the alert derived from the detection rule,
+            analytics model, IOC match, or BIOC rule that triggered it.
+          example: Malicious Process Execution - Mimikatz
+        incident_id:
+          type: string
+          description: >
+            The unique identifier of the parent incident to which this alert
+            has been correlated. Enables association of individual alerts with
+            their incident context.
+          example: '5001'
+        creation_time:
+          type: integer
+          description: >
+            Unix epoch timestamp in milliseconds indicating when the alert
+            was first generated by the detecting engine or agent.
+          example: 1705312200000
+        modification_time:
+          type: integer
+          description: >
+            Unix epoch timestamp in milliseconds indicating the most recent
+            modification to the alert record.
+          example: 1705312200000
+        status:
+          type: string
+          description: >
+            The current status of the alert at the time this webhook
+            notification was dispatched.
+          enum:
+            - new
+            - under_investigation
+            - resolved_threat_handled
+            - resolved_known_issue
+            - resolved_duplicate
+            - resolved_false_positive
+            - resolved_auto
+          example: new
+        severity:
+          type: string
+          description: >
+            The severity level of the individual alert as determined by the
+            detection rule, analytics model, or IOC threat intelligence that
+            triggered it.
+          enum:
+            - low
+            - medium
+            - high
+            - critical
+          example: high
+        alert_count:
+          type: integer
+          description: >
+            The number of raw detection events aggregated into this alert.
+            Multiple occurrences of the same detection within a time window
+            may be consolidated into a single alert record.
+          minimum: 1
+          example: 1
+        assigned_user_mail:
+          type: string
+          description: >
+            The email address of the analyst assigned to investigate the
+            parent incident of this alert. Empty string when unassigned.
+          format: email
+          example: ''
+        description:
+          type: string
+          description: >
+            A detailed description of the alert providing context about the
+            detected malicious or suspicious activity, including process
+            details, file paths, network connections, or user context.
+          example: >-
+            Mimikatz credential dumping tool execution detected on
+            WORKSTATION-042 under user context DOMAIN\jsmith
+        alert_sources:
+          type: array
+          description: >
+            List of detection source identifiers that contributed to this
+            alert. Identifies which Cortex XDR engine or module produced
+            the detection.
+          items:
+            type: string
+            description: >
+              Name of the detection source (e.g., XDR Agent, XDR Analytics,
+              XDR Analytics BIOC, XDR BIOC, Cortex XDR - IOC).
+          example:
+            - XDR Agent
+
+  securitySchemes:
+    hmacSignature:
+      type: httpApiKey
+      description: >
+        An HMAC-SHA256 signature included in the X-XDR-HMAC-SHA256 HTTP
+        header of each webhook request. Computed using the webhook secret
+        configured in Cortex XDR notification settings. Recipients should
+        validate this header to verify that payloads originate from Cortex
+        XDR and have not been tampered with in transit.
+      name: X-XDR-HMAC-SHA256
+      in: header

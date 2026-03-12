@@ -1,45 +1,77 @@
 asyncapi: 2.6.0
 info:
   title: Strata Logging Service Log Forwarding
-  version: '1.0'
-  description: >-
-    Strata Logging Service forwards security logs from Palo Alto Networks
-    next-generation firewalls, Prisma Access, and other Strata products to
-    external destinations including SIEM systems, data lakes, and log
-    management platforms. Log forwarding profiles define which log types are
-    forwarded and in which format. Supported output formats include CEF
-    (Common Event Format), LEEF (Log Event Extended Format), CSV, JSON, and
-    PARQUET. Forwarding destinations include syslog servers over TCP/TLS and
-    HTTPS endpoints. Each log type provides structured security event data
-    for traffic flows, threat detections, URL filtering decisions, WildFire
-    malware analysis results, and authentication events.
+  version: 1.0.0
+  description: >
+    Strata Logging Service Log Forwarding enables security operations teams
+    to forward security logs from Palo Alto Networks next-generation firewalls,
+    Prisma Access, and other Strata products to external SIEM systems, data
+    lakes, and log management platforms. Log forwarding profiles define which
+    log types are forwarded, in which output format, and to which destination.
+    Supported transport protocols include Syslog over TCP, UDP, and TLS, HTTPS
+    REST endpoints, and Email. Supported output formats include CSV, LEEF
+    (Log Event Extended Format), CEF (Common Event Format), JSON, and PARQUET.
+    Log types available for forwarding include traffic, threat, URL filtering,
+    data, WildFire malware analysis, authentication, decryption, and
+    GlobalProtect logs. Each log type delivers structured security event data
+    enabling comprehensive network visibility, compliance reporting, and
+    security analytics in downstream platforms.
   contact:
     name: Palo Alto Networks Developer Support
     url: https://pan.dev/
+    email: support@paloaltonetworks.com
   license:
     name: Proprietary
     url: https://www.paloaltonetworks.com/legal
+
 servers:
-  syslog:
-    url: '{syslogDestination}'
+  syslog-tcp:
+    url: '{syslogHost}:{syslogPort}'
     protocol: tcp
-    description: >-
-      Syslog destination for log forwarding over TCP with optional TLS
-      encryption. Configure the syslog server address and port in Strata
-      Logging Service Settings > Log Forwarding. TLS encryption is
-      recommended and requires uploading the syslog server certificate
-      for mutual authentication. Supports CEF, LEEF, and CSV output
-      formats over syslog transport.
+    description: >
+      Syslog destination for log forwarding over TCP. Configure the syslog
+      server address and port in Strata Logging Service Settings > Log
+      Forwarding. Supports CEF, LEEF, and CSV output formats. Non-encrypted
+      TCP syslog uses port 514 by default.
     variables:
-      syslogDestination:
-        description: >-
-          The syslog destination in host:port format, such as
-          syslog.example.com:6514 for TLS or syslog.example.com:514 for
-          unencrypted TCP.
-  https:
-    url: '{httpsDestination}'
+      syslogHost:
+        description: Hostname or IP address of the syslog destination server.
+      syslogPort:
+        description: TCP port for syslog ingestion (default 514).
+
+  syslog-tls:
+    url: '{syslogHost}:{syslogTlsPort}'
+    protocol: tcp
+    description: >
+      Syslog destination for log forwarding over TLS-encrypted TCP. TLS
+      encryption is recommended for production deployments and requires
+      uploading the syslog server's CA certificate for mutual authentication.
+      Supports CEF, LEEF, and CSV output formats over TLS transport.
+    variables:
+      syslogHost:
+        description: Hostname or IP address of the TLS syslog destination server.
+      syslogTlsPort:
+        description: TLS-encrypted TCP port for syslog ingestion (default 6514).
+    security:
+      - tlsMutualAuth: []
+
+  syslog-udp:
+    url: '{syslogHost}:{syslogUdpPort}'
+    protocol: udp
+    description: >
+      Syslog destination for log forwarding over UDP. UDP syslog provides
+      lower overhead but without guaranteed delivery. Suitable for high-volume
+      log forwarding in environments where occasional loss is acceptable.
+    variables:
+      syslogHost:
+        description: Hostname or IP address of the UDP syslog destination server.
+      syslogUdpPort:
+        description: UDP port for syslog ingestion (default 514).
+
+  https-endpoint:
+    url: '{httpsUrl}'
     protocol: https
-    description: >-
+    description: >
       HTTPS destination for log forwarding via HTTP POST requests. Configure
       the HTTPS endpoint URL in Strata Logging Service Settings > Log
       Forwarding. The endpoint must accept POST requests and return a 2xx
@@ -47,668 +79,324 @@ servers:
       Authentication is configured via custom HTTP headers or OAuth2 client
       credentials.
     variables:
-      httpsDestination:
-        description: >-
-          The HTTPS endpoint URL for log delivery, such as
-          https://siem.example.com/api/logs.
+      httpsUrl:
+        description: >
+          The fully-qualified HTTPS endpoint URL for log delivery,
+          such as https://siem.example.com/api/logs.
+    security:
+      - httpsApiKey: []
+
+tags:
+  - name: logs
+    description: Security log forwarding events from Strata products
+  - name: traffic
+    description: Network session traffic log events
+  - name: threat
+    description: Threat detection and prevention log events
+  - name: siem
+    description: Log forwarding to SIEM and data lake destinations
+
+defaultContentType: application/json
+
 channels:
-  /logs/traffic:
-    description: >-
+  log/traffic:
+    description: >
       Channel for forwarded traffic logs. Traffic logs record the start and
-      end of network sessions passing through the firewall, including source
-      and destination addresses, ports, protocols, applications identified by
-      App-ID, actions taken (allow, deny, drop, reset), and byte/packet
-      counters. Traffic logs are the foundation for network visibility and
-      are generated for every session matching a security policy rule with
-      logging enabled. Supported formats: CEF, LEEF, CSV, JSON, PARQUET.
+      end of every network session passing through the firewall, including
+      source and destination addresses, ports, protocols, applications
+      identified by App-ID, actions taken, and session byte and packet
+      counters. Traffic logs provide comprehensive network visibility and
+      session tracking for security analytics and compliance reporting.
+      Supported formats: CSV, LEEF, CEF, JSON, PARQUET.
     subscribe:
       operationId: onTrafficLog
-      summary: Forwarded traffic log
+      summary: Forwarded traffic log entry
+      description: >
+        Fired when a traffic session log is generated by the firewall and
+        forwarded according to the configured log forwarding profile. Each
+        event represents one completed or terminated network session.
       message:
         $ref: '#/components/messages/TrafficLog'
-  /logs/threat:
-    description: >-
+      bindings:
+        http:
+          method: POST
+
+  log/threat:
+    description: >
       Channel for forwarded threat logs. Threat logs record security events
       detected by the firewall's threat prevention engines including
-      antivirus, anti-spyware, vulnerability protection, and custom
-      signatures. Each threat log entry includes the threat name, severity,
-      action taken, direction of the attack, and the threat ID for reference
-      in the Palo Alto Networks threat vault. Supported formats: CEF, LEEF,
-      CSV, JSON, PARQUET.
+      antivirus, anti-spyware, vulnerability protection, DNS security, and
+      custom threat signatures. Each entry identifies the threat, its
+      severity, the action taken, attack direction, and session context.
+      Supported formats: CSV, LEEF, CEF, JSON, PARQUET.
     subscribe:
       operationId: onThreatLog
-      summary: Forwarded threat log
+      summary: Forwarded threat detection log entry
+      description: >
+        Fired when a threat prevention event is detected and logged by the
+        firewall's security profiles, then forwarded according to the
+        configured log forwarding profile.
       message:
         $ref: '#/components/messages/ThreatLog'
-  /logs/url:
-    description: >-
+      bindings:
+        http:
+          method: POST
+
+  log/url:
+    description: >
       Channel for forwarded URL filtering logs. URL filtering logs record
       web access events evaluated by the URL Filtering security profile.
-      Each entry includes the requested URL, URL category, action taken
-      (allow, block, continue, override), content type, and the user
-      identity if User-ID is enabled. URL logs provide visibility into
-      web browsing activity and policy enforcement. Supported formats: CEF,
-      LEEF, CSV, JSON, PARQUET.
+      Each entry includes the requested URL, URL category, action taken,
+      HTTP method, content type, and user identity when User-ID is enabled.
+      Supported formats: CSV, LEEF, CEF, JSON, PARQUET.
     subscribe:
-      operationId: onURLLog
-      summary: Forwarded URL filtering log
+      operationId: onUrlLog
+      summary: Forwarded URL filtering log entry
+      description: >
+        Fired when a URL filtering policy evaluation is logged and forwarded.
+        Captures web browsing activity and policy enforcement decisions for
+        security visibility and compliance.
       message:
-        $ref: '#/components/messages/URLLog'
-  /logs/wildfire:
-    description: >-
+        $ref: '#/components/messages/UrlLog'
+      bindings:
+        http:
+          method: POST
+
+  log/wildfire:
+    description: >
       Channel for forwarded WildFire submission logs. WildFire logs record
-      file analysis results from the WildFire malware analysis service.
-      Each entry includes the file name, file type, SHA-256 hash, verdict
-      (benign, malware, grayware, phishing), and the analysis report URL.
-      WildFire logs are generated when files are submitted for sandbox
-      analysis and the verdict is returned. Supported formats: CEF, LEEF,
-      CSV, JSON, PARQUET.
+      file analysis results from the WildFire cloud-based sandbox analysis
+      service. Each entry includes the file name, type, SHA-256 hash, final
+      verdict (benign, malware, grayware, phishing), and a link to the
+      analysis report. Supported formats: CSV, LEEF, CEF, JSON, PARQUET.
     subscribe:
-      operationId: onWildFireLog
-      summary: Forwarded WildFire submission log
+      operationId: onWildfireLog
+      summary: Forwarded WildFire file analysis log entry
+      description: >
+        Fired when a WildFire file analysis result is received and logged by
+        the firewall, then forwarded according to the configured log
+        forwarding profile. Provides malware verdict and analysis details.
       message:
-        $ref: '#/components/messages/WildFireLog'
-  /logs/auth:
-    description: >-
+        $ref: '#/components/messages/WildfireLog'
+      bindings:
+        http:
+          method: POST
+
+  log/auth:
+    description: >
       Channel for forwarded authentication logs. Authentication logs record
-      user authentication events processed by the firewall including
-      Authentication Policy matches, MFA challenges, SAML assertions, and
-      Kerberos ticket validations. Each entry includes the authentication
-      source, method, result (success or failure), user identity, and the
-      policy rule that triggered the authentication challenge. Supported
-      formats: CEF, LEEF, CSV, JSON, PARQUET.
+      user authentication events processed by the firewall's Authentication
+      Policy, including SAML assertions, Kerberos ticket validations, LDAP
+      binds, RADIUS authentications, and MFA challenges. Each entry captures
+      the authentication method, result, user identity, and policy context.
+      Supported formats: CSV, LEEF, CEF, JSON, PARQUET.
     subscribe:
       operationId: onAuthLog
-      summary: Forwarded authentication log
+      summary: Forwarded authentication event log entry
+      description: >
+        Fired when an authentication policy evaluation is logged and
+        forwarded. Provides visibility into user authentication activity for
+        identity-based security monitoring and compliance.
       message:
         $ref: '#/components/messages/AuthLog'
+      bindings:
+        http:
+          method: POST
+
 components:
   messages:
     TrafficLog:
       name: TrafficLog
       title: Traffic Log Entry
-      summary: >-
-        A forwarded traffic log entry recording a network session passing
-        through the firewall. Contains session metadata, addressing, protocol
-        information, application identification, and byte counters.
+      summary: >
+        A forwarded traffic log entry representing a network session
+        that passed through or was blocked by the firewall
       contentType: application/json
       payload:
-        type: object
-        properties:
-          receive_time:
-            type: string
-            format: date-time
-            description: >-
-              Timestamp when the log was received by Strata Logging Service.
-          serial:
-            type: string
-            description: Serial number of the firewall that generated the log.
-          type:
-            type: string
-            enum:
-              - TRAFFIC
-            description: Log type identifier.
-          subtype:
-            type: string
-            enum:
-              - start
-              - end
-              - drop
-              - deny
-            description: >-
-              Traffic log subtype indicating the session event type.
-          src:
-            type: string
-            description: Source IP address of the session.
-          dst:
-            type: string
-            description: Destination IP address of the session.
-          sport:
-            type: integer
-            description: Source port number.
-          dport:
-            type: integer
-            description: Destination port number.
-          proto:
-            type: string
-            description: >-
-              IP protocol name or number, such as tcp, udp, or icmp.
-          app:
-            type: string
-            description: >-
-              Application identified by App-ID, such as ssl, web-browsing,
-              dns, or a specific SaaS application name.
-          action:
-            type: string
-            enum:
-              - allow
-              - deny
-              - drop
-              - reset-client
-              - reset-server
-              - reset-both
-            description: Action taken on the session by the security policy.
-          bytes_sent:
-            type: integer
-            description: Total bytes sent from the client to the server.
-          bytes_received:
-            type: integer
-            description: Total bytes received by the client from the server.
-          session_id:
-            type: string
-            description: Unique session identifier assigned by the firewall.
-          rule_name:
-            type: string
-            description: Name of the security policy rule that matched the session.
-          src_zone:
-            type: string
-            description: Source security zone.
-          dst_zone:
-            type: string
-            description: Destination security zone.
-          src_user:
-            type: string
-            description: Source user identity if User-ID is enabled.
-          dst_user:
-            type: string
-            description: Destination user identity if available.
-          nat_src:
-            type: string
-            description: Post-NAT source IP address.
-          nat_dst:
-            type: string
-            description: Post-NAT destination IP address.
-          nat_sport:
-            type: integer
-            description: Post-NAT source port.
-          nat_dport:
-            type: integer
-            description: Post-NAT destination port.
-          packets_sent:
-            type: integer
-            description: Total packets sent from the client.
-          packets_received:
-            type: integer
-            description: Total packets received by the client.
-          session_duration:
-            type: integer
-            description: Session duration in seconds.
-          device_name:
-            type: string
-            description: Hostname of the firewall that generated the log.
-          vsys:
-            type: string
-            description: Virtual system name or identifier.
-          log_forwarding_profile:
-            type: string
-            description: Name of the log forwarding profile that forwarded this log.
-          output_format:
-            type: string
-            enum:
-              - CEF
-              - LEEF
-              - CSV
-              - JSON
-              - PARQUET
-            description: Format in which the log was forwarded.
+        $ref: '#/components/schemas/TrafficLogPayload'
+      examples:
+        - name: AllowedWebTrafficSession
+          summary: Allowed HTTPS web-browsing session log
+          payload:
+            receive_time: '2024-01-15T10:32:01.000Z'
+            serial: '012345678901'
+            type: TRAFFIC
+            subtype: end
+            src: 10.0.1.100
+            dst: 203.0.113.50
+            sport: 54321
+            dport: 443
+            proto: tcp
+            app: ssl
+            action: allow
+            bytes_sent: 2048
+            bytes_received: 15360
+            session_id: '123456'
+            rule_name: allow-web-outbound
+            src_zone: trust
+            dst_zone: untrust
+            src_user: DOMAIN\jsmith
+            device_name: PA-3260-DC1
+            vsys: vsys1
+            log_forwarding_profile: forward-to-siem
+            output_format: JSON
+
     ThreatLog:
       name: ThreatLog
       title: Threat Log Entry
-      summary: >-
-        A forwarded threat log entry recording a security event detected by
-        the firewall's threat prevention engines. Contains threat details,
-        severity, action, and related session metadata.
+      summary: >
+        A forwarded threat detection log entry for a security event caught
+        by the firewall's threat prevention profiles
       contentType: application/json
       payload:
-        type: object
-        properties:
-          receive_time:
-            type: string
-            format: date-time
-            description: >-
-              Timestamp when the log was received by Strata Logging Service.
-          serial:
-            type: string
-            description: Serial number of the firewall that generated the log.
-          type:
-            type: string
-            enum:
-              - THREAT
-            description: Log type identifier.
-          subtype:
-            type: string
-            enum:
-              - antivirus
-              - spyware
-              - vulnerability
-              - url
-              - wildfire
-              - data
-              - file
-            description: >-
-              Threat log subtype indicating which threat prevention engine
-              generated the detection.
-          src:
-            type: string
-            description: Source IP address of the session.
-          dst:
-            type: string
-            description: Destination IP address of the session.
-          sport:
-            type: integer
-            description: Source port number.
-          dport:
-            type: integer
-            description: Destination port number.
-          proto:
-            type: string
-            description: IP protocol name or number.
-          app:
-            type: string
-            description: Application identified by App-ID.
-          threat_name:
-            type: string
-            description: >-
-              Name of the detected threat as defined in the threat database.
-          severity:
-            type: string
-            enum:
-              - informational
-              - low
-              - medium
-              - high
-              - critical
-            description: Severity level of the detected threat.
-          action:
-            type: string
-            enum:
-              - alert
-              - allow
-              - deny
-              - drop
-              - reset-client
-              - reset-server
-              - reset-both
-              - block-url
-              - block-ip
-              - sinkhole
-            description: Action taken by the threat prevention engine.
-          direction:
-            type: string
-            enum:
-              - client-to-server
-              - server-to-client
-            description: Direction of the attack relative to the session flow.
-          threat_id:
-            type: string
-            description: >-
-              Unique threat identifier from the Palo Alto Networks threat
-              vault. Used for threat intelligence lookup and signature
-              reference.
-          rule_name:
-            type: string
-            description: Name of the security policy rule that matched the session.
-          src_zone:
-            type: string
-            description: Source security zone.
-          dst_zone:
-            type: string
-            description: Destination security zone.
-          src_user:
-            type: string
-            description: Source user identity if User-ID is enabled.
-          url_or_filename:
-            type: string
-            description: >-
-              URL or filename associated with the threat, depending on the
-              subtype.
-          content_type:
-            type: string
-            description: MIME content type of the payload that triggered the detection.
-          pcap_id:
-            type: string
-            description: >-
-              Packet capture ID if extended packet capture is enabled for
-              the threat type.
-          device_name:
-            type: string
-            description: Hostname of the firewall that generated the log.
-          vsys:
-            type: string
-            description: Virtual system name or identifier.
-          log_forwarding_profile:
-            type: string
-            description: Name of the log forwarding profile that forwarded this log.
-          output_format:
-            type: string
-            enum:
-              - CEF
-              - LEEF
-              - CSV
-              - JSON
-              - PARQUET
-            description: Format in which the log was forwarded.
-    URLLog:
-      name: URLLog
+        $ref: '#/components/schemas/ThreatLogPayload'
+      examples:
+        - name: MalwareDownloadBlocked
+          summary: Malware download attempt blocked by antivirus profile
+          payload:
+            receive_time: '2024-01-15T10:45:00.000Z'
+            serial: '012345678901'
+            type: THREAT
+            subtype: virus
+            src: 203.0.113.200
+            dst: 10.0.1.100
+            sport: 80
+            dport: 54322
+            proto: tcp
+            app: web-browsing
+            threat_name: Trojan-Downloader/Win.Generic
+            severity: high
+            action: reset-both
+            direction: server-to-client
+            threat_id: '52345'
+            rule_name: allow-web-outbound
+            src_zone: untrust
+            dst_zone: trust
+            device_name: PA-3260-DC1
+            vsys: vsys1
+            log_forwarding_profile: forward-to-siem
+            output_format: JSON
+
+    UrlLog:
+      name: UrlLog
       title: URL Filtering Log Entry
-      summary: >-
-        A forwarded URL filtering log entry recording a web access event
-        evaluated by the URL Filtering security profile.
+      summary: >
+        A forwarded URL filtering log entry for a web access event
+        evaluated by the URL Filtering security profile
       contentType: application/json
       payload:
-        type: object
-        properties:
-          receive_time:
-            type: string
-            format: date-time
-            description: >-
-              Timestamp when the log was received by Strata Logging Service.
-          serial:
-            type: string
-            description: Serial number of the firewall that generated the log.
-          type:
-            type: string
-            enum:
-              - URL
-            description: Log type identifier.
-          src:
-            type: string
-            description: Source IP address of the session.
-          dst:
-            type: string
-            description: Destination IP address of the session.
-          sport:
-            type: integer
-            description: Source port number.
-          dport:
-            type: integer
-            description: Destination port number.
-          app:
-            type: string
-            description: Application identified by App-ID.
-          url:
-            type: string
-            description: Requested URL.
-          url_category:
-            type: string
-            description: >-
-              URL category as classified by PAN-DB, such as
-              business-and-economy, social-networking, or malware.
-          action:
-            type: string
-            enum:
-              - allow
-              - block
-              - continue
-              - override
-              - alert
-            description: Action taken on the URL request by the URL Filtering profile.
-          content_type:
-            type: string
-            description: MIME content type of the HTTP response.
-          http_method:
-            type: string
-            enum:
-              - GET
-              - POST
-              - PUT
-              - DELETE
-              - HEAD
-              - OPTIONS
-              - PATCH
-              - CONNECT
-            description: HTTP method of the request.
-          user_agent:
-            type: string
-            description: HTTP User-Agent string from the request.
-          http_headers:
-            type: string
-            description: >-
-              Selected HTTP headers captured by the URL Filtering profile
-              if header logging is enabled.
-          src_user:
-            type: string
-            description: Source user identity if User-ID is enabled.
-          referer:
-            type: string
-            description: HTTP Referer header value.
-          rule_name:
-            type: string
-            description: Name of the security policy rule that matched the session.
-          device_name:
-            type: string
-            description: Hostname of the firewall that generated the log.
-          vsys:
-            type: string
-            description: Virtual system name or identifier.
-          log_forwarding_profile:
-            type: string
-            description: Name of the log forwarding profile that forwarded this log.
-          output_format:
-            type: string
-            enum:
-              - CEF
-              - LEEF
-              - CSV
-              - JSON
-              - PARQUET
-            description: Format in which the log was forwarded.
-    WildFireLog:
-      name: WildFireLog
-      title: WildFire Submission Log Entry
-      summary: >-
-        A forwarded WildFire submission log entry recording the results of
-        file analysis by the WildFire malware analysis service.
+        $ref: '#/components/schemas/UrlLogPayload'
+      examples:
+        - name: MalwareUrlBlocked
+          summary: Access to a malware-categorized URL blocked
+          payload:
+            receive_time: '2024-01-15T10:50:00.000Z'
+            serial: '012345678901'
+            type: URL
+            src: 10.0.1.100
+            dst: 198.51.100.1
+            sport: 54323
+            dport: 80
+            app: web-browsing
+            url: http://malware-distribution.example.com/payload.exe
+            url_category: malware
+            action: block
+            http_method: GET
+            src_user: DOMAIN\jsmith
+            rule_name: allow-web-outbound
+            device_name: PA-3260-DC1
+            vsys: vsys1
+            log_forwarding_profile: forward-to-siem
+            output_format: JSON
+
+    WildfireLog:
+      name: WildfireLog
+      title: WildFire Log Entry
+      summary: >
+        A forwarded WildFire file analysis log entry with the malware
+        verdict returned by the WildFire cloud sandbox service
       contentType: application/json
       payload:
-        type: object
-        properties:
-          receive_time:
-            type: string
-            format: date-time
-            description: >-
-              Timestamp when the log was received by Strata Logging Service.
-          serial:
-            type: string
-            description: Serial number of the firewall that generated the log.
-          type:
-            type: string
-            enum:
-              - WILDFIRE
-            description: Log type identifier.
-          src:
-            type: string
-            description: Source IP address of the session.
-          dst:
-            type: string
-            description: Destination IP address of the session.
-          app:
-            type: string
-            description: Application identified by App-ID.
-          filename:
-            type: string
-            description: Name of the file submitted for analysis.
-          filetype:
-            type: string
-            description: >-
-              File type of the submitted file, such as PE, PDF, APK,
-              Microsoft Office, or script.
-          file_hash:
-            type: string
-            description: SHA-256 hash of the submitted file.
-          file_size:
-            type: integer
-            description: Size of the submitted file in bytes.
-          verdict:
-            type: string
-            enum:
-              - benign
-              - malware
-              - grayware
-              - phishing
-              - pending
-            description: >-
-              WildFire analysis verdict for the submitted file.
-          action:
-            type: string
-            enum:
-              - allow
-              - block
-            description: >-
-              Action taken on the file by the WildFire security profile.
-          report_url:
-            type: string
-            format: uri
-            description: >-
-              URL to the WildFire analysis report in the Palo Alto Networks
-              WildFire portal.
-          src_user:
-            type: string
-            description: Source user identity if User-ID is enabled.
-          rule_name:
-            type: string
-            description: Name of the security policy rule that matched the session.
-          device_name:
-            type: string
-            description: Hostname of the firewall that generated the log.
-          vsys:
-            type: string
-            description: Virtual system name or identifier.
-          log_forwarding_profile:
-            type: string
-            description: Name of the log forwarding profile that forwarded this log.
-          output_format:
-            type: string
-            enum:
-              - CEF
-              - LEEF
-              - CSV
-              - JSON
-              - PARQUET
-            description: Format in which the log was forwarded.
+        $ref: '#/components/schemas/WildfireLogPayload'
+      examples:
+        - name: MalwareVerdictReceived
+          summary: WildFire malware verdict received for submitted PE file
+          payload:
+            receive_time: '2024-01-15T11:00:00.000Z'
+            serial: '012345678901'
+            type: WILDFIRE
+            src: 10.0.1.100
+            dst: 203.0.113.50
+            app: web-browsing
+            filename: suspicious_invoice.exe
+            filetype: PE
+            file_hash: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            file_size: 204800
+            verdict: malware
+            action: block
+            report_url: 'https://wildfire.paloaltonetworks.com/wildfire/reportlist'
+            src_user: DOMAIN\jsmith
+            rule_name: allow-web-outbound
+            device_name: PA-3260-DC1
+            vsys: vsys1
+            log_forwarding_profile: forward-to-siem
+            output_format: JSON
+
     AuthLog:
       name: AuthLog
       title: Authentication Log Entry
-      summary: >-
-        A forwarded authentication log entry recording a user authentication
-        event processed by the firewall's Authentication Policy.
+      summary: >
+        A forwarded authentication event log entry for a user authentication
+        processed by the firewall's Authentication Policy
       contentType: application/json
       payload:
-        type: object
-        properties:
-          receive_time:
-            type: string
-            format: date-time
-            description: >-
-              Timestamp when the log was received by Strata Logging Service.
-          serial:
-            type: string
-            description: Serial number of the firewall that generated the log.
-          type:
-            type: string
-            enum:
-              - AUTH
-            description: Log type identifier.
-          subtype:
-            type: string
-            enum:
-              - auth-success
-              - auth-fail
-              - auth-challenge
-              - auth-timeout
-            description: Authentication log subtype indicating the result.
-          src:
-            type: string
-            description: Source IP address of the authenticating client.
-          src_user:
-            type: string
-            description: Username presented during authentication.
-          auth_method:
-            type: string
-            enum:
-              - SAML
-              - Kerberos
-              - LDAP
-              - RADIUS
-              - TACACS+
-              - local-database
-              - client-certificate
-              - MFA
-            description: Authentication method used.
-          auth_source:
-            type: string
-            description: >-
-              Authentication source or server profile name, such as the
-              SAML IdP name, LDAP server profile, or RADIUS server profile.
-          auth_result:
-            type: string
-            enum:
-              - success
-              - failure
-              - challenge
-              - timeout
-            description: Result of the authentication attempt.
-          mfa_vendor:
-            type: string
-            description: >-
-              Multi-factor authentication vendor name if MFA was used, such
-              as Duo, Okta, or PingID.
-          mfa_result:
-            type: string
-            enum:
-              - success
-              - failure
-              - timeout
-              - bypass
-            description: Result of the MFA challenge if MFA was triggered.
-          rule_name:
-            type: string
-            description: >-
-              Name of the Authentication Policy rule that triggered the
-              authentication challenge.
-          auth_profile:
-            type: string
-            description: Name of the authentication profile used.
-          server_profile:
-            type: string
-            description: Name of the server profile used for authentication.
-          session_id:
-            type: string
-            description: Session identifier associated with the authentication event.
-          device_name:
-            type: string
-            description: Hostname of the firewall that generated the log.
-          vsys:
-            type: string
-            description: Virtual system name or identifier.
-          log_forwarding_profile:
-            type: string
-            description: Name of the log forwarding profile that forwarded this log.
-          output_format:
-            type: string
-            enum:
-              - CEF
-              - LEEF
-              - CSV
-              - JSON
-              - PARQUET
-            description: Format in which the log was forwarded.
+        $ref: '#/components/schemas/AuthLogPayload'
+      examples:
+        - name: SuccessfulSamlAuthentication
+          summary: Successful SAML authentication via GlobalProtect
+          payload:
+            receive_time: '2024-01-15T08:00:00.000Z'
+            serial: '012345678901'
+            type: AUTH
+            subtype: auth-success
+            src: 203.0.113.100
+            src_user: jsmith@example.com
+            auth_method: SAML
+            auth_source: Okta-SAML-IdP
+            auth_result: success
+            rule_name: gp-authentication-policy
+            auth_profile: saml-auth-profile
+            device_name: PA-3260-DC1
+            vsys: vsys1
+            log_forwarding_profile: forward-to-siem
+            output_format: JSON
+
   schemas:
-    TrafficLogRecord:
+    TrafficLogPayload:
       type: object
-      description: >-
-        Schema representing a complete traffic log record with all standard
-        fields for session tracking and network visibility.
+      description: >
+        Schema for a forwarded PAN-OS traffic log entry. Traffic logs
+        capture session metadata for every network connection processed
+        by the firewall, providing comprehensive network visibility for
+        security operations, compliance, and analytics.
       properties:
         receive_time:
           type: string
           format: date-time
+          description: >
+            Timestamp when the log entry was received by Strata Logging
+            Service from the generating firewall device.
         serial:
           type: string
+          description: >
+            Serial number of the Palo Alto Networks firewall or Prisma
+            Access node that generated this log entry.
         type:
           type: string
           enum:
             - TRAFFIC
+          description: >
+            Log type identifier, always TRAFFIC for traffic log entries.
         subtype:
           type: string
           enum:
@@ -716,63 +404,184 @@ components:
             - end
             - drop
             - deny
+          description: >
+            Traffic log subtype indicating what session lifecycle event
+            triggered this log entry.
         src:
           type: string
+          description: Source IP address of the network session.
         dst:
           type: string
+          description: Destination IP address of the network session.
         sport:
           type: integer
+          description: Source port number of the network session.
         dport:
           type: integer
+          description: Destination port number of the network session.
         proto:
           type: string
+          description: >
+            IP protocol name or number for the session (e.g., tcp, udp,
+            icmp).
         app:
           type: string
+          description: >
+            Application identified by PAN-OS App-ID, such as ssl,
+            web-browsing, dns, or a specific SaaS application name.
         action:
           type: string
+          enum:
+            - allow
+            - deny
+            - drop
+            - reset-client
+            - reset-server
+            - reset-both
+          description: >
+            Enforcement action applied to the session by the matching
+            security policy rule.
         bytes_sent:
           type: integer
+          description: Total bytes sent from client to server in this session.
         bytes_received:
           type: integer
+          description: Total bytes received by client from server in this session.
         session_id:
           type: string
+          description: >
+            Unique session identifier assigned by the firewall for this
+            network session.
         rule_name:
           type: string
+          description: >
+            Name of the security policy rule that matched and processed
+            this session.
         src_zone:
           type: string
+          description: Source security zone from which the session originated.
         dst_zone:
           type: string
-    ThreatLogRecord:
+          description: >
+            Destination security zone to which the session is destined.
+        src_user:
+          type: string
+          description: >
+            Source user identity associated with the session if User-ID
+            is enabled on the ingress zone.
+        dst_user:
+          type: string
+          description: Destination user identity if available.
+        nat_src:
+          type: string
+          description: Post-NAT source IP address after address translation.
+        nat_dst:
+          type: string
+          description: Post-NAT destination IP address after address translation.
+        nat_sport:
+          type: integer
+          description: Post-NAT source port after port address translation.
+        nat_dport:
+          type: integer
+          description: Post-NAT destination port after port address translation.
+        packets_sent:
+          type: integer
+          description: Total packets sent from client in this session.
+        packets_received:
+          type: integer
+          description: Total packets received by client in this session.
+        session_duration:
+          type: integer
+          description: Total session duration in seconds.
+        device_name:
+          type: string
+          description: Hostname of the firewall that generated this log entry.
+        vsys:
+          type: string
+          description: Virtual system name or identifier on the firewall.
+        log_forwarding_profile:
+          type: string
+          description: >
+            Name of the Strata Logging Service log forwarding profile that
+            forwarded this log entry.
+        output_format:
+          type: string
+          enum:
+            - CSV
+            - LEEF
+            - CEF
+            - JSON
+            - PARQUET
+          description: >
+            Output format in which this log entry was forwarded to the
+            destination.
+
+    ThreatLogPayload:
       type: object
-      description: >-
-        Schema representing a complete threat log record with all standard
-        fields for threat detection and investigation.
+      description: >
+        Schema for a forwarded PAN-OS threat log entry. Threat logs capture
+        security events detected by the firewall's threat prevention engines,
+        providing detailed information about malware, exploits, spyware,
+        command-and-control traffic, and other detected threats.
       properties:
         receive_time:
           type: string
           format: date-time
+          description: >
+            Timestamp when the threat log entry was received by Strata
+            Logging Service.
         serial:
           type: string
+          description: >
+            Serial number of the Palo Alto Networks device that generated
+            this threat log entry.
         type:
           type: string
           enum:
             - THREAT
+          description: >
+            Log type identifier, always THREAT for threat log entries.
         subtype:
           type: string
           enum:
-            - antivirus
+            - virus
             - spyware
             - vulnerability
             - url
             - wildfire
+            - wildfire-virus
             - data
             - file
+            - scan
+            - flood
+          description: >
+            Threat log subtype indicating which threat prevention engine
+            or signature category generated the detection event.
         src:
           type: string
+          description: Source IP address of the session in which the threat was detected.
         dst:
           type: string
+          description: >
+            Destination IP address of the session in which the threat was
+            detected.
+        sport:
+          type: integer
+          description: Source port number of the session.
+        dport:
+          type: integer
+          description: Destination port number of the session.
+        proto:
+          type: string
+          description: IP protocol of the session.
+        app:
+          type: string
+          description: Application identified by App-ID in the threat session.
         threat_name:
           type: string
+          description: >
+            Name of the detected threat as defined in the Palo Alto Networks
+            threat database and threat vault.
         severity:
           type: string
           enum:
@@ -781,38 +590,130 @@ components:
             - medium
             - high
             - critical
+          description: >
+            Severity level of the detected threat as defined by the threat
+            signature or detection engine.
         action:
           type: string
+          enum:
+            - alert
+            - allow
+            - deny
+            - drop
+            - reset-client
+            - reset-server
+            - reset-both
+            - block-url
+            - block-ip
+            - sinkhole
+          description: >
+            Action taken by the threat prevention engine in response to the
+            detected threat.
         direction:
           type: string
           enum:
             - client-to-server
             - server-to-client
+          description: >
+            Direction of the detected attack relative to the network session
+            flow.
         threat_id:
           type: string
-    URLLogRecord:
+          description: >
+            Unique numeric identifier for the threat signature from the Palo
+            Alto Networks threat vault. Used for threat intelligence lookup
+            and signature reference.
+        rule_name:
+          type: string
+          description: >
+            Name of the security policy rule that matched the session in
+            which the threat was detected.
+        src_zone:
+          type: string
+          description: Source security zone of the threat session.
+        dst_zone:
+          type: string
+          description: Destination security zone of the threat session.
+        src_user:
+          type: string
+          description: Source user identity if User-ID is enabled.
+        url_or_filename:
+          type: string
+          description: >
+            URL or filename associated with the detected threat, depending
+            on the threat subtype.
+        device_name:
+          type: string
+          description: Hostname of the firewall that generated this threat log entry.
+        vsys:
+          type: string
+          description: Virtual system name or identifier on the firewall.
+        log_forwarding_profile:
+          type: string
+          description: >
+            Name of the log forwarding profile that forwarded this log entry.
+        output_format:
+          type: string
+          enum:
+            - CSV
+            - LEEF
+            - CEF
+            - JSON
+            - PARQUET
+          description: Output format in which this log entry was forwarded.
+
+    UrlLogPayload:
       type: object
-      description: >-
-        Schema representing a complete URL filtering log record with all
-        standard fields for web access visibility and policy enforcement.
+      description: >
+        Schema for a forwarded PAN-OS URL filtering log entry. URL logs
+        capture web access events evaluated by the URL Filtering security
+        profile, providing visibility into browsing activity, policy
+        enforcement, and URL category decisions.
       properties:
         receive_time:
           type: string
           format: date-time
+          description: >
+            Timestamp when the URL log entry was received by Strata Logging
+            Service.
         serial:
           type: string
+          description: >
+            Serial number of the Palo Alto Networks device that generated
+            this URL log entry.
         type:
           type: string
           enum:
             - URL
+          description: Log type identifier, always URL for URL filtering log entries.
         src:
           type: string
+          description: Source IP address of the client making the web request.
         dst:
           type: string
+          description: Destination IP address of the web server being accessed.
+        sport:
+          type: integer
+          description: Source port number of the HTTP/HTTPS session.
+        dport:
+          type: integer
+          description: Destination port number of the HTTP/HTTPS session.
+        app:
+          type: string
+          description: >
+            Application identified by App-ID for the web session (e.g.,
+            web-browsing, ssl, google-base).
         url:
           type: string
+          description: >
+            The full URL that was requested, including protocol, hostname,
+            path, and query parameters if present.
         url_category:
           type: string
+          description: >
+            URL category classification assigned by PAN-DB URL filtering
+            database (e.g., business-and-economy, malware,
+            social-networking, command-and-control).
         action:
           type: string
           enum:
@@ -821,35 +722,108 @@ components:
             - continue
             - override
             - alert
+          description: >
+            Action applied to the URL request by the URL Filtering security
+            profile configured on the matching security policy rule.
+        http_method:
+          type: string
+          enum:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - HEAD
+            - OPTIONS
+            - PATCH
+            - CONNECT
+          description: HTTP method of the web request.
         content_type:
           type: string
+          description: MIME content type of the HTTP response.
         src_user:
           type: string
-    WildFireLogRecord:
+          description: >
+            Source user identity associated with the web request if User-ID
+            is enabled.
+        rule_name:
+          type: string
+          description: >
+            Name of the security policy rule that matched the session
+            containing this URL request.
+        device_name:
+          type: string
+          description: Hostname of the firewall that generated this URL log entry.
+        vsys:
+          type: string
+          description: Virtual system name or identifier on the firewall.
+        log_forwarding_profile:
+          type: string
+          description: >
+            Name of the log forwarding profile that forwarded this log entry.
+        output_format:
+          type: string
+          enum:
+            - CSV
+            - LEEF
+            - CEF
+            - JSON
+            - PARQUET
+          description: Output format in which this log entry was forwarded.
+
+    WildfireLogPayload:
       type: object
-      description: >-
-        Schema representing a complete WildFire submission log record with
-        all standard fields for file analysis results.
+      description: >
+        Schema for a forwarded PAN-OS WildFire submission log entry.
+        WildFire logs record the results of file analysis by the WildFire
+        cloud-based sandbox malware analysis service, providing verdicts
+        and analysis report links for detected threats.
       properties:
         receive_time:
           type: string
           format: date-time
+          description: >
+            Timestamp when the WildFire log entry was received by Strata
+            Logging Service.
         serial:
           type: string
+          description: >
+            Serial number of the Palo Alto Networks device that submitted
+            the file to WildFire and generated this log entry.
         type:
           type: string
           enum:
             - WILDFIRE
+          description: >
+            Log type identifier, always WILDFIRE for WildFire log entries.
         src:
           type: string
+          description: Source IP address of the session from which the file was captured.
         dst:
           type: string
+          description: >
+            Destination IP address of the session from which the file was
+            captured.
+        app:
+          type: string
+          description: >
+            Application identified by App-ID in the session from which the
+            file was captured.
         filename:
           type: string
+          description: Name of the file that was submitted to WildFire for analysis.
         filetype:
           type: string
+          description: >
+            File type of the submitted file (e.g., PE, PDF, APK, Adobe Flash,
+            Microsoft Office, script, Java Applet).
         file_hash:
           type: string
+          description: >
+            SHA-256 cryptographic hash of the submitted file, used as the
+            unique file identifier in the WildFire cloud database.
+        file_size:
+          type: integer
+          description: Size of the submitted file in bytes.
         verdict:
           type: string
           enum:
@@ -858,23 +832,80 @@ components:
             - grayware
             - phishing
             - pending
+          description: >
+            WildFire analysis verdict for the submitted file indicating
+            whether it is benign, malicious malware, potentially unwanted
+            grayware, a phishing document, or pending analysis completion.
         action:
           type: string
-    AuthLogRecord:
+          enum:
+            - allow
+            - block
+          description: >
+            Action applied to the file by the WildFire security profile
+            based on the analysis verdict.
+        report_url:
+          type: string
+          format: uri
+          description: >
+            URL to the full WildFire analysis report in the Palo Alto
+            Networks WildFire portal, providing detailed behavioral analysis
+            results.
+        src_user:
+          type: string
+          description: Source user identity if User-ID is enabled.
+        rule_name:
+          type: string
+          description: >
+            Name of the security policy rule under which the file was
+            captured and submitted to WildFire.
+        device_name:
+          type: string
+          description: >
+            Hostname of the firewall that captured the file and generated
+            this WildFire log entry.
+        vsys:
+          type: string
+          description: Virtual system name or identifier on the firewall.
+        log_forwarding_profile:
+          type: string
+          description: >
+            Name of the log forwarding profile that forwarded this log entry.
+        output_format:
+          type: string
+          enum:
+            - CSV
+            - LEEF
+            - CEF
+            - JSON
+            - PARQUET
+          description: Output format in which this log entry was forwarded.
+
+    AuthLogPayload:
       type: object
-      description: >-
-        Schema representing a complete authentication log record with all
-        standard fields for user authentication tracking.
+      description: >
+        Schema for a forwarded PAN-OS authentication log entry. Authentication
+        logs capture user authentication events processed by the firewall's
+        Authentication Policy, providing identity-based visibility for
+        security monitoring, compliance, and zero-trust enforcement.
       properties:
         receive_time:
           type: string
           format: date-time
+          description: >
+            Timestamp when the authentication log entry was received by
+            Strata Logging Service.
         serial:
           type: string
+          description: >
+            Serial number of the Palo Alto Networks device that generated
+            this authentication log entry.
         type:
           type: string
           enum:
             - AUTH
+          description: >
+            Log type identifier, always AUTH for authentication log entries.
         subtype:
           type: string
           enum:
@@ -882,12 +913,34 @@ components:
             - auth-fail
             - auth-challenge
             - auth-timeout
+          description: >
+            Authentication log subtype indicating the outcome of the
+            authentication event.
         src:
           type: string
+          description: Source IP address of the authenticating client.
         src_user:
           type: string
+          description: >
+            Username or user principal name presented during authentication.
         auth_method:
           type: string
+          enum:
+            - SAML
+            - Kerberos
+            - LDAP
+            - RADIUS
+            - TACACS+
+            - local-database
+            - client-certificate
+            - MFA
+          description: >
+            Authentication protocol or method used to authenticate the user.
+        auth_source:
+          type: string
+          description: >
+            The name of the authentication source, server profile, or
+            identity provider (e.g., Okta-SAML, corp-ldap, radius-server).
         auth_result:
           type: string
           enum:
@@ -895,39 +948,71 @@ components:
             - failure
             - challenge
             - timeout
-    LogForwardingConfig:
-      type: object
-      description: >-
-        Configuration metadata describing the log forwarding profile and
-        output format used for a forwarded log entry.
-      properties:
+          description: >
+            The result of the authentication attempt indicating whether it
+            succeeded, failed, required an additional challenge, or timed out.
+        mfa_vendor:
+          type: string
+          description: >
+            Multi-factor authentication vendor name if MFA was triggered
+            during authentication (e.g., Duo, Okta, PingID, RSA SecurID).
+        mfa_result:
+          type: string
+          enum:
+            - success
+            - failure
+            - timeout
+            - bypass
+          description: >
+            Result of the MFA challenge if multi-factor authentication was
+            triggered as part of the authentication flow.
+        rule_name:
+          type: string
+          description: >
+            Name of the Authentication Policy rule that triggered the
+            authentication challenge for this session.
+        auth_profile:
+          type: string
+          description: >
+            Name of the authentication profile configured on the firewall
+            that was used to process this authentication event.
+        device_name:
+          type: string
+          description: >
+            Hostname of the firewall that generated this authentication
+            log entry.
+        vsys:
+          type: string
+          description: Virtual system name or identifier on the firewall.
         log_forwarding_profile:
           type: string
-          description: Name of the log forwarding profile.
+          description: >
+            Name of the log forwarding profile that forwarded this log entry.
         output_format:
           type: string
           enum:
-            - CEF
-            - LEEF
             - CSV
+            - LEEF
+            - CEF
             - JSON
             - PARQUET
-          description: >-
-            Output format of the forwarded log. CEF and LEEF are commonly
-            used for SIEM integration via syslog. JSON and PARQUET are
-            typically used for HTTPS delivery to data lakes.
-        destination_type:
-          type: string
-          enum:
-            - syslog
-            - https
-          description: Type of forwarding destination.
-        syslog_facility:
-          type: string
-          description: >-
-            Syslog facility value used when forwarding to syslog
-            destinations.
-        syslog_severity:
-          type: string
-          description: >-
-            Syslog severity mapping for the forwarded log entries.
+          description: Output format in which this log entry was forwarded.
+
+  securitySchemes:
+    tlsMutualAuth:
+      type: X509
+      description: >
+        TLS mutual authentication for encrypted syslog forwarding. The Strata
+        Logging Service presents a client certificate and validates the syslog
+        server's certificate against the configured CA certificate. Upload
+        the syslog server CA certificate in the log forwarding profile
+        configuration to enable mutual TLS authentication.
+    httpsApiKey:
+      type: httpApiKey
+      description: >
+        API key or custom header authentication for HTTPS log forwarding
+        endpoints. Configure authentication headers in the Strata Logging
+        Service HTTPS log forwarding profile settings. Supports custom header
+        names and Bearer token authentication for SIEM and data lake endpoints.
+      name: Authorization
+      in: header

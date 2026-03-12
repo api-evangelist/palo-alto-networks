@@ -7,8 +7,7 @@ info:
     profiling, risk assessment, alert management, vulnerability tracking,
     and policy recommendation capabilities. Enables integration with
     third-party SIEM, SOAR, CMDB, and NAC platforms for automated
-    security workflows. Rate limited to 60 requests per minute. Requires
-    an active IoT Security subscription.
+    security workflows. Requires an active IoT Security subscription.
   version: '4.0'
   contact:
     name: Palo Alto Networks Developer Support
@@ -35,25 +34,27 @@ tags:
     description: Device vulnerability tracking operations.
   - name: Policies
     description: Security policy recommendation operations.
+  - name: Tags
+    description: Device tag management operations.
+  - name: Reports
+    description: Asset and inventory reporting operations.
 paths:
-  /device:
+  /device/list:
     get:
       operationId: listDevices
-      summary: List devices
+      summary: List discovered devices
       description: >-
         Returns a paginated list of IoT and OT devices discovered on the
-        network. Supports filtering by device profile, category, risk
-        score, subnet, and other attributes. Each device record includes
-        identification details, network information, risk assessment,
-        and classification metadata.
+        network. Supports filtering by monitoring status and time range.
+        Each device record includes identification details, network
+        information, risk assessment, and classification metadata.
       tags:
         - Devices
       parameters:
-        - name: stime
+        - name: customerid
           in: query
-          description: >-
-            Start time filter as a Unix epoch timestamp in seconds.
-            Returns devices active since this time.
+          required: true
+          description: Customer tenant identifier.
           schema:
             type: string
         - name: offset
@@ -69,14 +70,6 @@ paths:
             type: integer
             default: 100
             maximum: 1000
-        - name: filter_monitored
-          in: query
-          description: Filter for monitored or unmonitored devices.
-          schema:
-            type: string
-            enum:
-              - 'yes'
-              - 'no'
         - name: detail
           in: query
           description: Level of detail to include in the response.
@@ -86,9 +79,31 @@ paths:
               - full
               - summary
             default: summary
+        - name: filter_monitored
+          in: query
+          description: Filter for monitored or unmonitored devices.
+          schema:
+            type: string
+            enum:
+              - 'yes'
+              - 'no'
+        - name: stime
+          in: query
+          description: >-
+            Start time filter as a Unix epoch timestamp in seconds.
+            Returns devices active since this time.
+          schema:
+            type: string
+        - name: etime
+          in: query
+          description: >-
+            End time filter as a Unix epoch timestamp in seconds.
+            Returns devices active before this time.
+          schema:
+            type: string
       responses:
         '200':
-          description: Device list returned.
+          description: Device list returned successfully.
           content:
             application/json:
               schema:
@@ -102,32 +117,38 @@ paths:
                     items:
                       $ref: '#/components/schemas/Device'
         '400':
-          description: Invalid query parameters.
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Invalid or missing API keys.
-        '429':
-          description: Rate limit exceeded (60 requests per minute).
-  /device/ip/{ip}:
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /device/detail:
     get:
-      operationId: getDeviceByIp
-      summary: Get device by IP address
+      operationId: getDeviceDetail
+      summary: Get device details
       description: >-
         Returns detailed information for the device associated with the
-        specified IP address. Includes full device profile, risk score
-        breakdown, network activity summary, and classification details.
+        specified device identifier. Includes full device profile, risk
+        score breakdown, network activity summary, and classification
+        details.
       tags:
         - Devices
       parameters:
-        - name: ip
-          in: path
+        - name: customerid
+          in: query
           required: true
-          description: IPv4 address of the device.
+          description: Customer tenant identifier.
           schema:
             type: string
-            format: ipv4
+        - name: deviceid
+          in: query
+          required: true
+          description: Unique device identifier.
+          schema:
+            type: string
       responses:
         '200':
-          description: Device information returned.
+          description: Device details returned successfully.
           content:
             application/json:
               schema:
@@ -136,49 +157,14 @@ paths:
                   device:
                     $ref: '#/components/schemas/Device'
         '400':
-          description: Invalid IP address format.
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Invalid or missing API keys.
+          $ref: '#/components/responses/Unauthorized'
         '404':
-          description: No device found with the specified IP address.
-        '429':
-          description: Rate limit exceeded (60 requests per minute).
-  /device/mac/{mac}:
-    get:
-      operationId: getDeviceByMac
-      summary: Get device by MAC address
-      description: >-
-        Returns detailed information for the device associated with the
-        specified MAC address. The MAC address format should use colons
-        as separators (e.g., AA:BB:CC:DD:EE:FF).
-      tags:
-        - Devices
-      parameters:
-        - name: mac
-          in: path
-          required: true
-          description: MAC address of the device (colon-separated format).
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Device information returned.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  device:
-                    $ref: '#/components/schemas/Device'
-        '400':
-          description: Invalid MAC address format.
-        '401':
-          description: Invalid or missing API keys.
-        '404':
-          description: No device found with the specified MAC address.
-        '429':
-          description: Rate limit exceeded (60 requests per minute).
-  /alert:
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /alert/list:
     get:
       operationId: listAlerts
       summary: List security alerts
@@ -186,13 +172,15 @@ paths:
         Returns a paginated list of security alerts generated by the
         IoT Security service. Alerts are triggered by anomalous device
         behavior, policy violations, known vulnerability exploitation,
-        and communication with suspicious destinations.
+        and communication with suspicious destinations. Supports filtering
+        by resolution status and time range.
       tags:
         - Alerts
       parameters:
-        - name: stime
+        - name: customerid
           in: query
-          description: Start time filter as a Unix epoch timestamp in seconds.
+          required: true
+          description: Customer tenant identifier.
           schema:
             type: string
         - name: offset
@@ -208,16 +196,16 @@ paths:
             type: integer
             default: 100
             maximum: 1000
-        - name: type
+        - name: stime
           in: query
-          description: Alert type filter.
+          description: Start time filter as a Unix epoch timestamp in seconds.
           schema:
             type: string
-            enum:
-              - policy_alert
-              - anomaly
-              - vulnerability
-              - spyware
+        - name: etime
+          in: query
+          description: End time filter as a Unix epoch timestamp in seconds.
+          schema:
+            type: string
         - name: resolved
           in: query
           description: Filter by alert resolution status.
@@ -228,7 +216,7 @@ paths:
               - 'no'
       responses:
         '200':
-          description: Alert list returned.
+          description: Alert list returned successfully.
           content:
             application/json:
               schema:
@@ -236,57 +224,99 @@ paths:
                 properties:
                   total:
                     type: integer
+                    description: Total number of alerts matching the query.
                   alerts:
                     type: array
                     items:
                       $ref: '#/components/schemas/Alert'
         '400':
-          description: Invalid query parameters.
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Invalid or missing API keys.
-        '429':
-          description: Rate limit exceeded (60 requests per minute).
-  /alert/resolve:
-    post:
-      operationId: resolveAlerts
-      summary: Resolve security alerts
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /alert/detail:
+    get:
+      operationId: getAlertDetail
+      summary: Get alert details
       description: >-
-        Marks one or more security alerts as resolved. Accepts a list of
-        alert identifiers and an optional resolution reason. Resolved
-        alerts are retained for historical analysis but no longer appear
-        in active alert views.
+        Returns detailed information for a specific security alert by its
+        identifier. Includes full alert context, affected device
+        information, timeline, and recommended response actions.
       tags:
         - Alerts
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - ids
-              properties:
-                ids:
-                  type: array
-                  items:
-                    type: string
-                  description: List of alert IDs to resolve.
-                reason:
-                  type: string
-                  description: Resolution reason or comment.
-                reason_type:
-                  type: array
-                  items:
-                    type: string
-                    enum:
-                      - No Action Needed
-                      - Issue Addressed
-                      - Duplicate
-                      - False Positive
-                  description: Resolution reason categories.
+      parameters:
+        - name: customerid
+          in: query
+          required: true
+          description: Customer tenant identifier.
+          schema:
+            type: string
+        - name: id
+          in: query
+          required: true
+          description: Unique alert identifier.
+          schema:
+            type: string
       responses:
         '200':
-          description: Alerts resolved successfully.
+          description: Alert details returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  alert:
+                    $ref: '#/components/schemas/Alert'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /alert/update:
+    put:
+      operationId: updateAlert
+      summary: Update alert status
+      description: >-
+        Updates the resolution status of a specific security alert.
+        Allows marking an alert as resolved or unresolved, and provides
+        a reason for the status change. Resolved alerts are retained
+        for historical analysis.
+      tags:
+        - Alerts
+      parameters:
+        - name: customerid
+          in: query
+          required: true
+          description: Customer tenant identifier.
+          schema:
+            type: string
+        - name: id
+          in: query
+          required: true
+          description: Unique alert identifier to update.
+          schema:
+            type: string
+        - name: resolved
+          in: query
+          required: true
+          description: New resolution status for the alert.
+          schema:
+            type: string
+            enum:
+              - 'yes'
+              - 'no'
+        - name: reason
+          in: query
+          description: Reason for the status change.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Alert status updated successfully.
           content:
             application/json:
               schema:
@@ -294,18 +324,21 @@ paths:
                 properties:
                   success:
                     type: boolean
-                  resolved_count:
-                    type: integer
+                    description: Whether the update was successful.
+                  alert:
+                    $ref: '#/components/schemas/Alert'
         '400':
-          description: Invalid request body.
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Invalid or missing API keys.
-        '429':
-          description: Rate limit exceeded (60 requests per minute).
-  /vulnerability/device:
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /vulnerability/list:
     get:
-      operationId: listDeviceVulnerabilities
-      summary: List device vulnerabilities
+      operationId: listVulnerabilities
+      summary: List vulnerabilities
       description: >-
         Returns a paginated list of known vulnerabilities affecting
         discovered devices. Vulnerability data is correlated from device
@@ -314,9 +347,10 @@ paths:
       tags:
         - Vulnerabilities
       parameters:
-        - name: stime
+        - name: customerid
           in: query
-          description: Start time filter as a Unix epoch timestamp in seconds.
+          required: true
+          description: Customer tenant identifier.
           schema:
             type: string
         - name: offset
@@ -332,26 +366,19 @@ paths:
             type: integer
             default: 100
             maximum: 1000
-        - name: severity
+        - name: stime
           in: query
-          description: Filter by vulnerability severity.
+          description: Start time filter as a Unix epoch timestamp in seconds.
           schema:
             type: string
-            enum:
-              - critical
-              - high
-              - medium
-              - low
-              - info
-        - name: deviceip
+        - name: etime
           in: query
-          description: Filter vulnerabilities by specific device IP.
+          description: End time filter as a Unix epoch timestamp in seconds.
           schema:
             type: string
-            format: ipv4
       responses:
         '200':
-          description: Vulnerability list returned.
+          description: Vulnerability list returned successfully.
           content:
             application/json:
               schema:
@@ -359,20 +386,68 @@ paths:
                 properties:
                   total:
                     type: integer
+                    description: Total number of vulnerabilities matching the query.
                   vulnerabilities:
                     type: array
                     items:
                       $ref: '#/components/schemas/Vulnerability'
         '400':
-          description: Invalid query parameters.
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Invalid or missing API keys.
-        '429':
-          description: Rate limit exceeded (60 requests per minute).
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /vulnerability/detail:
+    get:
+      operationId: getVulnerabilityDetail
+      summary: Get vulnerability details
+      description: >-
+        Returns detailed information about a specific vulnerability
+        affecting a device. Includes full CVE information, affected
+        device context, severity scoring, and remediation guidance.
+      tags:
+        - Vulnerabilities
+      parameters:
+        - name: customerid
+          in: query
+          required: true
+          description: Customer tenant identifier.
+          schema:
+            type: string
+        - name: deviceid
+          in: query
+          required: true
+          description: Unique device identifier.
+          schema:
+            type: string
+        - name: vulnerability_name
+          in: query
+          required: true
+          description: Name of the vulnerability to retrieve details for.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Vulnerability details returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  vulnerability:
+                    $ref: '#/components/schemas/Vulnerability'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /policy/recommendation:
     get:
-      operationId: listPolicyRecommendations
-      summary: List policy recommendations
+      operationId: getPolicyRecommendation
+      summary: Get policy recommendations
       description: >-
         Returns policy recommendations generated by the IoT Security
         service based on observed device behavior and communication
@@ -382,6 +457,55 @@ paths:
       tags:
         - Policies
       parameters:
+        - name: customerid
+          in: query
+          required: true
+          description: Customer tenant identifier.
+          schema:
+            type: string
+        - name: deviceid
+          in: query
+          description: Filter recommendations for a specific device.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Policy recommendations returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of recommendations.
+                  recommendations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PolicyRecommendation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /device/tag/list:
+    get:
+      operationId: listDeviceTags
+      summary: List device tags
+      description: >-
+        Returns a list of tags defined in the IoT Security tenant.
+        Tags are used to label and categorize devices for filtering,
+        reporting, and policy assignment purposes.
+      tags:
+        - Tags
+      parameters:
+        - name: customerid
+          in: query
+          required: true
+          description: Customer tenant identifier.
+          schema:
+            type: string
         - name: offset
           in: query
           description: Pagination offset for results.
@@ -390,19 +514,13 @@ paths:
             default: 0
         - name: pagelength
           in: query
-          description: Number of recommendations to return per page.
+          description: Number of tags to return per page.
           schema:
             type: integer
             default: 100
-            maximum: 1000
-        - name: profile
-          in: query
-          description: Filter recommendations by device profile.
-          schema:
-            type: string
       responses:
         '200':
-          description: Policy recommendations returned.
+          description: Device tags returned successfully.
           content:
             application/json:
               schema:
@@ -410,16 +528,66 @@ paths:
                 properties:
                   total:
                     type: integer
-                  recommendations:
+                    description: Total number of tags.
+                  tags:
                     type: array
                     items:
-                      $ref: '#/components/schemas/PolicyRecommendation'
+                      $ref: '#/components/schemas/DeviceTag'
         '400':
-          description: Invalid query parameters.
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Invalid or missing API keys.
-        '429':
-          description: Rate limit exceeded (60 requests per minute).
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /report/asset:
+    get:
+      operationId: getAssetReport
+      summary: Get asset report
+      description: >-
+        Returns an asset inventory report summarizing all discovered
+        IoT and OT devices. The report includes breakdowns by device
+        category, profile, risk level, and site. Useful for asset
+        inventory management and compliance reporting.
+      tags:
+        - Reports
+      parameters:
+        - name: customerid
+          in: query
+          required: true
+          description: Customer tenant identifier.
+          schema:
+            type: string
+        - name: offset
+          in: query
+          description: Pagination offset for results.
+          schema:
+            type: integer
+            default: 0
+        - name: pagelength
+          in: query
+          description: Number of report records to return per page.
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Asset report returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of assets in the report.
+                  report:
+                    $ref: '#/components/schemas/AssetReport'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 components:
   securitySchemes:
     keyId:
@@ -436,10 +604,38 @@ components:
       description: >-
         IoT Security API access key. Generated alongside the key
         identifier from the IoT Security portal.
+  responses:
+    BadRequest:
+      description: Invalid request parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Invalid or missing API keys.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   schemas:
     Device:
       type: object
       properties:
+        deviceid:
+          type: string
+          description: Unique device identifier.
         ip:
           type: string
           format: ipv4
@@ -487,6 +683,12 @@ components:
           type: string
           format: date-time
           description: Timestamp when the device was last active.
+        monitored:
+          type: string
+          enum:
+            - 'yes'
+            - 'no'
+          description: Whether the device is currently monitored.
         confidence_score:
           type: integer
           description: Confidence level of the device profile classification.
@@ -503,11 +705,6 @@ components:
           description: Unique alert identifier.
         type:
           type: string
-          enum:
-            - policy_alert
-            - anomaly
-            - vulnerability
-            - spyware
           description: Alert type classification.
         severity:
           type: string
@@ -521,18 +718,21 @@ components:
         description:
           type: string
           description: Human-readable alert description.
+        deviceid:
+          type: string
+          description: Identifier of the affected device.
         device_ip:
           type: string
           format: ipv4
           description: IP address of the affected device.
-        device_mac:
-          type: string
-          description: MAC address of the affected device.
         device_profile:
           type: string
           description: Profile of the affected device.
         resolved:
-          type: boolean
+          type: string
+          enum:
+            - 'yes'
+            - 'no'
           description: Whether the alert has been resolved.
         resolved_reason:
           type: string
@@ -553,7 +753,7 @@ components:
         cve:
           type: string
           description: CVE identifier (e.g., CVE-2023-12345).
-        name:
+        vulnerability_name:
           type: string
           description: Vulnerability name.
         severity:
@@ -569,14 +769,12 @@ components:
           type: number
           format: float
           description: CVSS v3 base score.
+        deviceid:
+          type: string
+          description: Device identifier affected by the vulnerability.
         affected_device_count:
           type: integer
           description: Number of devices affected by this vulnerability.
-        affected_profiles:
-          type: array
-          items:
-            type: string
-          description: Device profiles affected by this vulnerability.
         description:
           type: string
           description: Vulnerability description.
@@ -593,6 +791,9 @@ components:
         id:
           type: string
           description: Unique recommendation identifier.
+        deviceid:
+          type: string
+          description: Device identifier the recommendation applies to.
         profile:
           type: string
           description: Device profile the recommendation applies to.
@@ -619,9 +820,6 @@ components:
             - deny
             - alert
           description: Recommended policy action.
-        device_count:
-          type: integer
-          description: Number of devices this recommendation covers.
         confidence:
           type: number
           format: float
@@ -629,3 +827,81 @@ components:
         description:
           type: string
           description: Human-readable recommendation description.
+    DeviceTag:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique tag identifier.
+        name:
+          type: string
+          description: Tag name.
+        description:
+          type: string
+          description: Tag description.
+        device_count:
+          type: integer
+          description: Number of devices assigned this tag.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the tag was created.
+    AssetReport:
+      type: object
+      properties:
+        total_devices:
+          type: integer
+          description: Total number of discovered devices.
+        monitored_devices:
+          type: integer
+          description: Number of actively monitored devices.
+        by_category:
+          type: object
+          description: Device count breakdown by category.
+          additionalProperties:
+            type: integer
+        by_risk_level:
+          type: object
+          description: Device count breakdown by risk level.
+          properties:
+            critical:
+              type: integer
+            high:
+              type: integer
+            medium:
+              type: integer
+            low:
+              type: integer
+        by_site:
+          type: array
+          items:
+            type: object
+            properties:
+              site:
+                type: string
+              device_count:
+                type: integer
+          description: Device count breakdown by network site.
+        top_profiles:
+          type: array
+          items:
+            type: object
+            properties:
+              profile:
+                type: string
+              device_count:
+                type: integer
+          description: Most common device profiles.
+        report_time:
+          type: string
+          format: date-time
+          description: Timestamp when the report was generated.
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code or type.
+        message:
+          type: string
+          description: Human-readable error message.

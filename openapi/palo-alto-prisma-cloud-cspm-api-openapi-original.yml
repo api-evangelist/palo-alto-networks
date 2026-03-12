@@ -43,20 +43,23 @@ tags:
     description: Security policy management.
   - name: Compliance
     description: Compliance posture and reporting.
-  - name: Cloud Accounts
+  - name: CloudAccounts
     description: Cloud account onboarding and management.
-  - name: Asset Inventory
+  - name: AssetInventory
     description: Cloud resource inventory queries.
   - name: Search
     description: RQL-based resource and configuration search.
+  - name: Reports
+    description: Report management.
 paths:
   /login:
     post:
       operationId: login
-      summary: Login
+      summary: Authenticate and get JWT token
       description: >-
-        Authenticates with access key credentials and returns a JWT token
-        for subsequent API calls. Tokens are valid for 10 minutes.
+        Authenticates with Prisma Cloud access key credentials and returns
+        a JWT token for subsequent API calls. Tokens are valid for 10
+        minutes.
       tags:
         - Authentication
       security: []
@@ -103,14 +106,15 @@ paths:
                           type: boolean
         '401':
           description: Invalid credentials.
-  /v2/alert:
+  /alert:
     get:
       operationId: getAlerts
       summary: List alerts
       description: >-
         Returns security alerts matching the specified filters. Supports
         filtering by status, severity, policy, time range, cloud type,
-        and account.
+        and account. The timeType, timeAmount, and timeUnit parameters
+        control the time range filter for relative time windows.
       tags:
         - Alerts
       parameters:
@@ -140,6 +144,44 @@ paths:
               - week
               - month
               - year
+        - name: startTime
+          in: query
+          description: Start time in epoch milliseconds for absolute time type.
+          schema:
+            type: integer
+        - name: endTime
+          in: query
+          description: End time in epoch milliseconds for absolute time type.
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: Maximum number of alerts to return.
+          schema:
+            type: integer
+            default: 10000
+        - name: offset
+          in: query
+          description: Pagination offset.
+          schema:
+            type: integer
+            default: 0
+        - name: severity
+          in: query
+          description: Filter by alert severity.
+          schema:
+            type: string
+            enum:
+              - critical
+              - high
+              - medium
+              - low
+              - informational
+        - name: policy.id
+          in: query
+          description: Filter alerts by policy identifier.
+          schema:
+            type: string
         - name: detailed
           in: query
           description: Include full alert details.
@@ -148,50 +190,7 @@ paths:
             default: false
       responses:
         '200':
-          description: Alerts returned.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Alert'
-    post:
-      operationId: getAlertsFiltered
-      summary: List alerts with filters
-      description: >-
-        Returns alerts matching complex filter criteria specified in the
-        request body.
-      tags:
-        - Alerts
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                timeRange:
-                  $ref: '#/components/schemas/TimeRange'
-                filters:
-                  type: array
-                  items:
-                    $ref: '#/components/schemas/AlertFilter'
-                sortBy:
-                  type: array
-                  items:
-                    type: string
-                limit:
-                  type: integer
-                  default: 10000
-                offset:
-                  type: integer
-                  default: 0
-                detailed:
-                  type: boolean
-                  default: false
-      responses:
-        '200':
-          description: Filtered alerts returned.
+          description: Alerts returned successfully.
           content:
             application/json:
               schema:
@@ -199,39 +198,53 @@ paths:
                 properties:
                   totalRows:
                     type: integer
+                    description: Total number of alerts matching filters.
                   items:
                     type: array
                     items:
                       $ref: '#/components/schemas/Alert'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /alert/{id}:
     get:
       operationId: getAlert
       summary: Get alert details
-      description: Returns full details for a specific alert.
+      description: Returns full details for a specific security alert.
       tags:
         - Alerts
       parameters:
         - name: id
           in: path
           required: true
+          description: Unique alert identifier.
           schema:
             type: string
-          description: Alert ID.
       responses:
         '200':
-          description: Alert details returned.
+          description: Alert details returned successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Alert'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
-          description: Alert not found.
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /alert/dismiss:
     post:
       operationId: dismissAlerts
       summary: Dismiss alerts
-      description: >-
-        Dismisses one or more alerts with a reason and optional note.
+      description: Dismisses one or more security alerts with a reason and optional note.
       tags:
         - Alerts
       requestBody:
@@ -251,6 +264,7 @@ paths:
                     properties:
                       id:
                         type: string
+                  description: List of alert IDs to dismiss.
                 dismissalNote:
                   type: string
                   description: Reason for dismissal.
@@ -267,10 +281,55 @@ paths:
                         $ref: '#/components/schemas/AlertFilter'
       responses:
         '200':
-          description: Alerts dismissed.
-  /v2/policy:
+          description: Alerts dismissed successfully.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /alert/reopen:
+    post:
+      operationId: reopenAlerts
+      summary: Reopen dismissed alerts
+      description: >-
+        Reopens one or more previously dismissed alerts, restoring them
+        to open status for active review.
+      tags:
+        - Alerts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - alerts
+              properties:
+                alerts:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                  description: List of dismissed alert IDs to reopen.
+      responses:
+        '200':
+          description: Alerts reopened successfully.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /policy:
     get:
-      operationId: getPolicies
+      operationId: listPolicies
       summary: List policies
       description: >-
         Returns all security policies including built-in and custom
@@ -279,16 +338,22 @@ paths:
         - Policies
       responses:
         '200':
-          description: Policies returned.
+          description: Policies returned successfully.
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/Policy'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
     post:
       operationId: createPolicy
-      summary: Create custom policy
+      summary: Create a custom policy
       description: Creates a new custom security policy with an RQL query.
       tags:
         - Policies
@@ -300,12 +365,20 @@ paths:
               $ref: '#/components/schemas/PolicyInput'
       responses:
         '200':
-          description: Policy created.
+          description: Policy created successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Policy'
-  /v2/policy/{id}:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /policy/{policyId}:
     get:
       operationId: getPolicy
       summary: Get policy details
@@ -313,28 +386,38 @@ paths:
       tags:
         - Policies
       parameters:
-        - name: id
+        - name: policyId
           in: path
           required: true
+          description: Unique policy identifier.
           schema:
             type: string
       responses:
         '200':
-          description: Policy returned.
+          description: Policy returned successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Policy'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
     put:
       operationId: updatePolicy
-      summary: Update policy
-      description: Updates an existing policy.
+      summary: Update a policy
+      description: Updates an existing security policy.
       tags:
         - Policies
       parameters:
-        - name: id
+        - name: policyId
           in: path
           required: true
+          description: Unique policy identifier.
           schema:
             type: string
       requestBody:
@@ -345,93 +428,59 @@ paths:
               $ref: '#/components/schemas/PolicyInput'
       responses:
         '200':
-          description: Policy updated.
-    delete:
-      operationId: deletePolicy
-      summary: Delete policy
-      description: Deletes a custom policy.
-      tags:
-        - Policies
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '204':
-          description: Policy deleted.
-  /compliance/posture:
-    get:
-      operationId: getCompliancePosture
-      summary: Get compliance posture
-      description: >-
-        Returns the overall compliance posture across all monitored cloud
-        accounts, grouped by compliance standard and requirement.
-      tags:
-        - Compliance
-      parameters:
-        - name: timeType
-          in: query
-          schema:
-            type: string
-            enum:
-              - relative
-              - to_now
-        - name: timeAmount
-          in: query
-          schema:
-            type: integer
-        - name: timeUnit
-          in: query
-          schema:
-            type: string
-        - name: cloudType
-          in: query
-          schema:
-            type: string
-            enum:
-              - aws
-              - azure
-              - gcp
-              - oci
-              - alibaba_cloud
-      responses:
-        '200':
-          description: Compliance posture returned.
+          description: Policy updated successfully.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  complianceDetails:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        name:
-                          type: string
-                        description:
-                          type: string
-                        passedResources:
-                          type: integer
-                        failedResources:
-                          type: integer
-                        totalResources:
-                          type: integer
+                $ref: '#/components/schemas/Policy'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /cloud:
+    get:
+      operationId: listCloudAccounts
+      summary: List cloud accounts
+      description: >-
+        Returns a list of all cloud accounts onboarded to Prisma Cloud
+        for security monitoring.
+      tags:
+        - CloudAccounts
+      responses:
+        '200':
+          description: Cloud accounts returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CloudAccount'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /cloud/{cloudType}:
     post:
       operationId: addCloudAccount
-      summary: Onboard cloud account
+      summary: Add a cloud account
       description: >-
         Onboards a cloud account (AWS, Azure, GCP, or OCI) for security
         monitoring. Requires appropriate cloud credentials and permissions.
       tags:
-        - Cloud Accounts
+        - CloudAccounts
       parameters:
         - name: cloudType
           in: path
           required: true
+          description: Cloud provider type to onboard.
           schema:
             type: string
             enum:
@@ -445,6 +494,9 @@ paths:
           application/json:
             schema:
               type: object
+              required:
+                - accountId
+                - name
               properties:
                 accountId:
                   type: string
@@ -452,6 +504,7 @@ paths:
                 enabled:
                   type: boolean
                   default: true
+                  description: Whether monitoring is enabled for this account.
                 name:
                   type: string
                   description: Display name for the account.
@@ -462,80 +515,61 @@ paths:
                   description: Account group IDs to associate.
       responses:
         '200':
-          description: Cloud account onboarded.
-  /v2/inventory:
-    get:
-      operationId: getAssetInventory
-      summary: Get asset inventory
+          description: Cloud account onboarded successfully.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /cloud/{cloudType}/{id}:
+    delete:
+      operationId: removeCloudAccount
+      summary: Remove a cloud account
       description: >-
-        Returns a summary of cloud assets monitored by Prisma Cloud grouped
-        by service, region, or account.
+        Removes a cloud account from Prisma Cloud monitoring. All
+        associated alerts and data are retained for historical analysis.
       tags:
-        - Asset Inventory
+        - CloudAccounts
       parameters:
-        - name: timeType
-          in: query
-          schema:
-            type: string
-        - name: timeAmount
-          in: query
-          schema:
-            type: integer
-        - name: timeUnit
-          in: query
-          schema:
-            type: string
-        - name: groupBy
-          in: query
-          description: Group inventory results.
+        - name: cloudType
+          in: path
+          required: true
+          description: Cloud provider type.
           schema:
             type: string
             enum:
-              - cloud.service
-              - cloud.region
-              - cloud.account
-              - resource.type
+              - aws
+              - azure
+              - gcp
+              - oci
+        - name: id
+          in: path
+          required: true
+          description: Cloud account identifier.
+          schema:
+            type: string
       responses:
         '200':
-          description: Asset inventory returned.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  summary:
-                    type: object
-                    properties:
-                      totalResources:
-                        type: integer
-                      passedResources:
-                        type: integer
-                      failedResources:
-                        type: integer
-                      highSeverityFailedResources:
-                        type: integer
-                  groupedAggregates:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        name:
-                          type: string
-                        totalResources:
-                          type: integer
-                        failedResources:
-                          type: integer
-                        passedResources:
-                          type: integer
-  /search/config:
+          description: Cloud account removed successfully.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /search/asset:
     post:
-      operationId: searchConfig
-      summary: Search cloud resources
+      operationId: searchAsset
+      summary: Search assets with RQL
       description: >-
-        Executes an RQL (Resource Query Language) query against cloud
-        resource configurations. Supports config, network, and event
-        query types for investigating security posture and resource
-        relationships.
+        Executes an RQL (Resource Query Language) asset query against
+        cloud resource configurations and returns matching resources.
+        Supports config, network, and event query types.
       tags:
         - Search
       requestBody:
@@ -563,42 +597,115 @@ paths:
                   default: false
       responses:
         '200':
-          description: Search results returned.
+          description: Asset search results returned successfully.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  cloudType:
-                    type: string
-                  query:
-                    type: string
-                  data:
-                    type: object
-                    properties:
-                      totalRows:
-                        type: integer
-                      items:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            id:
-                              type: string
-                            name:
-                              type: string
-                            cloudType:
-                              type: string
-                            accountId:
-                              type: string
-                            accountName:
-                              type: string
-                            regionId:
-                              type: string
-                            resourceType:
-                              type: string
-                            overallPassed:
-                              type: boolean
+                $ref: '#/components/schemas/SearchResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /search/config:
+    post:
+      operationId: searchConfig
+      summary: Search cloud resource configurations
+      description: >-
+        Executes an RQL config query against cloud resource configurations.
+        Returns resources matching the query criteria with their
+        configuration details.
+      tags:
+        - Search
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - query
+                - timeRange
+              properties:
+                query:
+                  type: string
+                  description: RQL config query string.
+                timeRange:
+                  $ref: '#/components/schemas/TimeRange'
+                limit:
+                  type: integer
+                  default: 100
+                withResourceJson:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Config search results returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /compliance:
+    get:
+      operationId: listComplianceStandards
+      summary: List compliance standards
+      description: >-
+        Returns a list of compliance standards available in Prisma Cloud,
+        including built-in standards (CIS, NIST, PCI-DSS, HIPAA, SOC 2)
+        and custom standards.
+      tags:
+        - Compliance
+      responses:
+        '200':
+          description: Compliance standards returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ComplianceStandard'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /report:
+    get:
+      operationId: listReports
+      summary: List reports
+      description: >-
+        Returns a list of configured reports including scheduled and
+        on-demand reports for compliance, asset inventory, and alert
+        summaries.
+      tags:
+        - Reports
+      responses:
+        '200':
+          description: Reports returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Report'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 components:
   securitySchemes:
     bearerAuth:
@@ -607,12 +714,45 @@ components:
       bearerFormat: JWT
       description: >-
         JWT token obtained from the /login endpoint. Valid for 10 minutes.
+        Include as Authorization: Bearer <token> in request headers.
+  responses:
+    BadRequest:
+      description: Invalid request parameters or body.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Invalid or expired JWT token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   schemas:
     Alert:
       type: object
       properties:
         id:
           type: string
+          description: Unique alert identifier.
         status:
           type: string
           enum:
@@ -620,15 +760,19 @@ components:
             - dismissed
             - snoozed
             - resolved
+          description: Current alert status.
         reason:
           type: string
+          description: Reason for the current alert status.
         firstSeen:
           type: integer
-          description: Epoch timestamp in milliseconds.
+          description: Epoch timestamp in milliseconds when the alert was first generated.
         lastSeen:
           type: integer
+          description: Epoch timestamp in milliseconds when the alert was last seen.
         alertTime:
           type: integer
+          description: Epoch timestamp in milliseconds of the alert.
         policy:
           type: object
           properties:
@@ -641,13 +785,14 @@ components:
             severity:
               type: string
               enum:
-                - low
-                - medium
-                - high
                 - critical
+                - high
+                - medium
+                - low
                 - informational
             recommendation:
               type: string
+          description: Policy that generated this alert.
         resource:
           type: object
           properties:
@@ -668,6 +813,7 @@ components:
               type: string
             resourceType:
               type: string
+          description: Cloud resource associated with the alert.
         riskDetail:
           type: object
           properties:
@@ -717,8 +863,10 @@ components:
       properties:
         policyId:
           type: string
+          description: Unique policy identifier.
         name:
           type: string
+          description: Policy name.
         policyType:
           type: string
           enum:
@@ -728,24 +876,31 @@ components:
             - anomaly
             - data
             - iam
+          description: Type of policy check.
         severity:
           type: string
           enum:
-            - low
-            - medium
-            - high
             - critical
+            - high
+            - medium
+            - low
             - informational
+          description: Policy severity level.
         description:
           type: string
+          description: Policy description.
         recommendation:
           type: string
+          description: Recommended remediation for policy violations.
         cloudType:
           type: string
+          description: Cloud provider the policy applies to.
         enabled:
           type: boolean
+          description: Whether the policy is active.
         systemDefault:
           type: boolean
+          description: Whether this is a built-in policy.
         rule:
           type: object
           properties:
@@ -806,3 +961,139 @@ components:
               description: RQL query for the policy rule.
             type:
               type: string
+    CloudAccount:
+      type: object
+      properties:
+        accountId:
+          type: string
+          description: Cloud provider account identifier.
+        name:
+          type: string
+          description: Display name of the account.
+        cloudType:
+          type: string
+          enum:
+            - aws
+            - azure
+            - gcp
+            - oci
+          description: Cloud provider type.
+        enabled:
+          type: boolean
+          description: Whether monitoring is enabled.
+        numberOfPolicies:
+          type: integer
+          description: Number of policies applied to this account.
+        lastModifiedTs:
+          type: integer
+          description: Epoch timestamp of last modification.
+    SearchResult:
+      type: object
+      properties:
+        cloudType:
+          type: string
+          description: Cloud provider type for the search results.
+        query:
+          type: string
+          description: RQL query that was executed.
+        data:
+          type: object
+          properties:
+            totalRows:
+              type: integer
+              description: Total number of matching resources.
+            items:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  name:
+                    type: string
+                  cloudType:
+                    type: string
+                  accountId:
+                    type: string
+                  accountName:
+                    type: string
+                  regionId:
+                    type: string
+                  resourceType:
+                    type: string
+                  overallPassed:
+                    type: boolean
+    ComplianceStandard:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique compliance standard identifier.
+        name:
+          type: string
+          description: Name of the compliance standard.
+        description:
+          type: string
+          description: Standard description.
+        cloudType:
+          type: array
+          items:
+            type: string
+          description: Cloud providers the standard applies to.
+        systemDefault:
+          type: boolean
+          description: Whether this is a built-in compliance standard.
+        policiesAssigned:
+          type: integer
+          description: Number of policies mapped to this standard.
+        createdBy:
+          type: string
+          description: User who created the standard.
+        lastModifiedTs:
+          type: integer
+          description: Epoch timestamp of last modification.
+    Report:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique report identifier.
+        name:
+          type: string
+          description: Report name.
+        type:
+          type: string
+          description: Report type.
+          enum:
+            - RIS
+            - COMPLIANCE
+            - ALERT
+        status:
+          type: string
+          enum:
+            - pending
+            - processing
+            - completed
+            - failed
+          description: Current report generation status.
+        createdOn:
+          type: integer
+          description: Epoch timestamp when the report was created.
+        lastModifiedOn:
+          type: integer
+          description: Epoch timestamp of last modification.
+        downloadUrl:
+          type: string
+          description: URL for downloading the completed report.
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          description: HTTP status code.
+        message:
+          type: string
+          description: Human-readable error message.
+        error:
+          type: string
+          description: Error code.

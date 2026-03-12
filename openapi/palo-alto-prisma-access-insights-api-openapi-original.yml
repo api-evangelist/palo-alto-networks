@@ -1,0 +1,473 @@
+openapi: 3.1.0
+info:
+  title: Palo Alto Networks Prisma Access Insights API
+  description: >-
+    REST API for querying the health and performance of Prisma Access network
+    deployments. Available across three API versions (v1.0, v2.0, v3.0),
+    the Insights API supports data resource queries for tunnel status, bandwidth
+    utilization, connected user analytics, site health, accelerated application
+    performance, and PAB events. Designed for both cloud-managed (TSG-based)
+    and Panorama-managed Prisma Access customers.
+  version: '3.0'
+  contact:
+    name: Palo Alto Networks Support
+    url: https://www.paloaltonetworks.com/services/support
+  termsOfService: https://www.paloaltonetworks.com/legal
+externalDocs:
+  description: Prisma Access Insights API Documentation
+  url: https://pan.dev/access/api/insights/
+
+servers:
+  - url: https://api.sase.paloaltonetworks.com
+    description: Prisma SASE Production API Server
+
+tags:
+  - name: Data Resources
+    description: Query Prisma Access deployment health and performance data resources
+  - name: Custom Queries
+    description: Execute custom data resource queries with filters and aggregations
+  - name: Data Exports
+    description: Export data resource results for external processing
+
+security:
+  - bearerAuth: []
+
+paths:
+  /insights/v3.0/resource/query/{resource_name}:
+    post:
+      operationId: queryDataResource
+      summary: Query a data resource
+      description: >-
+        Query a named Prisma Access data resource for health, performance, or
+        analytics data. Supports filtering by time range, site, user, application,
+        and other dimensions. Returns paginated results with optional histogram
+        and aggregation support.
+      tags:
+        - Data Resources
+      parameters:
+        - $ref: '#/components/parameters/ResourceName'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DataResourceQuery'
+      responses:
+        '200':
+          description: Data resource query results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataResourceResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /insights/v3.0/resource/custom-query:
+    post:
+      operationId: executeCustomQuery
+      summary: Execute a custom data resource query
+      description: >-
+        Execute a flexible custom query against Prisma Access monitoring data
+        with user-defined filters, groupings, and time ranges. Supports
+        advanced analytics use cases that require custom dimension combinations.
+      tags:
+        - Custom Queries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomQuery'
+      responses:
+        '200':
+          description: Custom query results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataResourceResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /insights/v3.0/resource/export/{resource_name}:
+    post:
+      operationId: exportDataResource
+      summary: Export data resource results
+      description: >-
+        Export data resource query results for bulk retrieval and external
+        processing. Returns a job ID that can be used to check export status
+        and retrieve the exported data file.
+      tags:
+        - Data Exports
+      parameters:
+        - $ref: '#/components/parameters/ResourceName'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DataResourceQuery'
+      responses:
+        '202':
+          description: Export job accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportJobResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /insights/v3.0/resource/export/{job_id}/status:
+    get:
+      operationId: getExportJobStatus
+      summary: Get export job status
+      description: >-
+        Check the status of a previously submitted data resource export job.
+        Returns the current status and a download URL when the export completes.
+      tags:
+        - Data Exports
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          description: Export job identifier returned when the export was submitted
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Export job status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportJobStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        OAuth 2.0 access token obtained from
+        https://auth.apps.paloaltonetworks.com/oauth2/access_token using
+        Client ID and Client Secret credentials scoped to the Tenant Service Group.
+
+  parameters:
+    ResourceName:
+      name: resource_name
+      in: path
+      required: true
+      description: >-
+        The name of the data resource to query. Common resources include
+        `tunnel_status`, `connected_users`, `site_bandwidth`, `app_experience`,
+        `pa_browser_events`, `gp_mobile_users`, `ipsec_tunnels`, `bgp_routes`.
+      schema:
+        type: string
+        enum:
+          - tunnel_status
+          - connected_users
+          - site_bandwidth
+          - app_experience
+          - pa_browser_events
+          - gp_mobile_users
+          - ipsec_tunnels
+          - bgp_routes
+          - alerts
+          - sdwan_sites
+
+  schemas:
+    DataResourceQuery:
+      type: object
+      description: Query parameters for a data resource request
+      properties:
+        query:
+          type: object
+          description: Query definition including filters and time range
+          properties:
+            properties:
+              type: object
+              description: Property filters for the query
+              properties:
+                time_range:
+                  $ref: '#/components/schemas/TimeRange'
+                filter:
+                  $ref: '#/components/schemas/QueryFilter'
+        count:
+          type: integer
+          description: Maximum number of results to return
+          minimum: 1
+          maximum: 1000
+          default: 100
+        histogram:
+          type: object
+          description: Histogram aggregation configuration
+          properties:
+            property:
+              type: string
+              description: Property to aggregate over
+            enabledGranularity:
+              type: string
+              enum:
+                - 15_MIN
+                - 1_HOUR
+                - 1_DAY
+              description: Time granularity for histogram buckets
+        group_by:
+          type: array
+          description: Properties to group results by
+          items:
+            type: string
+        sort:
+          type: object
+          description: Sort configuration for results
+          properties:
+            order:
+              type: string
+              enum:
+                - asc
+                - desc
+            property:
+              type: string
+
+    TimeRange:
+      type: object
+      description: Time range specification for the query
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          description: Type of time range (absolute or relative)
+          enum:
+            - ABSOLUTE
+            - RELATIVE
+        value:
+          type: object
+          description: Time range value (required for ABSOLUTE type)
+          properties:
+            from:
+              type: string
+              format: date-time
+              description: Start of the time range (ISO 8601)
+            to:
+              type: string
+              format: date-time
+              description: End of the time range (ISO 8601)
+        last:
+          type: object
+          description: Relative time range (required for RELATIVE type)
+          properties:
+            units:
+              type: string
+              enum:
+                - HOURS
+                - DAYS
+                - WEEKS
+              description: Unit of time for relative range
+            value:
+              type: integer
+              description: Number of units for relative range
+
+    QueryFilter:
+      type: object
+      description: Filter criteria for the data resource query
+      properties:
+        operator:
+          type: string
+          description: Logical operator for combining filter rules
+          enum:
+            - AND
+            - OR
+        rules:
+          type: array
+          description: List of filter rules
+          items:
+            type: object
+            properties:
+              property:
+                type: string
+                description: Property name to filter on
+              operator:
+                type: string
+                description: Comparison operator
+                enum:
+                  - equals
+                  - not_equals
+                  - contains
+                  - in
+                  - not_in
+                  - greater_than
+                  - less_than
+              values:
+                type: array
+                description: Values to match against
+                items:
+                  type: string
+
+    CustomQuery:
+      type: object
+      description: Custom query definition with flexible filters
+      properties:
+        resource:
+          type: string
+          description: Data resource to query
+        query:
+          $ref: '#/components/schemas/DataResourceQuery'
+
+    DataResourceResponse:
+      type: object
+      description: Response containing data resource query results
+      properties:
+        header:
+          type: object
+          description: Response metadata
+          properties:
+            requestId:
+              type: string
+              description: Unique request identifier
+            status:
+              type: string
+              enum:
+                - success
+                - failed
+                - partial
+            timestamp:
+              type: string
+              format: date-time
+        data:
+          type: array
+          description: Array of result records
+          items:
+            type: object
+            additionalProperties: true
+        count:
+          type: integer
+          description: Total number of records matching the query
+        pagination:
+          type: object
+          description: Pagination information
+          properties:
+            offset:
+              type: integer
+              description: Current result offset
+            limit:
+              type: integer
+              description: Page size
+
+    ExportJobResponse:
+      type: object
+      description: Response from a submitted export job
+      properties:
+        job_id:
+          type: string
+          description: Unique identifier for the export job
+        status:
+          type: string
+          enum:
+            - PENDING
+            - RUNNING
+            - COMPLETED
+            - FAILED
+          description: Current job status
+        submitted_at:
+          type: string
+          format: date-time
+          description: Job submission timestamp
+
+    ExportJobStatus:
+      type: object
+      description: Status and result of an export job
+      properties:
+        job_id:
+          type: string
+          description: Export job identifier
+        status:
+          type: string
+          enum:
+            - PENDING
+            - RUNNING
+            - COMPLETED
+            - FAILED
+          description: Current job status
+        download_url:
+          type: string
+          format: uri
+          description: Signed URL to download the export file (available when COMPLETED)
+        expires_at:
+          type: string
+          format: date-time
+          description: Expiration time of the download URL
+        error_message:
+          type: string
+          description: Error description if the job failed
+
+    ErrorResponse:
+      type: object
+      description: Standard error response structure
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code
+            message:
+              type: string
+              description: Human-readable error description
+
+  responses:
+    BadRequest:
+      description: Bad request — invalid query parameters or request body
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Unauthorized — missing or invalid access token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Forbidden — insufficient permissions for the requested resource
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Not found — the requested resource or job does not exist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

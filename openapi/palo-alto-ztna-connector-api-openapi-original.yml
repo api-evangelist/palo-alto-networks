@@ -2,15 +2,14 @@ openapi: 3.1.0
 info:
   title: ZTNA Connector API
   description: >-
-    REST API for the Palo Alto Networks ZTNA Connector service providing
-    programmatic access to Zero Trust Network Access connector management,
-    connector group configuration, and application definition. ZTNA
-    Connectors enable secure access to private applications without
-    requiring inbound firewall rules or VPN infrastructure. Connectors
-    are deployed in the customer environment and establish outbound
-    connections to Prisma Access, which brokers authenticated user
-    access to internal applications.
-  version: '1.0'
+    ZTNA Connector API for zero trust network access management. Provides
+    programmatic control over ZTNA connectors, connector groups, protected
+    applications, FQDN-based access rules, subnet-based access rules, and
+    license information. Connectors are software agents deployed in private
+    network environments that provide secure access paths for ZTNA-protected
+    applications without requiring inbound firewall rules. Part of the Palo
+    Alto Networks SASE platform.
+  version: '2.0'
   contact:
     name: Palo Alto Networks Developer Support
     url: https://pan.dev/
@@ -18,64 +17,64 @@ info:
     name: Proprietary
     url: https://www.paloaltonetworks.com/legal
 servers:
-  - url: https://api.sase.paloaltonetworks.com
-    description: ZTNA Connector SASE API server.
+  - url: https://api.sase.paloaltonetworks.com/ztna
+    description: SASE ZTNA Connector API production server.
 security:
-  - oauth2: []
+  - oauth2Bearer: []
 tags:
   - name: Connectors
-    description: >-
-      ZTNA Connector instance management for deploying and monitoring
-      lightweight connectors in private network environments.
-  - name: ConnectorGroups
-    description: >-
-      Connector group management for organizing connectors by location,
-      network segment, or application tier for high availability.
+    description: ZTNA connector lifecycle management.
+  - name: Connector Groups
+    description: Logical grouping of ZTNA connectors for high availability.
   - name: Applications
-    description: >-
-      Private application definitions that specify the internal resources
-      accessible through ZTNA Connectors.
+    description: ZTNA-protected application definitions.
+  - name: FQDN Rules
+    description: FQDN-based access rules for ZTNA applications.
+  - name: Subnet Rules
+    description: Subnet-based access rules for ZTNA network segments.
+  - name: Licenses
+    description: ZTNA license and entitlement information.
 paths:
-  /ztna/v1/connectors:
+  /v2/connectors:
     get:
       operationId: listConnectors
       summary: List ZTNA connectors
       description: >-
-        Returns a list of all ZTNA Connectors deployed in the tenant.
-        Each connector represents a lightweight software agent running
-        in the customer environment that provides secure connectivity
-        to private applications. Includes status information such as
-        connection state, version, and health metrics.
+        Returns the list of ZTNA connectors configured for the tenant.
+        Connectors are software agents deployed in private network environments.
+        Each connector entry includes its current health status, associated
+        connector group, software version, and connected application count.
       tags:
         - Connectors
       parameters:
+        - name: group_id
+          in: query
+          description: Filter connectors by connector group ID.
+          schema:
+            type: string
         - name: status
           in: query
-          description: Filter connectors by operational status.
+          description: Filter connectors by health status.
           schema:
             type: string
             enum:
               - connected
               - disconnected
-              - pending
-        - name: connector_group_id
-          in: query
-          description: Filter connectors by connector group.
-          schema:
-            type: string
+              - upgrading
+              - error
         - name: offset
           in: query
-          description: Starting offset for pagination.
+          description: Number of results to skip for pagination.
           schema:
             type: integer
             default: 0
         - name: limit
           in: query
-          description: Maximum number of results to return.
+          description: Maximum number of connectors to return.
           schema:
             type: integer
-            default: 100
-            maximum: 500
+            default: 50
+            maximum: 200
       responses:
         '200':
           description: Connectors returned.
@@ -84,29 +83,48 @@ paths:
               schema:
                 type: object
                 properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Connector'
                   total:
                     type: integer
                   offset:
                     type: integer
                   limit:
                     type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Connector'
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       operationId: createConnector
-      summary: Create a ZTNA connector
+      summary: Create ZTNA connector
       description: >-
-        Creates a new ZTNA Connector registration. This generates a
-        connector identity and enrollment token that is used during
-        the connector deployment process. The connector must be
-        installed in the customer environment using the provided
-        enrollment token to establish connectivity with Prisma Access.
+        Creates a new ZTNA connector configuration and generates the
+        installation token needed to deploy the connector software in a
+        private network environment. The connector must be assigned to an
+        existing connector group.
       tags:
         - Connectors
       requestBody:
@@ -114,73 +132,280 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - name
-                - connector_group_id
-              properties:
-                name:
-                  type: string
-                  description: Display name for the connector.
-                connector_group_id:
-                  type: string
-                  description: >-
-                    Identifier of the connector group this connector
-                    belongs to.
-                description:
-                  type: string
-                  description: Optional description of the connector.
+              $ref: '#/components/schemas/ConnectorRequest'
       responses:
         '201':
-          description: Connector created.
+          description: Connector created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Connector'
+        '400':
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v2/connectors/{connector_id}:
+    get:
+      operationId: getConnector
+      summary: Get ZTNA connector
+      description: Returns full details for a specific ZTNA connector by ID.
+      tags:
+        - Connectors
+      parameters:
+        - name: connector_id
+          in: path
+          required: true
+          description: Unique identifier of the connector.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Connector details returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Connector'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Connector not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: updateConnector
+      summary: Update ZTNA connector
+      description: Updates the configuration of an existing ZTNA connector.
+      tags:
+        - Connectors
+      parameters:
+        - name: connector_id
+          in: path
+          required: true
+          description: Unique identifier of the connector to update.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConnectorRequest'
+      responses:
+        '200':
+          description: Connector updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Connector'
+        '400':
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Connector not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteConnector
+      summary: Delete ZTNA connector
+      description: >-
+        Deletes a ZTNA connector. The connector must be in a disconnected
+        state before deletion. Any applications relying on this connector
+        must be reassigned first.
+      tags:
+        - Connectors
+      parameters:
+        - name: connector_id
+          in: path
+          required: true
+          description: Unique identifier of the connector to delete.
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Connector deleted successfully.
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Connector not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v2/connectors/{connector_id}/upgrade:
+    post:
+      operationId: scheduleConnectorUpgrade
+      summary: Schedule connector upgrade
+      description: >-
+        Schedules a software upgrade for a specific ZTNA connector. The
+        upgrade can be scheduled for immediate execution or for a specified
+        maintenance window. During the upgrade, the connector briefly
+        disconnects; traffic is routed through other connectors in the
+        same group if available.
+      tags:
+        - Connectors
+      parameters:
+        - name: connector_id
+          in: path
+          required: true
+          description: Unique identifier of the connector to upgrade.
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scheduled_at:
+                  type: string
+                  format: date-time
+                  description: >-
+                    Scheduled time for the upgrade. If omitted, the upgrade
+                    starts immediately.
+                target_version:
+                  type: string
+                  description: >-
+                    Target software version. If omitted, upgrades to the
+                    latest available version.
+      responses:
+        '200':
+          description: Upgrade scheduled successfully.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  id:
+                  connector_id:
                     type: string
-                    description: Unique identifier for the new connector.
-                  name:
+                  upgrade_status:
                     type: string
-                  enrollment_token:
-                    type: string
-                    description: >-
-                      One-time enrollment token used during connector
-                      installation. This token is only returned once
-                      and cannot be retrieved again.
-                  connector_group_id:
-                    type: string
-                  created_at:
+                    enum:
+                      - scheduled
+                      - in_progress
+                  scheduled_at:
                     type: string
                     format: date-time
+                  target_version:
+                    type: string
         '400':
-          $ref: '#/components/responses/BadRequest'
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
-          $ref: '#/components/responses/Unauthorized'
-  /ztna/v1/connector-groups:
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Connector not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v2/connector-groups:
     get:
       operationId: listConnectorGroups
       summary: List connector groups
       description: >-
-        Returns a list of all ZTNA Connector groups. Connector groups
-        organize multiple connectors that serve the same set of
-        applications, enabling high availability and load distribution.
-        When a connector in a group becomes unavailable, traffic is
-        automatically routed to other healthy connectors in the group.
+        Returns the list of connector groups. Connector groups logically
+        group multiple connectors for high availability and load balancing.
+        Applications are assigned to connector groups rather than individual
+        connectors.
       tags:
-        - ConnectorGroups
-      parameters:
-        - name: offset
-          in: query
-          schema:
-            type: integer
-            default: 0
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            default: 100
+        - Connector Groups
       responses:
         '200':
           description: Connector groups returned.
@@ -189,403 +414,941 @@ paths:
               schema:
                 type: object
                 properties:
-                  data:
+                  total:
+                    type: integer
+                  items:
                     type: array
                     items:
                       $ref: '#/components/schemas/ConnectorGroup'
-                  total:
-                    type: integer
-                  offset:
-                    type: integer
-                  limit:
-                    type: integer
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       operationId: createConnectorGroup
-      summary: Create a connector group
-      description: >-
-        Creates a new ZTNA Connector group. A connector group defines
-        a logical grouping of connectors that share the same network
-        access scope. Applications are mapped to connector groups, and
-        any connector in the group can service requests for the
-        associated applications.
+      summary: Create connector group
+      description: Creates a new connector group for organizing ZTNA connectors.
       tags:
-        - ConnectorGroups
+        - Connector Groups
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - name
-                - region
-              properties:
-                name:
-                  type: string
-                  description: Display name for the connector group.
-                description:
-                  type: string
-                region:
-                  type: string
-                  description: >-
-                    Prisma Access region where this connector group
-                    establishes its tunnel endpoints (e.g., us-east-1,
-                    eu-west-1, ap-southeast-1).
-                dns_servers:
-                  type: array
-                  description: >-
-                    DNS servers used by connectors in this group to
-                    resolve internal application hostnames.
-                  items:
-                    type: string
-                    format: ipv4
-                internal_dns_suffix:
-                  type: array
-                  description: >-
-                    Internal DNS suffixes for split-DNS resolution.
-                    Queries matching these suffixes are resolved using
-                    the specified DNS servers.
-                  items:
-                    type: string
+              $ref: '#/components/schemas/ConnectorGroupRequest'
       responses:
         '201':
-          description: Connector group created.
+          description: Connector group created successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ConnectorGroup'
         '400':
-          $ref: '#/components/responses/BadRequest'
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
-          $ref: '#/components/responses/Unauthorized'
-  /ztna/v1/applications:
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v2/connector-groups/{group_id}:
     get:
-      operationId: listApplications
-      summary: List ZTNA applications
-      description: >-
-        Returns a list of private applications configured for access
-        through ZTNA Connectors. Each application defines the internal
-        resource (hostname, IP, port, protocol) that users can access
-        through the zero trust access broker. Applications are mapped
-        to connector groups that provide the network path to the
-        resource.
+      operationId: getConnectorGroup
+      summary: Get connector group
+      description: Returns full details for a specific connector group.
       tags:
-        - Applications
+        - Connector Groups
       parameters:
-        - name: connector_group_id
-          in: query
-          description: Filter applications by connector group.
+        - name: group_id
+          in: path
+          required: true
+          description: Unique identifier of the connector group.
           schema:
             type: string
-        - name: enabled
-          in: query
-          description: Filter by application enabled state.
-          schema:
-            type: boolean
-        - name: offset
-          in: query
-          schema:
-            type: integer
-            default: 0
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            default: 100
       responses:
         '200':
-          description: Applications returned.
+          description: Connector group details returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectorGroup'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Connector group not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: updateConnectorGroup
+      summary: Update connector group
+      description: Updates an existing connector group configuration.
+      tags:
+        - Connector Groups
+      parameters:
+        - name: group_id
+          in: path
+          required: true
+          description: Unique identifier of the connector group to update.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConnectorGroupRequest'
+      responses:
+        '200':
+          description: Connector group updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectorGroup'
+        '400':
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Connector group not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteConnectorGroup
+      summary: Delete connector group
+      description: >-
+        Deletes a connector group. The group must have no connectors assigned
+        before deletion.
+      tags:
+        - Connector Groups
+      parameters:
+        - name: group_id
+          in: path
+          required: true
+          description: Unique identifier of the connector group to delete.
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Connector group deleted successfully.
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Connector group not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v2/applications:
+    get:
+      operationId: listZTNAApplications
+      summary: List ZTNA-protected applications
+      description: >-
+        Returns the list of applications protected by ZTNA. Each application
+        defines the private resource users can access along with the connector
+        group that provides access.
+      tags:
+        - Applications
+      responses:
+        '200':
+          description: ZTNA applications returned.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Application'
                   total:
                     type: integer
-                  offset:
-                    type: integer
-                  limit:
-                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ZTNAApplication'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createZTNAApplication
+      summary: Create ZTNA application
+      description: Creates a new ZTNA-protected application definition.
+      tags:
+        - Applications
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZTNAApplicationRequest'
+      responses:
+        '201':
+          description: ZTNA application created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZTNAApplication'
+        '400':
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v2/applications/{app_id}:
+    get:
+      operationId: getZTNAApplication
+      summary: Get ZTNA application
+      description: Returns full details for a specific ZTNA-protected application.
+      tags:
+        - Applications
+      parameters:
+        - name: app_id
+          in: path
+          required: true
+          description: Unique identifier of the ZTNA application.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ZTNA application details returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZTNAApplication'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ZTNA application not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: updateZTNAApplication
+      summary: Update ZTNA application
+      description: Updates an existing ZTNA-protected application definition.
+      tags:
+        - Applications
+      parameters:
+        - name: app_id
+          in: path
+          required: true
+          description: Unique identifier of the ZTNA application to update.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZTNAApplicationRequest'
+      responses:
+        '200':
+          description: ZTNA application updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZTNAApplication'
+        '400':
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ZTNA application not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteZTNAApplication
+      summary: Delete ZTNA application
+      description: Deletes a ZTNA-protected application definition.
+      tags:
+        - Applications
+      parameters:
+        - name: app_id
+          in: path
+          required: true
+          description: Unique identifier of the ZTNA application to delete.
+          schema:
+            type: string
+      responses:
+        '204':
+          description: ZTNA application deleted successfully.
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ZTNA application not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v2/fqdn-rules:
+    get:
+      operationId: listFQDNRules
+      summary: List FQDN-based access rules
+      description: >-
+        Returns the list of FQDN-based access rules that define which
+        hostnames are accessible through ZTNA. FQDN rules specify the
+        domain patterns and ports that users can reach through a connector
+        group.
+      tags:
+        - FQDN Rules
+      responses:
+        '200':
+          description: FQDN rules returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FQDNRule'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createFQDNRule
+      summary: Create FQDN-based access rule
+      description: Creates a new FQDN-based access rule for ZTNA.
+      tags:
+        - FQDN Rules
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FQDNRuleRequest'
+      responses:
+        '201':
+          description: FQDN rule created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FQDNRule'
+        '400':
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v2/subnet-rules:
+    get:
+      operationId: listSubnetRules
+      summary: List subnet-based access rules
+      description: >-
+        Returns the list of subnet-based access rules that define which IP
+        network ranges are accessible through ZTNA connectors.
+      tags:
+        - Subnet Rules
+      responses:
+        '200':
+          description: Subnet rules returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SubnetRule'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createSubnetRule
+      summary: Create subnet-based access rule
+      description: Creates a new subnet-based access rule for ZTNA.
+      tags:
+        - Subnet Rules
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubnetRuleRequest'
+      responses:
+        '201':
+          description: Subnet rule created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubnetRule'
+        '400':
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v2/licenses:
+    get:
+      operationId: getZTNALicenses
+      summary: Get ZTNA license information
+      description: >-
+        Returns current ZTNA license entitlements including the number of
+        licensed users, active users, and subscription expiration date.
+      tags:
+        - Licenses
+      responses:
+        '200':
+          description: License information returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LicenseInfo'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   securitySchemes:
-    oauth2:
-      type: oauth2
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
       description: >-
-        OAuth 2.0 client credentials flow for obtaining an access token.
-        Requires a client ID and client secret from the Palo Alto Networks
-        SASE identity provider. The access token must be included as a
-        Bearer token in the Authorization header.
-      flows:
-        clientCredentials:
-          tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
-          scopes: {}
-  responses:
-    Unauthorized:
-      description: Missing or invalid OAuth2 access token.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Forbidden:
-      description: Insufficient permissions for this operation.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    BadRequest:
-      description: Invalid request parameters or body.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
+        OAuth 2.0 Bearer token for SASE platform authentication. Obtain
+        using the client_credentials grant with your SASE service account
+        client ID and client secret.
   schemas:
     Connector:
       type: object
       properties:
-        id:
+        connector_id:
           type: string
-          description: Unique identifier for the connector.
-          readOnly: true
+          description: Unique identifier of the connector.
         name:
           type: string
           description: Display name of the connector.
-        description:
+        group_id:
           type: string
-        connector_group_id:
-          type: string
-          description: Identifier of the connector group this connector belongs to.
-        connector_group_name:
-          type: string
-          description: Name of the associated connector group.
-          readOnly: true
+          description: ID of the connector group this connector belongs to.
         status:
           type: string
           enum:
             - connected
             - disconnected
-            - pending
+            - upgrading
             - error
-          description: Current operational status of the connector.
-          readOnly: true
+          description: Current health status of the connector.
         version:
           type: string
-          description: Software version of the connector agent.
-          readOnly: true
+          description: Installed connector software version.
         hostname:
           type: string
-          description: Hostname of the machine running the connector.
-          readOnly: true
-        private_ip:
+          description: Hostname of the system where the connector is installed.
+        ip_address:
           type: string
-          format: ipv4
-          description: Private IP address of the connector host.
-          readOnly: true
-        public_ip:
+          description: IP address of the connector host.
+        region:
           type: string
-          format: ipv4
-          description: Public IP address observed by the Prisma Access service.
-          readOnly: true
-        platform:
-          type: string
-          enum:
-            - linux
-            - docker
-            - kubernetes
-            - vmware
-          description: Deployment platform of the connector.
-          readOnly: true
-        last_heartbeat:
+          description: Geographic region where the connector is deployed.
+        last_seen_at:
           type: string
           format: date-time
-          description: Timestamp of the last heartbeat received from the connector.
-          readOnly: true
-        uptime_seconds:
-          type: integer
-          description: Duration in seconds since the connector last started.
-          readOnly: true
-        active_connections:
-          type: integer
-          description: Number of active user sessions through this connector.
-          readOnly: true
+          description: Timestamp of the connector's most recent heartbeat.
         created_at:
           type: string
           format: date-time
-          readOnly: true
-        updated_at:
-          type: string
-          format: date-time
-          readOnly: true
+    ConnectorRequest:
+      type: object
       required:
         - name
-        - connector_group_id
+        - group_id
+      properties:
+        name:
+          type: string
+          description: Display name for the connector.
+        group_id:
+          type: string
+          description: ID of the connector group to assign the connector to.
+        description:
+          type: string
+          description: Optional description of the connector's purpose or location.
     ConnectorGroup:
       type: object
       properties:
-        id:
+        group_id:
           type: string
-          description: Unique identifier for the connector group.
-          readOnly: true
+          description: Unique identifier of the connector group.
         name:
           type: string
           description: Display name of the connector group.
         description:
           type: string
-        region:
-          type: string
-          description: >-
-            Prisma Access region for tunnel termination (e.g.,
-            us-east-1, eu-west-1).
-        dns_servers:
-          type: array
-          description: Internal DNS servers for resolving application hostnames.
-          items:
-            type: string
-            format: ipv4
-        internal_dns_suffix:
-          type: array
-          description: DNS suffixes for split-DNS resolution.
-          items:
-            type: string
+          description: Description of the connector group's purpose.
         connector_count:
           type: integer
           description: Number of connectors in this group.
-          readOnly: true
-        healthy_connector_count:
-          type: integer
-          description: Number of connectors in a healthy connected state.
-          readOnly: true
-        application_count:
-          type: integer
-          description: Number of applications mapped to this group.
-          readOnly: true
+        region:
+          type: string
+          description: Primary geographic region for this connector group.
         created_at:
           type: string
           format: date-time
-          readOnly: true
-        updated_at:
-          type: string
-          format: date-time
-          readOnly: true
+    ConnectorGroupRequest:
+      type: object
       required:
         - name
-        - region
-    Application:
+      properties:
+        name:
+          type: string
+          description: Display name for the connector group.
+        description:
+          type: string
+          description: Optional description of the connector group.
+        region:
+          type: string
+          description: Geographic region for this connector group.
+    ZTNAApplication:
       type: object
       properties:
-        id:
+        app_id:
           type: string
-          description: Unique identifier for the application.
-          readOnly: true
+          description: Unique identifier of the ZTNA application.
         name:
           type: string
           description: Display name of the application.
         description:
           type: string
-        enabled:
-          type: boolean
-          description: Whether the application is enabled for user access.
-          default: true
-        connector_group_id:
+          description: Description of the application.
+        group_id:
           type: string
-          description: >-
-            Identifier of the connector group providing network
-            access to this application.
-        app_domains:
-          type: array
-          description: >-
-            Fully qualified domain names or wildcard domains for the
-            application. Used for DNS-based routing.
-          items:
-            type: string
-        app_ips:
-          type: array
-          description: >-
-            IP addresses or CIDR ranges of the application servers.
-          items:
-            type: string
+          description: Connector group ID used to access this application.
+        fqdn:
+          type: string
+          description: Fully qualified domain name of the private application.
         ports:
           type: array
-          description: >-
-            Port ranges the application listens on.
           items:
-            type: object
-            properties:
-              port:
-                type: string
-                description: >-
-                  Port number or range (e.g., "443" or "8080-8090").
-              protocol:
-                type: string
-                enum:
-                  - tcp
-                  - udp
-                  - both
-                description: Transport protocol.
-        access_type:
-          type: string
-          enum:
-            - browser
-            - non-browser
-            - both
-          description: >-
-            Type of client access supported. Browser access uses a
-            clientless web portal; non-browser requires the
-            GlobalProtect agent.
-        ssl_verification:
-          type: boolean
-          description: Whether SSL certificate verification is enforced.
-          default: true
-        health_check:
-          type: object
-          description: Application health check configuration.
-          properties:
-            enabled:
-              type: boolean
-              default: true
-            path:
-              type: string
-              description: HTTP path for health checks (e.g., /health).
-            interval_seconds:
-              type: integer
-              default: 30
-        user_segments:
+            type: integer
+          description: TCP/UDP ports accessible through ZTNA.
+        protocols:
           type: array
-          description: >-
-            User segments or groups allowed to access this application.
           items:
             type: string
+            enum:
+              - TCP
+              - UDP
+          description: Network protocols allowed for this application.
+        enabled:
+          type: boolean
+          description: Whether ZTNA access for this application is enabled.
         created_at:
           type: string
           format: date-time
-          readOnly: true
-        updated_at:
-          type: string
-          format: date-time
-          readOnly: true
+    ZTNAApplicationRequest:
+      type: object
       required:
         - name
-        - connector_group_id
+        - group_id
+        - fqdn
+      properties:
+        name:
+          type: string
+          description: Display name for the ZTNA application.
+        description:
+          type: string
+          description: Optional description of the application.
+        group_id:
+          type: string
+          description: Connector group ID to use for accessing the application.
+        fqdn:
+          type: string
+          description: Fully qualified domain name of the private application.
+        ports:
+          type: array
+          items:
+            type: integer
+          description: TCP/UDP ports to expose through ZTNA.
+        protocols:
+          type: array
+          items:
+            type: string
+            enum:
+              - TCP
+              - UDP
+          description: Network protocols to allow.
+        enabled:
+          type: boolean
+          default: true
+          description: Whether to enable ZTNA access immediately after creation.
+    FQDNRule:
+      type: object
+      properties:
+        rule_id:
+          type: string
+          description: Unique identifier of the FQDN rule.
+        name:
+          type: string
+          description: Display name of the rule.
+        fqdn_pattern:
+          type: string
+          description: >-
+            FQDN pattern or wildcard (e.g., *.internal.example.com) that
+            this rule matches.
+        group_id:
+          type: string
+          description: Connector group used to resolve and access matching FQDNs.
+        ports:
+          type: array
+          items:
+            type: integer
+          description: Ports covered by this rule.
+        enabled:
+          type: boolean
+          description: Whether this rule is active.
+        created_at:
+          type: string
+          format: date-time
+    FQDNRuleRequest:
+      type: object
+      required:
+        - name
+        - fqdn_pattern
+        - group_id
+      properties:
+        name:
+          type: string
+          description: Display name for the FQDN rule.
+        fqdn_pattern:
+          type: string
+          description: FQDN pattern or wildcard this rule matches.
+        group_id:
+          type: string
+          description: Connector group to use for matching FQDNs.
+        ports:
+          type: array
+          items:
+            type: integer
+          description: Ports covered by this rule.
+        enabled:
+          type: boolean
+          default: true
+    SubnetRule:
+      type: object
+      properties:
+        rule_id:
+          type: string
+          description: Unique identifier of the subnet rule.
+        name:
+          type: string
+          description: Display name of the rule.
+        subnet:
+          type: string
+          description: CIDR notation subnet this rule covers (e.g., 10.0.0.0/8).
+        group_id:
+          type: string
+          description: Connector group used to route traffic to this subnet.
+        enabled:
+          type: boolean
+          description: Whether this rule is active.
+        created_at:
+          type: string
+          format: date-time
+    SubnetRuleRequest:
+      type: object
+      required:
+        - name
+        - subnet
+        - group_id
+      properties:
+        name:
+          type: string
+          description: Display name for the subnet rule.
+        subnet:
+          type: string
+          description: CIDR notation subnet this rule covers.
+        group_id:
+          type: string
+          description: Connector group to use for routing traffic to this subnet.
+        enabled:
+          type: boolean
+          default: true
+    LicenseInfo:
+      type: object
+      properties:
+        licensed_users:
+          type: integer
+          description: Total number of ZTNA user licenses purchased.
+        active_users:
+          type: integer
+          description: Number of users actively using ZTNA.
+        subscription_id:
+          type: string
+          description: Subscription identifier.
+        expires_at:
+          type: string
+          format: date-time
+          description: Subscription expiration date and time.
+        features:
+          type: array
+          items:
+            type: string
+          description: List of enabled ZTNA feature entitlements.
     ErrorResponse:
       type: object
       properties:
-        _errors:
-          type: array
-          items:
-            type: object
-            properties:
-              code:
-                type: string
-              message:
-                type: string
-              details:
-                type: object
-        _request_id:
+        error:
           type: string
+          description: Error code identifying the error type.
+        message:
+          type: string
+          description: Human-readable description of the error.
+        request_id:
+          type: string
+          description: Request identifier for support correlation.

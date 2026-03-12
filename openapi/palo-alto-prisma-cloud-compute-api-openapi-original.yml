@@ -5,10 +5,11 @@ info:
     REST API for Prisma Cloud Compute (CWPP) providing programmatic access to
     container and workload security across hosts, images, containers, and
     serverless functions. The API enables vulnerability management, compliance
-    monitoring, runtime defense, and Defender deployment. Authentication uses
-    either a bearer token obtained from the /api/v1/authenticate endpoint or
-    HTTP Basic authentication with Prisma Cloud Compute credentials. The console
-    address varies per deployment and must be substituted in the server URL.
+    monitoring, runtime defense, registry scanning, and Defender deployment
+    management. Authentication uses either a bearer token obtained from the
+    /api/v1/authenticate endpoint (valid for 30 minutes) or HTTP Basic
+    authentication with Prisma Cloud Compute credentials. The console address
+    varies per deployment and must be substituted in the server URL.
   version: '32.07'
   contact:
     name: Palo Alto Networks Developer Support
@@ -30,32 +31,34 @@ security:
   - bearerAuth: []
   - basicAuth: []
 tags:
-  - name: Authenticate
+  - name: Authentication
     description: Token-based authentication for API access.
   - name: Images
-    description: Container image vulnerability and compliance data.
+    description: Container image vulnerability and compliance scan data.
   - name: Containers
     description: Running container inventory and security posture.
   - name: Hosts
     description: Host machine security monitoring and vulnerability data.
+  - name: Policies
+    description: Vulnerability and compliance policy management.
   - name: Registry
-    description: Registry image scanning and results.
-  - name: Compliance
-    description: Compliance check results across all asset types.
+    description: Registry image scanning configuration and results.
   - name: Defenders
     description: Defender agent deployment and management.
+  - name: Scans
+    description: CI/CD pipeline scan results.
 paths:
   /authenticate:
     post:
       operationId: authenticate
-      summary: Authenticate and obtain token
+      summary: Authenticate and obtain bearer token
       description: >-
         Authenticates with Prisma Cloud Compute credentials and returns a JWT
         bearer token for subsequent API calls. The token is valid for 30
-        minutes. For integrations using project-level access, include the
+        minutes. For integrations requiring project-level access, include the
         project name in the request body.
       tags:
-        - Authenticate
+        - Authentication
       security: []
       requestBody:
         required: true
@@ -88,9 +91,7 @@ paths:
                 properties:
                   token:
                     type: string
-                    description: >-
-                      JWT bearer token. Include in subsequent requests as
-                      Authorization: Bearer <token>.
+                    description: JWT bearer token valid for 30 minutes.
         '401':
           description: Invalid credentials or unauthorized access.
   /images:
@@ -101,8 +102,7 @@ paths:
         Returns vulnerability and compliance scan results for all container
         images known to Prisma Cloud Compute. Results include images from
         deployed containers on hosts with Defenders and from registry scans.
-        Supports filtering by name, cluster, and compliance ID. Results are
-        sorted by most recent scan time by default.
+        Supports filtering by search term, cluster, and collection.
       tags:
         - Images
       parameters:
@@ -120,8 +120,7 @@ paths:
             default: 50
         - name: search
           in: query
-          description: >-
-            Search term to filter images by repository name or tag.
+          description: Search term to filter images by repository name or tag.
           schema:
             type: string
         - name: sort
@@ -157,13 +156,60 @@ paths:
             default: false
       responses:
         '200':
-          description: Image scan results returned.
+          description: Image scan results returned successfully.
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/Image'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /images/download:
+    get:
+      operationId: downloadImageScanResults
+      summary: Download image scan results
+      description: >-
+        Downloads image scan results as a CSV file. Supports the same
+        filtering parameters as the GET /images endpoint. Useful for
+        bulk export and integration with external vulnerability management
+        systems.
+      tags:
+        - Images
+      parameters:
+        - name: search
+          in: query
+          description: Search term to filter images by repository name or tag.
+          schema:
+            type: string
+        - name: collections
+          in: query
+          description: Filter by collection name.
+          schema:
+            type: string
+        - name: clusters
+          in: query
+          description: Filter by cluster name.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Image scan results CSV file returned.
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /containers:
     get:
       operationId: getContainers
@@ -209,13 +255,19 @@ paths:
             type: string
       responses:
         '200':
-          description: Container details returned.
+          description: Container list returned successfully.
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/Container'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /hosts:
     get:
       operationId: getHosts
@@ -271,142 +323,167 @@ paths:
             type: string
       responses:
         '200':
-          description: Host scan results returned.
+          description: Host scan results returned successfully.
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/Host'
-  /registry:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /policies/vulnerability/images:
     get:
-      operationId: getRegistryImages
-      summary: List registry scan results
+      operationId: getImageVulnerabilityPolicy
+      summary: Get image vulnerability policy
       description: >-
-        Returns vulnerability and compliance scan results for images discovered
-        in configured container registries. Registry scanning runs on a
-        configured schedule or can be triggered manually.
+        Returns the currently configured image vulnerability policy.
+        The policy defines the rules for blocking, alerting, and ignoring
+        vulnerabilities found in container images based on severity,
+        CVE, package, and other criteria.
       tags:
-        - Registry
-      parameters:
-        - name: offset
-          in: query
-          description: Number of records to skip for pagination.
-          schema:
-            type: integer
-            default: 0
-        - name: limit
-          in: query
-          description: Maximum number of records to return.
-          schema:
-            type: integer
-            default: 50
-        - name: search
-          in: query
-          description: Search term to filter by repository name or tag.
-          schema:
-            type: string
-        - name: compact
-          in: query
-          description: Return compact results without full vulnerability details.
-          schema:
-            type: boolean
-            default: false
+        - Policies
       responses:
         '200':
-          description: Registry scan results returned.
+          description: Image vulnerability policy returned successfully.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Image'
-  /registry/scan:
-    post:
-      operationId: triggerRegistryScan
-      summary: Trigger registry scan
+                $ref: '#/components/schemas/VulnerabilityPolicy'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    put:
+      operationId: updateImageVulnerabilityPolicy
+      summary: Update image vulnerability policy
       description: >-
-        Initiates an on-demand scan of all configured container registries.
-        The scan runs asynchronously in the background. Use the GET /registry
-        endpoint to retrieve results once scanning is complete. Only one
-        registry scan can run at a time.
+        Replaces the image vulnerability policy with the provided
+        configuration. The policy is applied to all image scans and
+        enforced at container admission.
       tags:
-        - Registry
+        - Policies
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                tag:
-                  type: string
-                  description: >-
-                    Specific image tag to scan. If omitted, all configured
-                    registries and repositories are scanned.
-                repo:
-                  type: string
-                  description: >-
-                    Specific repository to scan within the configured
-                    registries.
+              $ref: '#/components/schemas/VulnerabilityPolicy'
       responses:
         '200':
-          description: Registry scan initiated.
-        '429':
-          description: A registry scan is already in progress.
-  /compliance:
+          description: Image vulnerability policy updated successfully.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /policies/compliance/images:
     get:
-      operationId: getComplianceResults
-      summary: List compliance results
+      operationId: getImageCompliancePolicy
+      summary: Get image compliance policy
       description: >-
-        Returns compliance check results across images, containers, and hosts.
-        Results indicate pass or fail status for each compliance check defined
-        in the active compliance policy. Supports filtering by compliance ID,
-        resource type, and collection.
+        Returns the currently configured image compliance policy.
+        The compliance policy defines the checks applied to container
+        images based on CIS benchmarks and custom rules.
       tags:
-        - Compliance
-      parameters:
-        - name: offset
-          in: query
-          description: Number of records to skip for pagination.
-          schema:
-            type: integer
-            default: 0
-        - name: limit
-          in: query
-          description: Maximum number of records to return.
-          schema:
-            type: integer
-            default: 50
-        - name: search
-          in: query
-          description: Search term to filter compliance results.
-          schema:
-            type: string
-        - name: type
-          in: query
-          description: Filter by resource type.
-          schema:
-            type: string
-            enum:
-              - image
-              - container
-              - host
-              - serverless
-        - name: collections
-          in: query
-          description: Filter by collection name.
-          schema:
-            type: string
+        - Policies
       responses:
         '200':
-          description: Compliance results returned.
+          description: Image compliance policy returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompliancePolicy'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /policies/runtime/container:
+    get:
+      operationId: getContainerRuntimePolicy
+      summary: Get container runtime policy
+      description: >-
+        Returns the currently configured container runtime defense policy.
+        Runtime policies define allowed process, network, and file system
+        activities for running containers, enabling detection and prevention
+        of anomalous runtime behavior.
+      tags:
+        - Policies
+      responses:
+        '200':
+          description: Container runtime policy returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuntimePolicy'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /registry:
+    get:
+      operationId: getRegistries
+      summary: List configured registries
+      description: >-
+        Returns a list of container registries configured for scanning in
+        Prisma Cloud Compute. Each entry includes the registry URL,
+        credential references, scanning scope, and schedule.
+      tags:
+        - Registry
+      responses:
+        '200':
+          description: Registry configurations returned successfully.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/ComplianceResult'
+                  $ref: '#/components/schemas/RegistryConfig'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      operationId: addRegistry
+      summary: Add a registry
+      description: >-
+        Adds a new container registry to the scanning configuration.
+        Supports Docker Hub, AWS ECR, Azure Container Registry, Google
+        Container Registry, and other OCI-compatible registries.
+      tags:
+        - Registry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistryConfig'
+      responses:
+        '200':
+          description: Registry added successfully.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /defenders:
     get:
       operationId: getDefenders
@@ -460,13 +537,95 @@ paths:
             type: string
       responses:
         '200':
-          description: Defender list returned.
+          description: Defender list returned successfully.
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/Defender'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /defenders/summary:
+    get:
+      operationId: getDefendersSummary
+      summary: Get Defender summary statistics
+      description: >-
+        Returns summary statistics about deployed Defenders including
+        total count, connected count, version distribution, and
+        deployment type breakdown.
+      tags:
+        - Defenders
+      responses:
+        '200':
+          description: Defender summary statistics returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DefenderSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /scans:
+    get:
+      operationId: getCIScans
+      summary: Get CI scan results
+      description: >-
+        Returns vulnerability and compliance scan results from CI/CD
+        pipeline scans run using the twistcli tool or CI/CD integrations.
+        Results include the scan target, policy outcome, and detailed
+        findings for each scan run.
+      tags:
+        - Scans
+      parameters:
+        - name: offset
+          in: query
+          description: Number of records to skip for pagination.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of records to return.
+          schema:
+            type: integer
+            default: 50
+        - name: search
+          in: query
+          description: Search term to filter scan results by image name.
+          schema:
+            type: string
+        - name: type
+          in: query
+          description: Filter by scan target type.
+          schema:
+            type: string
+            enum:
+              - ciImage
+              - ciServerless
+              - ciIaC
+      responses:
+        '200':
+          description: CI scan results returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CIScan'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 components:
   securitySchemes:
     bearerAuth:
@@ -479,9 +638,32 @@ components:
     basicAuth:
       type: http
       scheme: basic
-      description: >-
-        HTTP Basic authentication using Prisma Cloud Compute credentials.
-        Encode username:password in Base64.
+      description: HTTP Basic authentication using Prisma Cloud Compute credentials.
+  responses:
+    BadRequest:
+      description: Invalid request parameters or body.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Invalid or expired authentication credentials.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   schemas:
     Image:
       type: object
@@ -520,21 +702,6 @@ components:
         osDistroVersion:
           type: string
           description: Operating system distribution version.
-        distro:
-          type: string
-          description: Linux distribution name.
-        packages:
-          type: array
-          description: Installed OS packages in the image.
-          items:
-            type: object
-            properties:
-              name:
-                type: string
-              version:
-                type: string
-              license:
-                type: string
         vulnerabilities:
           type: array
           description: Vulnerabilities discovered in the image.
@@ -563,33 +730,11 @@ components:
         complianceIssuesCount:
           type: integer
           description: Total number of compliance issues found.
-        riskFactors:
-          type: object
-          description: >-
-            Risk factors associated with the image such as attack complexity,
-            remote execution, and exploit availability.
-          additionalProperties:
-            type: object
         clusters:
           type: array
           description: Kubernetes clusters where this image is deployed.
           items:
             type: string
-        labels:
-          type: array
-          description: Image labels.
-          items:
-            type: string
-        installedProducts:
-          type: object
-          description: Detected application frameworks and runtimes.
-          properties:
-            docker:
-              type: string
-            osDistro:
-              type: string
-            hasPackageManager:
-              type: boolean
     Vulnerability:
       type: object
       properties:
@@ -598,24 +743,24 @@ components:
           description: CVE identifier (e.g., CVE-2024-1234).
         status:
           type: string
-          description: Fix availability status.
           enum:
             - fixed in
             - needed
             - will not fix
             - deferred
+          description: Fix availability status.
         cvss:
           type: number
           format: float
           description: CVSS v3 base score.
         severity:
           type: string
-          description: Severity level derived from CVSS score.
           enum:
             - critical
             - high
             - medium
             - low
+          description: Severity level derived from CVSS score.
         packageName:
           type: string
           description: Name of the affected package.
@@ -631,22 +776,10 @@ components:
         description:
           type: string
           description: Brief description of the vulnerability.
-        riskFactors:
-          type: object
-          description: Risk factors such as exploit availability or attack vector.
-          additionalProperties:
-            type: object
         publishedDate:
           type: string
           format: date-time
           description: Date the vulnerability was publicly disclosed.
-        discoveredDate:
-          type: string
-          format: date-time
-          description: Date Prisma Cloud first detected this vulnerability.
-        vecStr:
-          type: string
-          description: CVSS vector string.
     Container:
       type: object
       properties:
@@ -667,52 +800,22 @@ components:
           description: Full image name including registry, repository, and tag.
         state:
           type: string
-          description: Current container state.
           enum:
             - running
             - created
             - exited
             - paused
+          description: Current container state.
         created:
           type: string
           format: date-time
           description: Container creation timestamp.
-        network:
-          type: object
-          description: Container network configuration.
-          properties:
-            ports:
-              type: array
-              items:
-                type: object
-                properties:
-                  containerPort:
-                    type: integer
-                  hostPort:
-                    type: integer
-                  protocol:
-                    type: string
-            networkMode:
-              type: string
-        profileId:
-          type: string
-          description: Runtime profile ID associated with this container.
         cluster:
           type: string
           description: Kubernetes cluster name.
         namespace:
           type: string
           description: Kubernetes namespace.
-        labels:
-          type: array
-          description: Container labels.
-          items:
-            type: string
-        collections:
-          type: array
-          description: Collections this container belongs to.
-          items:
-            type: string
         vulnerabilitiesCount:
           type: integer
           description: Number of vulnerabilities in the container image.
@@ -741,12 +844,6 @@ components:
         kernelVersion:
           type: string
           description: Linux kernel version.
-        dockerVersion:
-          type: string
-          description: Docker engine version installed on the host.
-        k8sVersion:
-          type: string
-          description: Kubernetes version if the host is a cluster node.
         cloudMetadata:
           type: object
           description: Cloud provider metadata for the host.
@@ -758,16 +855,11 @@ components:
                 - azure
                 - gcp
                 - oci
-                - alibaba
             accountId:
               type: string
             region:
               type: string
             instanceId:
-              type: string
-            instanceType:
-              type: string
-            vpcId:
               type: string
         vulnerabilities:
           type: array
@@ -779,7 +871,6 @@ components:
           description: Total number of vulnerabilities found.
         vulnerabilityDistribution:
           type: object
-          description: Vulnerability count by severity level.
           properties:
             critical:
               type: integer
@@ -791,26 +882,182 @@ components:
               type: integer
         complianceIssues:
           type: array
-          description: Compliance check failures for the host.
           items:
             $ref: '#/components/schemas/ComplianceIssue'
         complianceIssuesCount:
           type: integer
-          description: Total number of compliance issues found.
-        cluster:
-          type: string
-          description: Kubernetes cluster name if applicable.
-        collections:
+    VulnerabilityPolicy:
+      type: object
+      properties:
+        rules:
           type: array
-          description: Collections this host belongs to.
+          description: Ordered list of vulnerability policy rules.
           items:
-            type: string
-        defenderStatus:
+            type: object
+            properties:
+              name:
+                type: string
+                description: Rule name.
+              collections:
+                type: array
+                items:
+                  type: string
+                description: Collections this rule applies to.
+              effect:
+                type: string
+                enum:
+                  - ignore
+                  - alert
+                  - block
+                description: Action to take for matching vulnerabilities.
+              condition:
+                type: object
+                description: Conditions that trigger this rule.
+                properties:
+                  cves:
+                    type: object
+                    properties:
+                      ids:
+                        type: array
+                        items:
+                          type: string
+                      effect:
+                        type: string
+                  severities:
+                    type: array
+                    items:
+                      type: string
+                      enum:
+                        - critical
+                        - high
+                        - medium
+                        - low
+    CompliancePolicy:
+      type: object
+      properties:
+        rules:
+          type: array
+          description: Ordered list of compliance policy rules.
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              collections:
+                type: array
+                items:
+                  type: string
+              effect:
+                type: string
+                enum:
+                  - ignore
+                  - alert
+                  - block
+              condition:
+                type: object
+                properties:
+                  checks:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          description: Compliance check ID.
+                        block:
+                          type: boolean
+    RuntimePolicy:
+      type: object
+      properties:
+        rules:
+          type: array
+          description: Container runtime defense rules.
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              collections:
+                type: array
+                items:
+                  type: string
+              processes:
+                type: object
+                properties:
+                  effect:
+                    type: string
+                    enum:
+                      - ignore
+                      - alert
+                      - block
+                  whitelist:
+                    type: array
+                    items:
+                      type: string
+                  blacklist:
+                    type: array
+                    items:
+                      type: string
+              network:
+                type: object
+                properties:
+                  effect:
+                    type: string
+                    enum:
+                      - ignore
+                      - alert
+                      - block
+              filesystem:
+                type: object
+                properties:
+                  effect:
+                    type: string
+                    enum:
+                      - ignore
+                      - alert
+                      - block
+    RegistryConfig:
+      type: object
+      required:
+        - version
+        - registry
+      properties:
+        version:
           type: string
-          description: Status of the Defender agent on this host.
+          description: Registry type identifier.
           enum:
-            - connected
-            - disconnected
+            - dockerhub
+            - aws
+            - azure
+            - gcr
+            - jfrog
+            - quay
+            - other
+        registry:
+          type: string
+          description: Registry URL or hostname.
+        namespace:
+          type: string
+          description: Registry namespace or organization name.
+        credentialID:
+          type: string
+          description: Credential store identifier for registry authentication.
+        os:
+          type: string
+          enum:
+            - linux
+            - windows
+          default: linux
+          description: Base OS for scanned images.
+        cap:
+          type: integer
+          description: Maximum number of images to scan from this registry.
+        scanners:
+          type: integer
+          description: Number of scanner instances to use.
+        tag:
+          type: string
+          description: Specific tag to scan. Scans all tags if omitted.
     Defender:
       type: object
       properties:
@@ -822,7 +1069,6 @@ components:
           description: Defender agent version.
         type:
           type: string
-          description: Type of Defender deployment.
           enum:
             - docker
             - dockerWindows
@@ -830,6 +1076,7 @@ components:
             - fargate
             - appEmbedded
             - serverless
+          description: Type of Defender deployment.
         connected:
           type: boolean
           description: Whether the Defender is currently connected to the Console.
@@ -837,24 +1084,11 @@ components:
           type: string
           format: date-time
           description: Timestamp of the last status update from the Defender.
-        features:
-          type: object
-          description: Enabled security features on this Defender.
-          properties:
-            containerRuntime:
-              type: boolean
-            hostCustomCompliance:
-              type: boolean
-            hostForensics:
-              type: boolean
-            cloudMetadata:
-              type: boolean
         cluster:
           type: string
           description: Kubernetes cluster name if applicable.
         cloudMetadata:
           type: object
-          description: Cloud provider metadata for the Defender host.
           properties:
             provider:
               type: string
@@ -864,78 +1098,85 @@ components:
               type: string
         category:
           type: string
-          description: Defender category based on deployment type.
           enum:
             - container
             - host
             - serverless
             - appEmbedded
-        proxy:
-          type: object
-          description: Proxy configuration for Defender communication.
-          properties:
-            httpProxy:
-              type: string
-            noProxy:
-              type: string
-        systemInfo:
-          type: object
-          description: System information from the Defender host.
-          properties:
-            kernelVersion:
-              type: string
-            osDistro:
-              type: string
-            totalMemory:
-              type: integer
-              description: Total memory in bytes.
-    ComplianceResult:
+    DefenderSummary:
       type: object
       properties:
-        id:
-          type: integer
-          description: Compliance check ID.
-        title:
-          type: string
-          description: Title of the compliance check.
-        description:
-          type: string
-          description: Detailed description of the compliance requirement.
-        severity:
-          type: string
-          description: Severity of the compliance issue.
-          enum:
-            - critical
-            - high
-            - medium
-            - low
-        type:
-          type: string
-          description: Resource type this compliance check applies to.
-          enum:
-            - image
-            - container
-            - host
-            - serverless
-        passed:
-          type: integer
-          description: Number of resources that passed this check.
-        failed:
-          type: integer
-          description: Number of resources that failed this check.
         total:
           type: integer
-          description: Total number of resources evaluated.
-        applicableRules:
+          description: Total number of deployed Defenders.
+        connected:
+          type: integer
+          description: Number of currently connected Defenders.
+        disconnected:
+          type: integer
+          description: Number of disconnected Defenders.
+        by_type:
+          type: object
+          description: Defender count breakdown by deployment type.
+          properties:
+            docker:
+              type: integer
+            dockerWindows:
+              type: integer
+            cri:
+              type: integer
+            fargate:
+              type: integer
+            appEmbedded:
+              type: integer
+            serverless:
+              type: integer
+        version_distribution:
           type: array
-          description: Policy rules associated with this compliance check.
           items:
-            type: string
-        benchmark:
-          type: string
-          description: >-
-            Compliance benchmark standard (e.g., CIS Docker Benchmark,
-            NIST SP 800-190).
+            type: object
+            properties:
+              version:
+                type: string
+              count:
+                type: integer
+    CIScan:
+      type: object
+      properties:
+        entityInfo:
+          type: object
+          properties:
+            _id:
+              type: string
+            type:
+              type: string
+              enum:
+                - ciImage
+                - ciServerless
+                - ciIaC
+            hostname:
+              type: string
+            scanTime:
+              type: string
+              format: date-time
+        pass:
+          type: boolean
+          description: Whether the scan passed the configured policy thresholds.
+        vulnerabilitiesCount:
+          type: integer
+        complianceIssuesCount:
+          type: integer
+        vulnerabilityDistribution:
+          type: object
+          properties:
+            critical:
+              type: integer
+            high:
+              type: integer
+            medium:
+              type: integer
+            low:
+              type: integer
     ComplianceIssue:
       type: object
       properties:
@@ -947,15 +1188,21 @@ components:
           description: Title of the compliance check.
         severity:
           type: string
-          description: Severity of the compliance issue.
           enum:
             - critical
             - high
             - medium
             - low
+          description: Severity of the compliance issue.
         cause:
           type: string
           description: Explanation of why the resource failed the check.
         description:
           type: string
           description: Detailed description of the compliance requirement.
+    ErrorResponse:
+      type: object
+      properties:
+        err:
+          type: string
+          description: Error message.

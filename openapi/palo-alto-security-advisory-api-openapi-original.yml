@@ -2,15 +2,14 @@ openapi: 3.1.0
 info:
   title: Security Advisory API
   description: >-
-    Public REST API for querying Palo Alto Networks Product Security
-    Incident Response Team (PSIRT) security advisories. Provides access
-    to published vulnerability advisories including CVE identifiers,
-    severity ratings, CVSS scores, affected products and versions, fixed
-    versions, and remediation guidance. This is a public beta API that
-    does not require authentication. Advisory data covers PAN-OS, Cortex
-    XDR, Prisma Cloud, GlobalProtect, and other Palo Alto Networks
-    products.
-  version: '1.0'
+    Public REST API for querying Palo Alto Networks Product Security Incident
+    Response Team (PSIRT) security advisories. Beta release. Provides access
+    to published vulnerability advisories including CVE identifiers, severity
+    ratings, CVSS scores, affected products and versions, fixed versions, and
+    remediation guidance. No authentication is required. Advisory data covers
+    PAN-OS, Cortex XDR, Prisma Cloud, GlobalProtect, and other Palo Alto
+    Networks products.
+  version: '1.0-beta'
   contact:
     name: Palo Alto Networks Developer Support
     url: https://pan.dev/
@@ -18,23 +17,25 @@ info:
     name: Proprietary
     url: https://www.paloaltonetworks.com/legal
 servers:
-  - url: https://security.paloaltonetworks.com
+  - url: https://security.paloaltonetworks.com/api
     description: Palo Alto Networks Security Advisory API (public beta).
 security: []
 tags:
   - name: Advisories
-    description: Security advisory queries and retrieval.
+    description: Query and retrieve PSIRT security advisories.
+  - name: Products
+    description: Query affected products referenced in security advisories.
 paths:
-  /api/v1/advisories:
+  /advisories:
     get:
       operationId: listAdvisories
-      summary: List security advisories
+      summary: List all security advisories
       description: >-
-        Returns a paginated list of published security advisories. Supports
-        filtering by severity, product, date range, and CVSS score
-        threshold. Results are sorted by publication date in descending
-        order by default. This endpoint is publicly accessible and does
-        not require authentication.
+        Returns a paginated list of published PSIRT security advisories.
+        Supports filtering by severity, affected product, and sorting by
+        publication date or CVSS score. This endpoint is publicly accessible
+        and does not require authentication. Results include advisory metadata,
+        CVE identifiers, severity ratings, and affected product summaries.
       tags:
         - Advisories
       parameters:
@@ -49,16 +50,16 @@ paths:
               - MEDIUM
               - HIGH
               - CRITICAL
-        - name: product
+        - name: affected_product
           in: query
           description: >-
-            Filter by affected product name (e.g., PAN-OS, Cortex XDR
-            Agent, Prisma Cloud, GlobalProtect, Cortex XSOAR).
+            Filter by affected product name. Examples: PAN-OS, Cortex XDR
+            Agent, Prisma Cloud, GlobalProtect, Cortex XSOAR.
           schema:
             type: string
         - name: sort
           in: query
-          description: Sort field and direction.
+          description: Field and direction to sort results by.
           schema:
             type: string
             enum:
@@ -67,55 +68,36 @@ paths:
               - -cvssScore
               - cvssScore
             default: -publishedDate
-        - name: publishedDateFrom
-          in: query
-          description: Filter advisories published on or after this date.
-          schema:
-            type: string
-            format: date
-        - name: publishedDateTo
-          in: query
-          description: Filter advisories published on or before this date.
-          schema:
-            type: string
-            format: date
-        - name: cvssScoreMin
-          in: query
-          description: Minimum CVSS v3.1 base score filter.
-          schema:
-            type: number
-            minimum: 0.0
-            maximum: 10.0
-        - name: offset
-          in: query
-          description: Pagination offset.
-          schema:
-            type: integer
-            default: 0
         - name: limit
           in: query
-          description: Maximum number of advisories to return.
+          description: Maximum number of advisories to return per page.
           schema:
             type: integer
             default: 50
             maximum: 200
+        - name: offset
+          in: query
+          description: Number of results to skip for pagination.
+          schema:
+            type: integer
+            default: 0
       responses:
         '200':
-          description: Advisories returned.
+          description: Security advisories returned.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  success:
-                    type: boolean
                   total:
                     type: integer
                     description: Total number of advisories matching the query.
                   offset:
                     type: integer
+                    description: Current pagination offset.
                   limit:
                     type: integer
+                    description: Number of results per page.
                   data:
                     type: array
                     items:
@@ -126,27 +108,69 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '429':
-          description: Rate limit exceeded. Retry after the specified delay.
-          headers:
-            Retry-After:
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
               schema:
-                type: integer
-              description: Number of seconds to wait before retrying.
-  /api/v1/advisories/{cveId}:
+                $ref: '#/components/schemas/ErrorResponse'
+  /advisories/{advisory_id}:
     get:
       operationId: getAdvisory
-      summary: Get advisory by CVE ID
+      summary: Get a single security advisory
       description: >-
-        Returns detailed information about a specific security advisory
-        identified by its CVE identifier. Includes full description,
-        severity details, CVSS vector string, affected product versions,
-        fixed versions, workarounds, and references to external
-        resources.
+        Returns full details for a specific security advisory by its advisory
+        ID. Includes the complete description, CVSS scoring, affected product
+        versions, fixed versions, available workarounds, and references to
+        external resources such as NVD entries.
       tags:
         - Advisories
       parameters:
-        - name: cveId
+        - name: advisory_id
+          in: path
+          required: true
+          description: >-
+            Palo Alto Networks advisory identifier (e.g., PAN-SA-2024-0001).
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Advisory details returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Advisory'
+        '400':
+          description: Invalid advisory ID format.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Advisory not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /advisories/cve/{cve_id}:
+    get:
+      operationId: getAdvisoryByCVE
+      summary: Get advisories by CVE ID
+      description: >-
+        Returns all security advisories associated with a specific CVE
+        identifier. A single CVE may be referenced in multiple advisories
+        when the vulnerability affects several Palo Alto Networks products.
+        Returns an array of matching advisory objects.
+      tags:
+        - Advisories
+      parameters:
+        - name: cve_id
           in: path
           required: true
           description: CVE identifier (e.g., CVE-2024-3400).
@@ -155,18 +179,65 @@ paths:
             pattern: '^CVE-\d{4}-\d{4,}$'
       responses:
         '200':
-          description: Advisory returned.
+          description: Advisories for the CVE returned.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  success:
-                    type: boolean
+                  total:
+                    type: integer
+                    description: Number of advisories found for the CVE.
                   data:
-                    $ref: '#/components/schemas/Advisory'
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Advisory'
+        '400':
+          description: Invalid CVE ID format.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: No advisory found for the specified CVE ID.
+          description: No advisories found for the specified CVE.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /products:
+    get:
+      operationId: listAffectedProducts
+      summary: List affected products
+      description: >-
+        Returns the list of Palo Alto Networks products that are referenced
+        in at least one published security advisory. Use the product names
+        returned by this endpoint as values for the affected_product filter
+        on the /advisories endpoint.
+      tags:
+        - Products
+      responses:
+        '200':
+          description: Product list returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of distinct products.
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+        '500':
+          description: Internal server error.
           content:
             application/json:
               schema:
@@ -175,11 +246,12 @@ components:
   schemas:
     Advisory:
       type: object
-      description: >-
-        A PSIRT security advisory describing a vulnerability in a Palo
-        Alto Networks product.
+      description: A PSIRT security advisory for a Palo Alto Networks product.
       properties:
-        cveId:
+        advisory_id:
+          type: string
+          description: Palo Alto Networks advisory identifier (e.g., PAN-SA-2024-0001).
+        cve_id:
           type: string
           description: CVE identifier (e.g., CVE-2024-3400).
         title:
@@ -188,8 +260,8 @@ components:
         description:
           type: string
           description: >-
-            Detailed description of the vulnerability including impact
-            and attack vector.
+            Detailed description of the vulnerability including impact and
+            attack vector.
         severity:
           type: string
           enum:
@@ -199,80 +271,47 @@ components:
             - HIGH
             - CRITICAL
           description: Severity rating based on CVSS v3.1 base score.
-        cvssScore:
+        cvss_score:
           type: number
-          description: CVSS v3.1 base score (0.0-10.0).
+          description: CVSS v3.1 base score (0.0 to 10.0).
           minimum: 0.0
           maximum: 10.0
-        cvssVectorString:
+        cvss_vector:
           type: string
           description: >-
-            CVSS v3.1 vector string (e.g.,
-            CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H).
+            CVSS v3.1 vector string
+            (e.g., CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H).
         cwe:
           type: string
           description: CWE identifier for the vulnerability class.
-        affectedProducts:
+        affected_products:
           type: array
+          description: Products and version ranges affected by this vulnerability.
           items:
-            type: object
-            properties:
-              product:
-                type: string
-                description: Product name (e.g., PAN-OS, Cortex XDR Agent).
-              versions:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    version:
-                      type: string
-                      description: Affected version or version range.
-                    status:
-                      type: string
-                      enum:
-                        - Affected
-                        - Unaffected
-                        - Fixed
-                      description: Whether this version is affected.
-                    versionType:
-                      type: string
-                      enum:
-                        - custom
-                        - semver
-          description: >-
-            List of affected products and their version status.
-        fixedVersions:
+            $ref: '#/components/schemas/AffectedProduct'
+        fixed_versions:
           type: array
           items:
             type: string
-          description: >-
-            Product versions in which the vulnerability has been fixed
-            (e.g., PAN-OS 11.1.3, PAN-OS 10.2.9).
+          description: Product versions in which the vulnerability is fixed.
         workarounds:
           type: string
-          description: >-
-            Available workarounds or mitigations if a fix is not yet
-            deployed.
-        exploitStatus:
+          description: Available workarounds or mitigations if a fix is not yet deployed.
+        exploit_status:
           type: string
           enum:
             - None
             - Proof-of-Concept
             - Active
           description: Known exploit activity status.
-        acknowledgments:
-          type: array
-          items:
-            type: object
-            properties:
-              name:
-                type: string
-                description: Name of the reporter or researcher.
-              organization:
-                type: string
-                description: Organization of the reporter.
-          description: Individuals or organizations credited with discovery.
+        published_date:
+          type: string
+          format: date-time
+          description: Date and time when the advisory was first published.
+        last_modified_date:
+          type: string
+          format: date-time
+          description: Date and time of the most recent advisory update.
         references:
           type: array
           items:
@@ -284,30 +323,44 @@ components:
                 description: Reference URL.
               description:
                 type: string
+                description: Description of the referenced resource.
           description: External references and related advisories.
-        publishedDate:
+    AffectedProduct:
+      type: object
+      properties:
+        product:
           type: string
-          format: date-time
-          description: Date and time when the advisory was first published.
-        lastModifiedDate:
+          description: Product name (e.g., PAN-OS, Cortex XDR Agent).
+        versions:
+          type: array
+          items:
+            type: object
+            properties:
+              version:
+                type: string
+                description: Affected version or version range.
+              status:
+                type: string
+                enum:
+                  - Affected
+                  - Unaffected
+                  - Fixed
+                description: Vulnerability status for this version.
+    Product:
+      type: object
+      properties:
+        name:
           type: string
-          format: date-time
-          description: Date and time of the most recent advisory update.
-        advisoryId:
-          type: string
-          description: >-
-            Palo Alto Networks internal advisory identifier
-            (e.g., PAN-SA-2024-0001).
+          description: Product name as referenced in advisories.
+        advisory_count:
+          type: integer
+          description: Number of published advisories referencing this product.
     ErrorResponse:
       type: object
       properties:
-        success:
-          type: boolean
         error:
-          type: object
-          properties:
-            code:
-              type: string
-            message:
-              type: string
-              description: Human-readable error description.
+          type: string
+          description: Error code identifying the error type.
+        message:
+          type: string
+          description: Human-readable description of the error.

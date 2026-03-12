@@ -1,16 +1,15 @@
 openapi: 3.1.0
 info:
-  title: Configuration Orchestration API
+  title: SASE Configuration Orchestration API
   description: >-
-    REST API for the Palo Alto Networks SASE Configuration Orchestration
-    service enabling third-party SD-WAN integration with Prisma Access.
-    Provides programmatic management of IPSec tunnels, network connections,
-    and bandwidth allocations between third-party SD-WAN appliances and
-    the Prisma Access cloud-delivered security platform. Supports
-    automated provisioning of site-to-cloud connectivity for branch
-    offices using non-Palo Alto Networks SD-WAN solutions. Authentication
-    uses OAuth2 bearer tokens obtained from the Palo Alto Networks
-    identity provider.
+    SASE Configuration Orchestration API for third-party SD-WAN integration.
+    Enables SD-WAN partners and operators to programmatically manage remote
+    network tunnel configurations, IKE gateway lifecycle, bandwidth
+    allocations, and Prisma Access location data. Designed for integrating
+    third-party SD-WAN solutions with Prisma Access for automated tunnel
+    provisioning and management in branch office and remote network deployments.
+    Requires partner integration credentials in addition to standard SASE
+    OAuth 2.0 authentication.
   version: '1.0'
   contact:
     name: Palo Alto Networks Developer Support
@@ -19,261 +18,211 @@ info:
     name: Proprietary
     url: https://www.paloaltonetworks.com/legal
 servers:
-  - url: https://api.sase.paloaltonetworks.com
-    description: SASE API gateway for configuration orchestration operations.
+  - url: https://api.sase.paloaltonetworks.com/config-orchestration/v1
+    description: SASE Configuration Orchestration API production server.
 security:
-  - bearerAuth: []
+  - oauth2Bearer: []
 tags:
-  - name: Tunnels
-    description: >-
-      IPSec tunnel management for establishing secure connectivity
-      between third-party SD-WAN appliances and Prisma Access.
-  - name: Connections
-    description: >-
-      Network connection management for defining logical connectivity
-      between sites and Prisma Access service nodes.
-  - name: BandwidthAllocations
-    description: >-
-      Bandwidth allocation management for controlling throughput
-      distribution across tunnels and connections.
+  - name: Remote Networks
+    description: Remote network IPsec tunnel management.
+  - name: Bandwidth
+    description: Bandwidth allocation visibility.
+  - name: Locations
+    description: Prisma Access location data.
+  - name: Onboarding
+    description: Remote network onboarding status.
 paths:
-  /config-orch/v1/tunnels:
+  /remote-networks:
     get:
-      operationId: listTunnels
-      summary: List tunnels
+      operationId: listRemoteNetworks
+      summary: List remote networks
       description: >-
-        Returns a list of all configured IPSec tunnels for the specified
-        Tenant Service Group. Each tunnel represents a secure connection
-        between a third-party SD-WAN appliance at a branch site and a
-        Prisma Access service node. Includes tunnel configuration details,
-        IKE parameters, and current operational status.
+        Returns the list of remote network tunnel configurations for the
+        tenant. Remote networks represent branch offices or data centers
+        connected to Prisma Access via IPsec tunnels. Each entry includes
+        the tunnel configuration, IKE gateway parameters, and current
+        connection status.
       tags:
-        - Tunnels
+        - Remote Networks
       parameters:
-        - name: tsg_id
-          in: header
-          required: true
-          description: TSG ID to scope the tunnel query.
+        - name: location
+          in: query
+          description: Filter remote networks by Prisma Access location.
           schema:
             type: string
         - name: status
           in: query
-          required: false
-          description: Filter tunnels by operational status.
+          description: Filter by tunnel connection status.
           schema:
             type: string
             enum:
-              - up
-              - down
+              - connected
+              - disconnected
               - pending
-              - error
-        - name: site_name
+        - name: offset
           in: query
-          required: false
-          description: Filter tunnels by site name.
+          description: Number of results to skip for pagination.
           schema:
-            type: string
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of remote networks to return.
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
       responses:
         '200':
-          description: Tunnels returned.
+          description: Remote networks returned.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  total_count:
+                  total:
                     type: integer
-                    description: Total number of tunnels matching the query.
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
                   items:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Tunnel'
+                      $ref: '#/components/schemas/RemoteNetwork'
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
-      operationId: createTunnel
-      summary: Create a tunnel
+      operationId: createRemoteNetwork
+      summary: Create remote network
       description: >-
-        Creates a new IPSec tunnel configuration between a third-party
-        SD-WAN appliance and a Prisma Access service node. Requires
-        specifying the remote site details, IKE configuration parameters,
-        and the target Prisma Access region. The tunnel is provisioned
-        asynchronously and transitions from pending to up once both
-        endpoints complete the IKE negotiation.
+        Creates a new remote network tunnel configuration. Provisions an
+        IPsec tunnel between the specified branch location and the nearest
+        Prisma Access gateway. The IKE gateway configuration is automatically
+        generated unless custom parameters are provided.
       tags:
-        - Tunnels
-      parameters:
-        - name: tsg_id
-          in: header
-          required: true
-          description: TSG ID under which to create the tunnel.
-          schema:
-            type: string
+        - Remote Networks
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - site_name
-                - remote_ip
-                - ike_config
-                - region
-              properties:
-                site_name:
-                  type: string
-                  description: Human-readable name for the remote site.
-                  maxLength: 128
-                remote_ip:
-                  type: string
-                  format: ipv4
-                  description: >-
-                    Public IP address of the remote SD-WAN appliance
-                    tunnel endpoint.
-                remote_id:
-                  type: string
-                  description: >-
-                    IKE identity of the remote peer (e.g., FQDN, email,
-                    or IP address).
-                ike_config:
-                  type: object
-                  description: IKE negotiation parameters.
-                  required:
-                    - version
-                    - pre_shared_key
-                  properties:
-                    version:
-                      type: string
-                      enum:
-                        - ikev1
-                        - ikev2
-                      description: IKE protocol version.
-                    pre_shared_key:
-                      type: string
-                      description: Pre-shared key for IKE authentication.
-                    dh_group:
-                      type: string
-                      enum:
-                        - group2
-                        - group5
-                        - group14
-                        - group19
-                        - group20
-                      default: group20
-                      description: Diffie-Hellman group for key exchange.
-                    encryption:
-                      type: string
-                      enum:
-                        - aes-128-cbc
-                        - aes-256-cbc
-                        - aes-128-gcm
-                        - aes-256-gcm
-                      default: aes-256-gcm
-                      description: Encryption algorithm.
-                    integrity:
-                      type: string
-                      enum:
-                        - sha256
-                        - sha384
-                        - sha512
-                      default: sha256
-                      description: Integrity hash algorithm.
-                    lifetime_seconds:
-                      type: integer
-                      default: 28800
-                      description: IKE SA lifetime in seconds.
-                region:
-                  type: string
-                  description: >-
-                    Prisma Access compute region for the tunnel endpoint
-                    (e.g., us-east-1, eu-west-1, ap-southeast-1).
-                bandwidth_mbps:
-                  type: integer
-                  description: Allocated bandwidth for this tunnel in Mbps.
-                  default: 100
+              $ref: '#/components/schemas/RemoteNetworkRequest'
       responses:
         '201':
-          description: Tunnel created.
+          description: Remote network created successfully.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Tunnel'
+                $ref: '#/components/schemas/RemoteNetwork'
         '400':
-          $ref: '#/components/responses/BadRequest'
+          description: Invalid request body or configuration.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          $ref: '#/components/responses/Forbidden'
-  /config-orch/v1/connections:
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: A remote network with this name already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /remote-networks/{id}:
     get:
-      operationId: listConnections
-      summary: List connections
-      description: >-
-        Returns a list of all logical network connections for the specified
-        Tenant Service Group. Connections represent higher-level abstractions
-        that group one or more tunnels into a logical site-to-cloud
-        connectivity unit. Each connection includes its configuration,
-        associated tunnels, and health status.
+      operationId: getRemoteNetwork
+      summary: Get remote network
+      description: Returns full details for a specific remote network tunnel configuration.
       tags:
-        - Connections
+        - Remote Networks
       parameters:
-        - name: tsg_id
-          in: header
+        - name: id
+          in: path
           required: true
-          description: TSG ID to scope the connection query.
+          description: Unique identifier of the remote network.
           schema:
             type: string
-        - name: status
-          in: query
-          required: false
-          description: Filter connections by health status.
-          schema:
-            type: string
-            enum:
-              - healthy
-              - degraded
-              - down
-              - provisioning
       responses:
         '200':
-          description: Connections returned.
+          description: Remote network details returned.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  total_count:
-                    type: integer
-                    description: Total number of connections.
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Connection'
+                $ref: '#/components/schemas/RemoteNetwork'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          $ref: '#/components/responses/Forbidden'
-  /config-orch/v1/bandwidth-allocations:
-    post:
-      operationId: createBandwidthAllocation
-      summary: Create a bandwidth allocation
-      description: >-
-        Creates or updates a bandwidth allocation for distributing licensed
-        throughput capacity across tunnels and connections within a Tenant
-        Service Group. Bandwidth allocations ensure that each site receives
-        its required throughput while respecting the overall subscription
-        limits. Allocations are validated against available entitlements
-        before being applied.
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Remote network not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: updateRemoteNetwork
+      summary: Update remote network
+      description: Updates an existing remote network tunnel configuration.
       tags:
-        - BandwidthAllocations
+        - Remote Networks
       parameters:
-        - name: tsg_id
-          in: header
+        - name: id
+          in: path
           required: true
-          description: TSG ID for the bandwidth allocation.
+          description: Unique identifier of the remote network to update.
           schema:
             type: string
       requestBody:
@@ -281,264 +230,534 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - allocations
-              properties:
-                allocations:
-                  type: array
-                  description: List of bandwidth allocation entries.
-                  items:
-                    type: object
-                    required:
-                      - target_id
-                      - target_type
-                      - bandwidth_mbps
-                    properties:
-                      target_id:
-                        type: string
-                        description: >-
-                          ID of the tunnel or connection to allocate
-                          bandwidth to.
-                      target_type:
-                        type: string
-                        enum:
-                          - tunnel
-                          - connection
-                        description: Type of the allocation target.
-                      bandwidth_mbps:
-                        type: integer
-                        description: Bandwidth to allocate in Mbps.
-                        minimum: 1
-                      priority:
-                        type: string
-                        enum:
-                          - high
-                          - medium
-                          - low
-                        default: medium
-                        description: >-
-                          Priority level for bandwidth contention
-                          resolution.
+              $ref: '#/components/schemas/RemoteNetworkRequest'
       responses:
         '200':
-          description: Bandwidth allocation applied.
+          description: Remote network updated successfully.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BandwidthAllocation'
+                $ref: '#/components/schemas/RemoteNetwork'
         '400':
-          $ref: '#/components/responses/BadRequest'
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
-          description: >-
-            Requested allocation exceeds available bandwidth entitlements.
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Remote network not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteRemoteNetwork
+      summary: Delete remote network
+      description: >-
+        Deletes a remote network tunnel configuration and tears down the
+        associated IPsec tunnel.
+      tags:
+        - Remote Networks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the remote network to delete.
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Remote network deleted successfully.
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Remote network not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /remote-networks/{id}/refresh-ike-gateway:
+    post:
+      operationId: refreshIKEGateway
+      summary: Refresh IKE gateway
+      description: >-
+        Initiates an IKE gateway refresh for a remote network tunnel. Use
+        this endpoint to re-establish an IPsec tunnel that has failed or
+        to apply updated IKE parameters after a configuration change.
+      tags:
+        - Remote Networks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the remote network.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: IKE gateway refresh initiated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: Remote network identifier.
+                  status:
+                    type: string
+                    enum:
+                      - refreshing
+                    description: Current refresh status.
+                  initiated_at:
+                    type: string
+                    format: date-time
+        '400':
+          description: Invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Remote network not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /bandwidth-allocations:
+    get:
+      operationId: getBandwidthAllocations
+      summary: Get available bandwidth allocations
+      description: >-
+        Returns the available bandwidth allocations per Prisma Access
+        location. Use this data to determine remaining capacity before
+        creating remote network tunnels or to monitor utilization against
+        licensed bandwidth.
+      tags:
+        - Bandwidth
+      parameters:
+        - name: location
+          in: query
+          description: Filter by specific Prisma Access location name.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Bandwidth allocations returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BandwidthAllocation'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /locations:
+    get:
+      operationId: listPrismaAccessLocations
+      summary: List Prisma Access locations
+      description: >-
+        Returns the list of available Prisma Access gateway locations.
+        Location data includes the geographic region, country, city, and
+        available services at each location.
+      tags:
+        - Locations
+      responses:
+        '200':
+          description: Prisma Access locations returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PrismaAccessLocation'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /onboarding-status/{id}:
+    get:
+      operationId: getOnboardingStatus
+      summary: Get remote network onboarding status
+      description: >-
+        Returns the onboarding status for a remote network including
+        provisioning progress, configuration push status, and tunnel
+        establishment state. Use this endpoint to monitor the lifecycle
+        of a newly created remote network.
+      tags:
+        - Onboarding
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the remote network.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Onboarding status returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingStatus'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Remote network not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 components:
   securitySchemes:
-    bearerAuth:
-      type: oauth2
-      flows:
-        clientCredentials:
-          tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
-          scopes: {}
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
       description: >-
-        OAuth2 client credentials flow. Obtain an access token from the
-        Palo Alto Networks identity provider and include it as a Bearer
-        token in the Authorization header.
-  responses:
-    BadRequest:
-      description: The request body is malformed or contains invalid parameters.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Unauthorized:
-      description: Missing or invalid OAuth2 bearer token.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Forbidden:
-      description: Insufficient permissions for this operation.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
+        OAuth 2.0 Bearer token for SASE platform authentication with
+        partner integration credentials. Obtain using the
+        client_credentials grant with your SASE service account
+        client ID and client secret.
   schemas:
-    Tunnel:
+    RemoteNetwork:
       type: object
       properties:
-        tunnel_id:
+        id:
           type: string
-          description: Unique identifier for the tunnel.
-        site_name:
-          type: string
-          description: Human-readable name for the remote site.
-        remote_ip:
-          type: string
-          format: ipv4
-          description: Public IP address of the remote tunnel endpoint.
-        remote_id:
-          type: string
-          description: IKE identity of the remote peer.
-        local_ip:
-          type: string
-          format: ipv4
-          description: >-
-            Prisma Access tunnel endpoint IP address assigned after
-            provisioning.
-        ike_version:
-          type: string
-          enum:
-            - ikev1
-            - ikev2
-          description: IKE protocol version in use.
-        encryption:
-          type: string
-          description: Negotiated encryption algorithm.
-        region:
-          type: string
-          description: Prisma Access compute region hosting this tunnel.
-        bandwidth_mbps:
-          type: integer
-          description: Allocated bandwidth in Mbps.
-        status:
-          type: string
-          enum:
-            - up
-            - down
-            - pending
-            - error
-          description: Current operational status of the tunnel.
-        status_message:
-          type: string
-          description: >-
-            Human-readable status message with additional context for
-            error or pending states.
-        tsg_id:
-          type: string
-          description: TSG ID that owns this tunnel.
-        created_at:
-          type: string
-          format: date-time
-          description: Timestamp when the tunnel was created.
-        updated_at:
-          type: string
-          format: date-time
-          description: Timestamp when the tunnel was last modified.
-    Connection:
-      type: object
-      properties:
-        connection_id:
-          type: string
-          description: Unique identifier for the connection.
+          description: Unique identifier of the remote network.
         name:
           type: string
-          description: Human-readable name for the connection.
-        site_name:
+          description: Display name of the remote network.
+        description:
           type: string
-          description: Associated remote site name.
-        tunnel_ids:
+          description: Description of the remote network's location or purpose.
+        location:
+          type: string
+          description: Prisma Access gateway location for this tunnel.
+        subnets:
           type: array
           items:
             type: string
-          description: List of tunnel IDs that compose this connection.
-        region:
-          type: string
-          description: Prisma Access compute region.
-        total_bandwidth_mbps:
-          type: integer
-          description: >-
-            Aggregate bandwidth across all tunnels in this connection.
-        status:
+          description: Network subnets at the remote site (CIDR notation).
+        ike_gateway:
+          $ref: '#/components/schemas/IKEGateway'
+        ipsec_tunnel:
+          $ref: '#/components/schemas/IPsecTunnel'
+        tunnel_status:
           type: string
           enum:
-            - healthy
-            - degraded
-            - down
-            - provisioning
-          description: >-
-            Operational health status of the connection. Degraded
-            indicates some but not all tunnels are operational.
-        active_tunnels:
+            - connected
+            - disconnected
+            - pending
+            - error
+          description: Current IPsec tunnel connection status.
+        bandwidth_mbps:
           type: integer
-          description: Number of tunnels currently in the up state.
-        total_tunnels:
-          type: integer
-          description: Total number of tunnels in this connection.
-        tsg_id:
-          type: string
-          description: TSG ID that owns this connection.
+          description: Allocated bandwidth in Mbps for this remote network.
         created_at:
           type: string
           format: date-time
-          description: Timestamp when the connection was created.
         updated_at:
           type: string
           format: date-time
-          description: Timestamp when the connection was last modified.
+    RemoteNetworkRequest:
+      type: object
+      required:
+        - name
+        - location
+        - subnets
+        - ike_gateway
+      properties:
+        name:
+          type: string
+          description: Display name for the remote network.
+        description:
+          type: string
+          description: Optional description.
+        location:
+          type: string
+          description: Prisma Access gateway location name.
+        subnets:
+          type: array
+          items:
+            type: string
+          description: Network subnets at the remote site in CIDR notation.
+        ike_gateway:
+          $ref: '#/components/schemas/IKEGatewayConfig'
+        bandwidth_mbps:
+          type: integer
+          description: Requested bandwidth allocation in Mbps.
+    IKEGateway:
+      type: object
+      properties:
+        peer_ip:
+          type: string
+          description: Public IP address of the remote peer gateway.
+        peer_id:
+          type: string
+          description: IKE peer identity.
+        local_ip:
+          type: string
+          description: Prisma Access local IKE gateway IP address.
+        ike_version:
+          type: string
+          enum:
+            - IKEv1
+            - IKEv2
+          description: IKE protocol version.
+        authentication_type:
+          type: string
+          enum:
+            - pre-shared-key
+            - certificate
+          description: IKE authentication method.
+    IKEGatewayConfig:
+      type: object
+      required:
+        - peer_ip
+      properties:
+        peer_ip:
+          type: string
+          description: Public IP address of the remote peer gateway.
+        peer_id:
+          type: string
+          description: IKE peer identity. Defaults to the peer IP if omitted.
+        ike_version:
+          type: string
+          enum:
+            - IKEv1
+            - IKEv2
+          default: IKEv2
+        authentication_type:
+          type: string
+          enum:
+            - pre-shared-key
+            - certificate
+          default: pre-shared-key
+        pre_shared_key:
+          type: string
+          description: Pre-shared key for IKE authentication.
+          writeOnly: true
+    IPsecTunnel:
+      type: object
+      properties:
+        local_address:
+          type: string
+          description: Local tunnel IP address assigned by Prisma Access.
+        remote_address:
+          type: string
+          description: Remote tunnel IP address.
+        tunnel_interface:
+          type: string
+          description: Tunnel interface name.
     BandwidthAllocation:
       type: object
       properties:
-        allocation_id:
+        location:
           type: string
-          description: Unique identifier for the bandwidth allocation.
-        tsg_id:
+          description: Prisma Access location name.
+        region:
           type: string
-          description: TSG ID that this allocation belongs to.
-        total_entitled_mbps:
+          description: Geographic region.
+        licensed_bandwidth_mbps:
           type: integer
-          description: Total bandwidth entitlement for the TSG in Mbps.
-        total_allocated_mbps:
+          description: Total licensed bandwidth at this location in Mbps.
+        allocated_bandwidth_mbps:
           type: integer
-          description: >-
-            Sum of all individual allocations within this TSG in Mbps.
-        remaining_mbps:
+          description: Bandwidth currently allocated to remote networks in Mbps.
+        available_bandwidth_mbps:
           type: integer
-          description: Unallocated bandwidth remaining in Mbps.
-        allocations:
+          description: Remaining available bandwidth in Mbps.
+    PrismaAccessLocation:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Location identifier used in API requests.
+        display_name:
+          type: string
+          description: Human-readable location name.
+        region:
+          type: string
+          description: Geographic region (e.g., americas, europe, asia-pacific).
+        country:
+          type: string
+          description: Country code (ISO 3166-1 alpha-2).
+        city:
+          type: string
+          description: City name.
+        status:
+          type: string
+          enum:
+            - available
+            - limited
+            - unavailable
+          description: Current availability status.
+    OnboardingStatus:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Remote network identifier.
+        status:
+          type: string
+          enum:
+            - pending
+            - provisioning
+            - configuring
+            - tunnel_establishing
+            - completed
+            - failed
+          description: Current onboarding phase.
+        steps:
           type: array
+          description: Individual onboarding steps and their completion state.
           items:
             type: object
             properties:
-              target_id:
+              step:
                 type: string
-                description: ID of the allocated tunnel or connection.
-              target_type:
-                type: string
-                enum:
-                  - tunnel
-                  - connection
-              bandwidth_mbps:
-                type: integer
-                description: Allocated bandwidth in Mbps.
-              priority:
+                description: Step name.
+              status:
                 type: string
                 enum:
-                  - high
-                  - medium
-                  - low
-          description: Individual bandwidth allocation entries.
-        updated_at:
+                  - pending
+                  - in_progress
+                  - completed
+                  - failed
+              message:
+                type: string
+                description: Status message or error detail for this step.
+              completed_at:
+                type: string
+                format: date-time
+        error_message:
+          type: string
+          description: Error description if onboarding failed.
+        started_at:
           type: string
           format: date-time
-          description: Timestamp when the allocation was last modified.
+        completed_at:
+          type: string
+          format: date-time
     ErrorResponse:
       type: object
       properties:
-        error_code:
-          type: integer
-          description: Machine-readable error code.
+        error:
+          type: string
+          description: Error code identifying the error type.
         message:
           type: string
-          description: Human-readable error message.
-        details:
+          description: Human-readable description of the error.
+        request_id:
           type: string
-          description: Additional context about the error.
+          description: Request identifier for support correlation.

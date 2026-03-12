@@ -4,38 +4,39 @@ info:
   description: >-
     RESTful API for managing Palo Alto Networks PAN-OS next-generation
     firewalls. Provides programmatic access to configure firewall policies,
-    address objects, address groups, network interfaces, and device system
-    information. The API follows a resource-oriented design with standard
-    HTTP methods for CRUD operations. Authentication uses an API key
-    passed in the X-PAN-KEY header, generated from the PAN-OS web
-    interface under Device > Administrators.
+    objects, network interfaces, and device settings. The API follows a
+    resource-oriented design with standard HTTP methods for CRUD operations.
+    Authentication uses an API key passed in the X-PAN-KEY header, generated
+    from the PAN-OS web interface under Device > Administrators or via the
+    /api/?type=keygen XML API endpoint. All configuration changes are staged
+    in candidate configuration and require a commit to take effect.
   version: '10.2'
   contact:
     name: Palo Alto Networks Developer Support
-    url: https://pan.dev/
+    url: https://pan.dev/pan-os/docs/restapi/
   license:
     name: Proprietary
     url: https://www.paloaltonetworks.com/legal
 servers:
   - url: https://{firewall}/restapi/v10.2
-    description: PAN-OS firewall REST API endpoint.
+    description: PAN-OS firewall or Panorama REST API endpoint.
     variables:
       firewall:
-        description: >-
-          Hostname or IP address of the PAN-OS firewall or Panorama
-          appliance.
+        description: Hostname or IP address of the PAN-OS firewall or Panorama appliance.
         default: firewall.example.com
 security:
   - apiKey: []
 tags:
-  - name: Policies
-    description: Security policy rule management.
   - name: Objects
-    description: Address objects and address group management.
-  - name: Network
-    description: Network interface configuration.
+    description: >-
+      Address objects, address groups, service objects, service groups, and
+      tag management.
+  - name: Policies
+    description: Security policy rules, NAT rules, and QoS rule management.
   - name: Device
-    description: Device system information and status.
+    description: Device system information and virtual system management.
+  - name: Commit
+    description: Configuration commit operations.
 paths:
   /Objects/Addresses:
     get:
@@ -44,27 +45,13 @@ paths:
       description: >-
         Returns all address objects configured on the firewall. Supports
         filtering by name and location (vsys, device group, or shared).
-        Address objects define IP addresses, IP ranges, IP subnets, or
-        FQDNs used in security policy rules.
+        Address objects define IP addresses, IP ranges, IP subnets, or FQDNs
+        used in security policy rules.
       tags:
         - Objects
       parameters:
-        - name: location
-          in: query
-          description: Configuration location scope.
-          schema:
-            type: string
-            enum:
-              - vsys
-              - device-group
-              - shared
-            default: vsys
-        - name: vsys
-          in: query
-          description: Virtual system name when location is vsys.
-          schema:
-            type: string
-            default: vsys1
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
         - name: name
           in: query
           description: Filter by address object name.
@@ -72,7 +59,7 @@ paths:
             type: string
       responses:
         '200':
-          description: Address objects returned.
+          description: Address objects returned successfully.
           content:
             application/json:
               schema:
@@ -80,8 +67,10 @@ paths:
                 properties:
                   '@status':
                     type: string
+                    example: success
                   '@code':
                     type: string
+                    example: '19'
                   result:
                     type: object
                     properties:
@@ -97,32 +86,21 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
     post:
       operationId: createAddress
       summary: Create address object
       description: >-
-        Creates a new address object on the firewall. The address object
-        can be of type ip-netmask, ip-range, ip-wildcard, or fqdn. The
-        object must have a unique name within the specified location scope.
+        Creates a new address object on the firewall. The address object can
+        be of type ip-netmask, ip-range, ip-wildcard, or fqdn. The object must
+        have a unique name within the specified location scope. Changes are
+        staged in candidate configuration until committed.
       tags:
         - Objects
       parameters:
-        - name: location
-          in: query
-          description: Configuration location scope.
-          schema:
-            type: string
-            enum:
-              - vsys
-              - device-group
-              - shared
-            default: vsys
-        - name: vsys
-          in: query
-          description: Virtual system name when location is vsys.
-          schema:
-            type: string
-            default: vsys1
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
         - name: name
           in: query
           required: true
@@ -140,7 +118,7 @@ paths:
                   $ref: '#/components/schemas/Address'
       responses:
         '200':
-          description: Address object created.
+          description: Address object created successfully.
           content:
             application/json:
               schema:
@@ -151,30 +129,22 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '409':
           description: Address object with the specified name already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       operationId: updateAddress
       summary: Update address object
       description: >-
         Updates an existing address object identified by name. The entire
         object definition must be provided in the request body as this
-        performs a full replacement.
+        performs a full replacement of the address object configuration.
       tags:
         - Objects
       parameters:
-        - name: location
-          in: query
-          schema:
-            type: string
-            enum:
-              - vsys
-              - device-group
-              - shared
-            default: vsys
-        - name: vsys
-          in: query
-          schema:
-            type: string
-            default: vsys1
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
         - name: name
           in: query
           required: true
@@ -192,39 +162,29 @@ paths:
                   $ref: '#/components/schemas/Address'
       responses:
         '200':
-          description: Address object updated.
+          description: Address object updated successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PanOsResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
-          description: Address object not found.
+          $ref: '#/components/responses/NotFound'
     delete:
       operationId: deleteAddress
       summary: Delete address object
       description: >-
-        Deletes an address object identified by name. The object cannot
-        be deleted if it is referenced by an active security policy rule
-        or address group.
+        Deletes an address object identified by name. The object cannot be
+        deleted if it is referenced by an active security policy rule or
+        address group. Remove all references before deleting.
       tags:
         - Objects
       parameters:
-        - name: location
-          in: query
-          schema:
-            type: string
-            enum:
-              - vsys
-              - device-group
-              - shared
-            default: vsys
-        - name: vsys
-          in: query
-          schema:
-            type: string
-            default: vsys1
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
         - name: name
           in: query
           required: true
@@ -233,40 +193,36 @@ paths:
             type: string
       responses:
         '200':
-          description: Address object deleted.
+          description: Address object deleted successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PanOsResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '409':
           description: Object is referenced by other configuration elements.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /Objects/AddressGroups:
     get:
       operationId: listAddressGroups
       summary: List address groups
       description: >-
-        Returns all address groups configured on the firewall. Address
-        groups contain address objects or other address groups and can
-        be static (explicit member list) or dynamic (tag-based membership).
+        Returns all address groups configured on the firewall. Address groups
+        contain address objects or other address groups and can be static
+        (explicit member list) or dynamic (tag-based membership criteria).
       tags:
         - Objects
       parameters:
-        - name: location
-          in: query
-          schema:
-            type: string
-            enum:
-              - vsys
-              - device-group
-              - shared
-            default: vsys
-        - name: vsys
-          in: query
-          schema:
-            type: string
-            default: vsys1
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
         - name: name
           in: query
           description: Filter by address group name.
@@ -274,7 +230,7 @@ paths:
             type: string
       responses:
         '200':
-          description: Address groups returned.
+          description: Address groups returned successfully.
           content:
             application/json:
               schema:
@@ -295,31 +251,22 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/AddressGroup'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     post:
       operationId: createAddressGroup
       summary: Create address group
       description: >-
-        Creates a new address group. The group can be static with an
-        explicit list of member address objects, or dynamic with a
-        tag-based filter expression that automatically includes matching
-        address objects.
+        Creates a new address group. The group can be static with an explicit
+        list of member address objects, or dynamic with a tag-based filter
+        expression that automatically includes matching address objects.
       tags:
         - Objects
       parameters:
-        - name: location
-          in: query
-          schema:
-            type: string
-            enum:
-              - vsys
-              - device-group
-              - shared
-            default: vsys
-        - name: vsys
-          in: query
-          schema:
-            type: string
-            default: vsys1
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
         - name: name
           in: query
           required: true
@@ -337,41 +284,521 @@ paths:
                   $ref: '#/components/schemas/AddressGroup'
       responses:
         '200':
-          description: Address group created.
+          description: Address group created successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PanOsResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '409':
           description: Address group with the specified name already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: updateAddressGroup
+      summary: Update address group
+      description: >-
+        Updates an existing address group identified by name. The entire group
+        definition must be provided as this performs a full replacement.
+      tags:
+        - Objects
+      parameters:
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
+        - name: name
+          in: query
+          required: true
+          description: Name of the address group to update.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                entry:
+                  $ref: '#/components/schemas/AddressGroup'
+      responses:
+        '200':
+          description: Address group updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PanOsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deleteAddressGroup
+      summary: Delete address group
+      description: Deletes an address group identified by name.
+      tags:
+        - Objects
+      parameters:
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
+        - name: name
+          in: query
+          required: true
+          description: Name of the address group to delete.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Address group deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PanOsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /Objects/Services:
+    get:
+      operationId: listServices
+      summary: List service objects
+      description: >-
+        Returns all service objects configured on the firewall. Service objects
+        define TCP or UDP protocol and port combinations used in security policy
+        rules to identify specific network services.
+      tags:
+        - Objects
+      parameters:
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
+        - name: name
+          in: query
+          description: Filter by service object name.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Service objects returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  '@status':
+                    type: string
+                  '@code':
+                    type: string
+                  result:
+                    type: object
+                    properties:
+                      '@total-count':
+                        type: string
+                      '@count':
+                        type: string
+                      entry:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Service'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createService
+      summary: Create service object
+      description: >-
+        Creates a new service object defining a TCP or UDP protocol with
+        destination port or port range.
+      tags:
+        - Objects
+      parameters:
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
+        - name: name
+          in: query
+          required: true
+          description: Name of the service object to create.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                entry:
+                  $ref: '#/components/schemas/Service'
+      responses:
+        '200':
+          description: Service object created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PanOsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      operationId: updateService
+      summary: Update service object
+      description: Updates an existing service object identified by name.
+      tags:
+        - Objects
+      parameters:
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
+        - name: name
+          in: query
+          required: true
+          description: Name of the service object to update.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                entry:
+                  $ref: '#/components/schemas/Service'
+      responses:
+        '200':
+          description: Service object updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PanOsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deleteService
+      summary: Delete service object
+      description: Deletes a service object identified by name.
+      tags:
+        - Objects
+      parameters:
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
+        - name: name
+          in: query
+          required: true
+          description: Name of the service object to delete.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Service object deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PanOsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /Objects/ServiceGroups:
+    get:
+      operationId: listServiceGroups
+      summary: List service groups
+      description: >-
+        Returns all service groups configured on the firewall. Service groups
+        aggregate multiple service objects for use in security policy rules.
+      tags:
+        - Objects
+      parameters:
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
+        - name: name
+          in: query
+          description: Filter by service group name.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Service groups returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  '@status':
+                    type: string
+                  '@code':
+                    type: string
+                  result:
+                    type: object
+                    properties:
+                      '@total-count':
+                        type: string
+                      '@count':
+                        type: string
+                      entry:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ServiceGroup'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createServiceGroup
+      summary: Create service group
+      description: Creates a new service group containing one or more service objects.
+      tags:
+        - Objects
+      parameters:
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
+        - name: name
+          in: query
+          required: true
+          description: Name of the service group to create.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                entry:
+                  $ref: '#/components/schemas/ServiceGroup'
+      responses:
+        '200':
+          description: Service group created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PanOsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    put:
+      operationId: updateServiceGroup
+      summary: Update service group
+      description: Updates an existing service group identified by name.
+      tags:
+        - Objects
+      parameters:
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
+        - name: name
+          in: query
+          required: true
+          description: Name of the service group to update.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                entry:
+                  $ref: '#/components/schemas/ServiceGroup'
+      responses:
+        '200':
+          description: Service group updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PanOsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deleteServiceGroup
+      summary: Delete service group
+      description: Deletes a service group identified by name.
+      tags:
+        - Objects
+      parameters:
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
+        - name: name
+          in: query
+          required: true
+          description: Name of the service group to delete.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Service group deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PanOsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /Objects/Tags:
+    get:
+      operationId: listTags
+      summary: List tags
+      description: >-
+        Returns all tag objects configured on the firewall. Tags are used
+        to categorize address objects and other configuration elements for
+        use in dynamic address groups and policy filtering.
+      tags:
+        - Objects
+      parameters:
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
+        - name: name
+          in: query
+          description: Filter by tag name.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tags returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  '@status':
+                    type: string
+                  '@code':
+                    type: string
+                  result:
+                    type: object
+                    properties:
+                      '@total-count':
+                        type: string
+                      '@count':
+                        type: string
+                      entry:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Tag'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createTag
+      summary: Create tag
+      description: >-
+        Creates a new tag object with optional color and comment. Tags are
+        applied to address objects, security rules, and other elements to
+        enable dynamic grouping and filtering.
+      tags:
+        - Objects
+      parameters:
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
+        - name: name
+          in: query
+          required: true
+          description: Name of the tag to create.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                entry:
+                  $ref: '#/components/schemas/Tag'
+      responses:
+        '200':
+          description: Tag created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PanOsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    put:
+      operationId: updateTag
+      summary: Update tag
+      description: Updates an existing tag identified by name.
+      tags:
+        - Objects
+      parameters:
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
+        - name: name
+          in: query
+          required: true
+          description: Name of the tag to update.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                entry:
+                  $ref: '#/components/schemas/Tag'
+      responses:
+        '200':
+          description: Tag updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PanOsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deleteTag
+      summary: Delete tag
+      description: Deletes a tag identified by name.
+      tags:
+        - Objects
+      parameters:
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
+        - name: name
+          in: query
+          required: true
+          description: Name of the tag to delete.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tag deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PanOsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /Policies/SecurityRules:
     get:
       operationId: listSecurityRules
       summary: List security rules
       description: >-
-        Returns all security policy rules configured in the specified
-        rulebase. Security rules control traffic flow between zones and
-        define actions (allow, deny, drop, reset) based on source,
-        destination, application, service, and user criteria.
+        Returns all security policy rules configured in the specified rulebase.
+        Security rules control traffic flow between zones and define actions
+        (allow, deny, drop, reset) based on source, destination, application,
+        service, and user criteria.
       tags:
         - Policies
       parameters:
-        - name: location
-          in: query
-          schema:
-            type: string
-            enum:
-              - vsys
-              - device-group
-              - shared
-            default: vsys
-        - name: vsys
-          in: query
-          schema:
-            type: string
-            default: vsys1
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
         - name: name
           in: query
           description: Filter by security rule name.
@@ -379,7 +806,7 @@ paths:
             type: string
       responses:
         '200':
-          description: Security rules returned.
+          description: Security rules returned successfully.
           content:
             application/json:
               schema:
@@ -400,31 +827,23 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/SecurityRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     post:
       operationId: createSecurityRule
       summary: Create security rule
       description: >-
-        Creates a new security policy rule. The rule is added to the end
-        of the rulebase by default. Define source and destination zones,
-        addresses, applications, services, and the action to take on
-        matching traffic.
+        Creates a new security policy rule. The rule is added to the rulebase
+        in the specified position. Define source and destination zones,
+        addresses, applications, services, and the action to take on matching
+        traffic.
       tags:
         - Policies
       parameters:
-        - name: location
-          in: query
-          schema:
-            type: string
-            enum:
-              - vsys
-              - device-group
-              - shared
-            default: vsys
-        - name: vsys
-          in: query
-          schema:
-            type: string
-            default: vsys1
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
         - name: name
           in: query
           required: true
@@ -442,36 +861,26 @@ paths:
                   $ref: '#/components/schemas/SecurityRule'
       responses:
         '200':
-          description: Security rule created.
+          description: Security rule created successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PanOsResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     put:
       operationId: updateSecurityRule
       summary: Update security rule
       description: >-
-        Updates an existing security rule identified by name. The entire
-        rule definition must be provided as this performs a full replacement.
+        Updates an existing security rule identified by name. The entire rule
+        definition must be provided as this performs a full replacement.
       tags:
         - Policies
       parameters:
-        - name: location
-          in: query
-          schema:
-            type: string
-            enum:
-              - vsys
-              - device-group
-              - shared
-            default: vsys
-        - name: vsys
-          in: query
-          schema:
-            type: string
-            default: vsys1
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
         - name: name
           in: query
           required: true
@@ -489,13 +898,15 @@ paths:
                   $ref: '#/components/schemas/SecurityRule'
       responses:
         '200':
-          description: Security rule updated.
+          description: Security rule updated successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PanOsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
-          description: Security rule not found.
+          $ref: '#/components/responses/NotFound'
     delete:
       operationId: deleteSecurityRule
       summary: Delete security rule
@@ -503,20 +914,8 @@ paths:
       tags:
         - Policies
       parameters:
-        - name: location
-          in: query
-          schema:
-            type: string
-            enum:
-              - vsys
-              - device-group
-              - shared
-            default: vsys
-        - name: vsys
-          in: query
-          schema:
-            type: string
-            default: vsys1
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
         - name: name
           in: query
           required: true
@@ -525,45 +924,36 @@ paths:
             type: string
       responses:
         '200':
-          description: Security rule deleted.
+          description: Security rule deleted successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PanOsResponse'
-  /Network/Interfaces:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /Policies/NATRules:
     get:
-      operationId: listInterfaces
-      summary: List network interfaces
+      operationId: listNatRules
+      summary: List NAT rules
       description: >-
-        Returns all network interfaces configured on the firewall including
-        ethernet, loopback, tunnel, and VLAN interfaces. Each interface
-        entry includes its configuration such as IP addressing, zone
-        assignment, and link state.
+        Returns all NAT policy rules configured on the firewall. NAT rules
+        define source NAT (SNAT), destination NAT (DNAT), and bidirectional
+        translation policies applied to matching traffic flows.
       tags:
-        - Network
+        - Policies
       parameters:
-        - name: location
-          in: query
-          schema:
-            type: string
-            enum:
-              - vsys
-              - device-group
-              - shared
-            default: vsys
-        - name: vsys
-          in: query
-          schema:
-            type: string
-            default: vsys1
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
         - name: name
           in: query
-          description: Filter by interface name (e.g., ethernet1/1).
+          description: Filter by NAT rule name.
           schema:
             type: string
       responses:
         '200':
-          description: Network interfaces returned.
+          description: NAT rules returned successfully.
           content:
             application/json:
               schema:
@@ -583,50 +973,131 @@ paths:
                       entry:
                         type: array
                         items:
-                          type: object
-                          properties:
-                            '@name':
-                              type: string
-                              description: Interface name (e.g., ethernet1/1).
-                            comment:
-                              type: string
-                            layer3:
-                              type: object
-                              properties:
-                                ip:
-                                  type: object
-                                  properties:
-                                    entry:
-                                      type: array
-                                      items:
-                                        type: object
-                                        properties:
-                                          '@name':
-                                            type: string
-                                            description: IP address with CIDR notation.
-                                mtu:
-                                  type: string
-                                interface-management-profile:
-                                  type: string
-                            link-state:
-                              type: string
-                              enum:
-                                - auto
-                                - up
-                                - down
-  /Device/SystemInfo:
-    get:
-      operationId: getSystemInfo
-      summary: Get system information
+                          $ref: '#/components/schemas/NatRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createNatRule
+      summary: Create NAT rule
       description: >-
-        Returns device system information including hostname, PAN-OS
-        version, serial number, model, uptime, and operational status.
-        Useful for inventory management and firmware version tracking.
+        Creates a new NAT policy rule. Define source and destination zones,
+        addresses, services, and the translation type (static-ip, dynamic-ip,
+        dynamic-ip-and-port) and parameters.
       tags:
-        - Device
+        - Policies
+      parameters:
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
+        - name: name
+          in: query
+          required: true
+          description: Name of the NAT rule to create.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                entry:
+                  $ref: '#/components/schemas/NatRule'
       responses:
         '200':
-          description: System information returned.
+          description: NAT rule created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PanOsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      operationId: updateNatRule
+      summary: Update NAT rule
+      description: Updates an existing NAT rule identified by name.
+      tags:
+        - Policies
+      parameters:
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
+        - name: name
+          in: query
+          required: true
+          description: Name of the NAT rule to update.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                entry:
+                  $ref: '#/components/schemas/NatRule'
+      responses:
+        '200':
+          description: NAT rule updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PanOsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deleteNatRule
+      summary: Delete NAT rule
+      description: Deletes a NAT policy rule identified by name.
+      tags:
+        - Policies
+      parameters:
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
+        - name: name
+          in: query
+          required: true
+          description: Name of the NAT rule to delete.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: NAT rule deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PanOsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /Policies/QoSRules:
+    get:
+      operationId: listQosRules
+      summary: List QoS rules
+      description: >-
+        Returns all QoS policy rules configured on the firewall. QoS rules
+        classify and prioritize network traffic to ensure bandwidth allocation
+        and low-latency delivery for critical applications.
+      tags:
+        - Policies
+      parameters:
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
+        - name: name
+          in: query
+          description: Filter by QoS rule name.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: QoS rules returned successfully.
           content:
             application/json:
               schema:
@@ -639,46 +1110,241 @@ paths:
                   result:
                     type: object
                     properties:
-                      system:
-                        type: object
-                        properties:
-                          hostname:
-                            type: string
-                          ip-address:
-                            type: string
-                          model:
-                            type: string
-                            description: Firewall model (e.g., PA-5260, PA-850, VM-300).
-                          serial:
-                            type: string
-                            description: Device serial number.
-                          sw-version:
-                            type: string
-                            description: PAN-OS software version.
-                          app-version:
-                            type: string
-                            description: Application content version.
-                          threat-version:
-                            type: string
-                            description: Threat content version.
-                          wildfire-version:
-                            type: string
-                            description: WildFire content version.
-                          url-filtering-version:
-                            type: string
-                          uptime:
-                            type: string
-                            description: Device uptime (e.g., "45 days, 3:22:15").
-                          multi-vsys:
-                            type: string
-                            enum:
-                              - 'on'
-                              - 'off'
-                          operational-mode:
-                            type: string
-                            enum:
-                              - normal
-                              - fips-cc
+                      '@total-count':
+                        type: string
+                      '@count':
+                        type: string
+                      entry:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/QosRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createQosRule
+      summary: Create QoS rule
+      description: >-
+        Creates a new QoS policy rule that classifies matching traffic into a
+        QoS class for bandwidth management and prioritization.
+      tags:
+        - Policies
+      parameters:
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
+        - name: name
+          in: query
+          required: true
+          description: Name of the QoS rule to create.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                entry:
+                  $ref: '#/components/schemas/QosRule'
+      responses:
+        '200':
+          description: QoS rule created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PanOsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    put:
+      operationId: updateQosRule
+      summary: Update QoS rule
+      description: Updates an existing QoS rule identified by name.
+      tags:
+        - Policies
+      parameters:
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
+        - name: name
+          in: query
+          required: true
+          description: Name of the QoS rule to update.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                entry:
+                  $ref: '#/components/schemas/QosRule'
+      responses:
+        '200':
+          description: QoS rule updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PanOsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deleteQosRule
+      summary: Delete QoS rule
+      description: Deletes a QoS policy rule identified by name.
+      tags:
+        - Policies
+      parameters:
+        - $ref: '#/components/parameters/location'
+        - $ref: '#/components/parameters/vsys'
+        - name: name
+          in: query
+          required: true
+          description: Name of the QoS rule to delete.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: QoS rule deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PanOsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /Commit:
+    get:
+      operationId: getCommitStatus
+      summary: Get commit job status
+      description: >-
+        Returns the status of a commit operation by job ID. Poll this endpoint
+        to monitor the progress of a commit job initiated via POST /Commit.
+      tags:
+        - Commit
+      parameters:
+        - name: jobid
+          in: query
+          required: true
+          description: Job ID returned by the commit operation.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Commit job status returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommitStatus'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: commitConfiguration
+      summary: Commit configuration
+      description: >-
+        Commits the current candidate configuration to the running
+        configuration on the firewall. This operation applies all staged
+        configuration changes. Returns a job ID that can be polled to track
+        commit progress. Optionally specify a description and partial commit
+        criteria (admin, device groups, vsys).
+      tags:
+        - Commit
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cmd:
+                  type: object
+                  properties:
+                    commit:
+                      type: object
+                      properties:
+                        description:
+                          type: string
+                          description: Description for this commit.
+                        partial:
+                          type: object
+                          description: Partial commit options.
+                          properties:
+                            admin:
+                              type: object
+                              properties:
+                                member:
+                                  type: array
+                                  items:
+                                    type: string
+                                  description: Admin accounts to include in partial commit.
+      responses:
+        '200':
+          description: Commit job initiated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  '@status':
+                    type: string
+                  '@code':
+                    type: string
+                  result:
+                    type: object
+                    properties:
+                      msg:
+                        type: string
+                      job:
+                        type: string
+                        description: Job ID to poll for commit status.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /Device/VirtualSystems:
+    get:
+      operationId: listVirtualSystems
+      summary: List virtual systems
+      description: >-
+        Returns all virtual systems (vsys) configured on the firewall. Virtual
+        systems provide multi-tenancy on a single physical or virtual firewall
+        appliance, each with its own security policy, interfaces, and zones.
+      tags:
+        - Device
+      responses:
+        '200':
+          description: Virtual systems returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  '@status':
+                    type: string
+                  '@code':
+                    type: string
+                  result:
+                    type: object
+                    properties:
+                      '@total-count':
+                        type: string
+                      '@count':
+                        type: string
+                      entry:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/VirtualSystem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 components:
   securitySchemes:
     apiKey:
@@ -686,10 +1352,28 @@ components:
       in: header
       name: X-PAN-KEY
       description: >-
-        PAN-OS API key generated via the /api/?type=keygen endpoint or
-        from the web interface under Device > Administrators. The key
-        is tied to an administrator account and inherits its role-based
-        permissions.
+        PAN-OS API key generated via the /api/?type=keygen endpoint or from
+        the web interface under Device > Administrators. The key is tied to
+        an administrator account and inherits its role-based permissions.
+  parameters:
+    location:
+      name: location
+      in: query
+      description: Configuration location scope.
+      schema:
+        type: string
+        enum:
+          - vsys
+          - device-group
+          - shared
+        default: vsys
+    vsys:
+      name: vsys
+      in: query
+      description: Virtual system name when location is vsys.
+      schema:
+        type: string
+        default: vsys1
   responses:
     BadRequest:
       description: Malformed request or invalid parameters.
@@ -703,12 +1387,24 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: An internal server error occurred.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   schemas:
     Address:
       type: object
       description: >-
-        An address object representing an IP address, subnet, range,
-        wildcard mask, or FQDN.
+        An address object representing an IP address, subnet, range, wildcard
+        mask, or FQDN used in security policy rules.
       properties:
         '@name':
           type: string
@@ -739,8 +1435,8 @@ components:
     AddressGroup:
       type: object
       description: >-
-        A group of address objects. Can be static with an explicit member
-        list or dynamic with a tag-based filter expression.
+        A group of address objects. Can be static with an explicit member list
+        or dynamic with a tag-based filter expression.
       properties:
         '@name':
           type: string
@@ -772,12 +1468,85 @@ components:
               type: array
               items:
                 type: string
+    Service:
+      type: object
+      description: >-
+        A service object defining a TCP or UDP protocol with destination port
+        or port range.
+      properties:
+        '@name':
+          type: string
+          description: Unique name of the service object.
+        protocol:
+          type: object
+          properties:
+            tcp:
+              type: object
+              properties:
+                port:
+                  type: string
+                  description: TCP destination port or range (e.g., 80, 8080-8090).
+                source-port:
+                  type: string
+                  description: TCP source port or range.
+            udp:
+              type: object
+              properties:
+                port:
+                  type: string
+                  description: UDP destination port or range (e.g., 53, 500-502).
+                source-port:
+                  type: string
+                  description: UDP source port or range.
+        description:
+          type: string
+        tag:
+          type: object
+          properties:
+            member:
+              type: array
+              items:
+                type: string
+    ServiceGroup:
+      type: object
+      description: A group of service objects for use in security policy rules.
+      properties:
+        '@name':
+          type: string
+          description: Unique name of the service group.
+        members:
+          type: object
+          properties:
+            member:
+              type: array
+              items:
+                type: string
+              description: List of service object names.
+        tag:
+          type: object
+          properties:
+            member:
+              type: array
+              items:
+                type: string
+    Tag:
+      type: object
+      description: A tag for categorizing configuration objects.
+      properties:
+        '@name':
+          type: string
+          description: Unique name of the tag.
+        color:
+          type: string
+          description: Display color for the tag (e.g., color1, color2).
+        comments:
+          type: string
+          description: Description or comments for the tag.
     SecurityRule:
       type: object
       description: >-
-        A security policy rule controlling traffic flow between zones
-        based on source, destination, application, service, and user
-        criteria.
+        A security policy rule controlling traffic flow between zones based on
+        source, destination, application, service, and user criteria.
       properties:
         '@name':
           type: string
@@ -899,6 +1668,247 @@ components:
               type: array
               items:
                 type: string
+    NatRule:
+      type: object
+      description: >-
+        A NAT policy rule defining source or destination address translation
+        for matching traffic.
+      properties:
+        '@name':
+          type: string
+          description: Unique name of the NAT rule.
+        from:
+          type: object
+          properties:
+            member:
+              type: array
+              items:
+                type: string
+              description: Source zones.
+        to:
+          type: object
+          properties:
+            member:
+              type: array
+              items:
+                type: string
+              description: Destination zones.
+        source:
+          type: object
+          properties:
+            member:
+              type: array
+              items:
+                type: string
+              description: Source addresses.
+        destination:
+          type: object
+          properties:
+            member:
+              type: array
+              items:
+                type: string
+              description: Destination addresses.
+        service:
+          type: string
+          description: Service object or any.
+        source-translation:
+          type: object
+          description: Source address translation settings.
+          properties:
+            dynamic-ip-and-port:
+              type: object
+              properties:
+                interface-address:
+                  type: object
+                  properties:
+                    interface:
+                      type: string
+                translated-address:
+                  type: object
+                  properties:
+                    member:
+                      type: array
+                      items:
+                        type: string
+            static-ip:
+              type: object
+              properties:
+                translated-address:
+                  type: string
+                bi-directional:
+                  type: string
+                  enum:
+                    - 'yes'
+                    - 'no'
+        destination-translation:
+          type: object
+          description: Destination address translation settings.
+          properties:
+            translated-address:
+              type: string
+            translated-port:
+              type: string
+        nat-type:
+          type: string
+          enum:
+            - ipv4
+            - nat64
+            - nptv6
+        disabled:
+          type: string
+          enum:
+            - 'yes'
+            - 'no'
+        description:
+          type: string
+        tag:
+          type: object
+          properties:
+            member:
+              type: array
+              items:
+                type: string
+    QosRule:
+      type: object
+      description: >-
+        A QoS policy rule classifying traffic into QoS classes for bandwidth
+        management and prioritization.
+      properties:
+        '@name':
+          type: string
+          description: Unique name of the QoS rule.
+        from:
+          type: object
+          properties:
+            member:
+              type: array
+              items:
+                type: string
+              description: Source zones.
+        to:
+          type: object
+          properties:
+            member:
+              type: array
+              items:
+                type: string
+              description: Destination zones.
+        source:
+          type: object
+          properties:
+            member:
+              type: array
+              items:
+                type: string
+        destination:
+          type: object
+          properties:
+            member:
+              type: array
+              items:
+                type: string
+        application:
+          type: object
+          properties:
+            member:
+              type: array
+              items:
+                type: string
+        service:
+          type: object
+          properties:
+            member:
+              type: array
+              items:
+                type: string
+        dscp-tos:
+          type: object
+          description: DSCP/TOS marking settings.
+          properties:
+            any:
+              type: object
+        action:
+          type: object
+          properties:
+            class:
+              type: string
+              description: QoS class number (1-8).
+        disabled:
+          type: string
+          enum:
+            - 'yes'
+            - 'no'
+        description:
+          type: string
+    VirtualSystem:
+      type: object
+      description: A virtual system (vsys) on the PAN-OS firewall.
+      properties:
+        '@name':
+          type: string
+          description: Virtual system name (e.g., vsys1, vsys2).
+        display-name:
+          type: string
+          description: Human-readable display name for the vsys.
+        import:
+          type: object
+          description: Imported network resources for this vsys.
+          properties:
+            network:
+              type: object
+              properties:
+                interface:
+                  type: object
+                  properties:
+                    member:
+                      type: array
+                      items:
+                        type: string
+                      description: Network interfaces assigned to this vsys.
+    CommitStatus:
+      type: object
+      description: Status of a commit job.
+      properties:
+        '@status':
+          type: string
+        '@code':
+          type: string
+        result:
+          type: object
+          properties:
+            job:
+              type: object
+              properties:
+                id:
+                  type: string
+                type:
+                  type: string
+                status:
+                  type: string
+                  enum:
+                    - ACT
+                    - PEND
+                    - FIN
+                    - WARN
+                result:
+                  type: string
+                  enum:
+                    - OK
+                    - FAIL
+                    - WARN
+                progress:
+                  type: string
+                  description: Commit progress percentage (0-100).
+                details:
+                  type: object
+                  properties:
+                    line:
+                      oneOf:
+                        - type: string
+                        - type: array
+                          items:
+                            type: string
     PanOsResponse:
       type: object
       description: Standard PAN-OS API response envelope.

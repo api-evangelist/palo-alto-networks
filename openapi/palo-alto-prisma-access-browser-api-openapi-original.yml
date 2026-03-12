@@ -1,14 +1,14 @@
 openapi: 3.1.0
 info:
-  title: Prisma Access Browser API
+  title: Prisma Access Browser Management API
   description: >-
-    REST API for the Prisma Access Browser secure enterprise browser
-    providing programmatic access to browser policy management, user
-    enrollment, deployment tracking, and usage reporting. Prisma Access
-    Browser delivers a hardened Chromium-based browser with built-in
-    data loss prevention, threat protection, and visibility into user
-    web activity. Policies control clipboard operations, file downloads,
-    screenshot capture, and access to sensitive web applications.
+    Prisma Access Browser Management API for enterprise browser security.
+    Provides programmatic control over browser security policies, user
+    sessions, deployment configurations, managed device inventory, and
+    usage reporting. The Prisma Access Browser is a Chromium-based enterprise
+    browser with built-in security controls including data loss prevention,
+    threat protection, and access control. Requires Super User or View-Only
+    Admin role within the SASE platform.
   version: '1.0'
   contact:
     name: Palo Alto Networks Developer Support
@@ -17,165 +17,312 @@ info:
     name: Proprietary
     url: https://www.paloaltonetworks.com/legal
 servers:
-  - url: https://api.sase.paloaltonetworks.com
-    description: Prisma Access Browser SASE API server.
+  - url: https://api.sase.paloaltonetworks.com/browser-mgmt
+    description: SASE Prisma Access Browser Management API production server.
 security:
-  - oauth2: []
+  - oauth2Bearer: []
 tags:
-  - name: BrowserPolicies
-    description: >-
-      Browser policy management for controlling data protection rules,
-      access restrictions, and security settings in the enterprise browser.
+  - name: Policies
+    description: Browser security policy management.
   - name: Users
-    description: >-
-      User enrollment and management for tracking browser adoption and
-      user-level settings.
+    description: Browser user management and session visibility.
   - name: Deployments
-    description: >-
-      Deployment tracking for monitoring browser rollout across the
-      organization including version distribution and installation status.
+    description: Browser deployment configuration management.
+  - name: Devices
+    description: Managed device inventory.
   - name: Reports
-    description: >-
-      Usage reporting and analytics for browser activity, policy
-      enforcement events, and security incidents.
+    description: Usage and activity reporting.
 paths:
-  /browser/v1/policies:
+  /v1/policies:
     get:
       operationId: listBrowserPolicies
-      summary: List browser policies
+      summary: List browser security policies
       description: >-
-        Returns a list of all browser policies configured in the tenant.
-        Browser policies define data protection controls, access
-        restrictions, and security settings applied to users of the
-        Prisma Access Browser. Policies can target specific user groups,
-        URL categories, or application domains. Policies are evaluated
-        in priority order with the first matching policy applied.
+        Returns the list of browser security policies configured for the
+        tenant. Policies control browser behavior including allowed websites,
+        DLP rules, extension permissions, download controls, and clipboard
+        restrictions.
       tags:
-        - BrowserPolicies
+        - Policies
       parameters:
         - name: enabled
           in: query
-          description: Filter by policy enabled state.
+          description: Filter policies by enabled state.
           schema:
             type: boolean
-        - name: policy_type
-          in: query
-          description: Filter by policy type.
-          schema:
-            type: string
-            enum:
-              - dlp
-              - access
-              - security
-              - extension
         - name: offset
           in: query
+          description: Number of results to skip for pagination.
           schema:
             type: integer
             default: 0
         - name: limit
           in: query
+          description: Maximum number of policies to return.
           schema:
             type: integer
-            default: 100
-            maximum: 500
+            default: 50
+            maximum: 200
       responses:
         '200':
-          description: Browser policies returned.
+          description: Browser security policies returned.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/BrowserPolicy'
                   total:
                     type: integer
                   offset:
                     type: integer
                   limit:
                     type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BrowserPolicy'
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Insufficient permissions. Requires Super User or View-Only Admin role.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       operationId: createBrowserPolicy
-      summary: Create a browser policy
+      summary: Create browser security policy
       description: >-
-        Creates a new browser policy for controlling user behavior and
-        data protection in the Prisma Access Browser. Policies can
-        restrict clipboard copy and paste, file downloads and uploads,
-        screenshot capture, printing, and access to specific web
-        applications or URL categories. Each policy can target specific
-        user groups and define actions including allow, block, warn,
-        and watermark.
+        Creates a new browser security policy. Policies define security
+        controls applied to users of the Prisma Access Browser including
+        web filtering, DLP, and extension management settings.
       tags:
-        - BrowserPolicies
+        - Policies
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/BrowserPolicy'
+              $ref: '#/components/schemas/BrowserPolicyRequest'
       responses:
         '201':
-          description: Browser policy created.
+          description: Browser policy created successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/BrowserPolicy'
         '400':
-          $ref: '#/components/responses/BadRequest'
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
-          $ref: '#/components/responses/Unauthorized'
-  /browser/v1/users:
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions. Requires Super User role.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/policies/{policy_id}:
+    get:
+      operationId: getBrowserPolicy
+      summary: Get browser security policy
+      description: Returns full details for a specific browser security policy.
+      tags:
+        - Policies
+      parameters:
+        - name: policy_id
+          in: path
+          required: true
+          description: Unique identifier of the browser policy.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Browser policy details returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrowserPolicy'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Browser policy not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: updateBrowserPolicy
+      summary: Update browser security policy
+      description: Updates an existing browser security policy configuration.
+      tags:
+        - Policies
+      parameters:
+        - name: policy_id
+          in: path
+          required: true
+          description: Unique identifier of the browser policy to update.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BrowserPolicyRequest'
+      responses:
+        '200':
+          description: Browser policy updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrowserPolicy'
+        '400':
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions. Requires Super User role.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Browser policy not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteBrowserPolicy
+      summary: Delete browser security policy
+      description: >-
+        Deletes a browser security policy. Policies assigned to active
+        deployments must be unassigned before deletion.
+      tags:
+        - Policies
+      parameters:
+        - name: policy_id
+          in: path
+          required: true
+          description: Unique identifier of the browser policy to delete.
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Browser policy deleted successfully.
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions. Requires Super User role.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Browser policy not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/users:
     get:
       operationId: listBrowserUsers
       summary: List browser users
       description: >-
-        Returns a list of users enrolled in the Prisma Access Browser
-        program. Each user record includes enrollment status, browser
-        version, last active timestamp, device information, and applied
-        policy details. Useful for tracking browser adoption and
-        identifying users who need to upgrade.
+        Returns the list of users enrolled in the Prisma Access Browser.
+        Includes user identity information, assigned policy, and current
+        active session count.
       tags:
         - Users
       parameters:
-        - name: status
+        - name: policy_id
           in: query
-          description: Filter by enrollment status.
-          schema:
-            type: string
-            enum:
-              - active
-              - inactive
-              - pending
-              - revoked
-        - name: group
-          in: query
-          description: Filter by user group name.
-          schema:
-            type: string
-        - name: search
-          in: query
-          description: >-
-            Search users by email address or display name. Supports
-            partial matching.
+          description: Filter users by assigned browser policy.
           schema:
             type: string
         - name: offset
           in: query
+          description: Number of results to skip for pagination.
           schema:
             type: integer
             default: 0
         - name: limit
           in: query
+          description: Maximum number of users to return.
           schema:
             type: integer
-            default: 100
+            default: 50
+            maximum: 200
       responses:
         '200':
           description: Browser users returned.
@@ -184,51 +331,115 @@ paths:
               schema:
                 type: object
                 properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/BrowserUser'
                   total:
                     type: integer
                   offset:
                     type: integer
                   limit:
                     type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BrowserUser'
         '401':
-          $ref: '#/components/responses/Unauthorized'
-  /browser/v1/deployments:
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/users/{user_id}/sessions:
     get:
-      operationId: listDeployments
-      summary: List browser deployments
+      operationId: getUserSessions
+      summary: Get user sessions
       description: >-
-        Returns a list of browser deployment records showing the rollout
-        status across the organization. Each deployment record tracks
-        a specific browser version release including the number of users
-        updated, pending installations, and failed deployments. Provides
-        visibility into the browser update lifecycle.
+        Returns the active and recent browser sessions for a specific user.
+        Session data includes device, IP address, policy applied, and
+        session duration.
       tags:
-        - Deployments
+        - Users
       parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: Unique identifier of the browser user.
+          schema:
+            type: string
         - name: status
           in: query
-          description: Filter by deployment status.
+          description: Filter sessions by status.
           schema:
             type: string
             enum:
               - active
-              - completed
-              - scheduled
-              - cancelled
-        - name: offset
-          in: query
-          schema:
-            type: integer
-            default: 0
+              - terminated
         - name: limit
           in: query
+          description: Maximum number of sessions to return.
           schema:
             type: integer
             default: 50
+            maximum: 200
+      responses:
+        '200':
+          description: User sessions returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BrowserSession'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/deployments:
+    get:
+      operationId: listDeployments
+      summary: List browser deployments
+      description: >-
+        Returns the list of browser deployment configurations. Deployments
+        define how the Prisma Access Browser is distributed and configured
+        for groups of users, including installation packages and update
+        channel settings.
+      tags:
+        - Deployments
       responses:
         '200':
           description: Deployments returned.
@@ -237,68 +448,330 @@ paths:
               schema:
                 type: object
                 properties:
-                  data:
+                  total:
+                    type: integer
+                  items:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Deployment'
+                      $ref: '#/components/schemas/BrowserDeployment'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createDeployment
+      summary: Create browser deployment
+      description: Creates a new browser deployment configuration.
+      tags:
+        - Deployments
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BrowserDeploymentRequest'
+      responses:
+        '201':
+          description: Deployment created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrowserDeployment'
+        '400':
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/deployments/{deployment_id}:
+    get:
+      operationId: getDeployment
+      summary: Get browser deployment
+      description: Returns full details for a specific browser deployment configuration.
+      tags:
+        - Deployments
+      parameters:
+        - name: deployment_id
+          in: path
+          required: true
+          description: Unique identifier of the deployment.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deployment details returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrowserDeployment'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Deployment not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: updateDeployment
+      summary: Update browser deployment
+      description: Updates an existing browser deployment configuration.
+      tags:
+        - Deployments
+      parameters:
+        - name: deployment_id
+          in: path
+          required: true
+          description: Unique identifier of the deployment to update.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BrowserDeploymentRequest'
+      responses:
+        '200':
+          description: Deployment updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrowserDeployment'
+        '400':
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Deployment not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteDeployment
+      summary: Delete browser deployment
+      description: Deletes a browser deployment configuration.
+      tags:
+        - Deployments
+      parameters:
+        - name: deployment_id
+          in: path
+          required: true
+          description: Unique identifier of the deployment to delete.
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Deployment deleted successfully.
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Deployment not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/devices:
+    get:
+      operationId: listManagedDevices
+      summary: List managed devices
+      description: >-
+        Returns the inventory of managed devices running the Prisma Access
+        Browser. Includes device platform, browser version, compliance
+        status, and last seen timestamp.
+      tags:
+        - Devices
+      parameters:
+        - name: platform
+          in: query
+          description: Filter devices by operating system platform.
+          schema:
+            type: string
+            enum:
+              - windows
+              - macos
+              - linux
+              - chromeos
+        - name: compliance_status
+          in: query
+          description: Filter devices by compliance status.
+          schema:
+            type: string
+            enum:
+              - compliant
+              - non_compliant
+              - unknown
+        - name: offset
+          in: query
+          description: Number of results to skip for pagination.
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of devices to return.
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+      responses:
+        '200':
+          description: Managed devices returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
                   total:
                     type: integer
                   offset:
                     type: integer
                   limit:
                     type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ManagedDevice'
         '401':
-          $ref: '#/components/responses/Unauthorized'
-  /browser/v1/reports/usage:
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/reports/usage:
     get:
-      operationId: getBrowserUsageReport
-      summary: Get browser usage report
+      operationId: getUsageReport
+      summary: Get usage report
       description: >-
-        Returns aggregated usage statistics for the Prisma Access Browser
-        including active user counts, session durations, top accessed
-        domains, policy enforcement events, and data protection metrics.
-        Supports time range filtering for trend analysis and compliance
-        reporting. Data is aggregated at the specified granularity
-        (hourly, daily, or weekly).
+        Returns browser usage statistics for the specified time period
+        including active users, session counts, data transferred, blocked
+        threats, and DLP events.
       tags:
         - Reports
       parameters:
-        - name: start_time
+        - name: start_date
           in: query
           required: true
-          description: >-
-            Start of the reporting period in ISO 8601 format
-            (e.g., 2025-01-01T00:00:00Z).
+          description: Start of the reporting period (ISO 8601).
           schema:
             type: string
-            format: date-time
-        - name: end_time
+            format: date
+        - name: end_date
           in: query
           required: true
-          description: End of the reporting period in ISO 8601 format.
+          description: End of the reporting period (ISO 8601).
           schema:
             type: string
-            format: date-time
-        - name: granularity
-          in: query
-          description: Time granularity for data aggregation.
-          schema:
-            type: string
-            enum:
-              - hourly
-              - daily
-              - weekly
-            default: daily
+            format: date
         - name: group_by
           in: query
           description: Dimension to group results by.
           schema:
             type: string
             enum:
+              - day
+              - week
+              - month
               - user
-              - group
+              - device
               - policy
-              - domain
       responses:
         '200':
           description: Usage report returned.
@@ -307,187 +780,134 @@ paths:
               schema:
                 $ref: '#/components/schemas/UsageReport'
         '400':
-          $ref: '#/components/responses/BadRequest'
+          description: Invalid date range or query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   securitySchemes:
-    oauth2:
-      type: oauth2
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
       description: >-
-        OAuth 2.0 client credentials flow for obtaining an access token.
-        Requires a client ID and client secret from the Palo Alto Networks
-        SASE identity provider. The access token must be included as a
-        Bearer token in the Authorization header.
-      flows:
-        clientCredentials:
-          tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
-          scopes: {}
-  responses:
-    Unauthorized:
-      description: Missing or invalid OAuth2 access token.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Forbidden:
-      description: Insufficient permissions for this operation.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    BadRequest:
-      description: Invalid request parameters or body.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
+        OAuth 2.0 Bearer token for SASE platform authentication. Requires
+        Super User or View-Only Admin role. Obtain using the
+        client_credentials grant with your SASE service account credentials.
   schemas:
     BrowserPolicy:
       type: object
       properties:
-        id:
+        policy_id:
           type: string
-          description: Unique identifier for the policy.
-          readOnly: true
+          description: Unique identifier of the browser policy.
         name:
           type: string
-          description: Display name of the browser policy.
+          description: Display name of the policy.
         description:
           type: string
+          description: Description of the policy's purpose.
         enabled:
           type: boolean
           description: Whether the policy is active.
-          default: true
-        priority:
-          type: integer
-          description: >-
-            Policy evaluation priority. Lower numbers are evaluated
-            first. Must be unique across all policies.
-          minimum: 1
-        policy_type:
+        web_filtering:
+          type: object
+          description: Web filtering configuration.
+          properties:
+            enabled:
+              type: boolean
+            blocked_categories:
+              type: array
+              items:
+                type: string
+        dlp_enabled:
+          type: boolean
+          description: Whether DLP controls are enabled.
+        extension_policy:
           type: string
           enum:
-            - dlp
-            - access
-            - security
-            - extension
-          description: >-
-            Category of the policy. DLP policies control data
-            movement; access policies restrict URL and application
-            access; security policies configure threat protection;
-            extension policies manage browser extensions.
-        target_users:
-          type: object
-          description: User targeting criteria for the policy.
-          properties:
-            groups:
-              type: array
-              description: User group names the policy applies to.
-              items:
-                type: string
-            users:
-              type: array
-              description: >-
-                Specific user email addresses the policy applies to.
-              items:
-                type: string
-                format: email
-            exclude_groups:
-              type: array
-              description: User groups excluded from the policy.
-              items:
-                type: string
-        conditions:
-          type: object
-          description: Conditions that trigger the policy.
-          properties:
-            url_categories:
-              type: array
-              description: URL categories to match.
-              items:
-                type: string
-            domains:
-              type: array
-              description: Specific domains to match.
-              items:
-                type: string
-            applications:
-              type: array
-              description: SaaS application names to match.
-              items:
-                type: string
-        actions:
-          type: object
-          description: Actions enforced when the policy matches.
-          properties:
-            clipboard_copy:
-              type: string
-              enum:
-                - allow
-                - block
-                - warn
-              description: Control clipboard copy operations.
-            clipboard_paste:
-              type: string
-              enum:
-                - allow
-                - block
-                - warn
-              description: Control clipboard paste operations.
-            file_download:
-              type: string
-              enum:
-                - allow
-                - block
-                - warn
-                - scan
-              description: Control file downloads.
-            file_upload:
-              type: string
-              enum:
-                - allow
-                - block
-                - warn
-                - scan
-              description: Control file uploads.
-            printing:
-              type: string
-              enum:
-                - allow
-                - block
-              description: Control printing from the browser.
-            screenshot:
-              type: string
-              enum:
-                - allow
-                - block
-              description: Control screenshot capture.
-            watermark:
-              type: boolean
-              description: >-
-                Apply a visible watermark overlay showing user identity
-                on sensitive pages.
-              default: false
+            - allow_all
+            - allow_list
+            - block_all
+          description: Extension installation policy.
+        download_control:
+          type: string
+          enum:
+            - allow
+            - scan
+            - block
+          description: File download control setting.
         created_at:
           type: string
           format: date-time
-          readOnly: true
         updated_at:
           type: string
           format: date-time
-          readOnly: true
+    BrowserPolicyRequest:
+      type: object
       required:
         - name
-        - policy_type
-        - actions
+      properties:
+        name:
+          type: string
+          description: Display name for the browser policy.
+        description:
+          type: string
+          description: Optional description.
+        enabled:
+          type: boolean
+          default: true
+        web_filtering:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            blocked_categories:
+              type: array
+              items:
+                type: string
+        dlp_enabled:
+          type: boolean
+          default: false
+        extension_policy:
+          type: string
+          enum:
+            - allow_all
+            - allow_list
+            - block_all
+          default: allow_all
+        download_control:
+          type: string
+          enum:
+            - allow
+            - scan
+            - block
+          default: allow
     BrowserUser:
       type: object
       properties:
-        id:
+        user_id:
           type: string
-          description: Unique identifier for the user record.
-          readOnly: true
+          description: Unique identifier of the browser user.
         email:
           type: string
           format: email
@@ -495,170 +915,176 @@ components:
         display_name:
           type: string
           description: User display name.
+        policy_id:
+          type: string
+          description: ID of the browser policy assigned to this user.
+        active_sessions:
+          type: integer
+          description: Current number of active browser sessions.
+        last_active_at:
+          type: string
+          format: date-time
+    BrowserSession:
+      type: object
+      properties:
+        session_id:
+          type: string
+          description: Unique identifier of the browser session.
+        user_id:
+          type: string
+          description: User ID of the session owner.
+        device_id:
+          type: string
+          description: Device ID used in this session.
+        ip_address:
+          type: string
+          description: Client IP address.
+        policy_id:
+          type: string
+          description: Policy applied during this session.
+        browser_version:
+          type: string
+          description: Prisma Access Browser version.
         status:
           type: string
           enum:
             - active
-            - inactive
-            - pending
-            - revoked
-          description: Current enrollment status.
-        groups:
-          type: array
-          description: User group memberships.
-          items:
-            type: string
-        browser_version:
+            - terminated
+          description: Session status.
+        started_at:
           type: string
-          description: >-
-            Version of the Prisma Access Browser installed by the user.
-          readOnly: true
-        os:
+          format: date-time
+        ended_at:
+          type: string
+          format: date-time
+    BrowserDeployment:
+      type: object
+      properties:
+        deployment_id:
+          type: string
+          description: Unique identifier of the deployment.
+        name:
+          type: string
+          description: Display name of the deployment.
+        description:
+          type: string
+          description: Description of the deployment configuration.
+        platform:
           type: string
           enum:
             - windows
             - macos
             - linux
             - chromeos
-          description: Operating system of the user device.
-          readOnly: true
-        device_name:
+          description: Target operating system platform.
+        policy_id:
           type: string
-          description: Name of the device running the browser.
-          readOnly: true
-        last_active:
-          type: string
-          format: date-time
-          description: Timestamp of the last browser session.
-          readOnly: true
-        total_sessions:
-          type: integer
-          description: Total number of browser sessions for this user.
-          readOnly: true
-        policies_applied:
-          type: array
-          description: List of policy IDs currently applied to this user.
-          items:
-            type: string
-          readOnly: true
-        enrolled_at:
-          type: string
-          format: date-time
-          readOnly: true
-    Deployment:
-      type: object
-      properties:
-        id:
-          type: string
-          description: Unique identifier for the deployment.
-          readOnly: true
-        version:
-          type: string
-          description: Browser version being deployed.
-        status:
+          description: Default browser policy assigned to users in this deployment.
+        update_channel:
           type: string
           enum:
-            - active
-            - completed
-            - scheduled
-            - cancelled
-          description: Current status of the deployment.
-        release_notes:
-          type: string
-          description: Summary of changes in this browser version.
-        target_groups:
-          type: array
-          description: User groups targeted by this deployment.
-          items:
-            type: string
-        rollout_strategy:
-          type: string
-          enum:
-            - immediate
-            - staged
-            - manual
-          description: >-
-            Deployment strategy. Immediate pushes to all users at once;
-            staged rolls out in phases; manual requires user action.
-        rollout_percentage:
+            - stable
+            - beta
+          description: Browser update channel for this deployment.
+        device_count:
           type: integer
-          description: >-
-            Current rollout percentage for staged deployments. Ranges
-            from 0 to 100.
-          minimum: 0
-          maximum: 100
-        total_users:
-          type: integer
-          description: Total number of users targeted by the deployment.
-          readOnly: true
-        updated_users:
-          type: integer
-          description: Number of users who have received the update.
-          readOnly: true
-        pending_users:
-          type: integer
-          description: Number of users with pending installations.
-          readOnly: true
-        failed_users:
-          type: integer
-          description: Number of users where installation failed.
-          readOnly: true
-        scheduled_at:
-          type: string
-          format: date-time
-          description: Scheduled start time for the deployment.
-        started_at:
-          type: string
-          format: date-time
-          readOnly: true
-        completed_at:
-          type: string
-          format: date-time
-          readOnly: true
+          description: Number of devices in this deployment.
         created_at:
           type: string
           format: date-time
-          readOnly: true
+    BrowserDeploymentRequest:
+      type: object
+      required:
+        - name
+        - platform
+      properties:
+        name:
+          type: string
+          description: Display name for the deployment.
+        description:
+          type: string
+        platform:
+          type: string
+          enum:
+            - windows
+            - macos
+            - linux
+            - chromeos
+          description: Target operating system platform.
+        policy_id:
+          type: string
+          description: Default browser policy ID for this deployment.
+        update_channel:
+          type: string
+          enum:
+            - stable
+            - beta
+          default: stable
+    ManagedDevice:
+      type: object
+      properties:
+        device_id:
+          type: string
+          description: Unique identifier of the managed device.
+        hostname:
+          type: string
+          description: Device hostname.
+        platform:
+          type: string
+          enum:
+            - windows
+            - macos
+            - linux
+            - chromeos
+          description: Operating system platform.
+        browser_version:
+          type: string
+          description: Installed Prisma Access Browser version.
+        compliance_status:
+          type: string
+          enum:
+            - compliant
+            - non_compliant
+            - unknown
+          description: Device compliance status.
+        user_id:
+          type: string
+          description: ID of the last user who logged in on this device.
+        last_seen_at:
+          type: string
+          format: date-time
+          description: Timestamp of the device's last check-in.
     UsageReport:
       type: object
       properties:
-        start_time:
-          type: string
-          format: date-time
-          description: Start of the reporting period.
-        end_time:
-          type: string
-          format: date-time
-          description: End of the reporting period.
-        granularity:
-          type: string
-          description: Time granularity of the data points.
-        summary:
+        period:
           type: object
-          description: Aggregated summary statistics for the period.
           properties:
-            total_active_users:
-              type: integer
-              description: Total unique active users during the period.
-            total_sessions:
-              type: integer
-              description: Total browser sessions during the period.
-            avg_session_duration_minutes:
-              type: number
-              description: Average session duration in minutes.
-            total_policy_events:
-              type: integer
-              description: Total policy enforcement events triggered.
-            total_blocked_actions:
-              type: integer
-              description: Total user actions blocked by policies.
-            total_data_transfer_mb:
-              type: number
-              description: Total data transferred through the browser in MB.
-        time_series:
+            start:
+              type: string
+              format: date
+            end:
+              type: string
+              format: date
+        active_users:
+          type: integer
+          description: Number of unique active users during the period.
+        total_sessions:
+          type: integer
+          description: Total browser sessions started during the period.
+        data_transferred_gb:
+          type: number
+          format: float
+          description: Total data transferred through the browser in GB.
+        threats_blocked:
+          type: integer
+          description: Number of threats blocked by the browser.
+        dlp_events:
+          type: integer
+          description: Number of DLP policy events triggered.
+        data_points:
           type: array
-          description: >-
-            Time-bucketed data points at the specified granularity.
+          description: Time-series data points for the report.
           items:
             type: object
             properties:
@@ -669,49 +1095,15 @@ components:
                 type: integer
               sessions:
                 type: integer
-              policy_events:
-                type: integer
-              blocked_actions:
-                type: integer
-        top_domains:
-          type: array
-          description: Most visited domains during the period.
-          items:
-            type: object
-            properties:
-              domain:
-                type: string
-              visit_count:
-                type: integer
-              unique_users:
-                type: integer
-        top_policy_events:
-          type: array
-          description: Most frequently triggered policy rules.
-          items:
-            type: object
-            properties:
-              policy_id:
-                type: string
-              policy_name:
-                type: string
-              event_count:
-                type: integer
-              action:
-                type: string
     ErrorResponse:
       type: object
       properties:
-        _errors:
-          type: array
-          items:
-            type: object
-            properties:
-              code:
-                type: string
-              message:
-                type: string
-              details:
-                type: object
-        _request_id:
+        error:
           type: string
+          description: Error code identifying the error type.
+        message:
+          type: string
+          description: Human-readable description of the error.
+        request_id:
+          type: string
+          description: Request identifier for support correlation.
