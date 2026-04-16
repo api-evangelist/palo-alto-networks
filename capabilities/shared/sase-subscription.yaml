@@ -1,0 +1,232 @@
+naftiko: "1.0.0-alpha1"
+
+info:
+  label: "SASE Subscription Service"
+  description: "Manage SASE subscriptions, entitlements, and license allocations."
+  tags:
+    - sase
+    - subscription
+    - licensing
+    - palo-alto-networks
+  created: "2026-04-16"
+  modified: "2026-04-16"
+
+binds:
+  - namespace: env
+    keys:
+      PALO_ALTO_OAUTH_TOKEN: PALO_ALTO_OAUTH_TOKEN
+
+capability:
+  consumes:
+    - type: http
+      namespace: sase-subscription
+      baseUri: https://api.sase.paloaltonetworks.com/subscription/v1
+      authentication:
+        type: bearer
+        token: "{{env.PALO_ALTO_OAUTH_TOKEN}}"
+      resources:
+        - name: subscriptions
+          path: /subscriptions
+          operations:
+            - name: list-subscriptions
+              method: GET
+              description: "List all subscriptions for a tenant service group."
+              inputParameters:
+                - name: tsg_id
+                  in: query
+                  type: string
+                  required: true
+                - name: product
+                  in: query
+                  type: string
+                  required: false
+                - name: status
+                  in: query
+                  type: string
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: get-subscription
+              method: GET
+              description: "Get details of a specific subscription."
+              path: /{subscription_id}
+              inputParameters:
+                - name: subscription_id
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: get-subscription-entitlements
+              method: GET
+              description: "Get entitlements for a specific subscription."
+              path: /{subscription_id}/entitlements
+              inputParameters:
+                - name: subscription_id
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: allocate-licenses
+              method: PUT
+              description: "Allocate licenses from a subscription to tenant service groups."
+              path: /{subscription_id}/allocation
+              inputParameters:
+                - name: subscription_id
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  allocations: "{{tools.allocations}}"
+
+  exposes:
+    - type: rest
+      port: 8108
+      namespace: sase-subscription-rest
+      resources:
+        - path: /v1/subscriptions
+          operations:
+            - method: GET
+              name: list-subscriptions
+              call: "sase-subscription.list-subscriptions"
+              with:
+                tsg_id: "rest.tsg_id"
+                product: "rest.product"
+                status: "rest.status"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+        - path: /v1/subscriptions/{subscription_id}
+          operations:
+            - method: GET
+              name: get-subscription
+              call: "sase-subscription.get-subscription"
+              with:
+                subscription_id: "rest.subscription_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/subscriptions/{subscription_id}/entitlements
+          operations:
+            - method: GET
+              name: get-subscription-entitlements
+              call: "sase-subscription.get-subscription-entitlements"
+              with:
+                subscription_id: "rest.subscription_id"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+        - path: /v1/subscriptions/{subscription_id}/allocations
+          operations:
+            - method: PUT
+              name: allocate-licenses
+              call: "sase-subscription.allocate-licenses"
+              with:
+                subscription_id: "rest.subscription_id"
+                allocations: "rest.allocations"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+    - type: mcp
+      port: 9118
+      namespace: sase-subscription-mcp
+      transport: http
+      tools:
+        - name: list-subscriptions
+          description: "List all subscriptions for a tenant service group."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: tsg_id
+              type: string
+              required: true
+            - name: product
+              type: string
+              required: false
+            - name: status
+              type: string
+              required: false
+          call: "sase-subscription.list-subscriptions"
+          with:
+            tsg_id: "tools.tsg_id"
+            product: "tools.product"
+            status: "tools.status"
+          outputParameters:
+            - type: array
+              mapping: "$."
+        - name: get-subscription
+          description: "Get details of a specific subscription."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: subscription_id
+              type: string
+              required: true
+          call: "sase-subscription.get-subscription"
+          with:
+            subscription_id: "tools.subscription_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-subscription-entitlements
+          description: "Get entitlements for a specific subscription."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: subscription_id
+              type: string
+              required: true
+          call: "sase-subscription.get-subscription-entitlements"
+          with:
+            subscription_id: "tools.subscription_id"
+          outputParameters:
+            - type: array
+              mapping: "$."
+        - name: allocate-licenses
+          description: "Allocate licenses from a subscription to tenant service groups."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: subscription_id
+              type: string
+              required: true
+            - name: allocations
+              type: object
+              required: true
+          call: "sase-subscription.allocate-licenses"
+          with:
+            subscription_id: "tools.subscription_id"
+            allocations: "tools.allocations"
+          outputParameters:
+            - type: object
+              mapping: "$."

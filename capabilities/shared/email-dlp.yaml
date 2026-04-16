@@ -1,0 +1,401 @@
+naftiko: "1.0.0-alpha1"
+
+info:
+  label: "Email DLP"
+  description: "Provides access to the Palo Alto Networks Email DLP API for managing email-based data loss prevention incidents, verdicts, attachments, and recipients."
+  tags:
+    - security
+    - dlp
+    - email
+    - data-loss-prevention
+    - palo-alto-networks
+  created: "2026-04-16"
+  modified: "2026-04-16"
+
+binds:
+  - namespace: env
+    keys:
+      PALO_ALTO_DLP_TOKEN: PALO_ALTO_DLP_TOKEN
+
+capability:
+  consumes:
+    - type: http
+      namespace: email-dlp-api
+      baseUri: https://api.dlp.paloaltonetworks.com
+      description: "Email DLP API for managing email-based data loss prevention incidents."
+      authentication:
+        type: bearer
+        token: "{{PALO_ALTO_DLP_TOKEN}}"
+      resources:
+        - name: email-incidents
+          path: /email-incidents
+          description: "Manage email DLP incidents."
+          operations:
+            - name: list-email-incidents
+              method: GET
+              description: "List email DLP incidents with optional filters."
+              inputParameters:
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                  description: "Offset for pagination."
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+                  description: "Maximum number of results to return."
+                - name: status
+                  in: query
+                  type: string
+                  required: false
+                  description: "Filter by incident status."
+                - name: severity
+                  in: query
+                  type: string
+                  required: false
+                  description: "Filter by severity level."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+            - name: get-email-incident
+              method: GET
+              description: "Retrieve a specific email DLP incident by ID."
+              inputParameters:
+                - name: id
+                  in: path
+                  type: string
+                  required: true
+                  description: "The email incident ID."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: email-incident-verdict
+          path: /email-incidents/{id}/verdict
+          description: "Manage email incident verdicts."
+          operations:
+            - name: update-email-incident-verdict
+              method: PUT
+              description: "Update the verdict for an email DLP incident."
+              inputParameters:
+                - name: id
+                  in: path
+                  type: string
+                  required: true
+                  description: "The email incident ID."
+                - name: verdict
+                  in: body
+                  type: string
+                  required: true
+                  description: "The verdict to set."
+                - name: reason
+                  in: body
+                  type: string
+                  required: false
+                  description: "Reason for the verdict."
+              body:
+                type: json
+                data:
+                  verdict: "{{tools.verdict}}"
+                  reason: "{{tools.reason}}"
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: email-incident-attachments
+          path: /email-incidents/{id}/attachments
+          description: "Access email incident attachments."
+          operations:
+            - name: get-email-incident-attachments
+              method: GET
+              description: "Get attachments for a specific email DLP incident."
+              inputParameters:
+                - name: id
+                  in: path
+                  type: string
+                  required: true
+                  description: "The email incident ID."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: email-incident-recipients
+          path: /email-incidents/{id}/recipients
+          description: "Access email incident recipients."
+          operations:
+            - name: get-email-incident-recipients
+              method: GET
+              description: "Get recipients for a specific email DLP incident."
+              inputParameters:
+                - name: id
+                  in: path
+                  type: string
+                  required: true
+                  description: "The email incident ID."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+  exposes:
+    - type: rest
+      port: 8090
+      namespace: email-dlp-rest
+      description: "REST API adapter for Email DLP operations."
+      resources:
+        - path: /v1/email-incidents
+          name: email-incidents
+          description: "List email DLP incidents."
+          operations:
+            - method: GET
+              name: list-email-incidents
+              description: "List email DLP incidents with optional filters."
+              inputParameters:
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+                - name: status
+                  in: query
+                  type: string
+                  required: false
+                - name: severity
+                  in: query
+                  type: string
+                  required: false
+              call: "email-dlp-api.list-email-incidents"
+              with:
+                offset: "rest.offset"
+                limit: "rest.limit"
+                status: "rest.status"
+                severity: "rest.severity"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/email-incidents/{id}
+          name: email-incident-detail
+          description: "Get a specific email DLP incident."
+          operations:
+            - method: GET
+              name: get-email-incident
+              description: "Retrieve a specific email DLP incident by ID."
+              inputParameters:
+                - name: id
+                  in: path
+                  type: string
+                  required: true
+              call: "email-dlp-api.get-email-incident"
+              with:
+                id: "rest.id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/email-incidents/{id}/verdicts
+          name: email-incident-verdicts
+          description: "Manage email incident verdicts."
+          operations:
+            - method: PUT
+              name: update-email-incident-verdict
+              description: "Update the verdict for an email DLP incident."
+              inputParameters:
+                - name: id
+                  in: path
+                  type: string
+                  required: true
+                - name: verdict
+                  in: body
+                  type: string
+                  required: true
+                - name: reason
+                  in: body
+                  type: string
+                  required: false
+              call: "email-dlp-api.update-email-incident-verdict"
+              with:
+                id: "rest.id"
+                verdict: "rest.verdict"
+                reason: "rest.reason"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/email-incidents/{id}/attachments
+          name: email-incident-attachments
+          description: "Access email incident attachments."
+          operations:
+            - method: GET
+              name: get-email-incident-attachments
+              description: "Get attachments for a specific email DLP incident."
+              inputParameters:
+                - name: id
+                  in: path
+                  type: string
+                  required: true
+              call: "email-dlp-api.get-email-incident-attachments"
+              with:
+                id: "rest.id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/email-incidents/{id}/recipients
+          name: email-incident-recipients
+          description: "Access email incident recipients."
+          operations:
+            - method: GET
+              name: get-email-incident-recipients
+              description: "Get recipients for a specific email DLP incident."
+              inputParameters:
+                - name: id
+                  in: path
+                  type: string
+                  required: true
+              call: "email-dlp-api.get-email-incident-recipients"
+              with:
+                id: "rest.id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+    - type: mcp
+      port: 9100
+      namespace: email-dlp-mcp
+      transport: http
+      description: "MCP adapter for Email DLP operations."
+      tools:
+        - name: list-email-incidents
+          description: "List email DLP incidents with optional filters."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: offset
+              type: integer
+              description: "Offset for pagination."
+              required: false
+            - name: limit
+              type: integer
+              description: "Maximum number of results to return."
+              required: false
+            - name: status
+              type: string
+              description: "Filter by incident status."
+              required: false
+            - name: severity
+              type: string
+              description: "Filter by severity level."
+              required: false
+          call: "email-dlp-api.list-email-incidents"
+          with:
+            offset: "tools.offset"
+            limit: "tools.limit"
+            status: "tools.status"
+            severity: "tools.severity"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-email-incident
+          description: "Retrieve a specific email DLP incident by ID."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              description: "The email incident ID."
+              required: true
+          call: "email-dlp-api.get-email-incident"
+          with:
+            id: "tools.id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: update-email-incident-verdict
+          description: "Update the verdict for an email DLP incident."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              description: "The email incident ID."
+              required: true
+            - name: verdict
+              type: string
+              description: "The verdict to set."
+              required: true
+            - name: reason
+              type: string
+              description: "Reason for the verdict."
+              required: false
+          call: "email-dlp-api.update-email-incident-verdict"
+          with:
+            id: "tools.id"
+            verdict: "tools.verdict"
+            reason: "tools.reason"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-email-incident-attachments
+          description: "Get attachments for a specific email DLP incident."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              description: "The email incident ID."
+              required: true
+          call: "email-dlp-api.get-email-incident-attachments"
+          with:
+            id: "tools.id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-email-incident-recipients
+          description: "Get recipients for a specific email DLP incident."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              description: "The email incident ID."
+              required: true
+          call: "email-dlp-api.get-email-incident-recipients"
+          with:
+            id: "tools.id"
+          outputParameters:
+            - type: object
+              mapping: "$."

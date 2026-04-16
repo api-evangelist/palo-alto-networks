@@ -1,0 +1,287 @@
+naftiko: "1.0.0-alpha1"
+
+info:
+  label: "DNS Security"
+  description: "Provides access to the Palo Alto Networks DNS Security API for domain threat intelligence and network statistics."
+  tags:
+    - security
+    - dns
+    - threat-intelligence
+    - palo-alto-networks
+  created: "2026-04-16"
+  modified: "2026-04-16"
+
+binds:
+  - namespace: env
+    keys:
+      DNS_SECURITY_API_KEY: DNS_SECURITY_API_KEY
+
+capability:
+  consumes:
+    - type: http
+      namespace: dns-security-api
+      baseUri: https://dns.service.paloaltonetworks.com
+      description: "DNS Security API for domain threat intelligence and network statistics."
+      authentication:
+        type: apikey
+        in: header
+        name: X-DNS-API-APIKEY
+        value: "{{DNS_SECURITY_API_KEY}}"
+      resources:
+        - name: domains
+          path: /domain
+          description: "Query domain threat intelligence."
+          operations:
+            - name: get-domain
+              method: GET
+              description: "Get threat intelligence for a specific domain."
+              inputParameters:
+                - name: domain
+                  in: query
+                  type: string
+                  required: true
+                  description: "The domain name to query."
+                - name: stime
+                  in: query
+                  type: string
+                  required: false
+                  description: "Start time for the query range."
+                - name: etime
+                  in: query
+                  type: string
+                  required: false
+                  description: "End time for the query range."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: domains-bulk
+          path: /domain/bulk
+          description: "Bulk query domain threat intelligence."
+          operations:
+            - name: get-domain-bulk
+              method: GET
+              description: "Get threat intelligence for multiple domains."
+              inputParameters:
+                - name: domains
+                  in: query
+                  type: string
+                  required: true
+                  description: "Comma-separated list of domain names to query."
+                - name: stime
+                  in: query
+                  type: string
+                  required: false
+                  description: "Start time for the query range."
+                - name: etime
+                  in: query
+                  type: string
+                  required: false
+                  description: "End time for the query range."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: network-stats
+          path: /stats/network
+          description: "Access network statistics."
+          operations:
+            - name: get-network-stats
+              method: GET
+              description: "Get network statistics for a given time range."
+              inputParameters:
+                - name: stime
+                  in: query
+                  type: string
+                  required: false
+                  description: "Start time for the statistics range."
+                - name: etime
+                  in: query
+                  type: string
+                  required: false
+                  description: "End time for the statistics range."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+  exposes:
+    - type: rest
+      port: 8089
+      namespace: dns-security-rest
+      description: "REST API adapter for DNS Security operations."
+      resources:
+        - path: /v1/domains
+          name: domains
+          description: "Query domain threat intelligence."
+          operations:
+            - method: GET
+              name: get-domain
+              description: "Get threat intelligence for a specific domain."
+              inputParameters:
+                - name: domain
+                  in: query
+                  type: string
+                  required: true
+                - name: stime
+                  in: query
+                  type: string
+                  required: false
+                - name: etime
+                  in: query
+                  type: string
+                  required: false
+              call: "dns-security-api.get-domain"
+              with:
+                domain: "rest.domain"
+                stime: "rest.stime"
+                etime: "rest.etime"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/domains/bulk
+          name: domains-bulk
+          description: "Bulk query domain threat intelligence."
+          operations:
+            - method: GET
+              name: get-domain-bulk
+              description: "Get threat intelligence for multiple domains."
+              inputParameters:
+                - name: domains
+                  in: query
+                  type: string
+                  required: true
+                - name: stime
+                  in: query
+                  type: string
+                  required: false
+                - name: etime
+                  in: query
+                  type: string
+                  required: false
+              call: "dns-security-api.get-domain-bulk"
+              with:
+                domains: "rest.domains"
+                stime: "rest.stime"
+                etime: "rest.etime"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/stats/networks
+          name: network-stats
+          description: "Access network statistics."
+          operations:
+            - method: GET
+              name: get-network-stats
+              description: "Get network statistics for a given time range."
+              inputParameters:
+                - name: stime
+                  in: query
+                  type: string
+                  required: false
+                - name: etime
+                  in: query
+                  type: string
+                  required: false
+              call: "dns-security-api.get-network-stats"
+              with:
+                stime: "rest.stime"
+                etime: "rest.etime"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+    - type: mcp
+      port: 9099
+      namespace: dns-security-mcp
+      transport: http
+      description: "MCP adapter for DNS Security operations."
+      tools:
+        - name: get-domain
+          description: "Get threat intelligence for a specific domain."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: domain
+              type: string
+              description: "The domain name to query."
+              required: true
+            - name: stime
+              type: string
+              description: "Start time for the query range."
+              required: false
+            - name: etime
+              type: string
+              description: "End time for the query range."
+              required: false
+          call: "dns-security-api.get-domain"
+          with:
+            domain: "tools.domain"
+            stime: "tools.stime"
+            etime: "tools.etime"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-domain-bulk
+          description: "Get threat intelligence for multiple domains in bulk."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: domains
+              type: string
+              description: "Comma-separated list of domain names to query."
+              required: true
+            - name: stime
+              type: string
+              description: "Start time for the query range."
+              required: false
+            - name: etime
+              type: string
+              description: "End time for the query range."
+              required: false
+          call: "dns-security-api.get-domain-bulk"
+          with:
+            domains: "tools.domains"
+            stime: "tools.stime"
+            etime: "tools.etime"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-network-stats
+          description: "Get DNS network statistics for a given time range."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: stime
+              type: string
+              description: "Start time for the statistics range."
+              required: false
+            - name: etime
+              type: string
+              description: "End time for the statistics range."
+              required: false
+          call: "dns-security-api.get-network-stats"
+          with:
+            stime: "tools.stime"
+            etime: "tools.etime"
+          outputParameters:
+            - type: object
+              mapping: "$."

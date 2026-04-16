@@ -1,0 +1,1161 @@
+naftiko: "1.0.0-alpha1"
+
+info:
+  label: "Palo Alto Networks Threat Intelligence"
+  description: "Unified threat intelligence capability for researching IOCs, submitting malware samples, analyzing DNS threats, and tracking security advisories across Threat Vault, WildFire, DNS Security, and Security Advisories."
+  tags:
+    - palo-alto-networks
+    - threat-intelligence
+    - malware-analysis
+    - ioc-research
+    - vulnerability-management
+  created: "2026-04-16"
+  modified: "2026-04-16"
+
+binds:
+  - namespace: env
+    keys:
+      THREAT_VAULT_API_KEY: THREAT_VAULT_API_KEY
+      WILDFIRE_API_KEY: WILDFIRE_API_KEY
+      DNS_SECURITY_API_KEY: DNS_SECURITY_API_KEY
+
+capability:
+  consumes:
+    - import: threat-vault
+      location: ./shared/threat-vault.yaml
+    - import: wildfire
+      location: ./shared/wildfire.yaml
+    - import: dns-security
+      location: ./shared/dns-security.yaml
+    - import: security-advisory
+      location: ./shared/security-advisory.yaml
+
+  exposes:
+    - type: rest
+      port: 8081
+      namespace: threat-intel-api
+      description: "Unified REST API for threat intelligence research."
+      resources:
+
+        # ── Threat Signatures (Threat Vault) ──────────────────────────────
+        - path: /v1/threats
+          name: threats
+          description: "Search threat signatures by type, ID, SHA256, name, CVE, or date range."
+          operations:
+            - method: GET
+              name: get-threats
+              description: "Search for threats by type, ID, SHA256, name, CVE, or date range."
+              inputParameters:
+                - name: type
+                  in: query
+                  type: string
+                  required: false
+                - name: id
+                  in: query
+                  type: string
+                  required: false
+                - name: sha256
+                  in: query
+                  type: string
+                  required: false
+                - name: name
+                  in: query
+                  type: string
+                  required: false
+                - name: cve
+                  in: query
+                  type: string
+                  required: false
+                - name: from
+                  in: query
+                  type: string
+                  required: false
+                - name: to
+                  in: query
+                  type: string
+                  required: false
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              call: "threat-vault.get-threats"
+              with:
+                type: "rest.type"
+                id: "rest.id"
+                sha256: "rest.sha256"
+                name: "rest.name"
+                cve: "rest.cve"
+                from: "rest.from"
+                to: "rest.to"
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/threats/{threat_id}/history
+          name: threat-history
+          description: "Get signature history for a specific threat."
+          operations:
+            - method: GET
+              name: get-threat-history
+              description: "Get the history of a specific threat by ID and type."
+              inputParameters:
+                - name: threat_id
+                  in: path
+                  type: string
+                  required: true
+                - name: type
+                  in: query
+                  type: string
+                  required: true
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              call: "threat-vault.get-threat-history"
+              with:
+                id: "rest.threat_id"
+                type: "rest.type"
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # ── Advanced Threat Prevention Reports ────────────────────────────
+        - path: /v1/atp-reports
+          name: atp-reports
+          description: "Advanced Threat Prevention reports."
+          operations:
+            - method: GET
+              name: get-atp-reports
+              description: "Get Advanced Threat Prevention reports."
+              inputParameters:
+                - name: sha256
+                  in: query
+                  type: string
+                  required: false
+                - name: id
+                  in: query
+                  type: string
+                  required: false
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              call: "threat-vault.get-atp-reports"
+              with:
+                sha256: "rest.sha256"
+                id: "rest.id"
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/atp-reports/pcaps
+          name: atp-report-pcaps
+          description: "Download ATP PCAP files."
+          operations:
+            - method: GET
+              name: get-atp-report-pcaps
+              description: "Get packet captures from ATP reports."
+              inputParameters:
+                - name: sha256
+                  in: query
+                  type: string
+                  required: true
+                - name: id
+                  in: query
+                  type: string
+                  required: false
+              call: "threat-vault.get-atp-report-pcaps"
+              with:
+                sha256: "rest.sha256"
+                id: "rest.id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # ── Content Release Notes ─────────────────────────────────────────
+        - path: /v1/release-notes
+          name: release-notes
+          description: "Content release notes for threat updates."
+          operations:
+            - method: GET
+              name: get-release-notes
+              description: "Get release notes for threat content updates."
+              inputParameters:
+                - name: type
+                  in: query
+                  type: string
+                  required: true
+                - name: version
+                  in: query
+                  type: string
+                  required: false
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              call: "threat-vault.get-release-notes"
+              with:
+                type: "rest.type"
+                version: "rest.version"
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # ── Threat Vault API Stats ────────────────────────────────────────
+        - path: /v1/threat-vault-stats
+          name: threat-vault-stats
+          description: "Threat Vault API usage statistics."
+          operations:
+            - method: GET
+              name: get-threat-vault-stats
+              description: "Get Threat Vault usage statistics."
+              call: "threat-vault.get-stats"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # ── Sample Submission & Analysis (WildFire) ───────────────────────
+        - path: /v1/samples/files
+          name: submit-file
+          description: "Submit a file for WildFire malware analysis."
+          operations:
+            - method: POST
+              name: submit-file
+              description: "Submit a file for WildFire analysis."
+              inputParameters:
+                - name: apikey
+                  in: body
+                  type: string
+                  required: true
+                - name: file
+                  in: body
+                  type: string
+                  required: true
+              call: "wildfire.submit-file"
+              with:
+                apikey: "rest.apikey"
+                file: "rest.file"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/samples/urls
+          name: submit-url
+          description: "Submit a URL for WildFire malware analysis."
+          operations:
+            - method: POST
+              name: submit-url
+              description: "Submit a URL for WildFire analysis."
+              inputParameters:
+                - name: apikey
+                  in: body
+                  type: string
+                  required: true
+                - name: url
+                  in: body
+                  type: string
+                  required: true
+              call: "wildfire.submit-url"
+              with:
+                apikey: "rest.apikey"
+                url: "rest.url"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/samples/links
+          name: submit-link
+          description: "Submit a link for WildFire malware analysis."
+          operations:
+            - method: POST
+              name: submit-link
+              description: "Submit a link for WildFire analysis."
+              inputParameters:
+                - name: apikey
+                  in: body
+                  type: string
+                  required: true
+                - name: link
+                  in: body
+                  type: string
+                  required: true
+              call: "wildfire.submit-link"
+              with:
+                apikey: "rest.apikey"
+                link: "rest.link"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # ── Verdicts (WildFire) ───────────────────────────────────────────
+        - path: /v1/verdicts
+          name: verdicts
+          description: "Get WildFire verdicts for file hashes."
+          operations:
+            - method: POST
+              name: get-verdict
+              description: "Get the verdict for a file hash."
+              inputParameters:
+                - name: apikey
+                  in: body
+                  type: string
+                  required: true
+                - name: hash
+                  in: body
+                  type: string
+                  required: true
+              call: "wildfire.get-verdict"
+              with:
+                apikey: "rest.apikey"
+                hash: "rest.hash"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/verdicts/bulk
+          name: bulk-verdicts
+          description: "Get WildFire verdicts for multiple file hashes."
+          operations:
+            - method: POST
+              name: get-bulk-verdicts
+              description: "Get verdicts for multiple file hashes (max 500)."
+              inputParameters:
+                - name: apikey
+                  in: body
+                  type: string
+                  required: true
+                - name: hash
+                  in: body
+                  type: object
+                  required: true
+              call: "wildfire.get-bulk-verdicts"
+              with:
+                apikey: "rest.apikey"
+                hash: "rest.hash"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # ── Analysis Reports (WildFire) ───────────────────────────────────
+        - path: /v1/analysis-reports
+          name: analysis-reports
+          description: "Get WildFire analysis reports."
+          operations:
+            - method: POST
+              name: get-analysis-report
+              description: "Get the analysis report for a file hash."
+              inputParameters:
+                - name: apikey
+                  in: body
+                  type: string
+                  required: true
+                - name: hash
+                  in: body
+                  type: string
+                  required: true
+                - name: format
+                  in: body
+                  type: string
+                  required: false
+              call: "wildfire.get-report"
+              with:
+                apikey: "rest.apikey"
+                hash: "rest.hash"
+                format: "rest.format"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/analysis-reports/samples
+          name: analysis-report-samples
+          description: "Download a malware sample from WildFire."
+          operations:
+            - method: POST
+              name: download-sample
+              description: "Download a sample file by hash."
+              inputParameters:
+                - name: apikey
+                  in: body
+                  type: string
+                  required: true
+                - name: hash
+                  in: body
+                  type: string
+                  required: true
+              call: "wildfire.get-sample"
+              with:
+                apikey: "rest.apikey"
+                hash: "rest.hash"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/analysis-reports/pcaps
+          name: analysis-report-pcaps
+          description: "Get packet captures from WildFire analysis."
+          operations:
+            - method: POST
+              name: get-analysis-pcap
+              description: "Get packet capture for a file hash."
+              inputParameters:
+                - name: apikey
+                  in: body
+                  type: string
+                  required: true
+                - name: hash
+                  in: body
+                  type: string
+                  required: true
+                - name: platform
+                  in: body
+                  type: string
+                  required: false
+              call: "wildfire.get-pcap"
+              with:
+                apikey: "rest.apikey"
+                hash: "rest.hash"
+                platform: "rest.platform"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # ── DNS Threat Intelligence ───────────────────────────────────────
+        - path: /v1/domains
+          name: domains
+          description: "Query domain threat intelligence from DNS Security."
+          operations:
+            - method: GET
+              name: get-domain
+              description: "Get threat intelligence for a specific domain."
+              inputParameters:
+                - name: domain
+                  in: query
+                  type: string
+                  required: true
+                  description: "The domain name to query."
+                - name: stime
+                  in: query
+                  type: string
+                  required: false
+                  description: "Start time for the query range."
+                - name: etime
+                  in: query
+                  type: string
+                  required: false
+                  description: "End time for the query range."
+              call: "dns-security.get-domain"
+              with:
+                domain: "rest.domain"
+                stime: "rest.stime"
+                etime: "rest.etime"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/domains/bulk
+          name: domains-bulk
+          description: "Bulk query domain threat intelligence."
+          operations:
+            - method: GET
+              name: get-domain-bulk
+              description: "Get threat intelligence for multiple domains."
+              inputParameters:
+                - name: domains
+                  in: query
+                  type: string
+                  required: true
+                  description: "Comma-separated list of domain names to query."
+                - name: stime
+                  in: query
+                  type: string
+                  required: false
+                  description: "Start time for the query range."
+                - name: etime
+                  in: query
+                  type: string
+                  required: false
+                  description: "End time for the query range."
+              call: "dns-security.get-domain-bulk"
+              with:
+                domains: "rest.domains"
+                stime: "rest.stime"
+                etime: "rest.etime"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # ── DNS Network Stats ─────────────────────────────────────────────
+        - path: /v1/dns-stats
+          name: dns-stats
+          description: "DNS network statistics."
+          operations:
+            - method: GET
+              name: get-dns-stats
+              description: "Get DNS network statistics for a given time range."
+              inputParameters:
+                - name: stime
+                  in: query
+                  type: string
+                  required: false
+                  description: "Start time for the statistics range."
+                - name: etime
+                  in: query
+                  type: string
+                  required: false
+                  description: "End time for the statistics range."
+              call: "dns-security.get-network-stats"
+              with:
+                stime: "rest.stime"
+                etime: "rest.etime"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # ── Security Advisories ───────────────────────────────────────────
+        - path: /v1/advisories
+          name: advisories
+          description: "Palo Alto Networks security advisories."
+          operations:
+            - method: GET
+              name: list-advisories
+              description: "List security advisories with optional filtering by severity and affected product."
+              inputParameters:
+                - name: severity
+                  in: query
+                  type: string
+                  required: false
+                - name: affected_product
+                  in: query
+                  type: string
+                  required: false
+                - name: sort
+                  in: query
+                  type: string
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+              call: "security-advisory.list-advisories"
+              with:
+                severity: "rest.severity"
+                affected_product: "rest.affected_product"
+                sort: "rest.sort"
+                limit: "rest.limit"
+                offset: "rest.offset"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        - path: /v1/advisories/{advisory_id}
+          name: advisory-detail
+          description: "Get a specific security advisory by ID."
+          operations:
+            - method: GET
+              name: get-advisory
+              description: "Get details of a specific security advisory by ID."
+              inputParameters:
+                - name: advisory_id
+                  in: path
+                  type: string
+                  required: true
+              call: "security-advisory.get-advisory"
+              with:
+                advisory_id: "rest.advisory_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/advisories/cve/{cve_id}
+          name: advisory-by-cve
+          description: "Get a security advisory by CVE identifier."
+          operations:
+            - method: GET
+              name: get-advisory-by-cve
+              description: "Get a security advisory by its CVE identifier."
+              inputParameters:
+                - name: cve_id
+                  in: path
+                  type: string
+                  required: true
+              call: "security-advisory.get-advisory-by-cve"
+              with:
+                cve_id: "rest.cve_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # ── Affected Products ─────────────────────────────────────────────
+        - path: /v1/affected-products
+          name: affected-products
+          description: "Products affected by security advisories."
+          operations:
+            - method: GET
+              name: list-affected-products
+              description: "List all products affected by security advisories."
+              call: "security-advisory.list-affected-products"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+    - type: mcp
+      port: 9091
+      namespace: threat-intel-mcp
+      transport: http
+      description: "MCP server for AI-assisted threat intelligence research."
+      tools:
+
+        # ── Threat Signature Research ─────────────────────────────────────
+        - name: search-threat-signatures
+          description: "Search for threat signatures by type, ID, SHA256, name, CVE, or date range in Threat Vault."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: type
+              type: string
+              required: false
+            - name: id
+              type: string
+              required: false
+            - name: sha256
+              type: string
+              required: false
+            - name: name
+              type: string
+              required: false
+            - name: cve
+              type: string
+              required: false
+            - name: from
+              type: string
+              required: false
+            - name: to
+              type: string
+              required: false
+            - name: offset
+              type: integer
+              required: false
+            - name: limit
+              type: integer
+              required: false
+          call: "threat-vault.get-threats"
+          with:
+            type: "tools.type"
+            id: "tools.id"
+            sha256: "tools.sha256"
+            name: "tools.name"
+            cve: "tools.cve"
+            from: "tools.from"
+            to: "tools.to"
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-threat-history
+          description: "Get the history of a specific threat signature by ID and type from Threat Vault."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              required: true
+            - name: type
+              type: string
+              required: true
+            - name: offset
+              type: integer
+              required: false
+            - name: limit
+              type: integer
+              required: false
+          call: "threat-vault.get-threat-history"
+          with:
+            id: "tools.id"
+            type: "tools.type"
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-atp-reports
+          description: "Get Advanced Threat Prevention reports from Threat Vault."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: sha256
+              type: string
+              required: false
+            - name: id
+              type: string
+              required: false
+            - name: offset
+              type: integer
+              required: false
+            - name: limit
+              type: integer
+              required: false
+          call: "threat-vault.get-atp-reports"
+          with:
+            sha256: "tools.sha256"
+            id: "tools.id"
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: download-atp-pcaps
+          description: "Download packet captures from ATP reports in Threat Vault."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: sha256
+              type: string
+              required: true
+            - name: id
+              type: string
+              required: false
+          call: "threat-vault.get-atp-report-pcaps"
+          with:
+            sha256: "tools.sha256"
+            id: "tools.id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-release-notes
+          description: "Get release notes for threat content updates from Threat Vault."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: type
+              type: string
+              required: true
+            - name: version
+              type: string
+              required: false
+            - name: offset
+              type: integer
+              required: false
+            - name: limit
+              type: integer
+              required: false
+          call: "threat-vault.get-release-notes"
+          with:
+            type: "tools.type"
+            version: "tools.version"
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-threat-vault-stats
+          description: "Get Threat Vault API usage statistics."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          call: "threat-vault.get-stats"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        # ── Malware Analysis (WildFire) ───────────────────────────────────
+        - name: submit-file-for-analysis
+          description: "Submit a file for WildFire malware analysis."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: apikey
+              type: string
+              required: true
+            - name: file
+              type: string
+              required: true
+          call: "wildfire.submit-file"
+          with:
+            apikey: "tools.apikey"
+            file: "tools.file"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: submit-url-for-analysis
+          description: "Submit a URL for WildFire malware analysis."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: apikey
+              type: string
+              required: true
+            - name: url
+              type: string
+              required: true
+          call: "wildfire.submit-url"
+          with:
+            apikey: "tools.apikey"
+            url: "tools.url"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: submit-link-for-analysis
+          description: "Submit a link for WildFire malware analysis."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: apikey
+              type: string
+              required: true
+            - name: link
+              type: string
+              required: true
+          call: "wildfire.submit-link"
+          with:
+            apikey: "tools.apikey"
+            link: "tools.link"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-verdict
+          description: "Get the WildFire verdict for a file hash."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: apikey
+              type: string
+              required: true
+            - name: hash
+              type: string
+              required: true
+          call: "wildfire.get-verdict"
+          with:
+            apikey: "tools.apikey"
+            hash: "tools.hash"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-bulk-verdicts
+          description: "Get WildFire verdicts for multiple file hashes (max 500)."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: apikey
+              type: string
+              required: true
+            - name: hash
+              type: object
+              required: true
+          call: "wildfire.get-bulk-verdicts"
+          with:
+            apikey: "tools.apikey"
+            hash: "tools.hash"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-analysis-report
+          description: "Get the WildFire analysis report for a file hash."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: apikey
+              type: string
+              required: true
+            - name: hash
+              type: string
+              required: true
+            - name: format
+              type: string
+              required: false
+          call: "wildfire.get-report"
+          with:
+            apikey: "tools.apikey"
+            hash: "tools.hash"
+            format: "tools.format"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: download-sample
+          description: "Download a malware sample file by hash from WildFire."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: apikey
+              type: string
+              required: true
+            - name: hash
+              type: string
+              required: true
+          call: "wildfire.get-sample"
+          with:
+            apikey: "tools.apikey"
+            hash: "tools.hash"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: download-pcap
+          description: "Download a packet capture for a file hash from WildFire."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: apikey
+              type: string
+              required: true
+            - name: hash
+              type: string
+              required: true
+            - name: platform
+              type: string
+              required: false
+          call: "wildfire.get-pcap"
+          with:
+            apikey: "tools.apikey"
+            hash: "tools.hash"
+            platform: "tools.platform"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        # ── DNS Threat Intelligence ───────────────────────────────────────
+        - name: lookup-domain
+          description: "Get DNS threat intelligence for a specific domain."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: domain
+              type: string
+              description: "The domain name to query."
+              required: true
+            - name: stime
+              type: string
+              description: "Start time for the query range."
+              required: false
+            - name: etime
+              type: string
+              description: "End time for the query range."
+              required: false
+          call: "dns-security.get-domain"
+          with:
+            domain: "tools.domain"
+            stime: "tools.stime"
+            etime: "tools.etime"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: bulk-lookup-domains
+          description: "Get DNS threat intelligence for multiple domains in bulk."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: domains
+              type: string
+              description: "Comma-separated list of domain names to query."
+              required: true
+            - name: stime
+              type: string
+              description: "Start time for the query range."
+              required: false
+            - name: etime
+              type: string
+              description: "End time for the query range."
+              required: false
+          call: "dns-security.get-domain-bulk"
+          with:
+            domains: "tools.domains"
+            stime: "tools.stime"
+            etime: "tools.etime"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-dns-network-stats
+          description: "Get DNS network statistics for a given time range."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: stime
+              type: string
+              description: "Start time for the statistics range."
+              required: false
+            - name: etime
+              type: string
+              description: "End time for the statistics range."
+              required: false
+          call: "dns-security.get-network-stats"
+          with:
+            stime: "tools.stime"
+            etime: "tools.etime"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        # ── Vulnerability Advisories ──────────────────────────────────────
+        - name: list-security-advisories
+          description: "List Palo Alto Networks security advisories with optional filtering by severity and affected product."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: severity
+              type: string
+              required: false
+            - name: affected_product
+              type: string
+              required: false
+            - name: sort
+              type: string
+              required: false
+            - name: limit
+              type: integer
+              required: false
+            - name: offset
+              type: integer
+              required: false
+          call: "security-advisory.list-advisories"
+          with:
+            severity: "tools.severity"
+            affected_product: "tools.affected_product"
+            sort: "tools.sort"
+            limit: "tools.limit"
+            offset: "tools.offset"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: get-security-advisory
+          description: "Get details of a specific Palo Alto Networks security advisory by ID."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: advisory_id
+              type: string
+              required: true
+          call: "security-advisory.get-advisory"
+          with:
+            advisory_id: "tools.advisory_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-advisory-by-cve
+          description: "Get a Palo Alto Networks security advisory by its CVE identifier."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: cve_id
+              type: string
+              required: true
+          call: "security-advisory.get-advisory-by-cve"
+          with:
+            cve_id: "tools.cve_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: list-affected-products
+          description: "List all Palo Alto Networks products affected by security advisories."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters: []
+          call: "security-advisory.list-affected-products"
+          outputParameters:
+            - type: array
+              mapping: "$."

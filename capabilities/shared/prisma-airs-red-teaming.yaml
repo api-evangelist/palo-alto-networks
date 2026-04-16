@@ -1,0 +1,501 @@
+naftiko: "1.0.0-alpha1"
+
+info:
+  label: "Prisma AIRS AI Red Teaming"
+  description: "Manages AI red teaming scan targets, vulnerability scans, scan results, and attack categories."
+  tags:
+    - ai-security
+    - red-teaming
+    - vulnerability
+    - palo-alto
+  created: "2026-04-16"
+  modified: "2026-04-16"
+
+binds:
+  - namespace: env
+    keys:
+      PALO_ALTO_OAUTH_TOKEN: PALO_ALTO_OAUTH_TOKEN
+
+capability:
+  consumes:
+    - type: http
+      namespace: prisma-airs-red-teaming
+      baseUri: https://api.sase.paloaltonetworks.com/ai-red-teaming
+      description: "Prisma AIRS AI Red Teaming API for managing scan targets, running vulnerability scans, and reviewing results."
+      authentication:
+        type: bearer
+        token: "{{env.PALO_ALTO_OAUTH_TOKEN}}"
+      resources:
+        - name: scan-targets
+          path: /v1/targets
+          operations:
+            - name: create-scan-target
+              method: POST
+              description: "Create a new scan target."
+              inputParameters:
+                - name: name
+                  in: body
+                  type: string
+                  required: true
+                - name: type
+                  in: body
+                  type: string
+                  required: true
+                - name: endpoint_url
+                  in: body
+                  type: string
+                  required: true
+                - name: description
+                  in: body
+                  type: string
+                  required: false
+                - name: model
+                  in: body
+                  type: string
+                  required: false
+                - name: auth_config
+                  in: body
+                  type: object
+                  required: false
+                - name: system_prompt
+                  in: body
+                  type: string
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  name: "{{tools.name}}"
+                  type: "{{tools.type}}"
+                  endpoint_url: "{{tools.endpoint_url}}"
+                  description: "{{tools.description}}"
+                  model: "{{tools.model}}"
+                  auth_config: "{{tools.auth_config}}"
+                  system_prompt: "{{tools.system_prompt}}"
+            - name: list-scan-targets
+              method: GET
+              description: "List all scan targets with optional type filter."
+              inputParameters:
+                - name: type
+                  in: query
+                  type: string
+                  required: false
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+        - name: scan-target
+          path: /v1/targets/{target_id}
+          operations:
+            - name: get-scan-target
+              method: GET
+              description: "Get a specific scan target by ID."
+              inputParameters:
+                - name: target_id
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: delete-scan-target
+              method: DELETE
+              description: "Delete a specific scan target by ID."
+              inputParameters:
+                - name: target_id
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+        - name: scans
+          path: /v1/scans
+          operations:
+            - name: start-vulnerability-scan
+              method: POST
+              description: "Start a new vulnerability scan against a target."
+              inputParameters:
+                - name: target_id
+                  in: body
+                  type: string
+                  required: true
+                - name: attack_categories
+                  in: body
+                  type: object
+                  required: false
+                - name: custom_prompts
+                  in: body
+                  type: object
+                  required: false
+                - name: max_attacks_per_category
+                  in: body
+                  type: integer
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  target_id: "{{tools.target_id}}"
+                  attack_categories: "{{tools.attack_categories}}"
+                  custom_prompts: "{{tools.custom_prompts}}"
+                  max_attacks_per_category: "{{tools.max_attacks_per_category}}"
+        - name: scan-status
+          path: /v1/scans/{scan_id}
+          operations:
+            - name: get-scan-status
+              method: GET
+              description: "Get the status of a vulnerability scan."
+              inputParameters:
+                - name: scan_id
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+        - name: scan-results
+          path: /v1/scans/{scan_id}/results
+          operations:
+            - name: get-scan-results
+              method: GET
+              description: "Get results of a vulnerability scan with optional filters."
+              inputParameters:
+                - name: scan_id
+                  in: path
+                  type: string
+                  required: true
+                - name: category
+                  in: query
+                  type: string
+                  required: false
+                - name: severity
+                  in: query
+                  type: string
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+        - name: attack-categories
+          path: /v1/attack-categories
+          operations:
+            - name: list-attack-categories
+              method: GET
+              description: "List all available attack categories."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+  exposes:
+    - type: rest
+      port: 8096
+      namespace: prisma-airs-red-teaming-rest
+      resources:
+        - path: /v1/scan-targets
+          name: scan-targets
+          operations:
+            - method: POST
+              name: create-scan-target
+              call: "prisma-airs-red-teaming.create-scan-target"
+              with:
+                name: "rest.name"
+                type: "rest.type"
+                endpoint_url: "rest.endpoint_url"
+                description: "rest.description"
+                model: "rest.model"
+                auth_config: "rest.auth_config"
+                system_prompt: "rest.system_prompt"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: GET
+              name: list-scan-targets
+              call: "prisma-airs-red-teaming.list-scan-targets"
+              with:
+                type: "rest.type"
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/scan-targets/{target_id}
+          name: scan-target
+          operations:
+            - method: GET
+              name: get-scan-target
+              call: "prisma-airs-red-teaming.get-scan-target"
+              with:
+                target_id: "rest.target_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: DELETE
+              name: delete-scan-target
+              call: "prisma-airs-red-teaming.delete-scan-target"
+              with:
+                target_id: "rest.target_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/vulnerability-scans
+          name: vulnerability-scans
+          operations:
+            - method: POST
+              name: start-vulnerability-scan
+              call: "prisma-airs-red-teaming.start-vulnerability-scan"
+              with:
+                target_id: "rest.target_id"
+                attack_categories: "rest.attack_categories"
+                custom_prompts: "rest.custom_prompts"
+                max_attacks_per_category: "rest.max_attacks_per_category"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/vulnerability-scans/{scan_id}
+          name: scan-status
+          operations:
+            - method: GET
+              name: get-scan-status
+              call: "prisma-airs-red-teaming.get-scan-status"
+              with:
+                scan_id: "rest.scan_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/vulnerability-scans/{scan_id}/results
+          name: scan-results
+          operations:
+            - method: GET
+              name: get-scan-results
+              call: "prisma-airs-red-teaming.get-scan-results"
+              with:
+                scan_id: "rest.scan_id"
+                category: "rest.category"
+                severity: "rest.severity"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/attack-categories
+          name: attack-categories
+          operations:
+            - method: GET
+              name: list-attack-categories
+              call: "prisma-airs-red-teaming.list-attack-categories"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+    - type: mcp
+      port: 9106
+      namespace: prisma-airs-red-teaming-mcp
+      transport: http
+      tools:
+        - name: create-scan-target
+          description: "Create a new scan target."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: name
+              type: string
+              required: true
+            - name: type
+              type: string
+              required: true
+            - name: endpoint_url
+              type: string
+              required: true
+            - name: description
+              type: string
+              required: false
+            - name: model
+              type: string
+              required: false
+            - name: auth_config
+              type: object
+              required: false
+            - name: system_prompt
+              type: string
+              required: false
+          call: "prisma-airs-red-teaming.create-scan-target"
+          with:
+            name: "tools.name"
+            type: "tools.type"
+            endpoint_url: "tools.endpoint_url"
+            description: "tools.description"
+            model: "tools.model"
+            auth_config: "tools.auth_config"
+            system_prompt: "tools.system_prompt"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: list-scan-targets
+          description: "List all scan targets with optional type filter."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: type
+              type: string
+              required: false
+            - name: offset
+              type: integer
+              required: false
+            - name: limit
+              type: integer
+              required: false
+          call: "prisma-airs-red-teaming.list-scan-targets"
+          with:
+            type: "tools.type"
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-scan-target
+          description: "Get a specific scan target by ID."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: target_id
+              type: string
+              required: true
+          call: "prisma-airs-red-teaming.get-scan-target"
+          with:
+            target_id: "tools.target_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: delete-scan-target
+          description: "Delete a specific scan target by ID."
+          hints:
+            readOnly: false
+            destructive: true
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: target_id
+              type: string
+              required: true
+          call: "prisma-airs-red-teaming.delete-scan-target"
+          with:
+            target_id: "tools.target_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: start-vulnerability-scan
+          description: "Start a new vulnerability scan against a target."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: target_id
+              type: string
+              required: true
+            - name: attack_categories
+              type: object
+              required: false
+            - name: custom_prompts
+              type: object
+              required: false
+            - name: max_attacks_per_category
+              type: integer
+              required: false
+          call: "prisma-airs-red-teaming.start-vulnerability-scan"
+          with:
+            target_id: "tools.target_id"
+            attack_categories: "tools.attack_categories"
+            custom_prompts: "tools.custom_prompts"
+            max_attacks_per_category: "tools.max_attacks_per_category"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-scan-status
+          description: "Get the status of a vulnerability scan."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: scan_id
+              type: string
+              required: true
+          call: "prisma-airs-red-teaming.get-scan-status"
+          with:
+            scan_id: "tools.scan_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-scan-results
+          description: "Get results of a vulnerability scan with optional filters."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: scan_id
+              type: string
+              required: true
+            - name: category
+              type: string
+              required: false
+            - name: severity
+              type: string
+              required: false
+          call: "prisma-airs-red-teaming.get-scan-results"
+          with:
+            scan_id: "tools.scan_id"
+            category: "tools.category"
+            severity: "tools.severity"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: list-attack-categories
+          description: "List all available attack categories."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          call: "prisma-airs-red-teaming.list-attack-categories"
+          outputParameters:
+            - type: object
+              mapping: "$."

@@ -1,0 +1,298 @@
+naftiko: "1.0.0-alpha1"
+
+info:
+  label: "Prisma AIRS"
+  description: "Submits synchronous and asynchronous AI security scans and manages AI security profiles."
+  tags:
+    - ai-security
+    - scanning
+    - palo-alto
+  created: "2026-04-16"
+  modified: "2026-04-16"
+
+binds:
+  - namespace: env
+    keys:
+      PRISMA_AIRS_TOKEN: PRISMA_AIRS_TOKEN
+
+capability:
+  consumes:
+    - type: http
+      namespace: prisma-airs
+      baseUri: https://security.api.aisecurity.paloaltonetworks.com
+      description: "Prisma AIRS API for submitting AI security scans and managing AI profiles."
+      authentication:
+        type: apikey
+        name: x-pan-token
+        in: header
+        value: "{{env.PRISMA_AIRS_TOKEN}}"
+      resources:
+        - name: scan-sync
+          path: /v1/scan/sync/request
+          operations:
+            - name: submit-scan-sync
+              method: POST
+              description: "Submit a synchronous scan request."
+              inputParameters:
+                - name: ai_profile
+                  in: body
+                  type: string
+                  required: true
+                - name: contents
+                  in: body
+                  type: object
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  ai_profile: "{{tools.ai_profile}}"
+                  contents: "{{tools.contents}}"
+        - name: scan-async
+          path: /v1/scan/async/request
+          operations:
+            - name: submit-scan-async
+              method: POST
+              description: "Submit an asynchronous scan request."
+              inputParameters:
+                - name: ai_profile
+                  in: body
+                  type: string
+                  required: true
+                - name: contents
+                  in: body
+                  type: object
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  ai_profile: "{{tools.ai_profile}}"
+                  contents: "{{tools.contents}}"
+        - name: async-scan-results
+          path: /v1/scan/async/results/{scan_id}
+          operations:
+            - name: get-async-scan-results
+              method: GET
+              description: "Get results of an asynchronous scan."
+              inputParameters:
+                - name: scan_id
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+        - name: ai-profiles
+          path: /v1/profile
+          operations:
+            - name: list-ai-profiles
+              method: GET
+              description: "List all AI profiles with pagination."
+              inputParameters:
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+        - name: ai-profile
+          path: /v1/profile/{profile_name}
+          operations:
+            - name: get-ai-profile
+              method: GET
+              description: "Get a specific AI profile by name."
+              inputParameters:
+                - name: profile_name
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+  exposes:
+    - type: rest
+      port: 8097
+      namespace: prisma-airs-rest
+      resources:
+        - path: /v1/scan-sync-requests
+          name: scan-sync
+          operations:
+            - method: POST
+              name: submit-scan-sync
+              call: "prisma-airs.submit-scan-sync"
+              with:
+                ai_profile: "rest.ai_profile"
+                contents: "rest.contents"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/scan-async-requests
+          name: scan-async
+          operations:
+            - method: POST
+              name: submit-scan-async
+              call: "prisma-airs.submit-scan-async"
+              with:
+                ai_profile: "rest.ai_profile"
+                contents: "rest.contents"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/async-scan-results/{scan_id}
+          name: async-scan-results
+          operations:
+            - method: GET
+              name: get-async-scan-results
+              call: "prisma-airs.get-async-scan-results"
+              with:
+                scan_id: "rest.scan_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/ai-profiles
+          name: ai-profiles
+          operations:
+            - method: GET
+              name: list-ai-profiles
+              call: "prisma-airs.list-ai-profiles"
+              with:
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/ai-profiles/{profile_name}
+          name: ai-profile
+          operations:
+            - method: GET
+              name: get-ai-profile
+              call: "prisma-airs.get-ai-profile"
+              with:
+                profile_name: "rest.profile_name"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+    - type: mcp
+      port: 9107
+      namespace: prisma-airs-mcp
+      transport: http
+      tools:
+        - name: submit-scan-sync
+          description: "Submit a synchronous scan request."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: ai_profile
+              type: string
+              required: true
+            - name: contents
+              type: object
+              required: true
+          call: "prisma-airs.submit-scan-sync"
+          with:
+            ai_profile: "tools.ai_profile"
+            contents: "tools.contents"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: submit-scan-async
+          description: "Submit an asynchronous scan request."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: ai_profile
+              type: string
+              required: true
+            - name: contents
+              type: object
+              required: true
+          call: "prisma-airs.submit-scan-async"
+          with:
+            ai_profile: "tools.ai_profile"
+            contents: "tools.contents"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-async-scan-results
+          description: "Get results of an asynchronous scan."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: scan_id
+              type: string
+              required: true
+          call: "prisma-airs.get-async-scan-results"
+          with:
+            scan_id: "tools.scan_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: list-ai-profiles
+          description: "List all AI profiles with pagination."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: offset
+              type: integer
+              required: false
+            - name: limit
+              type: integer
+              required: false
+          call: "prisma-airs.list-ai-profiles"
+          with:
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-ai-profile
+          description: "Get a specific AI profile by name."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: profile_name
+              type: string
+              required: true
+          call: "prisma-airs.get-ai-profile"
+          with:
+            profile_name: "tools.profile_name"
+          outputParameters:
+            - type: object
+              mapping: "$."

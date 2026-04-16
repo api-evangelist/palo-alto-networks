@@ -1,0 +1,366 @@
+naftiko: "1.0.0-alpha1"
+
+info:
+  label: "SASE Tenancy Service"
+  description: "Manage tenant service groups including creation, updates, deletion, and hierarchy navigation."
+  tags:
+    - sase
+    - tenancy
+    - tenant-service-groups
+    - palo-alto-networks
+  created: "2026-04-16"
+  modified: "2026-04-16"
+
+binds:
+  - namespace: env
+    keys:
+      PALO_ALTO_OAUTH_TOKEN: PALO_ALTO_OAUTH_TOKEN
+
+capability:
+  consumes:
+    - type: http
+      namespace: sase-tenancy
+      baseUri: https://api.sase.paloaltonetworks.com/tenancy/v1
+      authentication:
+        type: bearer
+        token: "{{env.PALO_ALTO_OAUTH_TOKEN}}"
+      resources:
+        - name: tenant-service-groups
+          path: /tenant-service-groups
+          operations:
+            - name: list-tenant-service-groups
+              method: GET
+              description: "List all tenant service groups with optional filtering."
+              inputParameters:
+                - name: parent_id
+                  in: query
+                  type: string
+                  required: false
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: create-tenant-service-group
+              method: POST
+              description: "Create a new tenant service group."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  display_name: "{{tools.display_name}}"
+                  parent_id: "{{tools.parent_id}}"
+                  description: "{{tools.description}}"
+                  support_account_id: "{{tools.support_account_id}}"
+                  vertical: "{{tools.vertical}}"
+                  region: "{{tools.region}}"
+            - name: get-tenant-service-group
+              method: GET
+              description: "Get details of a specific tenant service group."
+              path: /{tsg_id}
+              inputParameters:
+                - name: tsg_id
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: update-tenant-service-group
+              method: PUT
+              description: "Update an existing tenant service group."
+              path: /{tsg_id}
+              inputParameters:
+                - name: tsg_id
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  display_name: "{{tools.display_name}}"
+                  description: "{{tools.description}}"
+                  vertical: "{{tools.vertical}}"
+            - name: delete-tenant-service-group
+              method: DELETE
+              description: "Delete a tenant service group."
+              path: /{tsg_id}
+              inputParameters:
+                - name: tsg_id
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: list-child-tenant-service-groups
+              method: GET
+              description: "List child tenant service groups for a given parent."
+              path: /{tsg_id}/children
+              inputParameters:
+                - name: tsg_id
+                  in: path
+                  type: string
+                  required: true
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+  exposes:
+    - type: rest
+      port: 8109
+      namespace: sase-tenancy-rest
+      resources:
+        - path: /v1/tenant-service-groups
+          operations:
+            - method: GET
+              name: list-tenant-service-groups
+              call: "sase-tenancy.list-tenant-service-groups"
+              with:
+                parent_id: "rest.parent_id"
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+            - method: POST
+              name: create-tenant-service-group
+              call: "sase-tenancy.create-tenant-service-group"
+              with:
+                display_name: "rest.display_name"
+                parent_id: "rest.parent_id"
+                description: "rest.description"
+                support_account_id: "rest.support_account_id"
+                vertical: "rest.vertical"
+                region: "rest.region"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/tenant-service-groups/{tsg_id}
+          operations:
+            - method: GET
+              name: get-tenant-service-group
+              call: "sase-tenancy.get-tenant-service-group"
+              with:
+                tsg_id: "rest.tsg_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: PUT
+              name: update-tenant-service-group
+              call: "sase-tenancy.update-tenant-service-group"
+              with:
+                tsg_id: "rest.tsg_id"
+                display_name: "rest.display_name"
+                description: "rest.description"
+                vertical: "rest.vertical"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: DELETE
+              name: delete-tenant-service-group
+              call: "sase-tenancy.delete-tenant-service-group"
+              with:
+                tsg_id: "rest.tsg_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/tenant-service-groups/{tsg_id}/children
+          operations:
+            - method: GET
+              name: list-child-tenant-service-groups
+              call: "sase-tenancy.list-child-tenant-service-groups"
+              with:
+                tsg_id: "rest.tsg_id"
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+    - type: mcp
+      port: 9119
+      namespace: sase-tenancy-mcp
+      transport: http
+      tools:
+        - name: list-tenant-service-groups
+          description: "List all tenant service groups with optional filtering."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: parent_id
+              type: string
+              required: false
+            - name: offset
+              type: integer
+              required: false
+            - name: limit
+              type: integer
+              required: false
+          call: "sase-tenancy.list-tenant-service-groups"
+          with:
+            parent_id: "tools.parent_id"
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: array
+              mapping: "$."
+        - name: create-tenant-service-group
+          description: "Create a new tenant service group."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: display_name
+              type: string
+              required: true
+            - name: parent_id
+              type: string
+              required: true
+            - name: description
+              type: string
+              required: false
+            - name: support_account_id
+              type: string
+              required: false
+            - name: vertical
+              type: string
+              required: false
+            - name: region
+              type: string
+              required: false
+          call: "sase-tenancy.create-tenant-service-group"
+          with:
+            display_name: "tools.display_name"
+            parent_id: "tools.parent_id"
+            description: "tools.description"
+            support_account_id: "tools.support_account_id"
+            vertical: "tools.vertical"
+            region: "tools.region"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-tenant-service-group
+          description: "Get details of a specific tenant service group."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: tsg_id
+              type: string
+              required: true
+          call: "sase-tenancy.get-tenant-service-group"
+          with:
+            tsg_id: "tools.tsg_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: update-tenant-service-group
+          description: "Update an existing tenant service group."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: tsg_id
+              type: string
+              required: true
+            - name: display_name
+              type: string
+              required: false
+            - name: description
+              type: string
+              required: false
+            - name: vertical
+              type: string
+              required: false
+          call: "sase-tenancy.update-tenant-service-group"
+          with:
+            tsg_id: "tools.tsg_id"
+            display_name: "tools.display_name"
+            description: "tools.description"
+            vertical: "tools.vertical"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: delete-tenant-service-group
+          description: "Delete a tenant service group."
+          hints:
+            readOnly: false
+            destructive: true
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: tsg_id
+              type: string
+              required: true
+          call: "sase-tenancy.delete-tenant-service-group"
+          with:
+            tsg_id: "tools.tsg_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: list-child-tenant-service-groups
+          description: "List child tenant service groups for a given parent."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: tsg_id
+              type: string
+              required: true
+            - name: offset
+              type: integer
+              required: false
+            - name: limit
+              type: integer
+              required: false
+          call: "sase-tenancy.list-child-tenant-service-groups"
+          with:
+            tsg_id: "tools.tsg_id"
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: array
+              mapping: "$."

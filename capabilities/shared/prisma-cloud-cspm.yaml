@@ -1,0 +1,981 @@
+naftiko: "1.0.0-alpha1"
+
+info:
+  label: "Prisma Cloud CSPM"
+  description: "Provides cloud security posture management through the Prisma Cloud CSPM API, including alert management, policy configuration, cloud account onboarding, asset search, and compliance reporting."
+  tags:
+    - cloud-security
+    - cspm
+    - compliance
+    - policy-management
+    - alert-management
+  created: "2026-04-16"
+  modified: "2026-04-16"
+
+binds:
+  - namespace: env
+    keys:
+      PRISMA_CLOUD_JWT_TOKEN: PRISMA_CLOUD_JWT_TOKEN
+
+capability:
+  consumes:
+    - type: http
+      namespace: prisma-cloud-cspm
+      baseUri: https://api.prismacloud.io
+      authentication:
+        type: bearer
+        token: "{{env.PRISMA_CLOUD_JWT_TOKEN}}"
+      resources:
+        - name: login
+          path: /login
+          operations:
+            - name: login
+              method: POST
+              description: "Authenticate to Prisma Cloud and retrieve a JWT token"
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  username: "{{tools.username}}"
+                  password: "{{tools.password}}"
+                  customerName: "{{tools.customer_name}}"
+
+        - name: alerts
+          path: /alert
+          operations:
+            - name: get-alerts
+              method: GET
+              description: "Retrieve a list of alerts based on filters"
+              inputParameters:
+                - name: timeType
+                  in: query
+                  type: string
+                  required: false
+                - name: timeAmount
+                  in: query
+                  type: integer
+                  required: false
+                - name: timeUnit
+                  in: query
+                  type: string
+                  required: false
+                - name: startTime
+                  in: query
+                  type: string
+                  required: false
+                - name: endTime
+                  in: query
+                  type: string
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: severity
+                  in: query
+                  type: string
+                  required: false
+                - name: policy.id
+                  in: query
+                  type: string
+                  required: false
+                - name: detailed
+                  in: query
+                  type: boolean
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: alert-by-id
+          path: /alert/{id}
+          operations:
+            - name: get-alert
+              method: GET
+              description: "Retrieve details for a specific alert"
+              inputParameters:
+                - name: id
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: alert-dismiss
+          path: /alert/dismiss
+          operations:
+            - name: dismiss-alerts
+              method: POST
+              description: "Dismiss one or more alerts"
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  alerts: "{{tools.alerts}}"
+                  dismissalNote: "{{tools.dismissal_note}}"
+                  dismissalTimeRange: "{{tools.dismissal_time_range}}"
+                  filter: "{{tools.filter}}"
+
+        - name: alert-reopen
+          path: /alert/reopen
+          operations:
+            - name: reopen-alerts
+              method: POST
+              description: "Reopen one or more previously dismissed alerts"
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  alerts: "{{tools.alerts}}"
+
+        - name: policies
+          path: /policy
+          operations:
+            - name: list-policies
+              method: GET
+              description: "Retrieve a list of all policies"
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+            - name: create-policy
+              method: POST
+              description: "Create a new security policy"
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  name: "{{tools.name}}"
+                  policyType: "{{tools.policy_type}}"
+                  severity: "{{tools.severity}}"
+                  rule: "{{tools.rule}}"
+                  description: "{{tools.description}}"
+                  recommendation: "{{tools.recommendation}}"
+                  cloudType: "{{tools.cloud_type}}"
+                  enabled: "{{tools.enabled}}"
+
+        - name: policy-by-id
+          path: /policy/{policyId}
+          operations:
+            - name: get-policy
+              method: GET
+              description: "Retrieve details for a specific policy"
+              inputParameters:
+                - name: policyId
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+            - name: update-policy
+              method: PUT
+              description: "Update an existing security policy"
+              inputParameters:
+                - name: policyId
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  name: "{{tools.name}}"
+                  policyType: "{{tools.policy_type}}"
+                  severity: "{{tools.severity}}"
+                  rule: "{{tools.rule}}"
+                  description: "{{tools.description}}"
+                  recommendation: "{{tools.recommendation}}"
+                  cloudType: "{{tools.cloud_type}}"
+                  enabled: "{{tools.enabled}}"
+
+        - name: cloud-accounts
+          path: /cloud
+          operations:
+            - name: list-cloud-accounts
+              method: GET
+              description: "Retrieve a list of all onboarded cloud accounts"
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: cloud-account-by-type
+          path: /cloud/{cloudType}
+          operations:
+            - name: add-cloud-account
+              method: POST
+              description: "Onboard a new cloud account"
+              inputParameters:
+                - name: cloudType
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  accountId: "{{tools.account_id}}"
+                  name: "{{tools.name}}"
+                  enabled: "{{tools.enabled}}"
+                  groupIds: "{{tools.group_ids}}"
+
+        - name: cloud-account-by-type-and-id
+          path: /cloud/{cloudType}/{id}
+          operations:
+            - name: remove-cloud-account
+              method: DELETE
+              description: "Remove an onboarded cloud account"
+              inputParameters:
+                - name: cloudType
+                  in: path
+                  type: string
+                  required: true
+                - name: id
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: search-asset
+          path: /search/asset
+          operations:
+            - name: search-asset
+              method: POST
+              description: "Search for cloud assets using RQL queries"
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  query: "{{tools.query}}"
+                  timeRange: "{{tools.time_range}}"
+                  limit: "{{tools.limit}}"
+                  withResourceJson: "{{tools.with_resource_json}}"
+
+        - name: search-config
+          path: /search/config
+          operations:
+            - name: search-config
+              method: POST
+              description: "Search for cloud configuration data using RQL queries"
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  query: "{{tools.query}}"
+                  timeRange: "{{tools.time_range}}"
+                  limit: "{{tools.limit}}"
+                  withResourceJson: "{{tools.with_resource_json}}"
+
+        - name: compliance-standards
+          path: /compliance
+          operations:
+            - name: list-compliance-standards
+              method: GET
+              description: "Retrieve a list of all compliance standards"
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: reports
+          path: /report
+          operations:
+            - name: list-reports
+              method: GET
+              description: "Retrieve a list of all reports"
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+  exposes:
+    - type: rest
+      port: 8100
+      namespace: rest-prisma-cloud-cspm
+      resources:
+        - path: /v1/login
+          operations:
+            - method: POST
+              name: login
+              call: "prisma-cloud-cspm.login"
+              with:
+                username: "rest.username"
+                password: "rest.password"
+                customer_name: "rest.customer_name"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/alerts
+          operations:
+            - method: GET
+              name: get-alerts
+              call: "prisma-cloud-cspm.get-alerts"
+              with:
+                timeType: "rest.timeType"
+                timeAmount: "rest.timeAmount"
+                timeUnit: "rest.timeUnit"
+                startTime: "rest.startTime"
+                endTime: "rest.endTime"
+                limit: "rest.limit"
+                offset: "rest.offset"
+                severity: "rest.severity"
+                policy.id: "rest.policy.id"
+                detailed: "rest.detailed"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        - path: /v1/alerts/{id}
+          operations:
+            - method: GET
+              name: get-alert
+              call: "prisma-cloud-cspm.get-alert"
+              with:
+                id: "rest.id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/alerts/dismissals
+          operations:
+            - method: POST
+              name: dismiss-alerts
+              call: "prisma-cloud-cspm.dismiss-alerts"
+              with:
+                alerts: "rest.alerts"
+                dismissal_note: "rest.dismissal_note"
+                dismissal_time_range: "rest.dismissal_time_range"
+                filter: "rest.filter"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/alerts/reopens
+          operations:
+            - method: POST
+              name: reopen-alerts
+              call: "prisma-cloud-cspm.reopen-alerts"
+              with:
+                alerts: "rest.alerts"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/policies
+          operations:
+            - method: GET
+              name: list-policies
+              call: "prisma-cloud-cspm.list-policies"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+            - method: POST
+              name: create-policy
+              call: "prisma-cloud-cspm.create-policy"
+              with:
+                name: "rest.name"
+                policy_type: "rest.policy_type"
+                severity: "rest.severity"
+                rule: "rest.rule"
+                description: "rest.description"
+                recommendation: "rest.recommendation"
+                cloud_type: "rest.cloud_type"
+                enabled: "rest.enabled"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/policies/{policyId}
+          operations:
+            - method: GET
+              name: get-policy
+              call: "prisma-cloud-cspm.get-policy"
+              with:
+                policyId: "rest.policyId"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+            - method: PUT
+              name: update-policy
+              call: "prisma-cloud-cspm.update-policy"
+              with:
+                policyId: "rest.policyId"
+                name: "rest.name"
+                policy_type: "rest.policy_type"
+                severity: "rest.severity"
+                rule: "rest.rule"
+                description: "rest.description"
+                recommendation: "rest.recommendation"
+                cloud_type: "rest.cloud_type"
+                enabled: "rest.enabled"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/cloud-accounts
+          operations:
+            - method: GET
+              name: list-cloud-accounts
+              call: "prisma-cloud-cspm.list-cloud-accounts"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        - path: /v1/cloud-accounts/{cloudType}
+          operations:
+            - method: POST
+              name: add-cloud-account
+              call: "prisma-cloud-cspm.add-cloud-account"
+              with:
+                cloudType: "rest.cloudType"
+                account_id: "rest.account_id"
+                name: "rest.name"
+                enabled: "rest.enabled"
+                group_ids: "rest.group_ids"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/cloud-accounts/{cloudType}/{id}
+          operations:
+            - method: DELETE
+              name: remove-cloud-account
+              call: "prisma-cloud-cspm.remove-cloud-account"
+              with:
+                cloudType: "rest.cloudType"
+                id: "rest.id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/searches/assets
+          operations:
+            - method: POST
+              name: search-asset
+              call: "prisma-cloud-cspm.search-asset"
+              with:
+                query: "rest.query"
+                time_range: "rest.time_range"
+                limit: "rest.limit"
+                with_resource_json: "rest.with_resource_json"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/searches/configs
+          operations:
+            - method: POST
+              name: search-config
+              call: "prisma-cloud-cspm.search-config"
+              with:
+                query: "rest.query"
+                time_range: "rest.time_range"
+                limit: "rest.limit"
+                with_resource_json: "rest.with_resource_json"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/compliance-standards
+          operations:
+            - method: GET
+              name: list-compliance-standards
+              call: "prisma-cloud-cspm.list-compliance-standards"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        - path: /v1/reports
+          operations:
+            - method: GET
+              name: list-reports
+              call: "prisma-cloud-cspm.list-reports"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+    - type: mcp
+      port: 9110
+      namespace: mcp-prisma-cloud-cspm
+      transport: http
+      tools:
+        - name: login
+          description: "Authenticate to Prisma Cloud and retrieve a JWT token"
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: username
+              type: string
+              required: true
+            - name: password
+              type: string
+              required: true
+            - name: customer_name
+              type: string
+              required: true
+          call: "prisma-cloud-cspm.login"
+          with:
+            username: "tools.username"
+            password: "tools.password"
+            customer_name: "tools.customer_name"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-alerts
+          description: "Retrieve a list of alerts based on filters"
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: timeType
+              type: string
+              required: false
+            - name: timeAmount
+              type: integer
+              required: false
+            - name: timeUnit
+              type: string
+              required: false
+            - name: startTime
+              type: string
+              required: false
+            - name: endTime
+              type: string
+              required: false
+            - name: limit
+              type: integer
+              required: false
+            - name: offset
+              type: integer
+              required: false
+            - name: severity
+              type: string
+              required: false
+            - name: policy_id
+              type: string
+              required: false
+            - name: detailed
+              type: boolean
+              required: false
+          call: "prisma-cloud-cspm.get-alerts"
+          with:
+            timeType: "tools.timeType"
+            timeAmount: "tools.timeAmount"
+            timeUnit: "tools.timeUnit"
+            startTime: "tools.startTime"
+            endTime: "tools.endTime"
+            limit: "tools.limit"
+            offset: "tools.offset"
+            severity: "tools.severity"
+            policy.id: "tools.policy_id"
+            detailed: "tools.detailed"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: get-alert
+          description: "Retrieve details for a specific alert"
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              required: true
+          call: "prisma-cloud-cspm.get-alert"
+          with:
+            id: "tools.id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: dismiss-alerts
+          description: "Dismiss one or more alerts"
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: alerts
+              type: object
+              required: true
+            - name: dismissal_note
+              type: string
+              required: false
+            - name: dismissal_time_range
+              type: object
+              required: false
+            - name: filter
+              type: object
+              required: false
+          call: "prisma-cloud-cspm.dismiss-alerts"
+          with:
+            alerts: "tools.alerts"
+            dismissal_note: "tools.dismissal_note"
+            dismissal_time_range: "tools.dismissal_time_range"
+            filter: "tools.filter"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: reopen-alerts
+          description: "Reopen one or more previously dismissed alerts"
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: alerts
+              type: object
+              required: true
+          call: "prisma-cloud-cspm.reopen-alerts"
+          with:
+            alerts: "tools.alerts"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: list-policies
+          description: "Retrieve a list of all policies"
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          call: "prisma-cloud-cspm.list-policies"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: create-policy
+          description: "Create a new security policy"
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: name
+              type: string
+              required: true
+            - name: policy_type
+              type: string
+              required: true
+            - name: severity
+              type: string
+              required: true
+            - name: rule
+              type: object
+              required: true
+            - name: description
+              type: string
+              required: false
+            - name: recommendation
+              type: string
+              required: false
+            - name: cloud_type
+              type: string
+              required: false
+            - name: enabled
+              type: boolean
+              required: false
+          call: "prisma-cloud-cspm.create-policy"
+          with:
+            name: "tools.name"
+            policy_type: "tools.policy_type"
+            severity: "tools.severity"
+            rule: "tools.rule"
+            description: "tools.description"
+            recommendation: "tools.recommendation"
+            cloud_type: "tools.cloud_type"
+            enabled: "tools.enabled"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-policy
+          description: "Retrieve details for a specific policy"
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: policyId
+              type: string
+              required: true
+          call: "prisma-cloud-cspm.get-policy"
+          with:
+            policyId: "tools.policyId"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: update-policy
+          description: "Update an existing security policy"
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: policyId
+              type: string
+              required: true
+            - name: name
+              type: string
+              required: true
+            - name: policy_type
+              type: string
+              required: true
+            - name: severity
+              type: string
+              required: true
+            - name: rule
+              type: object
+              required: true
+            - name: description
+              type: string
+              required: false
+            - name: recommendation
+              type: string
+              required: false
+            - name: cloud_type
+              type: string
+              required: false
+            - name: enabled
+              type: boolean
+              required: false
+          call: "prisma-cloud-cspm.update-policy"
+          with:
+            policyId: "tools.policyId"
+            name: "tools.name"
+            policy_type: "tools.policy_type"
+            severity: "tools.severity"
+            rule: "tools.rule"
+            description: "tools.description"
+            recommendation: "tools.recommendation"
+            cloud_type: "tools.cloud_type"
+            enabled: "tools.enabled"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: list-cloud-accounts
+          description: "Retrieve a list of all onboarded cloud accounts"
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          call: "prisma-cloud-cspm.list-cloud-accounts"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: add-cloud-account
+          description: "Onboard a new cloud account"
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: cloudType
+              type: string
+              required: true
+            - name: account_id
+              type: string
+              required: true
+            - name: name
+              type: string
+              required: true
+            - name: enabled
+              type: boolean
+              required: false
+            - name: group_ids
+              type: object
+              required: false
+          call: "prisma-cloud-cspm.add-cloud-account"
+          with:
+            cloudType: "tools.cloudType"
+            account_id: "tools.account_id"
+            name: "tools.name"
+            enabled: "tools.enabled"
+            group_ids: "tools.group_ids"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: remove-cloud-account
+          description: "Remove an onboarded cloud account"
+          hints:
+            readOnly: false
+            destructive: true
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: cloudType
+              type: string
+              required: true
+            - name: id
+              type: string
+              required: true
+          call: "prisma-cloud-cspm.remove-cloud-account"
+          with:
+            cloudType: "tools.cloudType"
+            id: "tools.id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: search-asset
+          description: "Search for cloud assets using RQL queries"
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: query
+              type: string
+              required: true
+            - name: time_range
+              type: object
+              required: false
+            - name: limit
+              type: integer
+              required: false
+            - name: with_resource_json
+              type: boolean
+              required: false
+          call: "prisma-cloud-cspm.search-asset"
+          with:
+            query: "tools.query"
+            time_range: "tools.time_range"
+            limit: "tools.limit"
+            with_resource_json: "tools.with_resource_json"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: search-config
+          description: "Search for cloud configuration data using RQL queries"
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: query
+              type: string
+              required: true
+            - name: time_range
+              type: object
+              required: false
+            - name: limit
+              type: integer
+              required: false
+            - name: with_resource_json
+              type: boolean
+              required: false
+          call: "prisma-cloud-cspm.search-config"
+          with:
+            query: "tools.query"
+            time_range: "tools.time_range"
+            limit: "tools.limit"
+            with_resource_json: "tools.with_resource_json"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: list-compliance-standards
+          description: "Retrieve a list of all compliance standards"
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          call: "prisma-cloud-cspm.list-compliance-standards"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: list-reports
+          description: "Retrieve a list of all reports"
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          call: "prisma-cloud-cspm.list-reports"
+          outputParameters:
+            - type: array
+              mapping: "$."

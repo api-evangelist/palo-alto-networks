@@ -879,6 +879,63 @@ A REST API for querying the health and performance of Prisma Access network depl
 - [IntegrationsApplication](https://splunkbase.splunk.com/app/2757)
 - [Partner](https://www.paloaltonetworks.com/partners)
 
+## Spectral Rules
+
+A custom Spectral ruleset at [rules/palo-alto-networks-spectral-rules.yml](rules/palo-alto-networks-spectral-rules.yml) enforces consistency across all Palo Alto Networks OpenAPI specifications with 60+ rules covering:
+
+- **Info/metadata** — Title prefix, description length, contact, license
+- **Paths** — kebab-case, plural nouns, version prefix, no trailing slashes
+- **Operations** — Summary prefix, camelCase operationIds with verb prefixes, tags
+- **Parameters** — snake_case naming, pagination standardization (offset/limit)
+- **Responses** — Required success/error codes, JSON content, error schema structure
+- **Schemas** — snake_case properties, type definitions, id/timestamp conventions
+- **Security** — Global security, scheme descriptions, API key header naming
+
+## Naftiko Capabilities
+
+[Naftiko](https://github.com/naftiko/framework) capabilities in [capabilities/](capabilities/) consume all 36 Palo Alto Networks APIs and expose them through unified HTTP REST and MCP adapters organized by customer workflow.
+
+### Directory Structure
+
+```
+capabilities/
+├── shared/                            ← 36 per-API consumed definitions
+│   ├── cortex-xdr.yaml
+│   ├── cortex-xsiam.yaml
+│   ├── ... (36 files total)
+│   └── ztna-connector.yaml
+├── incident-response.yaml             ← XDR + XSIAM + XSOAR + Xpanse
+├── threat-intelligence.yaml           ← Threat Vault + WildFire + DNS + Advisories
+├── cloud-security-posture.yaml        ← CSPM + Code Security + DSPM
+├── network-security-config.yaml       ← PAN-OS + SCM + Cloud NGFW
+├── secure-access.yaml                 ← Prisma Access + ZTNA + SD-WAN + Config Orch + 5G
+├── data-protection.yaml               ← DLP + Email DLP + SaaS Security + SSPM
+├── identity-and-access.yaml           ← IAM + Tenancy + Subscriptions
+├── monitoring-and-observability.yaml   ← DEM + Agg Monitoring + Logging + AIOps
+├── ai-security.yaml                   ← AIRS + AI Red Teaming
+└── browser-security.yaml              ← Prisma Access Browser
+```
+
+### Workflow Capabilities
+
+| Capability | APIs Combined | Persona | Tools |
+|---|---|---|---|
+| **Incident Response** | Cortex XDR, XSIAM, XSOAR, Xpanse | SOC Analyst | 39 |
+| **Threat Intelligence** | Threat Vault, WildFire, DNS Security, Security Advisories | Threat Hunter | 24 |
+| **Cloud Security Posture** | Prisma Cloud CSPM, Code Security, DSPM | Cloud Security Engineer | 37 |
+| **Network Security Config** | PAN-OS, Strata Cloud Manager, Cloud NGFW | Network Admin | 49 |
+| **Secure Access** | Prisma Access, ZTNA, SD-WAN, Config Orchestration, 5G | Network Engineer | 75 |
+| **Data Protection** | Enterprise DLP, Email DLP, SaaS Security, SSPM | Data Security Team | 30 |
+| **Identity and Access** | SASE IAM, Tenancy, Subscriptions | Platform Admin | 23 |
+| **Monitoring and Observability** | Autonomous DEM, Aggregate Monitoring, Logging, AIOps BPA | Operations Team | 28 |
+| **AI Security** | Prisma AIRS, AI Red Teaming | AI/ML Security | 13 |
+| **Browser Security** | Prisma Access Browser | IT Admin | 9 |
+
+Each capability exposes two adapters:
+
+- **HTTP REST** — Spectral-compliant paths (kebab-case, `/v1/` prefix, plural nouns) organized by workflow domain
+- **MCP** — One tool per operation with appropriate hints (readOnly, destructive, idempotent) for AI agent integration
+
 ## Maintainers
 
 **FN:** API Evangelist

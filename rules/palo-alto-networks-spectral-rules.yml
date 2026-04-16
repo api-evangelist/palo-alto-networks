@@ -1,0 +1,696 @@
+rules:
+
+  # ---------------------------------------------------------------------------
+  # INFO / METADATA
+  # ---------------------------------------------------------------------------
+
+  info-title-required:
+    description: Every API must have a title in the info object.
+    severity: error
+    given: $.info
+    then:
+      field: title
+      function: truthy
+
+  info-title-prefix:
+    description: Titles should start with "Palo Alto Networks" for portfolio consistency.
+    severity: warn
+    given: $.info.title
+    then:
+      function: pattern
+      functionOptions:
+        match: "^Palo Alto Networks "
+
+  info-description-required:
+    description: The info object must include a description explaining the API purpose.
+    severity: error
+    given: $.info
+    then:
+      field: description
+      function: truthy
+
+  info-description-min-length:
+    description: Info descriptions should be at least 50 characters to be meaningful.
+    severity: warn
+    given: $.info.description
+    then:
+      function: length
+      functionOptions:
+        min: 50
+
+  info-version-required:
+    description: A version string is required in the info object.
+    severity: error
+    given: $.info
+    then:
+      field: version
+      function: truthy
+
+  info-contact-required:
+    description: Contact information must be provided in the info object.
+    severity: warn
+    given: $.info
+    then:
+      field: contact
+      function: truthy
+
+  info-contact-name:
+    description: Contact should include a name field.
+    severity: warn
+    given: $.info.contact
+    then:
+      field: name
+      function: truthy
+
+  info-contact-url:
+    description: Contact should include a URL (e.g. https://pan.dev/).
+    severity: warn
+    given: $.info.contact
+    then:
+      field: url
+      function: truthy
+
+  info-license-required:
+    description: License information must be provided in the info object.
+    severity: warn
+    given: $.info
+    then:
+      field: license
+      function: truthy
+
+  # ---------------------------------------------------------------------------
+  # OPENAPI VERSION
+  # ---------------------------------------------------------------------------
+
+  openapi-version-3-1:
+    description: APIs should use OpenAPI 3.1.0 or later.
+    severity: warn
+    given: $
+    then:
+      field: openapi
+      function: pattern
+      functionOptions:
+        match: "^3\\.1\\."
+
+  # ---------------------------------------------------------------------------
+  # SERVERS
+  # ---------------------------------------------------------------------------
+
+  servers-defined:
+    description: At least one server must be defined.
+    severity: error
+    given: $
+    then:
+      field: servers
+      function: truthy
+
+  server-url-https:
+    description: Server URLs must use HTTPS.
+    severity: error
+    given: $.servers[*].url
+    then:
+      function: pattern
+      functionOptions:
+        match: "^https://|^\\{"
+
+  server-description-required:
+    description: Each server should have a description.
+    severity: warn
+    given: $.servers[*]
+    then:
+      field: description
+      function: truthy
+
+  # ---------------------------------------------------------------------------
+  # PATHS — NAMING CONVENTIONS
+  # ---------------------------------------------------------------------------
+
+  paths-kebab-case:
+    description: Path segments should use kebab-case (lowercase with hyphens), not camelCase, PascalCase, or snake_case.
+    severity: warn
+    given: $.paths
+    then:
+      field: "@key"
+      function: pattern
+      functionOptions:
+        match: "^(/[a-z0-9\\-{}_.]+)+$"
+
+  paths-no-trailing-slash:
+    description: Paths must not end with a trailing slash.
+    severity: error
+    given: $.paths
+    then:
+      field: "@key"
+      function: pattern
+      functionOptions:
+        notMatch: "/$"
+
+  paths-no-query-string:
+    description: Paths must not contain query strings — use parameters instead.
+    severity: error
+    given: $.paths
+    then:
+      field: "@key"
+      function: pattern
+      functionOptions:
+        notMatch: "\\?"
+
+  paths-version-prefix:
+    description: Paths should include a version prefix (e.g. /v1/, /v2/).
+    severity: info
+    given: $.paths
+    then:
+      field: "@key"
+      function: pattern
+      functionOptions:
+        match: "^/v[0-9]+"
+
+  paths-plural-resources:
+    description: Resource collection paths should use plural nouns (e.g. /addresses not /address).
+    severity: info
+    given: $.paths
+    then:
+      field: "@key"
+      function: pattern
+      functionOptions:
+        notMatch: "/(address|alert|incident|endpoint|container|image|policy|rule|account|key|host|defender|scanner|device|network|zone|profile|certificate|tag|group|user|role|permission|report|log|event|notification|scan|query|script|action|file|sample|verdict|domain|record|entry|object|resource|service|connection|tunnel|location|region|tenant|subscription|license|job|task|session|token|credential|secret|variable|template|category|label|annotation|comment|attachment|integration|webhook|trigger|schedule|monitor|metric|dashboard|widget|chart|threshold|baseline|anomaly|finding|vulnerability|compliance|benchmark|standard|framework|control|check|remediation|exception|suppression|override|exclusion|filter|condition|criteria|match|pattern|signature|indicator|feed|source|destination|application|protocol|port|interface|route|gateway|firewall|proxy|balancer|cluster|node|instance|snapshot|backup|restore|migration|deployment|release|version|update|patch|upgrade|rollback|configuration|setting|preference|option|parameter|property|attribute|field|column|table|index|view|function|procedure|trigger|constraint|relationship|association|mapping|transformation|conversion|format|encoding|encryption|decryption|hash|signature|certificate|authority|issuer|subject)(/\\{[^}]+\\})?$"
+
+  # ---------------------------------------------------------------------------
+  # OPERATIONS
+  # ---------------------------------------------------------------------------
+
+  operation-summary-required:
+    description: Every operation must have a summary.
+    severity: error
+    given: "$.paths[*][get,post,put,patch,delete]"
+    then:
+      field: summary
+      function: truthy
+
+  operation-summary-prefix:
+    description: Operation summaries should start with "Palo Alto Networks" for consistency.
+    severity: warn
+    given: "$.paths[*][get,post,put,patch,delete].summary"
+    then:
+      function: pattern
+      functionOptions:
+        match: "^Palo Alto Networks "
+
+  operation-summary-max-length:
+    description: Operation summaries should be concise — under 80 characters.
+    severity: warn
+    given: "$.paths[*][get,post,put,patch,delete].summary"
+    then:
+      function: length
+      functionOptions:
+        max: 80
+
+  operation-description-required:
+    description: Every operation must have a description.
+    severity: warn
+    given: "$.paths[*][get,post,put,patch,delete]"
+    then:
+      field: description
+      function: truthy
+
+  operation-operationid-required:
+    description: Every operation must have an operationId.
+    severity: error
+    given: "$.paths[*][get,post,put,patch,delete]"
+    then:
+      field: operationId
+      function: truthy
+
+  operation-operationid-camelcase:
+    description: Operation IDs must use camelCase (e.g. listAddresses, getIncident).
+    severity: warn
+    given: "$.paths[*][get,post,put,patch,delete].operationId"
+    then:
+      function: pattern
+      functionOptions:
+        match: "^[a-z][a-zA-Z0-9]*$"
+
+  operation-operationid-verb-prefix:
+    description: Operation IDs should start with a standard verb (get, list, create, update, delete, search, submit, start, stop, run, commit, isolate, scan, dismiss, reopen).
+    severity: info
+    given: "$.paths[*][get,post,put,patch,delete].operationId"
+    then:
+      function: pattern
+      functionOptions:
+        match: "^(get|list|create|update|delete|search|submit|start|stop|run|commit|isolate|unisolate|scan|dismiss|reopen|enable|disable|download|upload|export|import|validate|verify|revoke|rotate|refresh|reset|retry|cancel|approve|reject|assign|unassign|add|remove|bulk)"
+
+  operation-tags-required:
+    description: Every operation must have at least one tag.
+    severity: warn
+    given: "$.paths[*][get,post,put,patch,delete]"
+    then:
+      field: tags
+      function: truthy
+
+  operation-tags-one-only:
+    description: Operations should have exactly one tag for clean documentation grouping.
+    severity: info
+    given: "$.paths[*][get,post,put,patch,delete].tags"
+    then:
+      function: length
+      functionOptions:
+        max: 1
+
+  # ---------------------------------------------------------------------------
+  # TAGS
+  # ---------------------------------------------------------------------------
+
+  tags-defined:
+    description: Global tags array must be defined.
+    severity: warn
+    given: $
+    then:
+      field: tags
+      function: truthy
+
+  tag-description-required:
+    description: Each global tag should have a description.
+    severity: warn
+    given: $.tags[*]
+    then:
+      field: description
+      function: truthy
+
+  tag-name-pascal-case:
+    description: Tag names should use PascalCase or Title Case (e.g. Alerts, SecurityRules).
+    severity: info
+    given: $.tags[*].name
+    then:
+      function: pattern
+      functionOptions:
+        match: "^[A-Z][a-zA-Z0-9 ]*$"
+
+  # ---------------------------------------------------------------------------
+  # PARAMETERS
+  # ---------------------------------------------------------------------------
+
+  parameter-description-required:
+    description: Every parameter must have a description.
+    severity: warn
+    given: "$..parameters[*]"
+    then:
+      field: description
+      function: truthy
+
+  parameter-name-snake-case:
+    description: Parameter names should use snake_case for consistency.
+    severity: warn
+    given: "$..parameters[*].name"
+    then:
+      function: pattern
+      functionOptions:
+        match: "^[a-z][a-z0-9_]*$|^X-[A-Za-z0-9-]+$"
+
+  parameter-query-no-api-key:
+    description: API keys should be passed in headers, not query parameters.
+    severity: error
+    given: "$..parameters[?(@.in=='query')]"
+    then:
+      field: name
+      function: pattern
+      functionOptions:
+        notMatch: "^(api_key|apikey|api-key|token|access_token|auth_token)$"
+
+  # ---------------------------------------------------------------------------
+  # PAGINATION PARAMETERS
+  # ---------------------------------------------------------------------------
+
+  pagination-offset-name:
+    description: Offset-based pagination should use "offset" as the parameter name.
+    severity: info
+    given: "$..parameters[?(@.in=='query')]"
+    then:
+      field: name
+      function: pattern
+      functionOptions:
+        notMatch: "^(skip|start|from|page_offset|startIndex|beginAt)$"
+
+  pagination-limit-name:
+    description: Limit-based pagination should use "limit" as the parameter name.
+    severity: info
+    given: "$..parameters[?(@.in=='query')]"
+    then:
+      field: name
+      function: pattern
+      functionOptions:
+        notMatch: "^(count|pageSize|page_size|per_page|perPage|maxResults|max_results|top|rows|size)$"
+
+  # ---------------------------------------------------------------------------
+  # REQUEST BODIES
+  # ---------------------------------------------------------------------------
+
+  request-body-json:
+    description: Request bodies should support application/json.
+    severity: warn
+    given: "$..requestBody.content"
+    then:
+      field: application/json
+      function: truthy
+
+  request-body-description:
+    description: Request bodies should have a description.
+    severity: info
+    given: "$..requestBody"
+    then:
+      field: description
+      function: truthy
+
+  # ---------------------------------------------------------------------------
+  # RESPONSES
+  # ---------------------------------------------------------------------------
+
+  response-success-defined:
+    description: Every operation must define at least one success response (2xx).
+    severity: error
+    given: "$.paths[*][get,post,put,patch,delete].responses"
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          anyOf:
+            - required: ["200"]
+            - required: ["201"]
+            - required: ["202"]
+            - required: ["204"]
+
+  response-error-401-defined:
+    description: Operations with security should define a 401 Unauthorized response.
+    severity: warn
+    given: "$.paths[*][get,post,put,patch,delete].responses"
+    then:
+      field: "401"
+      function: truthy
+
+  response-error-403-defined:
+    description: Operations should define a 403 Forbidden response.
+    severity: info
+    given: "$.paths[*][get,post,put,patch,delete].responses"
+    then:
+      field: "403"
+      function: truthy
+
+  response-error-404-on-get:
+    description: GET operations with path parameters should define a 404 Not Found response.
+    severity: info
+    given: "$.paths[*/{*}].get.responses"
+    then:
+      field: "404"
+      function: truthy
+
+  response-error-400-on-post:
+    description: POST operations should define a 400 Bad Request response.
+    severity: info
+    given: "$.paths[*].post.responses"
+    then:
+      field: "400"
+      function: truthy
+
+  response-error-500-defined:
+    description: Operations should define a 500 Internal Server Error response.
+    severity: info
+    given: "$.paths[*][get,post,put,patch,delete].responses"
+    then:
+      field: "500"
+      function: truthy
+
+  response-description-required:
+    description: Every response must have a description.
+    severity: error
+    given: "$..responses[*]"
+    then:
+      field: description
+      function: truthy
+
+  response-json-content:
+    description: Success responses (except 204) should return application/json content.
+    severity: warn
+    given: "$.paths[*][get,post,put,patch,delete].responses[200,201,202].content"
+    then:
+      field: application/json
+      function: truthy
+
+  # ---------------------------------------------------------------------------
+  # SCHEMAS — PROPERTY NAMING
+  # ---------------------------------------------------------------------------
+
+  schema-property-snake-case:
+    description: Schema properties should use snake_case for consistency across the portfolio.
+    severity: warn
+    given: "$..properties"
+    then:
+      field: "@key"
+      function: pattern
+      functionOptions:
+        match: "^[a-z_@][a-z0-9_-]*$|^\\$"
+
+  schema-description-required:
+    description: Top-level schemas in components should have a description.
+    severity: warn
+    given: "$.components.schemas[*]"
+    then:
+      field: description
+      function: truthy
+
+  schema-property-type-defined:
+    description: Schema properties must define a type or use a reference.
+    severity: error
+    given: "$..properties[*]"
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          anyOf:
+            - required: ["type"]
+            - required: ["$ref"]
+            - required: ["oneOf"]
+            - required: ["anyOf"]
+            - required: ["allOf"]
+
+  # ---------------------------------------------------------------------------
+  # COMMON SCHEMA PROPERTY NAMES
+  # ---------------------------------------------------------------------------
+
+  schema-id-property-name:
+    description: Identifier properties should use "id" or be suffixed with "_id" (not "Id", "ID", or "identifier").
+    severity: info
+    given: "$..properties"
+    then:
+      field: "@key"
+      function: pattern
+      functionOptions:
+        notMatch: "(Id|ID|[Ii]dentifier)$"
+
+  schema-timestamp-property-name:
+    description: Timestamp properties should use snake_case with standard suffixes (_at, _time, _timestamp).
+    severity: info
+    given: "$..properties"
+    then:
+      field: "@key"
+      function: pattern
+      functionOptions:
+        notMatch: "(createdAt|updatedAt|deletedAt|lastModified|firstSeen|lastSeen|alertTime|detectionTimestamp)$"
+
+  # ---------------------------------------------------------------------------
+  # SECURITY
+  # ---------------------------------------------------------------------------
+
+  security-defined-globally:
+    description: A global security requirement should be defined.
+    severity: warn
+    given: $
+    then:
+      field: security
+      function: truthy
+
+  security-schemes-defined:
+    description: At least one security scheme must be defined in components.
+    severity: error
+    given: $.components
+    then:
+      field: securitySchemes
+      function: truthy
+
+  security-scheme-description:
+    description: Security schemes should have a description explaining how to authenticate.
+    severity: warn
+    given: "$.components.securitySchemes[*]"
+    then:
+      field: description
+      function: truthy
+
+  security-api-key-header-naming:
+    description: API key header names should use X- prefix convention (e.g. X-PAN-KEY, X-API-KEY).
+    severity: info
+    given: "$.components.securitySchemes[?(@.type=='apiKey' && @.in=='header')]"
+    then:
+      field: name
+      function: pattern
+      functionOptions:
+        match: "^(X-|x-|Authorization)"
+
+  # ---------------------------------------------------------------------------
+  # REUSABLE COMPONENTS
+  # ---------------------------------------------------------------------------
+
+  components-schemas-defined:
+    description: APIs should define reusable schemas in components.
+    severity: info
+    given: $.components
+    then:
+      field: schemas
+      function: truthy
+
+  # ---------------------------------------------------------------------------
+  # ERROR RESPONSE SCHEMA
+  # ---------------------------------------------------------------------------
+
+  error-response-has-message:
+    description: Error responses (4xx, 5xx) should include a message or error field in the schema.
+    severity: info
+    given: "$.paths[*][get,post,put,patch,delete].responses[400,401,403,404,409,500].content.application/json.schema"
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          anyOf:
+            - properties:
+                message: {}
+              required: ["message"]
+            - properties:
+                error: {}
+              required: ["error"]
+            - properties:
+                detail: {}
+              required: ["detail"]
+
+  # ---------------------------------------------------------------------------
+  # GENERAL QUALITY
+  # ---------------------------------------------------------------------------
+
+  no-empty-descriptions:
+    description: Descriptions must not be empty strings.
+    severity: error
+    given: "$..description"
+    then:
+      function: length
+      functionOptions:
+        min: 1
+
+  no-x-headers-in-parameters:
+    description: Custom headers in parameters should be moved to security schemes where possible.
+    severity: info
+    given: "$..parameters[?(@.in=='header')].name"
+    then:
+      function: pattern
+      functionOptions:
+        notMatch: "^(x-api-key|X-API-KEY|x-auth-token|X-Auth-Token)$"
+
+  schema-no-additional-properties-false-alone:
+    description: Schemas with additionalProperties false should also define properties.
+    severity: warn
+    given: "$..schema[?(@.additionalProperties===false)]"
+    then:
+      field: properties
+      function: truthy
+
+  # ---------------------------------------------------------------------------
+  # HTTP METHOD CONVENTIONS
+  # ---------------------------------------------------------------------------
+
+  get-no-request-body:
+    description: GET operations must not have a request body.
+    severity: error
+    given: "$.paths[*].get"
+    then:
+      field: requestBody
+      function: falsy
+
+  delete-no-request-body:
+    description: DELETE operations should not have a request body.
+    severity: warn
+    given: "$.paths[*].delete"
+    then:
+      field: requestBody
+      function: falsy
+
+  post-request-body-required:
+    description: POST operations should have a request body.
+    severity: info
+    given: "$.paths[*].post"
+    then:
+      field: requestBody
+      function: truthy
+
+  put-request-body-required:
+    description: PUT operations should have a request body.
+    severity: info
+    given: "$.paths[*].put"
+    then:
+      field: requestBody
+      function: truthy
+
+  delete-response-204:
+    description: DELETE operations should return 204 No Content on success.
+    severity: info
+    given: "$.paths[*].delete.responses"
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          anyOf:
+            - required: ["200"]
+            - required: ["204"]
+
+  # ---------------------------------------------------------------------------
+  # EXAMPLES
+  # ---------------------------------------------------------------------------
+
+  schema-examples-defined:
+    description: Top-level request/response schemas should include examples.
+    severity: info
+    given: "$.paths[*][get,post,put,patch,delete]..content.application/json.schema"
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          anyOf:
+            - required: ["example"]
+            - required: ["examples"]
+            - not: {}
+
+  # ---------------------------------------------------------------------------
+  # DEPRECATION
+  # ---------------------------------------------------------------------------
+
+  deprecated-operations-documented:
+    description: Deprecated operations must include a description explaining the deprecation.
+    severity: warn
+    given: "$.paths[*][get,post,put,patch,delete][?(@.deprecated===true)]"
+    then:
+      field: description
+      function: truthy
+
+  # ---------------------------------------------------------------------------
+  # EXTERNAL DOCS
+  # ---------------------------------------------------------------------------
+
+  external-docs-defined:
+    description: APIs should link to external documentation (e.g. pan.dev).
+    severity: info
+    given: $
+    then:
+      field: externalDocs
+      function: truthy
+
+  external-docs-url:
+    description: External docs must include a URL.
+    severity: warn
+    given: $.externalDocs
+    then:
+      field: url
+      function: truthy

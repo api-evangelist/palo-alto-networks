@@ -1,0 +1,1675 @@
+naftiko: "1.0.0-alpha1"
+
+info:
+  label: "Palo Alto Networks Data Protection"
+  description: "Unified data protection capability for managing DLP incidents, email DLP events, SaaS security incidents and assets, and SaaS security posture checks across Enterprise DLP, Email DLP, SaaS Security, and SSPM APIs."
+  tags:
+    - palo-alto-networks
+    - data-protection
+    - dlp
+    - saas-security
+    - sspm
+  created: "2026-04-16"
+  modified: "2026-04-16"
+
+binds:
+  - namespace: env
+    keys:
+      PALO_ALTO_DLP_TOKEN: PALO_ALTO_DLP_TOKEN
+      SAAS_SECURITY_TOKEN: SAAS_SECURITY_TOKEN
+      PALO_ALTO_OAUTH_TOKEN: PALO_ALTO_OAUTH_TOKEN
+
+capability:
+  consumes:
+    - import: dlp
+      location: ./shared/dlp.yaml
+    - import: email-dlp
+      location: ./shared/email-dlp.yaml
+    - import: saas-security
+      location: ./shared/saas-security.yaml
+    - import: sspm
+      location: ./shared/sspm.yaml
+
+  exposes:
+    - type: rest
+      port: 8085
+      namespace: data-protection-api
+      description: "Unified REST API for data protection workflows across Enterprise DLP, Email DLP, SaaS Security, and SSPM."
+      resources:
+
+        # -------------------------------------------------------
+        # DLP Incidents
+        # -------------------------------------------------------
+        - path: /v1/dlp-incidents
+          name: dlp-incidents
+          description: "Manage DLP incidents."
+          operations:
+            - method: GET
+              name: list-dlp-incidents
+              description: "List DLP incidents with optional filters."
+              inputParameters:
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+                - name: severity
+                  in: query
+                  type: string
+                  required: false
+                - name: status
+                  in: query
+                  type: string
+                  required: false
+              call: "dlp-api.list-incidents"
+              with:
+                offset: "rest.offset"
+                limit: "rest.limit"
+                severity: "rest.severity"
+                status: "rest.status"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/dlp-incidents/{incident_id}
+          name: dlp-incident-detail
+          description: "Get or update a specific DLP incident."
+          operations:
+            - method: GET
+              name: get-dlp-incident
+              description: "Retrieve a specific DLP incident by ID."
+              inputParameters:
+                - name: incident_id
+                  in: path
+                  type: string
+                  required: true
+              call: "dlp-api.get-incident"
+              with:
+                incident_id: "rest.incident_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+            - method: PUT
+              name: update-dlp-incident
+              description: "Update a DLP incident."
+              inputParameters:
+                - name: incident_id
+                  in: path
+                  type: string
+                  required: true
+                - name: status
+                  in: body
+                  type: string
+                  required: false
+                - name: assignee
+                  in: body
+                  type: string
+                  required: false
+              call: "dlp-api.update-incident"
+              with:
+                incident_id: "rest.incident_id"
+                status: "rest.status"
+                assignee: "rest.assignee"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/dlp-incidents/{incident_id}/snippets
+          name: dlp-incident-snippets
+          description: "Access DLP incident data snippets."
+          operations:
+            - method: GET
+              name: get-dlp-snippets
+              description: "Get data snippets for a specific DLP incident."
+              inputParameters:
+                - name: incident_id
+                  in: path
+                  type: string
+                  required: true
+              call: "dlp-api.get-incident-snippets"
+              with:
+                incident_id: "rest.incident_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # -------------------------------------------------------
+        # DLP Data Patterns
+        # -------------------------------------------------------
+        - path: /v1/data-patterns
+          name: data-patterns
+          description: "List DLP data patterns."
+          operations:
+            - method: GET
+              name: list-data-patterns
+              description: "List available data patterns."
+              inputParameters:
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              call: "dlp-api.list-data-patterns"
+              with:
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/data-patterns/{pattern_id}
+          name: data-pattern-detail
+          description: "Get a specific data pattern."
+          operations:
+            - method: GET
+              name: get-data-pattern
+              description: "Retrieve a specific data pattern by ID."
+              inputParameters:
+                - name: pattern_id
+                  in: path
+                  type: string
+                  required: true
+              call: "dlp-api.get-data-pattern"
+              with:
+                id: "rest.pattern_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # -------------------------------------------------------
+        # DLP Reports
+        # -------------------------------------------------------
+        - path: /v1/dlp-reports/summary
+          name: dlp-report-summary
+          description: "Access DLP report summaries."
+          operations:
+            - method: GET
+              name: get-dlp-report-summary
+              description: "Get a DLP summary report for a given time range."
+              inputParameters:
+                - name: start_date
+                  in: query
+                  type: string
+                  required: false
+                - name: end_date
+                  in: query
+                  type: string
+                  required: false
+              call: "dlp-api.get-report-summary"
+              with:
+                start_date: "rest.start_date"
+                end_date: "rest.end_date"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # -------------------------------------------------------
+        # Email DLP
+        # -------------------------------------------------------
+        - path: /v1/email-incidents
+          name: email-incidents
+          description: "List email DLP incidents."
+          operations:
+            - method: GET
+              name: list-email-incidents
+              description: "List email DLP incidents with optional filters."
+              inputParameters:
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+                - name: status
+                  in: query
+                  type: string
+                  required: false
+                - name: severity
+                  in: query
+                  type: string
+                  required: false
+              call: "email-dlp-api.list-email-incidents"
+              with:
+                offset: "rest.offset"
+                limit: "rest.limit"
+                status: "rest.status"
+                severity: "rest.severity"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/email-incidents/{incident_id}
+          name: email-incident-detail
+          description: "Get a specific email DLP incident."
+          operations:
+            - method: GET
+              name: get-email-incident
+              description: "Retrieve a specific email DLP incident by ID."
+              inputParameters:
+                - name: incident_id
+                  in: path
+                  type: string
+                  required: true
+              call: "email-dlp-api.get-email-incident"
+              with:
+                id: "rest.incident_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/email-incidents/{incident_id}/verdict
+          name: email-incident-verdict
+          description: "Manage email incident verdicts."
+          operations:
+            - method: PUT
+              name: update-email-verdict
+              description: "Update the verdict for an email DLP incident."
+              inputParameters:
+                - name: incident_id
+                  in: path
+                  type: string
+                  required: true
+                - name: verdict
+                  in: body
+                  type: string
+                  required: true
+                - name: reason
+                  in: body
+                  type: string
+                  required: false
+              call: "email-dlp-api.update-email-incident-verdict"
+              with:
+                id: "rest.incident_id"
+                verdict: "rest.verdict"
+                reason: "rest.reason"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/email-incidents/{incident_id}/attachments
+          name: email-incident-attachments
+          description: "Access email incident attachments."
+          operations:
+            - method: GET
+              name: get-email-attachments
+              description: "Get attachments for a specific email DLP incident."
+              inputParameters:
+                - name: incident_id
+                  in: path
+                  type: string
+                  required: true
+              call: "email-dlp-api.get-email-incident-attachments"
+              with:
+                id: "rest.incident_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/email-incidents/{incident_id}/recipients
+          name: email-incident-recipients
+          description: "Access email incident recipients."
+          operations:
+            - method: GET
+              name: get-email-recipients
+              description: "Get recipients for a specific email DLP incident."
+              inputParameters:
+                - name: incident_id
+                  in: path
+                  type: string
+                  required: true
+              call: "email-dlp-api.get-email-incident-recipients"
+              with:
+                id: "rest.incident_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # -------------------------------------------------------
+        # SaaS Security Incidents
+        # -------------------------------------------------------
+        - path: /v1/saas-incidents
+          name: saas-incidents
+          description: "Manage SaaS security incidents."
+          operations:
+            - method: GET
+              name: list-saas-incidents
+              description: "List SaaS security incidents with optional filters."
+              inputParameters:
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+                - name: status
+                  in: query
+                  type: string
+                  required: false
+                - name: severity
+                  in: query
+                  type: string
+                  required: false
+                - name: app_id
+                  in: query
+                  type: string
+                  required: false
+                - name: start_date
+                  in: query
+                  type: string
+                  required: false
+                - name: end_date
+                  in: query
+                  type: string
+                  required: false
+              call: "saas-security.list-incidents"
+              with:
+                offset: "rest.offset"
+                limit: "rest.limit"
+                status: "rest.status"
+                severity: "rest.severity"
+                app_id: "rest.app_id"
+                start_date: "rest.start_date"
+                end_date: "rest.end_date"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        - path: /v1/saas-incidents/{incident_id}
+          name: saas-incident-detail
+          description: "Get or update a specific SaaS security incident."
+          operations:
+            - method: GET
+              name: get-saas-incident
+              description: "Retrieve details for a specific SaaS security incident."
+              inputParameters:
+                - name: incident_id
+                  in: path
+                  type: string
+                  required: true
+              call: "saas-security.get-incident"
+              with:
+                id: "rest.incident_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+            - method: PUT
+              name: update-saas-incident
+              description: "Update a specific SaaS security incident."
+              inputParameters:
+                - name: incident_id
+                  in: path
+                  type: string
+                  required: true
+                - name: status
+                  in: body
+                  type: string
+                  required: false
+                - name: assignee_id
+                  in: body
+                  type: string
+                  required: false
+                - name: note
+                  in: body
+                  type: string
+                  required: false
+              call: "saas-security.update-incident"
+              with:
+                id: "rest.incident_id"
+                status: "rest.status"
+                assignee_id: "rest.assignee_id"
+                note: "rest.note"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # -------------------------------------------------------
+        # SaaS Assets
+        # -------------------------------------------------------
+        - path: /v1/saas-assets
+          name: saas-assets
+          description: "List monitored SaaS assets."
+          operations:
+            - method: GET
+              name: list-saas-assets
+              description: "Retrieve a list of monitored SaaS assets."
+              inputParameters:
+                - name: app_id
+                  in: query
+                  type: string
+                  required: false
+                - name: type
+                  in: query
+                  type: string
+                  required: false
+                - name: exposure
+                  in: query
+                  type: string
+                  required: false
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              call: "saas-security.list-assets"
+              with:
+                app_id: "rest.app_id"
+                type: "rest.type"
+                exposure: "rest.exposure"
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        - path: /v1/saas-assets/{asset_id}
+          name: saas-asset-detail
+          description: "Get a specific SaaS asset."
+          operations:
+            - method: GET
+              name: get-saas-asset
+              description: "Retrieve details for a specific SaaS asset."
+              inputParameters:
+                - name: asset_id
+                  in: path
+                  type: string
+                  required: true
+              call: "saas-security.get-asset"
+              with:
+                id: "rest.asset_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # -------------------------------------------------------
+        # SaaS Applications & Users
+        # -------------------------------------------------------
+        - path: /v1/saas-applications
+          name: saas-applications
+          description: "List connected SaaS applications."
+          operations:
+            - method: GET
+              name: list-saas-applications
+              description: "Retrieve a list of connected SaaS applications."
+              call: "saas-security.list-applications"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        - path: /v1/saas-users
+          name: saas-users
+          description: "List users across SaaS applications."
+          operations:
+            - method: GET
+              name: list-saas-users
+              description: "Retrieve a list of users across SaaS applications."
+              inputParameters:
+                - name: app_id
+                  in: query
+                  type: string
+                  required: false
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              call: "saas-security.list-users"
+              with:
+                app_id: "rest.app_id"
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        - path: /v1/saas-users/{user_id}/activities
+          name: saas-user-activities
+          description: "Get user activity log."
+          operations:
+            - method: GET
+              name: get-user-activities
+              description: "Retrieve activity log for a specific user."
+              inputParameters:
+                - name: user_id
+                  in: path
+                  type: string
+                  required: true
+                - name: start_date
+                  in: query
+                  type: string
+                  required: false
+                - name: end_date
+                  in: query
+                  type: string
+                  required: false
+                - name: app_id
+                  in: query
+                  type: string
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              call: "saas-security.get-user-activities"
+              with:
+                id: "rest.user_id"
+                start_date: "rest.start_date"
+                end_date: "rest.end_date"
+                app_id: "rest.app_id"
+                limit: "rest.limit"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        # -------------------------------------------------------
+        # SaaS Settings
+        # -------------------------------------------------------
+        - path: /v1/log-forwarding-settings
+          name: log-forwarding-settings
+          description: "Get log forwarding configuration settings."
+          operations:
+            - method: GET
+              name: get-log-forwarding-settings
+              description: "Retrieve log forwarding configuration settings."
+              call: "saas-security.get-log-forwarding-settings"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # -------------------------------------------------------
+        # SSPM App Management
+        # -------------------------------------------------------
+        - path: /v1/sspm-apps
+          name: sspm-apps
+          description: "Manage onboarded SSPM applications."
+          operations:
+            - method: GET
+              name: list-onboarded-apps
+              description: "List all onboarded SaaS applications."
+              inputParameters:
+                - name: status
+                  in: query
+                  type: string
+                  required: false
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              call: "sspm.list-onboarded-apps"
+              with:
+                status: "rest.status"
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+            - method: POST
+              name: onboard-app
+              description: "Onboard a new SaaS application."
+              inputParameters:
+                - name: app_type
+                  in: body
+                  type: string
+                  required: true
+                - name: display_name
+                  in: body
+                  type: string
+                  required: true
+                - name: credentials
+                  in: body
+                  type: object
+                  required: true
+              call: "sspm.onboard-app"
+              with:
+                app_type: "rest.app_type"
+                display_name: "rest.display_name"
+                credentials: "rest.credentials"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/sspm-apps/{app_id}
+          name: sspm-app-detail
+          description: "Remove an onboarded SSPM application."
+          operations:
+            - method: DELETE
+              name: remove-app
+              description: "Remove an onboarded SaaS application."
+              inputParameters:
+                - name: app_id
+                  in: path
+                  type: string
+                  required: true
+              call: "sspm.remove-app"
+              with:
+                app_id: "rest.app_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # -------------------------------------------------------
+        # SSPM Posture
+        # -------------------------------------------------------
+        - path: /v1/posture-checks
+          name: posture-checks
+          description: "Manage SSPM posture checks."
+          operations:
+            - method: GET
+              name: list-posture-checks
+              description: "List posture checks with optional filters."
+              inputParameters:
+                - name: app_id
+                  in: query
+                  type: string
+                  required: false
+                - name: check_type
+                  in: query
+                  type: string
+                  required: false
+                - name: severity
+                  in: query
+                  type: string
+                  required: false
+                - name: status
+                  in: query
+                  type: string
+                  required: false
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              call: "sspm.list-posture-checks"
+              with:
+                app_id: "rest.app_id"
+                check_type: "rest.check_type"
+                severity: "rest.severity"
+                status: "rest.status"
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/posture-checks/{check_id}
+          name: posture-check-detail
+          description: "Get a specific posture check."
+          operations:
+            - method: GET
+              name: get-posture-check
+              description: "Get a specific posture check by ID."
+              inputParameters:
+                - name: check_id
+                  in: path
+                  type: string
+                  required: true
+              call: "sspm.get-posture-check"
+              with:
+                check_id: "rest.check_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/posture-checks/{check_id}/status
+          name: posture-check-status
+          description: "Update posture check status."
+          operations:
+            - method: PUT
+              name: update-posture-check-status
+              description: "Update the status of a posture check."
+              inputParameters:
+                - name: check_id
+                  in: path
+                  type: string
+                  required: true
+                - name: status
+                  in: body
+                  type: string
+                  required: true
+                - name: justification
+                  in: body
+                  type: string
+                  required: true
+              call: "sspm.update-posture-check-status"
+              with:
+                check_id: "rest.check_id"
+                status: "rest.status"
+                justification: "rest.justification"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # -------------------------------------------------------
+        # SSPM Catalog & Integrations
+        # -------------------------------------------------------
+        - path: /v1/sspm-app-catalog
+          name: sspm-app-catalog
+          description: "Browse the SSPM application catalog."
+          operations:
+            - method: GET
+              name: list-app-catalog
+              description: "List available applications in the catalog."
+              inputParameters:
+                - name: category
+                  in: query
+                  type: string
+                  required: false
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              call: "sspm.list-app-catalog"
+              with:
+                category: "rest.category"
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/jira-integrations
+          name: jira-integrations
+          description: "Manage SSPM Jira integrations."
+          operations:
+            - method: GET
+              name: list-jira-integrations
+              description: "List all Jira integrations."
+              call: "sspm.list-jira-integrations"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+            - method: POST
+              name: create-jira-integration
+              description: "Create a new Jira integration."
+              inputParameters:
+                - name: name
+                  in: body
+                  type: string
+                  required: true
+                - name: jira_url
+                  in: body
+                  type: string
+                  required: true
+                - name: project_key
+                  in: body
+                  type: string
+                  required: true
+                - name: api_token
+                  in: body
+                  type: string
+                  required: true
+                - name: email
+                  in: body
+                  type: string
+                  required: true
+                - name: issue_type
+                  in: body
+                  type: string
+                  required: true
+                - name: severity_mapping
+                  in: body
+                  type: object
+                  required: true
+              call: "sspm.create-jira-integration"
+              with:
+                name: "rest.name"
+                jira_url: "rest.jira_url"
+                project_key: "rest.project_key"
+                api_token: "rest.api_token"
+                email: "rest.email"
+                issue_type: "rest.issue_type"
+                severity_mapping: "rest.severity_mapping"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+    # =============================================================
+    # MCP Server — AI-assisted data protection
+    # =============================================================
+    - type: mcp
+      port: 9095
+      namespace: data-protection-mcp
+      transport: http
+      description: "MCP server for AI-assisted data protection across Enterprise DLP, Email DLP, SaaS Security, and SSPM."
+      tools:
+
+        # ---------------------------------------------------------
+        # DLP
+        # ---------------------------------------------------------
+        - name: list-dlp-incidents
+          description: "List DLP incidents with optional filters for severity and status."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: offset
+              type: integer
+              description: "Offset for pagination."
+              required: false
+            - name: limit
+              type: integer
+              description: "Maximum number of results to return."
+              required: false
+            - name: severity
+              type: string
+              description: "Filter by severity level."
+              required: false
+            - name: status
+              type: string
+              description: "Filter by incident status."
+              required: false
+          call: "dlp-api.list-incidents"
+          with:
+            offset: "tools.offset"
+            limit: "tools.limit"
+            severity: "tools.severity"
+            status: "tools.status"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-dlp-incident
+          description: "Retrieve a specific DLP incident by ID."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: incident_id
+              type: string
+              description: "The DLP incident ID."
+              required: true
+          call: "dlp-api.get-incident"
+          with:
+            incident_id: "tools.incident_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: update-dlp-incident
+          description: "Update a DLP incident status or assignee."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: incident_id
+              type: string
+              description: "The DLP incident ID to update."
+              required: true
+            - name: status
+              type: string
+              description: "New status for the incident."
+              required: false
+            - name: assignee
+              type: string
+              description: "New assignee for the incident."
+              required: false
+          call: "dlp-api.update-incident"
+          with:
+            incident_id: "tools.incident_id"
+            status: "tools.status"
+            assignee: "tools.assignee"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-dlp-snippets
+          description: "Get data snippets for a specific DLP incident."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: incident_id
+              type: string
+              description: "The DLP incident ID."
+              required: true
+          call: "dlp-api.get-incident-snippets"
+          with:
+            incident_id: "tools.incident_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: list-data-patterns
+          description: "List available DLP data patterns."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: offset
+              type: integer
+              description: "Offset for pagination."
+              required: false
+            - name: limit
+              type: integer
+              description: "Maximum number of results to return."
+              required: false
+          call: "dlp-api.list-data-patterns"
+          with:
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-data-pattern
+          description: "Retrieve a specific DLP data pattern by ID."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: pattern_id
+              type: string
+              description: "The data pattern ID."
+              required: true
+          call: "dlp-api.get-data-pattern"
+          with:
+            id: "tools.pattern_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-dlp-report-summary
+          description: "Get a DLP summary report for a given time range."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: start_date
+              type: string
+              description: "Start date for the report period."
+              required: false
+            - name: end_date
+              type: string
+              description: "End date for the report period."
+              required: false
+          call: "dlp-api.get-report-summary"
+          with:
+            start_date: "tools.start_date"
+            end_date: "tools.end_date"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        # ---------------------------------------------------------
+        # Email DLP
+        # ---------------------------------------------------------
+        - name: list-email-incidents
+          description: "List email DLP incidents with optional filters."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: offset
+              type: integer
+              description: "Offset for pagination."
+              required: false
+            - name: limit
+              type: integer
+              description: "Maximum number of results to return."
+              required: false
+            - name: status
+              type: string
+              description: "Filter by incident status."
+              required: false
+            - name: severity
+              type: string
+              description: "Filter by severity level."
+              required: false
+          call: "email-dlp-api.list-email-incidents"
+          with:
+            offset: "tools.offset"
+            limit: "tools.limit"
+            status: "tools.status"
+            severity: "tools.severity"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-email-incident
+          description: "Retrieve a specific email DLP incident by ID."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: incident_id
+              type: string
+              description: "The email incident ID."
+              required: true
+          call: "email-dlp-api.get-email-incident"
+          with:
+            id: "tools.incident_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: update-email-verdict
+          description: "Update the verdict for an email DLP incident."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: incident_id
+              type: string
+              description: "The email incident ID."
+              required: true
+            - name: verdict
+              type: string
+              description: "The verdict to set."
+              required: true
+            - name: reason
+              type: string
+              description: "Reason for the verdict."
+              required: false
+          call: "email-dlp-api.update-email-incident-verdict"
+          with:
+            id: "tools.incident_id"
+            verdict: "tools.verdict"
+            reason: "tools.reason"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-email-attachments
+          description: "Get attachments for a specific email DLP incident."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: incident_id
+              type: string
+              description: "The email incident ID."
+              required: true
+          call: "email-dlp-api.get-email-incident-attachments"
+          with:
+            id: "tools.incident_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-email-recipients
+          description: "Get recipients for a specific email DLP incident."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: incident_id
+              type: string
+              description: "The email incident ID."
+              required: true
+          call: "email-dlp-api.get-email-incident-recipients"
+          with:
+            id: "tools.incident_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        # ---------------------------------------------------------
+        # SaaS Security
+        # ---------------------------------------------------------
+        - name: list-saas-incidents
+          description: "Retrieve a list of SaaS security incidents."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: offset
+              type: integer
+              description: "Offset for pagination."
+              required: false
+            - name: limit
+              type: integer
+              description: "Maximum number of results to return."
+              required: false
+            - name: status
+              type: string
+              description: "Filter by incident status."
+              required: false
+            - name: severity
+              type: string
+              description: "Filter by severity level."
+              required: false
+            - name: app_id
+              type: string
+              description: "Filter by application ID."
+              required: false
+            - name: start_date
+              type: string
+              description: "Start date for filtering."
+              required: false
+            - name: end_date
+              type: string
+              description: "End date for filtering."
+              required: false
+          call: "saas-security.list-incidents"
+          with:
+            offset: "tools.offset"
+            limit: "tools.limit"
+            status: "tools.status"
+            severity: "tools.severity"
+            app_id: "tools.app_id"
+            start_date: "tools.start_date"
+            end_date: "tools.end_date"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: get-saas-incident
+          description: "Retrieve details for a specific SaaS security incident."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: incident_id
+              type: string
+              description: "The SaaS security incident ID."
+              required: true
+          call: "saas-security.get-incident"
+          with:
+            id: "tools.incident_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: update-saas-incident
+          description: "Update a specific SaaS security incident."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: incident_id
+              type: string
+              description: "The SaaS security incident ID."
+              required: true
+            - name: status
+              type: string
+              description: "New status for the incident."
+              required: false
+            - name: assignee_id
+              type: string
+              description: "New assignee ID for the incident."
+              required: false
+            - name: note
+              type: string
+              description: "Note to add to the incident."
+              required: false
+          call: "saas-security.update-incident"
+          with:
+            id: "tools.incident_id"
+            status: "tools.status"
+            assignee_id: "tools.assignee_id"
+            note: "tools.note"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: list-saas-assets
+          description: "Retrieve a list of monitored SaaS assets."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: app_id
+              type: string
+              description: "Filter by application ID."
+              required: false
+            - name: type
+              type: string
+              description: "Filter by asset type."
+              required: false
+            - name: exposure
+              type: string
+              description: "Filter by exposure level."
+              required: false
+            - name: offset
+              type: integer
+              description: "Offset for pagination."
+              required: false
+            - name: limit
+              type: integer
+              description: "Maximum number of results to return."
+              required: false
+          call: "saas-security.list-assets"
+          with:
+            app_id: "tools.app_id"
+            type: "tools.type"
+            exposure: "tools.exposure"
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: get-saas-asset
+          description: "Retrieve details for a specific SaaS asset."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: asset_id
+              type: string
+              description: "The SaaS asset ID."
+              required: true
+          call: "saas-security.get-asset"
+          with:
+            id: "tools.asset_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: list-saas-applications
+          description: "Retrieve a list of connected SaaS applications."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          call: "saas-security.list-applications"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: list-saas-users
+          description: "Retrieve a list of users across SaaS applications."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: app_id
+              type: string
+              description: "Filter by application ID."
+              required: false
+            - name: offset
+              type: integer
+              description: "Offset for pagination."
+              required: false
+            - name: limit
+              type: integer
+              description: "Maximum number of results to return."
+              required: false
+          call: "saas-security.list-users"
+          with:
+            app_id: "tools.app_id"
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: get-user-activities
+          description: "Retrieve activity log for a specific user."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: user_id
+              type: string
+              description: "The user ID."
+              required: true
+            - name: start_date
+              type: string
+              description: "Start date for filtering activities."
+              required: false
+            - name: end_date
+              type: string
+              description: "End date for filtering activities."
+              required: false
+            - name: app_id
+              type: string
+              description: "Filter by application ID."
+              required: false
+            - name: limit
+              type: integer
+              description: "Maximum number of results to return."
+              required: false
+          call: "saas-security.get-user-activities"
+          with:
+            id: "tools.user_id"
+            start_date: "tools.start_date"
+            end_date: "tools.end_date"
+            app_id: "tools.app_id"
+            limit: "tools.limit"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: get-log-forwarding-settings
+          description: "Retrieve log forwarding configuration settings."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          call: "saas-security.get-log-forwarding-settings"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        # ---------------------------------------------------------
+        # SSPM
+        # ---------------------------------------------------------
+        - name: list-onboarded-apps
+          description: "List all onboarded SaaS applications in SSPM."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: status
+              type: string
+              description: "Filter by onboarding status."
+              required: false
+            - name: offset
+              type: integer
+              description: "Offset for pagination."
+              required: false
+            - name: limit
+              type: integer
+              description: "Maximum number of results to return."
+              required: false
+          call: "sspm.list-onboarded-apps"
+          with:
+            status: "tools.status"
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: onboard-app
+          description: "Onboard a new SaaS application in SSPM."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: app_type
+              type: string
+              description: "Type of the application to onboard."
+              required: true
+            - name: display_name
+              type: string
+              description: "Display name for the application."
+              required: true
+            - name: credentials
+              type: object
+              description: "Credentials for the application."
+              required: true
+          call: "sspm.onboard-app"
+          with:
+            app_type: "tools.app_type"
+            display_name: "tools.display_name"
+            credentials: "tools.credentials"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: remove-app
+          description: "Remove an onboarded SaaS application from SSPM."
+          hints:
+            readOnly: false
+            destructive: true
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: app_id
+              type: string
+              description: "The application ID to remove."
+              required: true
+          call: "sspm.remove-app"
+          with:
+            app_id: "tools.app_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: list-posture-checks
+          description: "List SSPM posture checks with optional filters."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: app_id
+              type: string
+              description: "Filter by application ID."
+              required: false
+            - name: check_type
+              type: string
+              description: "Filter by check type."
+              required: false
+            - name: severity
+              type: string
+              description: "Filter by severity level."
+              required: false
+            - name: status
+              type: string
+              description: "Filter by check status."
+              required: false
+            - name: offset
+              type: integer
+              description: "Offset for pagination."
+              required: false
+            - name: limit
+              type: integer
+              description: "Maximum number of results to return."
+              required: false
+          call: "sspm.list-posture-checks"
+          with:
+            app_id: "tools.app_id"
+            check_type: "tools.check_type"
+            severity: "tools.severity"
+            status: "tools.status"
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-posture-check
+          description: "Get a specific SSPM posture check by ID."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: check_id
+              type: string
+              description: "The posture check ID."
+              required: true
+          call: "sspm.get-posture-check"
+          with:
+            check_id: "tools.check_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: update-posture-check-status
+          description: "Update the status of an SSPM posture check."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: check_id
+              type: string
+              description: "The posture check ID."
+              required: true
+            - name: status
+              type: string
+              description: "New status for the posture check."
+              required: true
+            - name: justification
+              type: string
+              description: "Justification for the status change."
+              required: true
+          call: "sspm.update-posture-check-status"
+          with:
+            check_id: "tools.check_id"
+            status: "tools.status"
+            justification: "tools.justification"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: list-app-catalog
+          description: "List available applications in the SSPM catalog."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: category
+              type: string
+              description: "Filter by application category."
+              required: false
+            - name: offset
+              type: integer
+              description: "Offset for pagination."
+              required: false
+            - name: limit
+              type: integer
+              description: "Maximum number of results to return."
+              required: false
+          call: "sspm.list-app-catalog"
+          with:
+            category: "tools.category"
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: list-jira-integrations
+          description: "List all SSPM Jira integrations."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          call: "sspm.list-jira-integrations"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: create-jira-integration
+          description: "Create a new Jira integration for SSPM."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: name
+              type: string
+              description: "Name of the Jira integration."
+              required: true
+            - name: jira_url
+              type: string
+              description: "URL of the Jira instance."
+              required: true
+            - name: project_key
+              type: string
+              description: "Jira project key."
+              required: true
+            - name: api_token
+              type: string
+              description: "Jira API token for authentication."
+              required: true
+            - name: email
+              type: string
+              description: "Email associated with the Jira account."
+              required: true
+            - name: issue_type
+              type: string
+              description: "Default issue type for created tickets."
+              required: true
+            - name: severity_mapping
+              type: object
+              description: "Mapping of severity levels to Jira priorities."
+              required: true
+          call: "sspm.create-jira-integration"
+          with:
+            name: "tools.name"
+            jira_url: "tools.jira_url"
+            project_key: "tools.project_key"
+            api_token: "tools.api_token"
+            email: "tools.email"
+            issue_type: "tools.issue_type"
+            severity_mapping: "tools.severity_mapping"
+          outputParameters:
+            - type: object
+              mapping: "$."

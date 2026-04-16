@@ -1,0 +1,494 @@
+naftiko: "1.0.0-alpha1"
+
+info:
+  label: "SASE Configuration Orchestration"
+  description: "Manage remote networks, bandwidth allocations, Prisma Access locations, and onboarding status for SASE configuration."
+  tags:
+    - sase
+    - configuration
+    - orchestration
+    - remote-networks
+    - palo-alto-networks
+  created: "2026-04-16"
+  modified: "2026-04-16"
+
+binds:
+  - namespace: env
+    keys:
+      PALO_ALTO_OAUTH_TOKEN: PALO_ALTO_OAUTH_TOKEN
+
+capability:
+  consumes:
+    - type: http
+      namespace: sase-config-orchestration
+      baseUri: https://api.sase.paloaltonetworks.com/config-orchestration/v1
+      authentication:
+        type: bearer
+        token: "{{env.PALO_ALTO_OAUTH_TOKEN}}"
+      resources:
+        - name: remote-networks
+          path: /remote-networks
+          operations:
+            - name: list-remote-networks
+              method: GET
+              description: "List all remote networks with optional filtering by location and status."
+              inputParameters:
+                - name: location
+                  in: query
+                  type: string
+                  required: false
+                - name: status
+                  in: query
+                  type: string
+                  required: false
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: create-remote-network
+              method: POST
+              description: "Create a new remote network configuration."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  name: "{{tools.name}}"
+                  location: "{{tools.location}}"
+                  subnets: "{{tools.subnets}}"
+                  ike_gateway: "{{tools.ike_gateway}}"
+                  description: "{{tools.description}}"
+                  bandwidth_mbps: "{{tools.bandwidth_mbps}}"
+            - name: get-remote-network
+              method: GET
+              description: "Get details of a specific remote network by ID."
+              path: /{id}
+              inputParameters:
+                - name: id
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: update-remote-network
+              method: PUT
+              description: "Update an existing remote network configuration."
+              path: /{id}
+              inputParameters:
+                - name: id
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  name: "{{tools.name}}"
+                  location: "{{tools.location}}"
+                  subnets: "{{tools.subnets}}"
+                  ike_gateway: "{{tools.ike_gateway}}"
+                  description: "{{tools.description}}"
+                  bandwidth_mbps: "{{tools.bandwidth_mbps}}"
+            - name: delete-remote-network
+              method: DELETE
+              description: "Delete a remote network by ID."
+              path: /{id}
+              inputParameters:
+                - name: id
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: refresh-ike-gateway
+              method: POST
+              description: "Refresh the IKE gateway for a specific remote network."
+              path: /{id}/refresh-ike-gateway
+              inputParameters:
+                - name: id
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+        - name: bandwidth-allocations
+          path: /bandwidth-allocations
+          operations:
+            - name: get-bandwidth-allocations
+              method: GET
+              description: "Get bandwidth allocations optionally filtered by location."
+              inputParameters:
+                - name: location
+                  in: query
+                  type: string
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+        - name: locations
+          path: /locations
+          operations:
+            - name: list-prisma-access-locations
+              method: GET
+              description: "List all available Prisma Access locations."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+        - name: onboarding-status
+          path: /onboarding-status
+          operations:
+            - name: get-onboarding-status
+              method: GET
+              description: "Get the onboarding status for a specific resource."
+              path: /{id}
+              inputParameters:
+                - name: id
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+  exposes:
+    - type: rest
+      port: 8106
+      namespace: sase-config-orchestration-rest
+      resources:
+        - path: /v1/remote-networks
+          operations:
+            - method: GET
+              name: list-remote-networks
+              call: "sase-config-orchestration.list-remote-networks"
+              with:
+                location: "rest.location"
+                status: "rest.status"
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+            - method: POST
+              name: create-remote-network
+              call: "sase-config-orchestration.create-remote-network"
+              with:
+                name: "rest.name"
+                location: "rest.location"
+                subnets: "rest.subnets"
+                ike_gateway: "rest.ike_gateway"
+                description: "rest.description"
+                bandwidth_mbps: "rest.bandwidth_mbps"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/remote-networks/{id}
+          operations:
+            - method: GET
+              name: get-remote-network
+              call: "sase-config-orchestration.get-remote-network"
+              with:
+                id: "rest.id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: PUT
+              name: update-remote-network
+              call: "sase-config-orchestration.update-remote-network"
+              with:
+                id: "rest.id"
+                name: "rest.name"
+                location: "rest.location"
+                subnets: "rest.subnets"
+                ike_gateway: "rest.ike_gateway"
+                description: "rest.description"
+                bandwidth_mbps: "rest.bandwidth_mbps"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: DELETE
+              name: delete-remote-network
+              call: "sase-config-orchestration.delete-remote-network"
+              with:
+                id: "rest.id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/remote-networks/{id}/refresh-ike-gateway
+          operations:
+            - method: POST
+              name: refresh-ike-gateway
+              call: "sase-config-orchestration.refresh-ike-gateway"
+              with:
+                id: "rest.id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/bandwidth-allocations
+          operations:
+            - method: GET
+              name: get-bandwidth-allocations
+              call: "sase-config-orchestration.get-bandwidth-allocations"
+              with:
+                location: "rest.location"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/prisma-access-locations
+          operations:
+            - method: GET
+              name: list-prisma-access-locations
+              call: "sase-config-orchestration.list-prisma-access-locations"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+        - path: /v1/onboarding-statuses/{id}
+          operations:
+            - method: GET
+              name: get-onboarding-status
+              call: "sase-config-orchestration.get-onboarding-status"
+              with:
+                id: "rest.id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+    - type: mcp
+      port: 9116
+      namespace: sase-config-orchestration-mcp
+      transport: http
+      tools:
+        - name: list-remote-networks
+          description: "List all remote networks with optional filtering by location and status."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: location
+              type: string
+              required: false
+            - name: status
+              type: string
+              required: false
+            - name: offset
+              type: integer
+              required: false
+            - name: limit
+              type: integer
+              required: false
+          call: "sase-config-orchestration.list-remote-networks"
+          with:
+            location: "tools.location"
+            status: "tools.status"
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: array
+              mapping: "$."
+        - name: create-remote-network
+          description: "Create a new remote network configuration."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: name
+              type: string
+              required: true
+            - name: location
+              type: string
+              required: true
+            - name: subnets
+              type: object
+              required: false
+            - name: ike_gateway
+              type: object
+              required: false
+            - name: description
+              type: string
+              required: false
+            - name: bandwidth_mbps
+              type: integer
+              required: false
+          call: "sase-config-orchestration.create-remote-network"
+          with:
+            name: "tools.name"
+            location: "tools.location"
+            subnets: "tools.subnets"
+            ike_gateway: "tools.ike_gateway"
+            description: "tools.description"
+            bandwidth_mbps: "tools.bandwidth_mbps"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-remote-network
+          description: "Get details of a specific remote network by ID."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              required: true
+          call: "sase-config-orchestration.get-remote-network"
+          with:
+            id: "tools.id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: update-remote-network
+          description: "Update an existing remote network configuration."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              required: true
+            - name: name
+              type: string
+              required: false
+            - name: location
+              type: string
+              required: false
+            - name: subnets
+              type: object
+              required: false
+            - name: ike_gateway
+              type: object
+              required: false
+            - name: description
+              type: string
+              required: false
+            - name: bandwidth_mbps
+              type: integer
+              required: false
+          call: "sase-config-orchestration.update-remote-network"
+          with:
+            id: "tools.id"
+            name: "tools.name"
+            location: "tools.location"
+            subnets: "tools.subnets"
+            ike_gateway: "tools.ike_gateway"
+            description: "tools.description"
+            bandwidth_mbps: "tools.bandwidth_mbps"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: delete-remote-network
+          description: "Delete a remote network by ID."
+          hints:
+            readOnly: false
+            destructive: true
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              required: true
+          call: "sase-config-orchestration.delete-remote-network"
+          with:
+            id: "tools.id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: refresh-ike-gateway
+          description: "Refresh the IKE gateway for a specific remote network."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              required: true
+          call: "sase-config-orchestration.refresh-ike-gateway"
+          with:
+            id: "tools.id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-bandwidth-allocations
+          description: "Get bandwidth allocations optionally filtered by location."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: location
+              type: string
+              required: false
+          call: "sase-config-orchestration.get-bandwidth-allocations"
+          with:
+            location: "tools.location"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: list-prisma-access-locations
+          description: "List all available Prisma Access locations."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters: []
+          call: "sase-config-orchestration.list-prisma-access-locations"
+          outputParameters:
+            - type: array
+              mapping: "$."
+        - name: get-onboarding-status
+          description: "Get the onboarding status for a specific resource."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              required: true
+          call: "sase-config-orchestration.get-onboarding-status"
+          with:
+            id: "tools.id"
+          outputParameters:
+            - type: object
+              mapping: "$."

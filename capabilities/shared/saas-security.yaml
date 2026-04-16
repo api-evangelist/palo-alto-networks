@@ -1,0 +1,585 @@
+naftiko: "1.0.0-alpha1"
+
+info:
+  label: "SaaS Security"
+  description: "Provides SaaS application security through the Palo Alto Networks SaaS Security API, including incident management, asset discovery, application monitoring, user activity tracking, and log forwarding configuration."
+  tags:
+    - saas-security
+    - incident-management
+    - asset-management
+    - user-activity
+    - application-security
+  created: "2026-04-16"
+  modified: "2026-04-16"
+
+binds:
+  - namespace: env
+    keys:
+      SAAS_SECURITY_TOKEN: SAAS_SECURITY_TOKEN
+
+capability:
+  consumes:
+    - type: http
+      namespace: saas-security
+      baseUri: https://api.aperture.paloaltonetworks.com
+      authentication:
+        type: bearer
+        token: "{{env.SAAS_SECURITY_TOKEN}}"
+      resources:
+        - name: incidents
+          path: /api/incidents
+          operations:
+            - name: list-incidents
+              method: GET
+              description: "Retrieve a list of security incidents"
+              inputParameters:
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+                - name: status
+                  in: query
+                  type: string
+                  required: false
+                - name: severity
+                  in: query
+                  type: string
+                  required: false
+                - name: app_id
+                  in: query
+                  type: string
+                  required: false
+                - name: start_date
+                  in: query
+                  type: string
+                  required: false
+                - name: end_date
+                  in: query
+                  type: string
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: incident-by-id
+          path: /api/incidents/{id}
+          operations:
+            - name: get-incident
+              method: GET
+              description: "Retrieve details for a specific incident"
+              inputParameters:
+                - name: id
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+            - name: update-incident
+              method: PUT
+              description: "Update a specific incident"
+              inputParameters:
+                - name: id
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  status: "{{tools.status}}"
+                  assignee_id: "{{tools.assignee_id}}"
+                  note: "{{tools.note}}"
+
+        - name: assets
+          path: /api/assets
+          operations:
+            - name: list-assets
+              method: GET
+              description: "Retrieve a list of monitored assets"
+              inputParameters:
+                - name: app_id
+                  in: query
+                  type: string
+                  required: false
+                - name: type
+                  in: query
+                  type: string
+                  required: false
+                - name: exposure
+                  in: query
+                  type: string
+                  required: false
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: asset-by-id
+          path: /api/assets/{id}
+          operations:
+            - name: get-asset
+              method: GET
+              description: "Retrieve details for a specific asset"
+              inputParameters:
+                - name: id
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: applications
+          path: /api/applications
+          operations:
+            - name: list-applications
+              method: GET
+              description: "Retrieve a list of connected SaaS applications"
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: users
+          path: /api/users
+          operations:
+            - name: list-users
+              method: GET
+              description: "Retrieve a list of users across SaaS applications"
+              inputParameters:
+                - name: app_id
+                  in: query
+                  type: string
+                  required: false
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: user-activities
+          path: /api/user/{id}/activities
+          operations:
+            - name: get-user-activities
+              method: GET
+              description: "Retrieve activity log for a specific user"
+              inputParameters:
+                - name: id
+                  in: path
+                  type: string
+                  required: true
+                - name: start_date
+                  in: query
+                  type: string
+                  required: false
+                - name: end_date
+                  in: query
+                  type: string
+                  required: false
+                - name: app_id
+                  in: query
+                  type: string
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: log-forwarding-settings
+          path: /api/settings/log-forwarding
+          operations:
+            - name: get-log-forwarding-settings
+              method: GET
+              description: "Retrieve log forwarding configuration settings"
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+  exposes:
+    - type: rest
+      port: 8103
+      namespace: rest-saas-security
+      resources:
+        - path: /v1/incidents
+          operations:
+            - method: GET
+              name: list-incidents
+              call: "saas-security.list-incidents"
+              with:
+                offset: "rest.offset"
+                limit: "rest.limit"
+                status: "rest.status"
+                severity: "rest.severity"
+                app_id: "rest.app_id"
+                start_date: "rest.start_date"
+                end_date: "rest.end_date"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        - path: /v1/incidents/{id}
+          operations:
+            - method: GET
+              name: get-incident
+              call: "saas-security.get-incident"
+              with:
+                id: "rest.id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+            - method: PUT
+              name: update-incident
+              call: "saas-security.update-incident"
+              with:
+                id: "rest.id"
+                status: "rest.status"
+                assignee_id: "rest.assignee_id"
+                note: "rest.note"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/assets
+          operations:
+            - method: GET
+              name: list-assets
+              call: "saas-security.list-assets"
+              with:
+                app_id: "rest.app_id"
+                type: "rest.type"
+                exposure: "rest.exposure"
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        - path: /v1/assets/{id}
+          operations:
+            - method: GET
+              name: get-asset
+              call: "saas-security.get-asset"
+              with:
+                id: "rest.id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/applications
+          operations:
+            - method: GET
+              name: list-applications
+              call: "saas-security.list-applications"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        - path: /v1/users
+          operations:
+            - method: GET
+              name: list-users
+              call: "saas-security.list-users"
+              with:
+                app_id: "rest.app_id"
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        - path: /v1/users/{id}/activities
+          operations:
+            - method: GET
+              name: get-user-activities
+              call: "saas-security.get-user-activities"
+              with:
+                id: "rest.id"
+                start_date: "rest.start_date"
+                end_date: "rest.end_date"
+                app_id: "rest.app_id"
+                limit: "rest.limit"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        - path: /v1/settings/log-forwarding
+          operations:
+            - method: GET
+              name: get-log-forwarding-settings
+              call: "saas-security.get-log-forwarding-settings"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+    - type: mcp
+      port: 9113
+      namespace: mcp-saas-security
+      transport: http
+      tools:
+        - name: list-incidents
+          description: "Retrieve a list of security incidents"
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: offset
+              type: integer
+              required: false
+            - name: limit
+              type: integer
+              required: false
+            - name: status
+              type: string
+              required: false
+            - name: severity
+              type: string
+              required: false
+            - name: app_id
+              type: string
+              required: false
+            - name: start_date
+              type: string
+              required: false
+            - name: end_date
+              type: string
+              required: false
+          call: "saas-security.list-incidents"
+          with:
+            offset: "tools.offset"
+            limit: "tools.limit"
+            status: "tools.status"
+            severity: "tools.severity"
+            app_id: "tools.app_id"
+            start_date: "tools.start_date"
+            end_date: "tools.end_date"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: get-incident
+          description: "Retrieve details for a specific incident"
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              required: true
+          call: "saas-security.get-incident"
+          with:
+            id: "tools.id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: update-incident
+          description: "Update a specific incident"
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              required: true
+            - name: status
+              type: string
+              required: false
+            - name: assignee_id
+              type: string
+              required: false
+            - name: note
+              type: string
+              required: false
+          call: "saas-security.update-incident"
+          with:
+            id: "tools.id"
+            status: "tools.status"
+            assignee_id: "tools.assignee_id"
+            note: "tools.note"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: list-assets
+          description: "Retrieve a list of monitored assets"
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: app_id
+              type: string
+              required: false
+            - name: type
+              type: string
+              required: false
+            - name: exposure
+              type: string
+              required: false
+            - name: offset
+              type: integer
+              required: false
+            - name: limit
+              type: integer
+              required: false
+          call: "saas-security.list-assets"
+          with:
+            app_id: "tools.app_id"
+            type: "tools.type"
+            exposure: "tools.exposure"
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: get-asset
+          description: "Retrieve details for a specific asset"
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              required: true
+          call: "saas-security.get-asset"
+          with:
+            id: "tools.id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: list-applications
+          description: "Retrieve a list of connected SaaS applications"
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          call: "saas-security.list-applications"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: list-users
+          description: "Retrieve a list of users across SaaS applications"
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: app_id
+              type: string
+              required: false
+            - name: offset
+              type: integer
+              required: false
+            - name: limit
+              type: integer
+              required: false
+          call: "saas-security.list-users"
+          with:
+            app_id: "tools.app_id"
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: get-user-activities
+          description: "Retrieve activity log for a specific user"
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              required: true
+            - name: start_date
+              type: string
+              required: false
+            - name: end_date
+              type: string
+              required: false
+            - name: app_id
+              type: string
+              required: false
+            - name: limit
+              type: integer
+              required: false
+          call: "saas-security.get-user-activities"
+          with:
+            id: "tools.id"
+            start_date: "tools.start_date"
+            end_date: "tools.end_date"
+            app_id: "tools.app_id"
+            limit: "tools.limit"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: get-log-forwarding-settings
+          description: "Retrieve log forwarding configuration settings"
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          call: "saas-security.get-log-forwarding-settings"
+          outputParameters:
+            - type: object
+              mapping: "$."

@@ -1,0 +1,649 @@
+naftiko: "1.0.0-alpha1"
+
+info:
+  label: "Palo Alto Networks AI Security"
+  description: "Unified AI security capability for scanning AI model inputs/outputs for threats and red-teaming AI applications for vulnerabilities across Prisma AIRS and AI Red Teaming APIs."
+  tags:
+    - palo-alto-networks
+    - ai-security
+    - ai-red-teaming
+    - llm-security
+    - prompt-injection
+  created: "2026-04-16"
+  modified: "2026-04-16"
+
+binds:
+  - namespace: env
+    keys:
+      PRISMA_AIRS_TOKEN: PRISMA_AIRS_TOKEN
+      PALO_ALTO_OAUTH_TOKEN: PALO_ALTO_OAUTH_TOKEN
+
+capability:
+  consumes:
+    - import: prisma-airs
+      location: ./shared/prisma-airs.yaml
+    - import: prisma-airs-red-teaming
+      location: ./shared/prisma-airs-red-teaming.yaml
+
+  exposes:
+    - type: rest
+      port: 8088
+      namespace: ai-security-api
+      description: "Unified REST API for AI security scanning and red teaming."
+      resources:
+
+        # -- AI Security Scanning (Prisma AIRS) --------------------------------
+        - path: /v1/ai-scans/sync
+          name: ai-scan-sync
+          description: "Submit a synchronous AI security scan."
+          operations:
+            - method: POST
+              name: submit-sync-scan
+              description: "Submit a synchronous scan of AI model inputs/outputs for threats."
+              inputParameters:
+                - name: ai_profile
+                  in: body
+                  type: string
+                  required: true
+                - name: contents
+                  in: body
+                  type: object
+                  required: true
+              call: "prisma-airs.submit-scan-sync"
+              with:
+                ai_profile: "rest.ai_profile"
+                contents: "rest.contents"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/ai-scans/async
+          name: ai-scan-async
+          description: "Submit an asynchronous AI security scan."
+          operations:
+            - method: POST
+              name: submit-async-scan
+              description: "Submit an asynchronous scan of AI model inputs/outputs for threats."
+              inputParameters:
+                - name: ai_profile
+                  in: body
+                  type: string
+                  required: true
+                - name: contents
+                  in: body
+                  type: object
+                  required: true
+              call: "prisma-airs.submit-scan-async"
+              with:
+                ai_profile: "rest.ai_profile"
+                contents: "rest.contents"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/ai-scans/async/{scan_id}/results
+          name: ai-scan-async-results
+          description: "Get results of an asynchronous AI security scan."
+          operations:
+            - method: GET
+              name: get-async-scan-results
+              description: "Get the results of a previously submitted asynchronous scan."
+              inputParameters:
+                - name: scan_id
+                  in: path
+                  type: string
+                  required: true
+              call: "prisma-airs.get-async-scan-results"
+              with:
+                scan_id: "rest.scan_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # -- AI Security Profiles (Prisma AIRS) --------------------------------
+        - path: /v1/ai-profiles
+          name: ai-profiles
+          description: "List AI security profiles."
+          operations:
+            - method: GET
+              name: list-ai-profiles
+              description: "List all AI security profiles with pagination."
+              inputParameters:
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              call: "prisma-airs.list-ai-profiles"
+              with:
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/ai-profiles/{profile_name}
+          name: ai-profile
+          description: "Get a specific AI security profile."
+          operations:
+            - method: GET
+              name: get-ai-profile
+              description: "Get a specific AI security profile by name."
+              inputParameters:
+                - name: profile_name
+                  in: path
+                  type: string
+                  required: true
+              call: "prisma-airs.get-ai-profile"
+              with:
+                profile_name: "rest.profile_name"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # -- Red Team Targets (Prisma AIRS Red Teaming) ------------------------
+        - path: /v1/red-team-targets
+          name: red-team-targets
+          description: "Manage AI red teaming scan targets."
+          operations:
+            - method: POST
+              name: create-red-team-target
+              description: "Create a new red team scan target."
+              inputParameters:
+                - name: name
+                  in: body
+                  type: string
+                  required: true
+                - name: type
+                  in: body
+                  type: string
+                  required: true
+                - name: endpoint_url
+                  in: body
+                  type: string
+                  required: true
+                - name: description
+                  in: body
+                  type: string
+                  required: false
+                - name: model
+                  in: body
+                  type: string
+                  required: false
+                - name: auth_config
+                  in: body
+                  type: object
+                  required: false
+                - name: system_prompt
+                  in: body
+                  type: string
+                  required: false
+              call: "prisma-airs-red-teaming.create-scan-target"
+              with:
+                name: "rest.name"
+                type: "rest.type"
+                endpoint_url: "rest.endpoint_url"
+                description: "rest.description"
+                model: "rest.model"
+                auth_config: "rest.auth_config"
+                system_prompt: "rest.system_prompt"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: GET
+              name: list-red-team-targets
+              description: "List all red team scan targets."
+              inputParameters:
+                - name: type
+                  in: query
+                  type: string
+                  required: false
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              call: "prisma-airs-red-teaming.list-scan-targets"
+              with:
+                type: "rest.type"
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/red-team-targets/{target_id}
+          name: red-team-target
+          description: "Get or delete a specific red team scan target."
+          operations:
+            - method: GET
+              name: get-red-team-target
+              description: "Get a specific red team scan target by ID."
+              inputParameters:
+                - name: target_id
+                  in: path
+                  type: string
+                  required: true
+              call: "prisma-airs-red-teaming.get-scan-target"
+              with:
+                target_id: "rest.target_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: DELETE
+              name: delete-red-team-target
+              description: "Delete a specific red team scan target by ID."
+              inputParameters:
+                - name: target_id
+                  in: path
+                  type: string
+                  required: true
+              call: "prisma-airs-red-teaming.delete-scan-target"
+              with:
+                target_id: "rest.target_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # -- Red Team Scans (Prisma AIRS Red Teaming) --------------------------
+        - path: /v1/red-team-scans
+          name: red-team-scans
+          description: "Start AI red team vulnerability scans."
+          operations:
+            - method: POST
+              name: start-red-team-scan
+              description: "Start a new red team vulnerability scan against a target."
+              inputParameters:
+                - name: target_id
+                  in: body
+                  type: string
+                  required: true
+                - name: attack_categories
+                  in: body
+                  type: object
+                  required: false
+                - name: custom_prompts
+                  in: body
+                  type: object
+                  required: false
+                - name: max_attacks_per_category
+                  in: body
+                  type: integer
+                  required: false
+              call: "prisma-airs-red-teaming.start-vulnerability-scan"
+              with:
+                target_id: "rest.target_id"
+                attack_categories: "rest.attack_categories"
+                custom_prompts: "rest.custom_prompts"
+                max_attacks_per_category: "rest.max_attacks_per_category"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/red-team-scans/{scan_id}
+          name: red-team-scan-status
+          description: "Get the status of a red team vulnerability scan."
+          operations:
+            - method: GET
+              name: get-red-team-scan-status
+              description: "Get the status of a red team vulnerability scan."
+              inputParameters:
+                - name: scan_id
+                  in: path
+                  type: string
+                  required: true
+              call: "prisma-airs-red-teaming.get-scan-status"
+              with:
+                scan_id: "rest.scan_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/red-team-scans/{scan_id}/results
+          name: red-team-scan-results
+          description: "Get results of a red team vulnerability scan."
+          operations:
+            - method: GET
+              name: get-red-team-scan-results
+              description: "Get results of a red team vulnerability scan with optional filters."
+              inputParameters:
+                - name: scan_id
+                  in: path
+                  type: string
+                  required: true
+                - name: category
+                  in: query
+                  type: string
+                  required: false
+                - name: severity
+                  in: query
+                  type: string
+                  required: false
+              call: "prisma-airs-red-teaming.get-scan-results"
+              with:
+                scan_id: "rest.scan_id"
+                category: "rest.category"
+                severity: "rest.severity"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # -- Attack Categories (Prisma AIRS Red Teaming) -----------------------
+        - path: /v1/attack-categories
+          name: attack-categories
+          description: "List available attack categories for red teaming."
+          operations:
+            - method: GET
+              name: list-attack-categories
+              description: "List all available attack categories for red team scans."
+              call: "prisma-airs-red-teaming.list-attack-categories"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+    - type: mcp
+      port: 9098
+      namespace: ai-security-mcp
+      transport: http
+      description: "MCP server for AI-assisted AI security scanning and red teaming."
+      tools:
+
+        # -- AI Scanning Tools -------------------------------------------------
+        - name: submit-sync-scan
+          description: "Submit a synchronous AI security scan of model inputs/outputs for threats like prompt injection, data leakage, and malicious content."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: ai_profile
+              type: string
+              required: true
+            - name: contents
+              type: object
+              required: true
+          call: "prisma-airs.submit-scan-sync"
+          with:
+            ai_profile: "tools.ai_profile"
+            contents: "tools.contents"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: submit-async-scan
+          description: "Submit an asynchronous AI security scan of model inputs/outputs for threats."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: ai_profile
+              type: string
+              required: true
+            - name: contents
+              type: object
+              required: true
+          call: "prisma-airs.submit-scan-async"
+          with:
+            ai_profile: "tools.ai_profile"
+            contents: "tools.contents"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-async-scan-results
+          description: "Get results of a previously submitted asynchronous AI security scan."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: scan_id
+              type: string
+              required: true
+          call: "prisma-airs.get-async-scan-results"
+          with:
+            scan_id: "tools.scan_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: list-ai-profiles
+          description: "List all AI security profiles with pagination."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: offset
+              type: integer
+              required: false
+            - name: limit
+              type: integer
+              required: false
+          call: "prisma-airs.list-ai-profiles"
+          with:
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-ai-profile
+          description: "Get a specific AI security profile by name."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: profile_name
+              type: string
+              required: true
+          call: "prisma-airs.get-ai-profile"
+          with:
+            profile_name: "tools.profile_name"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        # -- Red Teaming Tools -------------------------------------------------
+        - name: create-red-team-target
+          description: "Create a new red team scan target for AI application vulnerability testing."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: name
+              type: string
+              required: true
+            - name: type
+              type: string
+              required: true
+            - name: endpoint_url
+              type: string
+              required: true
+            - name: description
+              type: string
+              required: false
+            - name: model
+              type: string
+              required: false
+            - name: auth_config
+              type: object
+              required: false
+            - name: system_prompt
+              type: string
+              required: false
+          call: "prisma-airs-red-teaming.create-scan-target"
+          with:
+            name: "tools.name"
+            type: "tools.type"
+            endpoint_url: "tools.endpoint_url"
+            description: "tools.description"
+            model: "tools.model"
+            auth_config: "tools.auth_config"
+            system_prompt: "tools.system_prompt"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: list-red-team-targets
+          description: "List all red team scan targets with optional type filter."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: type
+              type: string
+              required: false
+            - name: offset
+              type: integer
+              required: false
+            - name: limit
+              type: integer
+              required: false
+          call: "prisma-airs-red-teaming.list-scan-targets"
+          with:
+            type: "tools.type"
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-red-team-target
+          description: "Get a specific red team scan target by ID."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: target_id
+              type: string
+              required: true
+          call: "prisma-airs-red-teaming.get-scan-target"
+          with:
+            target_id: "tools.target_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: delete-red-team-target
+          description: "Delete a specific red team scan target by ID."
+          hints:
+            readOnly: false
+            destructive: true
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: target_id
+              type: string
+              required: true
+          call: "prisma-airs-red-teaming.delete-scan-target"
+          with:
+            target_id: "tools.target_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: start-red-team-scan
+          description: "Start a new red team vulnerability scan against a target AI application."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: target_id
+              type: string
+              required: true
+            - name: attack_categories
+              type: object
+              required: false
+            - name: custom_prompts
+              type: object
+              required: false
+            - name: max_attacks_per_category
+              type: integer
+              required: false
+          call: "prisma-airs-red-teaming.start-vulnerability-scan"
+          with:
+            target_id: "tools.target_id"
+            attack_categories: "tools.attack_categories"
+            custom_prompts: "tools.custom_prompts"
+            max_attacks_per_category: "tools.max_attacks_per_category"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-red-team-scan-status
+          description: "Get the status of a red team vulnerability scan."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: scan_id
+              type: string
+              required: true
+          call: "prisma-airs-red-teaming.get-scan-status"
+          with:
+            scan_id: "tools.scan_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-red-team-scan-results
+          description: "Get results of a red team vulnerability scan with optional category and severity filters."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: scan_id
+              type: string
+              required: true
+            - name: category
+              type: string
+              required: false
+            - name: severity
+              type: string
+              required: false
+          call: "prisma-airs-red-teaming.get-scan-results"
+          with:
+            scan_id: "tools.scan_id"
+            category: "tools.category"
+            severity: "tools.severity"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: list-attack-categories
+          description: "List all available attack categories for red team vulnerability scans."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          call: "prisma-airs-red-teaming.list-attack-categories"
+          outputParameters:
+            - type: object
+              mapping: "$."

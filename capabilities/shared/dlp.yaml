@@ -1,0 +1,533 @@
+naftiko: "1.0.0-alpha1"
+
+info:
+  label: "Enterprise DLP"
+  description: "Provides access to the Palo Alto Networks Enterprise DLP API for managing data loss prevention incidents, data patterns, and reports."
+  tags:
+    - security
+    - dlp
+    - data-loss-prevention
+    - incidents
+    - palo-alto-networks
+  created: "2026-04-16"
+  modified: "2026-04-16"
+
+binds:
+  - namespace: env
+    keys:
+      PALO_ALTO_DLP_TOKEN: PALO_ALTO_DLP_TOKEN
+
+capability:
+  consumes:
+    - type: http
+      namespace: dlp-api
+      baseUri: https://api.dlp.paloaltonetworks.com
+      description: "Enterprise DLP API for managing data loss prevention incidents, data patterns, and reports."
+      authentication:
+        type: bearer
+        token: "{{PALO_ALTO_DLP_TOKEN}}"
+      resources:
+        - name: incidents
+          path: /incidents
+          description: "Manage DLP incidents."
+          operations:
+            - name: list-incidents
+              method: GET
+              description: "List DLP incidents with optional filters."
+              inputParameters:
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                  description: "Offset for pagination."
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+                  description: "Maximum number of results to return."
+                - name: severity
+                  in: query
+                  type: string
+                  required: false
+                  description: "Filter by severity level."
+                - name: status
+                  in: query
+                  type: string
+                  required: false
+                  description: "Filter by incident status."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+            - name: get-incident
+              method: GET
+              description: "Retrieve a specific DLP incident by ID."
+              inputParameters:
+                - name: incident_id
+                  in: path
+                  type: string
+                  required: true
+                  description: "The incident ID."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+            - name: update-incident
+              method: PUT
+              description: "Update a DLP incident."
+              inputParameters:
+                - name: incident_id
+                  in: path
+                  type: string
+                  required: true
+                  description: "The incident ID to update."
+                - name: status
+                  in: body
+                  type: string
+                  required: false
+                  description: "New status for the incident."
+                - name: assignee
+                  in: body
+                  type: string
+                  required: false
+                  description: "New assignee for the incident."
+              body:
+                type: json
+                data:
+                  status: "{{tools.status}}"
+                  assignee: "{{tools.assignee}}"
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: incident-snippets
+          path: /incidents/{incident_id}/snippets
+          description: "Access incident data snippets."
+          operations:
+            - name: get-incident-snippets
+              method: GET
+              description: "Get data snippets for a specific incident."
+              inputParameters:
+                - name: incident_id
+                  in: path
+                  type: string
+                  required: true
+                  description: "The incident ID."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: data-patterns
+          path: /data-patterns
+          description: "Manage DLP data patterns."
+          operations:
+            - name: list-data-patterns
+              method: GET
+              description: "List available data patterns."
+              inputParameters:
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                  description: "Offset for pagination."
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+                  description: "Maximum number of results to return."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+            - name: get-data-pattern
+              method: GET
+              description: "Retrieve a specific data pattern by ID."
+              inputParameters:
+                - name: id
+                  in: path
+                  type: string
+                  required: true
+                  description: "The data pattern ID."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: reports
+          path: /reports/summary
+          description: "Access DLP report summaries."
+          operations:
+            - name: get-report-summary
+              method: GET
+              description: "Get a summary report for a given time range."
+              inputParameters:
+                - name: start_date
+                  in: query
+                  type: string
+                  required: false
+                  description: "Start date for the report period."
+                - name: end_date
+                  in: query
+                  type: string
+                  required: false
+                  description: "End date for the report period."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+  exposes:
+    - type: rest
+      port: 8088
+      namespace: dlp-rest
+      description: "REST API adapter for Enterprise DLP operations."
+      resources:
+        - path: /v1/incidents
+          name: incidents
+          description: "Manage DLP incidents."
+          operations:
+            - method: GET
+              name: list-incidents
+              description: "List DLP incidents with optional filters."
+              inputParameters:
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+                - name: severity
+                  in: query
+                  type: string
+                  required: false
+                - name: status
+                  in: query
+                  type: string
+                  required: false
+              call: "dlp-api.list-incidents"
+              with:
+                offset: "rest.offset"
+                limit: "rest.limit"
+                severity: "rest.severity"
+                status: "rest.status"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/incidents/{incident_id}
+          name: incident-detail
+          description: "Get or update a specific DLP incident."
+          operations:
+            - method: GET
+              name: get-incident
+              description: "Retrieve a specific DLP incident by ID."
+              inputParameters:
+                - name: incident_id
+                  in: path
+                  type: string
+                  required: true
+              call: "dlp-api.get-incident"
+              with:
+                incident_id: "rest.incident_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+            - method: PUT
+              name: update-incident
+              description: "Update a DLP incident."
+              inputParameters:
+                - name: incident_id
+                  in: path
+                  type: string
+                  required: true
+                - name: status
+                  in: body
+                  type: string
+                  required: false
+                - name: assignee
+                  in: body
+                  type: string
+                  required: false
+              call: "dlp-api.update-incident"
+              with:
+                incident_id: "rest.incident_id"
+                status: "rest.status"
+                assignee: "rest.assignee"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/incidents/{incident_id}/snippets
+          name: incident-snippets
+          description: "Access incident data snippets."
+          operations:
+            - method: GET
+              name: get-incident-snippets
+              description: "Get data snippets for a specific incident."
+              inputParameters:
+                - name: incident_id
+                  in: path
+                  type: string
+                  required: true
+              call: "dlp-api.get-incident-snippets"
+              with:
+                incident_id: "rest.incident_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/data-patterns
+          name: data-patterns
+          description: "List data patterns."
+          operations:
+            - method: GET
+              name: list-data-patterns
+              description: "List available data patterns."
+              inputParameters:
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              call: "dlp-api.list-data-patterns"
+              with:
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/data-patterns/{id}
+          name: data-pattern-detail
+          description: "Get a specific data pattern."
+          operations:
+            - method: GET
+              name: get-data-pattern
+              description: "Retrieve a specific data pattern by ID."
+              inputParameters:
+                - name: id
+                  in: path
+                  type: string
+                  required: true
+              call: "dlp-api.get-data-pattern"
+              with:
+                id: "rest.id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/reports/summaries
+          name: report-summaries
+          description: "Access DLP report summaries."
+          operations:
+            - method: GET
+              name: get-report-summary
+              description: "Get a summary report for a given time range."
+              inputParameters:
+                - name: start_date
+                  in: query
+                  type: string
+                  required: false
+                - name: end_date
+                  in: query
+                  type: string
+                  required: false
+              call: "dlp-api.get-report-summary"
+              with:
+                start_date: "rest.start_date"
+                end_date: "rest.end_date"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+    - type: mcp
+      port: 9098
+      namespace: dlp-mcp
+      transport: http
+      description: "MCP adapter for Enterprise DLP operations."
+      tools:
+        - name: list-incidents
+          description: "List DLP incidents with optional filters."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: offset
+              type: integer
+              description: "Offset for pagination."
+              required: false
+            - name: limit
+              type: integer
+              description: "Maximum number of results to return."
+              required: false
+            - name: severity
+              type: string
+              description: "Filter by severity level."
+              required: false
+            - name: status
+              type: string
+              description: "Filter by incident status."
+              required: false
+          call: "dlp-api.list-incidents"
+          with:
+            offset: "tools.offset"
+            limit: "tools.limit"
+            severity: "tools.severity"
+            status: "tools.status"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-incident
+          description: "Retrieve a specific DLP incident by ID."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: incident_id
+              type: string
+              description: "The incident ID."
+              required: true
+          call: "dlp-api.get-incident"
+          with:
+            incident_id: "tools.incident_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: update-incident
+          description: "Update a DLP incident status or assignee."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: incident_id
+              type: string
+              description: "The incident ID to update."
+              required: true
+            - name: status
+              type: string
+              description: "New status for the incident."
+              required: false
+            - name: assignee
+              type: string
+              description: "New assignee for the incident."
+              required: false
+          call: "dlp-api.update-incident"
+          with:
+            incident_id: "tools.incident_id"
+            status: "tools.status"
+            assignee: "tools.assignee"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-incident-snippets
+          description: "Get data snippets for a specific DLP incident."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: incident_id
+              type: string
+              description: "The incident ID."
+              required: true
+          call: "dlp-api.get-incident-snippets"
+          with:
+            incident_id: "tools.incident_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: list-data-patterns
+          description: "List available DLP data patterns."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: offset
+              type: integer
+              description: "Offset for pagination."
+              required: false
+            - name: limit
+              type: integer
+              description: "Maximum number of results to return."
+              required: false
+          call: "dlp-api.list-data-patterns"
+          with:
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-data-pattern
+          description: "Retrieve a specific DLP data pattern by ID."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              description: "The data pattern ID."
+              required: true
+          call: "dlp-api.get-data-pattern"
+          with:
+            id: "tools.id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-report-summary
+          description: "Get a DLP summary report for a given time range."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: start_date
+              type: string
+              description: "Start date for the report period."
+              required: false
+            - name: end_date
+              type: string
+              description: "End date for the report period."
+              required: false
+          call: "dlp-api.get-report-summary"
+          with:
+            start_date: "tools.start_date"
+            end_date: "tools.end_date"
+          outputParameters:
+            - type: object
+              mapping: "$."

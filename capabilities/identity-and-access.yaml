@@ -1,0 +1,1053 @@
+naftiko: "1.0.0-alpha1"
+
+info:
+  label: "Palo Alto Networks Identity and Access Management"
+  description: "Unified identity and access management capability for managing service accounts, access policies, roles, tenant service groups, and subscriptions across SASE IAM, Tenancy, and Subscription APIs."
+  tags:
+    - palo-alto-networks
+    - identity
+    - access-management
+    - tenancy
+    - subscriptions
+  created: "2026-04-16"
+  modified: "2026-04-16"
+
+binds:
+  - namespace: env
+    keys:
+      PALO_ALTO_OAUTH_TOKEN: PALO_ALTO_OAUTH_TOKEN
+
+capability:
+  consumes:
+    - import: sase-iam
+      location: ./shared/sase-iam.yaml
+    - import: sase-tenancy
+      location: ./shared/sase-tenancy.yaml
+    - import: sase-subscription
+      location: ./shared/sase-subscription.yaml
+
+  exposes:
+    - type: rest
+      port: 8086
+      namespace: identity-access-api
+      description: "Unified REST API for identity, access, tenancy, and subscription management."
+      resources:
+
+        # ── Service Accounts (SASE IAM) ──────────────────────────────────
+        - path: /v1/service-accounts
+          name: service-accounts
+          description: "Manage SASE service accounts."
+          operations:
+            - method: GET
+              name: list-service-accounts
+              description: "List all service accounts with optional filtering."
+              inputParameters:
+                - name: tsg_id
+                  in: query
+                  type: string
+                  required: false
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              call: "sase-iam.list-service-accounts"
+              with:
+                tsg_id: "rest.tsg_id"
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+            - method: POST
+              name: create-service-account
+              description: "Create a new service account."
+              call: "sase-iam.create-service-account"
+              with:
+                name: "rest.name"
+                tsg_id: "rest.tsg_id"
+                display_name: "rest.display_name"
+                description: "rest.description"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/service-accounts/{account_id}
+          name: service-account-detail
+          description: "Get, update, or delete a specific service account."
+          operations:
+            - method: GET
+              name: get-service-account
+              description: "Get details of a specific service account."
+              inputParameters:
+                - name: account_id
+                  in: path
+                  type: string
+                  required: true
+              call: "sase-iam.get-service-account"
+              with:
+                id: "rest.account_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: PUT
+              name: update-service-account
+              description: "Update an existing service account."
+              inputParameters:
+                - name: account_id
+                  in: path
+                  type: string
+                  required: true
+              call: "sase-iam.update-service-account"
+              with:
+                id: "rest.account_id"
+                display_name: "rest.display_name"
+                description: "rest.description"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: DELETE
+              name: delete-service-account
+              description: "Delete a service account."
+              inputParameters:
+                - name: account_id
+                  in: path
+                  type: string
+                  required: true
+              call: "sase-iam.delete-service-account"
+              with:
+                id: "rest.account_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/service-accounts/{account_id}/keys
+          name: service-account-keys
+          description: "Generate credentials for a service account."
+          operations:
+            - method: POST
+              name: generate-service-account-credentials
+              description: "Generate credentials for a service account."
+              inputParameters:
+                - name: account_id
+                  in: path
+                  type: string
+                  required: true
+              call: "sase-iam.generate-service-account-credentials"
+              with:
+                id: "rest.account_id"
+                description: "rest.description"
+                expires_in_days: "rest.expires_in_days"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/service-accounts/{account_id}/keys/{key_id}
+          name: service-account-key-detail
+          description: "Revoke a specific key for a service account."
+          operations:
+            - method: DELETE
+              name: revoke-service-account-key
+              description: "Revoke a specific key for a service account."
+              inputParameters:
+                - name: account_id
+                  in: path
+                  type: string
+                  required: true
+                - name: key_id
+                  in: path
+                  type: string
+                  required: true
+              call: "sase-iam.revoke-service-account-key"
+              with:
+                id: "rest.account_id"
+                key_id: "rest.key_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # ── Access Policies (SASE IAM) ───────────────────────────────────
+        - path: /v1/access-policies
+          name: access-policies
+          description: "Manage SASE access policies."
+          operations:
+            - method: GET
+              name: list-access-policies
+              description: "List all access policies with optional filtering."
+              inputParameters:
+                - name: principal_id
+                  in: query
+                  type: string
+                  required: false
+                - name: tsg_id
+                  in: query
+                  type: string
+                  required: false
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              call: "sase-iam.list-access-policies"
+              with:
+                principal_id: "rest.principal_id"
+                tsg_id: "rest.tsg_id"
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+            - method: POST
+              name: create-access-policy
+              description: "Create a new access policy."
+              call: "sase-iam.create-access-policy"
+              with:
+                principal_id: "rest.principal_id"
+                principal_type: "rest.principal_type"
+                role_id: "rest.role_id"
+                tsg_id: "rest.tsg_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/access-policies/{policy_id}
+          name: access-policy-detail
+          description: "Get, update, or delete a specific access policy."
+          operations:
+            - method: GET
+              name: get-access-policy
+              description: "Get details of a specific access policy."
+              inputParameters:
+                - name: policy_id
+                  in: path
+                  type: string
+                  required: true
+              call: "sase-iam.get-access-policy"
+              with:
+                id: "rest.policy_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: PUT
+              name: update-access-policy
+              description: "Update an existing access policy."
+              inputParameters:
+                - name: policy_id
+                  in: path
+                  type: string
+                  required: true
+              call: "sase-iam.update-access-policy"
+              with:
+                id: "rest.policy_id"
+                principal_id: "rest.principal_id"
+                principal_type: "rest.principal_type"
+                role_id: "rest.role_id"
+                tsg_id: "rest.tsg_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: DELETE
+              name: delete-access-policy
+              description: "Delete an access policy."
+              inputParameters:
+                - name: policy_id
+                  in: path
+                  type: string
+                  required: true
+              call: "sase-iam.delete-access-policy"
+              with:
+                id: "rest.policy_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # ── Roles (SASE IAM) ─────────────────────────────────────────────
+        - path: /v1/roles
+          name: roles
+          description: "List available SASE roles."
+          operations:
+            - method: GET
+              name: list-roles
+              description: "List all available roles."
+              call: "sase-iam.list-roles"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        # ── Tenant Service Groups (SASE Tenancy) ─────────────────────────
+        - path: /v1/tenant-service-groups
+          name: tenant-service-groups
+          description: "Manage SASE tenant service groups."
+          operations:
+            - method: GET
+              name: list-tenant-service-groups
+              description: "List all tenant service groups with optional filtering."
+              inputParameters:
+                - name: parent_id
+                  in: query
+                  type: string
+                  required: false
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              call: "sase-tenancy.list-tenant-service-groups"
+              with:
+                parent_id: "rest.parent_id"
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+            - method: POST
+              name: create-tenant-service-group
+              description: "Create a new tenant service group."
+              call: "sase-tenancy.create-tenant-service-group"
+              with:
+                display_name: "rest.display_name"
+                parent_id: "rest.parent_id"
+                description: "rest.description"
+                support_account_id: "rest.support_account_id"
+                vertical: "rest.vertical"
+                region: "rest.region"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/tenant-service-groups/{tsg_id}
+          name: tenant-service-group-detail
+          description: "Get, update, or delete a specific tenant service group."
+          operations:
+            - method: GET
+              name: get-tenant-service-group
+              description: "Get details of a specific tenant service group."
+              inputParameters:
+                - name: tsg_id
+                  in: path
+                  type: string
+                  required: true
+              call: "sase-tenancy.get-tenant-service-group"
+              with:
+                tsg_id: "rest.tsg_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: PUT
+              name: update-tenant-service-group
+              description: "Update an existing tenant service group."
+              inputParameters:
+                - name: tsg_id
+                  in: path
+                  type: string
+                  required: true
+              call: "sase-tenancy.update-tenant-service-group"
+              with:
+                tsg_id: "rest.tsg_id"
+                display_name: "rest.display_name"
+                description: "rest.description"
+                vertical: "rest.vertical"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: DELETE
+              name: delete-tenant-service-group
+              description: "Delete a tenant service group."
+              inputParameters:
+                - name: tsg_id
+                  in: path
+                  type: string
+                  required: true
+              call: "sase-tenancy.delete-tenant-service-group"
+              with:
+                tsg_id: "rest.tsg_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/tenant-service-groups/{tsg_id}/children
+          name: tenant-service-group-children
+          description: "List child tenant service groups."
+          operations:
+            - method: GET
+              name: list-child-tenant-service-groups
+              description: "List child tenant service groups for a given parent."
+              inputParameters:
+                - name: tsg_id
+                  in: path
+                  type: string
+                  required: true
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              call: "sase-tenancy.list-child-tenant-service-groups"
+              with:
+                tsg_id: "rest.tsg_id"
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        # ── Subscriptions (SASE Subscription) ────────────────────────────
+        - path: /v1/subscriptions
+          name: subscriptions
+          description: "List SASE subscriptions."
+          operations:
+            - method: GET
+              name: list-subscriptions
+              description: "List all subscriptions for a tenant service group."
+              inputParameters:
+                - name: tsg_id
+                  in: query
+                  type: string
+                  required: true
+                - name: product
+                  in: query
+                  type: string
+                  required: false
+                - name: status
+                  in: query
+                  type: string
+                  required: false
+              call: "sase-subscription.list-subscriptions"
+              with:
+                tsg_id: "rest.tsg_id"
+                product: "rest.product"
+                status: "rest.status"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        - path: /v1/subscriptions/{subscription_id}
+          name: subscription-detail
+          description: "Get details of a specific subscription."
+          operations:
+            - method: GET
+              name: get-subscription
+              description: "Get details of a specific subscription."
+              inputParameters:
+                - name: subscription_id
+                  in: path
+                  type: string
+                  required: true
+              call: "sase-subscription.get-subscription"
+              with:
+                subscription_id: "rest.subscription_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/subscriptions/{subscription_id}/entitlements
+          name: subscription-entitlements
+          description: "Get entitlements for a specific subscription."
+          operations:
+            - method: GET
+              name: get-subscription-entitlements
+              description: "Get entitlements for a specific subscription."
+              inputParameters:
+                - name: subscription_id
+                  in: path
+                  type: string
+                  required: true
+              call: "sase-subscription.get-subscription-entitlements"
+              with:
+                subscription_id: "rest.subscription_id"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        - path: /v1/subscriptions/{subscription_id}/allocation
+          name: subscription-allocation
+          description: "Allocate licenses from a subscription."
+          operations:
+            - method: PUT
+              name: allocate-licenses
+              description: "Allocate licenses from a subscription to tenant service groups."
+              inputParameters:
+                - name: subscription_id
+                  in: path
+                  type: string
+                  required: true
+              call: "sase-subscription.allocate-licenses"
+              with:
+                subscription_id: "rest.subscription_id"
+                allocations: "rest.allocations"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+    - type: mcp
+      port: 9096
+      namespace: identity-access-mcp
+      transport: http
+      description: "MCP server for AI-assisted identity, access, tenancy, and subscription management."
+      tools:
+
+        # ── Service Accounts ─────────────────────────────────────────────
+        - name: list-service-accounts
+          description: "List all SASE service accounts with optional filtering by TSG."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: tsg_id
+              type: string
+              required: false
+            - name: offset
+              type: integer
+              required: false
+            - name: limit
+              type: integer
+              required: false
+          call: "sase-iam.list-service-accounts"
+          with:
+            tsg_id: "tools.tsg_id"
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: create-service-account
+          description: "Create a new SASE service account."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: name
+              type: string
+              required: true
+            - name: tsg_id
+              type: string
+              required: true
+            - name: display_name
+              type: string
+              required: false
+            - name: description
+              type: string
+              required: false
+          call: "sase-iam.create-service-account"
+          with:
+            name: "tools.name"
+            tsg_id: "tools.tsg_id"
+            display_name: "tools.display_name"
+            description: "tools.description"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-service-account
+          description: "Get details of a specific service account by ID."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              required: true
+          call: "sase-iam.get-service-account"
+          with:
+            id: "tools.id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: update-service-account
+          description: "Update an existing service account."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              required: true
+            - name: display_name
+              type: string
+              required: false
+            - name: description
+              type: string
+              required: false
+          call: "sase-iam.update-service-account"
+          with:
+            id: "tools.id"
+            display_name: "tools.display_name"
+            description: "tools.description"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: delete-service-account
+          description: "Delete a service account by ID."
+          hints:
+            readOnly: false
+            destructive: true
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              required: true
+          call: "sase-iam.delete-service-account"
+          with:
+            id: "tools.id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: generate-service-account-credentials
+          description: "Generate credentials for a service account."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              required: true
+            - name: description
+              type: string
+              required: false
+            - name: expires_in_days
+              type: integer
+              required: false
+          call: "sase-iam.generate-service-account-credentials"
+          with:
+            id: "tools.id"
+            description: "tools.description"
+            expires_in_days: "tools.expires_in_days"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: revoke-service-account-key
+          description: "Revoke a specific key for a service account."
+          hints:
+            readOnly: false
+            destructive: true
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              required: true
+            - name: key_id
+              type: string
+              required: true
+          call: "sase-iam.revoke-service-account-key"
+          with:
+            id: "tools.id"
+            key_id: "tools.key_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        # ── Access Policies ──────────────────────────────────────────────
+        - name: list-access-policies
+          description: "List all access policies with optional filtering."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: principal_id
+              type: string
+              required: false
+            - name: tsg_id
+              type: string
+              required: false
+            - name: offset
+              type: integer
+              required: false
+            - name: limit
+              type: integer
+              required: false
+          call: "sase-iam.list-access-policies"
+          with:
+            principal_id: "tools.principal_id"
+            tsg_id: "tools.tsg_id"
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: create-access-policy
+          description: "Create a new access policy."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: principal_id
+              type: string
+              required: true
+            - name: principal_type
+              type: string
+              required: true
+            - name: role_id
+              type: string
+              required: true
+            - name: tsg_id
+              type: string
+              required: true
+          call: "sase-iam.create-access-policy"
+          with:
+            principal_id: "tools.principal_id"
+            principal_type: "tools.principal_type"
+            role_id: "tools.role_id"
+            tsg_id: "tools.tsg_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-access-policy
+          description: "Get details of a specific access policy by ID."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              required: true
+          call: "sase-iam.get-access-policy"
+          with:
+            id: "tools.id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: update-access-policy
+          description: "Update an existing access policy."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              required: true
+            - name: principal_id
+              type: string
+              required: false
+            - name: principal_type
+              type: string
+              required: false
+            - name: role_id
+              type: string
+              required: false
+            - name: tsg_id
+              type: string
+              required: false
+          call: "sase-iam.update-access-policy"
+          with:
+            id: "tools.id"
+            principal_id: "tools.principal_id"
+            principal_type: "tools.principal_type"
+            role_id: "tools.role_id"
+            tsg_id: "tools.tsg_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: delete-access-policy
+          description: "Delete an access policy by ID."
+          hints:
+            readOnly: false
+            destructive: true
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              required: true
+          call: "sase-iam.delete-access-policy"
+          with:
+            id: "tools.id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        # ── Roles ────────────────────────────────────────────────────────
+        - name: list-roles
+          description: "List all available SASE roles."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters: []
+          call: "sase-iam.list-roles"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        # ── Tenant Service Groups ────────────────────────────────────────
+        - name: list-tenant-service-groups
+          description: "List all tenant service groups with optional filtering."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: parent_id
+              type: string
+              required: false
+            - name: offset
+              type: integer
+              required: false
+            - name: limit
+              type: integer
+              required: false
+          call: "sase-tenancy.list-tenant-service-groups"
+          with:
+            parent_id: "tools.parent_id"
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: create-tenant-service-group
+          description: "Create a new tenant service group."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: display_name
+              type: string
+              required: true
+            - name: parent_id
+              type: string
+              required: true
+            - name: description
+              type: string
+              required: false
+            - name: support_account_id
+              type: string
+              required: false
+            - name: vertical
+              type: string
+              required: false
+            - name: region
+              type: string
+              required: false
+          call: "sase-tenancy.create-tenant-service-group"
+          with:
+            display_name: "tools.display_name"
+            parent_id: "tools.parent_id"
+            description: "tools.description"
+            support_account_id: "tools.support_account_id"
+            vertical: "tools.vertical"
+            region: "tools.region"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-tenant-service-group
+          description: "Get details of a specific tenant service group."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: tsg_id
+              type: string
+              required: true
+          call: "sase-tenancy.get-tenant-service-group"
+          with:
+            tsg_id: "tools.tsg_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: update-tenant-service-group
+          description: "Update an existing tenant service group."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: tsg_id
+              type: string
+              required: true
+            - name: display_name
+              type: string
+              required: false
+            - name: description
+              type: string
+              required: false
+            - name: vertical
+              type: string
+              required: false
+          call: "sase-tenancy.update-tenant-service-group"
+          with:
+            tsg_id: "tools.tsg_id"
+            display_name: "tools.display_name"
+            description: "tools.description"
+            vertical: "tools.vertical"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: delete-tenant-service-group
+          description: "Delete a tenant service group."
+          hints:
+            readOnly: false
+            destructive: true
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: tsg_id
+              type: string
+              required: true
+          call: "sase-tenancy.delete-tenant-service-group"
+          with:
+            tsg_id: "tools.tsg_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: list-child-tenant-service-groups
+          description: "List child tenant service groups for a given parent."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: tsg_id
+              type: string
+              required: true
+            - name: offset
+              type: integer
+              required: false
+            - name: limit
+              type: integer
+              required: false
+          call: "sase-tenancy.list-child-tenant-service-groups"
+          with:
+            tsg_id: "tools.tsg_id"
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        # ── Subscriptions ────────────────────────────────────────────────
+        - name: list-subscriptions
+          description: "List all subscriptions for a tenant service group."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: tsg_id
+              type: string
+              required: true
+            - name: product
+              type: string
+              required: false
+            - name: status
+              type: string
+              required: false
+          call: "sase-subscription.list-subscriptions"
+          with:
+            tsg_id: "tools.tsg_id"
+            product: "tools.product"
+            status: "tools.status"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: get-subscription
+          description: "Get details of a specific subscription."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: subscription_id
+              type: string
+              required: true
+          call: "sase-subscription.get-subscription"
+          with:
+            subscription_id: "tools.subscription_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-subscription-entitlements
+          description: "Get entitlements for a specific subscription."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: subscription_id
+              type: string
+              required: true
+          call: "sase-subscription.get-subscription-entitlements"
+          with:
+            subscription_id: "tools.subscription_id"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: allocate-licenses
+          description: "Allocate licenses from a subscription to tenant service groups."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: subscription_id
+              type: string
+              required: true
+            - name: allocations
+              type: object
+              required: true
+          call: "sase-subscription.allocate-licenses"
+          with:
+            subscription_id: "tools.subscription_id"
+            allocations: "tools.allocations"
+          outputParameters:
+            - type: object
+              mapping: "$."

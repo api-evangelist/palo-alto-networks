@@ -1,0 +1,2208 @@
+naftiko: "1.0.0-alpha1"
+
+info:
+  label: "Palo Alto Networks Incident Response"
+  description: "Unified incident response capability for SOC analysts — investigate incidents, triage alerts, manage endpoints, execute response playbooks, and assess attack surface exposure across Cortex XDR, XSIAM, XSOAR, and Xpanse."
+  tags:
+    - palo-alto-networks
+    - incident-response
+    - soc
+    - security-operations
+    - detection-and-response
+  created: "2026-04-16"
+  modified: "2026-04-16"
+
+binds:
+  - namespace: env
+    keys:
+      CORTEX_XDR_API_KEY_ID: CORTEX_XDR_API_KEY_ID
+      CORTEX_XDR_API_KEY: CORTEX_XDR_API_KEY
+      CORTEX_XDR_FQDN: CORTEX_XDR_FQDN
+      CORTEX_XSIAM_API_KEY_ID: CORTEX_XSIAM_API_KEY_ID
+      CORTEX_XSIAM_API_KEY: CORTEX_XSIAM_API_KEY
+      CORTEX_XSIAM_FQDN: CORTEX_XSIAM_FQDN
+      CORTEX_XSOAR_API_KEY: CORTEX_XSOAR_API_KEY
+      CORTEX_XSOAR_FQDN: CORTEX_XSOAR_FQDN
+      CORTEX_XPANSE_API_KEY_ID: CORTEX_XPANSE_API_KEY_ID
+      CORTEX_XPANSE_API_KEY: CORTEX_XPANSE_API_KEY
+      CORTEX_XPANSE_FQDN: CORTEX_XPANSE_FQDN
+
+capability:
+  consumes:
+    - import: cortex-xdr
+      location: ./shared/cortex-xdr.yaml
+    - import: cortex-xsiam
+      location: ./shared/cortex-xsiam.yaml
+    - import: cortex-xsoar
+      location: ./shared/cortex-xsoar.yaml
+    - import: cortex-xpanse
+      location: ./shared/cortex-xpanse.yaml
+
+  exposes:
+    - type: rest
+      port: 8080
+      namespace: incident-response-api
+      description: "Unified REST API for incident response workflows across Cortex XDR, XSIAM, XSOAR, and Xpanse."
+      resources:
+
+        # -------------------------------------------------------
+        # /v1/incidents — Incident Management (XDR + XSOAR)
+        # -------------------------------------------------------
+        - path: /v1/incidents
+          name: incidents
+          description: "Incident management — list, search, create, and update incidents."
+          operations:
+            - method: GET
+              name: list-incidents
+              description: "List XDR incidents."
+              inputParameters:
+                - name: filters
+                  in: query
+                  type: array
+                  required: false
+                  description: "Array of filter objects."
+                - name: search_from
+                  in: query
+                  type: integer
+                  required: false
+                  description: "Start index for pagination."
+                - name: search_to
+                  in: query
+                  type: integer
+                  required: false
+                  description: "End index for pagination."
+                - name: sort
+                  in: query
+                  type: object
+                  required: false
+                  description: "Sort configuration."
+              call: "cortex-xdr.get-incidents"
+              with:
+                x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+                filters: "rest.filters"
+                search_from: "rest.search_from"
+                search_to: "rest.search_to"
+                sort: "rest.sort"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+            - method: POST
+              name: create-incident
+              description: "Create an incident in XSOAR."
+              inputParameters:
+                - name: name
+                  in: body
+                  type: string
+                  required: true
+                  description: "Name of the incident."
+                - name: type
+                  in: body
+                  type: string
+                  required: true
+                  description: "Type of the incident."
+                - name: severity
+                  in: body
+                  type: integer
+                  required: false
+                  description: "Severity level of the incident."
+                - name: details
+                  in: body
+                  type: string
+                  required: false
+                  description: "Details of the incident."
+              call: "cortex-xsoar-api.create-incident"
+              with:
+                name: "rest.name"
+                type: "rest.type"
+                severity: "rest.severity"
+                details: "rest.details"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/incidents/search
+          name: incidents-search
+          description: "Search incidents with filters."
+          operations:
+            - method: POST
+              name: search-incidents
+              description: "Search XDR incidents with filters."
+              inputParameters:
+                - name: filters
+                  in: body
+                  type: array
+                  required: false
+                  description: "Array of filter objects."
+                - name: search_from
+                  in: body
+                  type: integer
+                  required: false
+                  description: "Start index for pagination."
+                - name: search_to
+                  in: body
+                  type: integer
+                  required: false
+                  description: "End index for pagination."
+                - name: sort
+                  in: body
+                  type: object
+                  required: false
+                  description: "Sort configuration."
+              call: "cortex-xdr.get-incidents"
+              with:
+                x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+                filters: "rest.filters"
+                search_from: "rest.search_from"
+                search_to: "rest.search_to"
+                sort: "rest.sort"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        - path: /v1/incidents/{incident_id}
+          name: incident-detail
+          description: "Get or update a specific incident."
+          operations:
+            - method: GET
+              name: get-incident-details
+              description: "Get incident details from XDR."
+              inputParameters:
+                - name: incident_id
+                  in: path
+                  type: string
+                  required: true
+                  description: "The incident ID."
+              call: "cortex-xdr.get-incident-extra-data"
+              with:
+                x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+                incident_id: "rest.incident_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: PUT
+              name: update-incident
+              description: "Update an XDR incident."
+              inputParameters:
+                - name: incident_id
+                  in: path
+                  type: string
+                  required: true
+                  description: "The incident ID."
+                - name: update_data
+                  in: body
+                  type: object
+                  required: true
+                  description: "Data to update on the incident."
+              call: "cortex-xdr.update-incident"
+              with:
+                x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+                incident_id: "rest.incident_id"
+                update_data: "rest.update_data"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # -------------------------------------------------------
+        # /v1/xsiam-incidents — XSIAM Incidents
+        # -------------------------------------------------------
+        - path: /v1/xsiam-incidents/search
+          name: xsiam-incidents-search
+          description: "Search XSIAM incidents."
+          operations:
+            - method: POST
+              name: search-xsiam-incidents
+              description: "Search XSIAM incidents with filters."
+              inputParameters:
+                - name: filters
+                  in: body
+                  type: array
+                  required: false
+                  description: "Array of filter objects."
+                - name: search_from
+                  in: body
+                  type: integer
+                  required: false
+                  description: "Start index for pagination."
+                - name: search_to
+                  in: body
+                  type: integer
+                  required: false
+                  description: "End index for pagination."
+              call: "cortex-xsiam.get-incidents"
+              with:
+                x-xdr-api-key: "{{CORTEX_XSIAM_API_KEY}}"
+                filters: "rest.filters"
+                search_from: "rest.search_from"
+                search_to: "rest.search_to"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        # -------------------------------------------------------
+        # /v1/alerts — Alert Management
+        # -------------------------------------------------------
+        - path: /v1/alerts/search
+          name: alerts-search
+          description: "Search XDR alerts."
+          operations:
+            - method: POST
+              name: search-xdr-alerts
+              description: "Search XDR alerts with filters."
+              inputParameters:
+                - name: filters
+                  in: body
+                  type: array
+                  required: false
+                  description: "Array of filter objects."
+                - name: search_from
+                  in: body
+                  type: integer
+                  required: false
+                  description: "Start index for pagination."
+                - name: search_to
+                  in: body
+                  type: integer
+                  required: false
+                  description: "End index for pagination."
+                - name: sort
+                  in: body
+                  type: object
+                  required: false
+                  description: "Sort configuration."
+              call: "cortex-xdr.get-alerts"
+              with:
+                x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+                filters: "rest.filters"
+                search_from: "rest.search_from"
+                search_to: "rest.search_to"
+                sort: "rest.sort"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        - path: /v1/xsiam-alerts/search
+          name: xsiam-alerts-search
+          description: "Search XSIAM alerts."
+          operations:
+            - method: POST
+              name: search-xsiam-alerts
+              description: "Search XSIAM alerts with filters."
+              inputParameters:
+                - name: filters
+                  in: body
+                  type: array
+                  required: false
+                  description: "Array of filter objects."
+                - name: search_from
+                  in: body
+                  type: integer
+                  required: false
+                  description: "Start index for pagination."
+                - name: search_to
+                  in: body
+                  type: integer
+                  required: false
+                  description: "End index for pagination."
+              call: "cortex-xsiam.get-alerts"
+              with:
+                x-xdr-api-key: "{{CORTEX_XSIAM_API_KEY}}"
+                filters: "rest.filters"
+                search_from: "rest.search_from"
+                search_to: "rest.search_to"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        # -------------------------------------------------------
+        # /v1/endpoints — Endpoint Management
+        # -------------------------------------------------------
+        - path: /v1/endpoints/search
+          name: endpoints-search
+          description: "Search XDR endpoints."
+          operations:
+            - method: POST
+              name: search-endpoints
+              description: "List XDR endpoints with filters."
+              inputParameters:
+                - name: filters
+                  in: body
+                  type: array
+                  required: false
+                  description: "Array of filter objects."
+                - name: search_from
+                  in: body
+                  type: integer
+                  required: false
+                  description: "Start index for pagination."
+                - name: search_to
+                  in: body
+                  type: integer
+                  required: false
+                  description: "End index for pagination."
+                - name: sort
+                  in: body
+                  type: object
+                  required: false
+                  description: "Sort configuration."
+              call: "cortex-xdr.get-endpoints"
+              with:
+                x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+                filters: "rest.filters"
+                search_from: "rest.search_from"
+                search_to: "rest.search_to"
+                sort: "rest.sort"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        - path: /v1/endpoints/isolate
+          name: endpoints-isolate
+          description: "Isolate endpoints from the network."
+          operations:
+            - method: POST
+              name: isolate-endpoints
+              description: "Isolate endpoints."
+              inputParameters:
+                - name: filters
+                  in: body
+                  type: array
+                  required: true
+                  description: "Array of filter objects to identify endpoints."
+              call: "cortex-xdr.isolate-endpoints"
+              with:
+                x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+                filters: "rest.filters"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/endpoints/unisolate
+          name: endpoints-unisolate
+          description: "Unisolate endpoints and restore network connectivity."
+          operations:
+            - method: POST
+              name: unisolate-endpoints
+              description: "Unisolate endpoints."
+              inputParameters:
+                - name: filters
+                  in: body
+                  type: array
+                  required: true
+                  description: "Array of filter objects to identify endpoints."
+              call: "cortex-xdr.unisolate-endpoints"
+              with:
+                x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+                filters: "rest.filters"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/endpoints/scan
+          name: endpoints-scan
+          description: "Scan endpoints."
+          operations:
+            - method: POST
+              name: scan-endpoints
+              description: "Initiate a scan on endpoints."
+              inputParameters:
+                - name: filters
+                  in: body
+                  type: array
+                  required: true
+                  description: "Array of filter objects to identify endpoints."
+              call: "cortex-xdr.scan-endpoints"
+              with:
+                x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+                filters: "rest.filters"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/xsiam-endpoints/search
+          name: xsiam-endpoints-search
+          description: "Search XSIAM endpoints."
+          operations:
+            - method: POST
+              name: search-xsiam-endpoints
+              description: "List XSIAM endpoints with filters."
+              inputParameters:
+                - name: filters
+                  in: body
+                  type: array
+                  required: false
+                  description: "Array of filter objects."
+              call: "cortex-xsiam.get-endpoints"
+              with:
+                x-xdr-api-key: "{{CORTEX_XSIAM_API_KEY}}"
+                filters: "rest.filters"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        # -------------------------------------------------------
+        # /v1/scripts — Script Execution
+        # -------------------------------------------------------
+        - path: /v1/scripts/run
+          name: scripts-run
+          description: "Run scripts on endpoints."
+          operations:
+            - method: POST
+              name: run-script
+              description: "Run a script on endpoints."
+              inputParameters:
+                - name: script_uid
+                  in: body
+                  type: string
+                  required: true
+                  description: "UID of the script to run."
+                - name: timeout
+                  in: body
+                  type: integer
+                  required: false
+                  description: "Script execution timeout in seconds."
+                - name: endpoint_ids
+                  in: body
+                  type: array
+                  required: true
+                  description: "List of endpoint IDs."
+                - name: parameters
+                  in: body
+                  type: object
+                  required: false
+                  description: "Script parameters."
+              call: "cortex-xdr.run-script"
+              with:
+                x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+                script_uid: "rest.script_uid"
+                timeout: "rest.timeout"
+                endpoint_ids: "rest.endpoint_ids"
+                parameters: "rest.parameters"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/scripts/results
+          name: scripts-results
+          description: "Get script execution results."
+          operations:
+            - method: POST
+              name: get-script-results
+              description: "Get script execution results."
+              inputParameters:
+                - name: action_id
+                  in: body
+                  type: string
+                  required: true
+                  description: "The action ID from the script execution."
+              call: "cortex-xdr.get-script-execution-results"
+              with:
+                x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+                action_id: "rest.action_id"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        # -------------------------------------------------------
+        # /v1/queries — XQL Queries (XDR)
+        # -------------------------------------------------------
+        - path: /v1/queries
+          name: xql-queries
+          description: "Start XQL queries on XDR."
+          operations:
+            - method: POST
+              name: start-xql-query
+              description: "Start an XQL query on XDR."
+              inputParameters:
+                - name: query
+                  in: body
+                  type: string
+                  required: true
+                  description: "The XQL query string."
+                - name: timeframe
+                  in: body
+                  type: object
+                  required: false
+                  description: "Timeframe for the query."
+              call: "cortex-xdr.start-xql-query"
+              with:
+                x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+                query: "rest.query"
+                timeframe: "rest.timeframe"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/queries/results
+          name: xql-query-results
+          description: "Get XQL query results from XDR."
+          operations:
+            - method: POST
+              name: get-xql-query-results
+              description: "Get XQL query results from XDR."
+              inputParameters:
+                - name: query_id
+                  in: body
+                  type: string
+                  required: true
+                  description: "The query ID from a started XQL query."
+              call: "cortex-xdr.get-xql-query-results"
+              with:
+                x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+                query_id: "rest.query_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # -------------------------------------------------------
+        # /v1/xsiam-queries — XQL Queries (XSIAM)
+        # -------------------------------------------------------
+        - path: /v1/xsiam-queries
+          name: xsiam-xql-queries
+          description: "Start XQL queries on XSIAM."
+          operations:
+            - method: POST
+              name: start-xsiam-xql-query
+              description: "Start an XQL query on XSIAM."
+              inputParameters:
+                - name: query
+                  in: body
+                  type: string
+                  required: true
+                  description: "The XQL query string."
+                - name: timeframe
+                  in: body
+                  type: object
+                  required: false
+                  description: "Timeframe for the query."
+              call: "cortex-xsiam.start-xql-query"
+              with:
+                x-xdr-api-key: "{{CORTEX_XSIAM_API_KEY}}"
+                query: "rest.query"
+                timeframe: "rest.timeframe"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/xsiam-queries/results
+          name: xsiam-xql-query-results
+          description: "Get XQL query results from XSIAM."
+          operations:
+            - method: POST
+              name: get-xsiam-xql-query-results
+              description: "Get XQL query results from XSIAM."
+              inputParameters:
+                - name: query_id
+                  in: body
+                  type: string
+                  required: true
+                  description: "The query ID from a started XQL query."
+              call: "cortex-xsiam.get-xql-query-results"
+              with:
+                x-xdr-api-key: "{{CORTEX_XSIAM_API_KEY}}"
+                query_id: "rest.query_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # -------------------------------------------------------
+        # /v1/attack-surface — Attack Surface (Xpanse)
+        # -------------------------------------------------------
+        - path: /v1/attack-surface/assets/search
+          name: attack-surface-assets-search
+          description: "Search internet-exposed assets."
+          operations:
+            - method: POST
+              name: search-exposed-assets
+              description: "Get internet-exposed assets from Xpanse."
+              inputParameters:
+                - name: filters
+                  in: body
+                  type: array
+                  required: false
+                  description: "Array of filter objects."
+                - name: search_from
+                  in: body
+                  type: integer
+                  required: false
+                  description: "Start index for pagination."
+                - name: search_to
+                  in: body
+                  type: integer
+                  required: false
+                  description: "End index for pagination."
+              call: "cortex-xpanse.get-assets-internet-exposure"
+              with:
+                x-xdr-api-key: "{{CORTEX_XPANSE_API_KEY}}"
+                filters: "rest.filters"
+                search_from: "rest.search_from"
+                search_to: "rest.search_to"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        - path: /v1/attack-surface/assets/{asset_id}
+          name: attack-surface-asset-detail
+          description: "Get details for a specific exposed asset."
+          operations:
+            - method: POST
+              name: get-asset-details
+              description: "Get internet exposure details for specific assets from Xpanse."
+              inputParameters:
+                - name: asm_id_list
+                  in: body
+                  type: array
+                  required: true
+                  description: "List of ASM IDs to query."
+              call: "cortex-xpanse.get-asset-internet-exposure"
+              with:
+                x-xdr-api-key: "{{CORTEX_XPANSE_API_KEY}}"
+                asm_id_list: "rest.asm_id_list"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        - path: /v1/attack-surface/incidents/search
+          name: attack-surface-incidents-search
+          description: "Search Xpanse incidents."
+          operations:
+            - method: POST
+              name: search-xpanse-incidents
+              description: "Search Xpanse incidents with filters."
+              inputParameters:
+                - name: filters
+                  in: body
+                  type: array
+                  required: false
+                  description: "Array of filter objects."
+                - name: search_from
+                  in: body
+                  type: integer
+                  required: false
+                  description: "Start index for pagination."
+                - name: search_to
+                  in: body
+                  type: integer
+                  required: false
+                  description: "End index for pagination."
+              call: "cortex-xpanse.get-incidents"
+              with:
+                x-xdr-api-key: "{{CORTEX_XPANSE_API_KEY}}"
+                filters: "rest.filters"
+                search_from: "rest.search_from"
+                search_to: "rest.search_to"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        - path: /v1/attack-surface/incidents/{incident_id}
+          name: attack-surface-incident-update
+          description: "Update an Xpanse incident."
+          operations:
+            - method: PUT
+              name: update-xpanse-incident
+              description: "Update an Xpanse incident."
+              inputParameters:
+                - name: incident_id
+                  in: path
+                  type: string
+                  required: true
+                  description: "The incident ID."
+                - name: update_data
+                  in: body
+                  type: object
+                  required: true
+                  description: "Data to update on the incident."
+              call: "cortex-xpanse.update-incident"
+              with:
+                x-xdr-api-key: "{{CORTEX_XPANSE_API_KEY}}"
+                incident_id: "rest.incident_id"
+                update_data: "rest.update_data"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/attack-surface/rules/search
+          name: attack-surface-rules-search
+          description: "Search attack surface rules."
+          operations:
+            - method: POST
+              name: search-attack-surface-rules
+              description: "Get attack surface rules from Xpanse."
+              inputParameters:
+                - name: filters
+                  in: body
+                  type: array
+                  required: false
+                  description: "Array of filter objects."
+              call: "cortex-xpanse.get-attack-surface-rules"
+              with:
+                x-xdr-api-key: "{{CORTEX_XPANSE_API_KEY}}"
+                filters: "rest.filters"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        - path: /v1/attack-surface/rules/{rule_id}
+          name: attack-surface-rule-update
+          description: "Update an attack surface rule."
+          operations:
+            - method: PUT
+              name: update-attack-surface-rule
+              description: "Update an attack surface rule in Xpanse."
+              inputParameters:
+                - name: rule_id
+                  in: path
+                  type: string
+                  required: true
+                  description: "The rule ID."
+                - name: update_data
+                  in: body
+                  type: object
+                  required: true
+                  description: "Data to update on the rule."
+              call: "cortex-xpanse.update-attack-surface-rule"
+              with:
+                x-xdr-api-key: "{{CORTEX_XPANSE_API_KEY}}"
+                rule_id: "rest.rule_id"
+                update_data: "rest.update_data"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/attack-surface/services/search
+          name: attack-surface-services-search
+          description: "Search exposed services."
+          operations:
+            - method: POST
+              name: search-services
+              description: "Get exposed services from Xpanse."
+              inputParameters:
+                - name: filters
+                  in: body
+                  type: array
+                  required: false
+                  description: "Array of filter objects."
+              call: "cortex-xpanse.get-services"
+              with:
+                x-xdr-api-key: "{{CORTEX_XPANSE_API_KEY}}"
+                filters: "rest.filters"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        - path: /v1/attack-surface/ip-ranges/search
+          name: attack-surface-ip-ranges-search
+          description: "Search owned IP ranges."
+          operations:
+            - method: POST
+              name: search-ip-ranges
+              description: "Get owned IP ranges from Xpanse."
+              inputParameters:
+                - name: search_params
+                  in: body
+                  type: object
+                  required: false
+                  description: "Search parameters for IP ranges."
+              call: "cortex-xpanse.get-owned-ip-ranges"
+              with:
+                x-xdr-api-key: "{{CORTEX_XPANSE_API_KEY}}"
+                search_params: "rest.search_params"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        # -------------------------------------------------------
+        # /v1/investigations — XSOAR Investigations
+        # -------------------------------------------------------
+        - path: /v1/investigations
+          name: investigations
+          description: "Create XSOAR investigations."
+          operations:
+            - method: POST
+              name: create-investigation
+              description: "Create a new investigation in XSOAR."
+              inputParameters:
+                - name: name
+                  in: body
+                  type: string
+                  required: true
+                  description: "Name of the investigation."
+                - name: type
+                  in: body
+                  type: string
+                  required: false
+                  description: "Type of the investigation."
+              call: "cortex-xsoar-api.create-investigation"
+              with:
+                name: "rest.name"
+                type: "rest.type"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/investigations/{investigation_id}
+          name: investigation-detail
+          description: "Get a specific investigation."
+          operations:
+            - method: GET
+              name: get-investigation
+              description: "Retrieve a specific investigation by ID from XSOAR."
+              inputParameters:
+                - name: investigation_id
+                  in: path
+                  type: string
+                  required: true
+                  description: "The investigation ID."
+              call: "cortex-xsoar-api.get-investigation"
+              with:
+                id: "rest.investigation_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/investigations/entries
+          name: investigation-entries
+          description: "Add entries to investigations."
+          operations:
+            - method: POST
+              name: add-entry
+              description: "Add an entry to an investigation in XSOAR."
+              inputParameters:
+                - name: investigationId
+                  in: body
+                  type: string
+                  required: true
+                  description: "The investigation ID to add the entry to."
+                - name: data
+                  in: body
+                  type: string
+                  required: true
+                  description: "The entry data content."
+                - name: markdown
+                  in: body
+                  type: boolean
+                  required: false
+                  description: "Whether the data is markdown formatted."
+              call: "cortex-xsoar-api.add-entry"
+              with:
+                investigationId: "rest.investigationId"
+                data: "rest.data"
+                markdown: "rest.markdown"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # -------------------------------------------------------
+        # /v1/playbooks — XSOAR Playbooks
+        # -------------------------------------------------------
+        - path: /v1/playbooks
+          name: playbooks
+          description: "List and manage XSOAR playbooks."
+          operations:
+            - method: GET
+              name: list-playbooks
+              description: "List available playbooks in XSOAR."
+              inputParameters:
+                - name: page
+                  in: query
+                  type: integer
+                  required: false
+                  description: "Page number for pagination."
+                - name: size
+                  in: query
+                  type: integer
+                  required: false
+                  description: "Number of results per page."
+              call: "cortex-xsoar-api.list-playbooks"
+              with:
+                page: "rest.page"
+                size: "rest.size"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/playbooks/run
+          name: playbooks-run
+          description: "Run XSOAR playbooks."
+          operations:
+            - method: POST
+              name: run-playbook
+              description: "Run a playbook on an investigation in XSOAR."
+              inputParameters:
+                - name: playbookId
+                  in: body
+                  type: string
+                  required: true
+                  description: "The playbook ID to run."
+                - name: investigationId
+                  in: body
+                  type: string
+                  required: true
+                  description: "The investigation ID to run the playbook on."
+              call: "cortex-xsoar-api.run-playbook"
+              with:
+                playbookId: "rest.playbookId"
+                investigationId: "rest.investigationId"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # -------------------------------------------------------
+        # /v1/integrations — XSOAR Integrations
+        # -------------------------------------------------------
+        - path: /v1/integrations
+          name: integrations
+          description: "Search XSOAR integrations."
+          operations:
+            - method: GET
+              name: search-integrations
+              description: "Search for available integrations in XSOAR."
+              inputParameters:
+                - name: query
+                  in: query
+                  type: string
+                  required: false
+                  description: "Search query string."
+              call: "cortex-xsoar-api.search-integrations"
+              with:
+                query: "rest.query"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/integrations/instances/search
+          name: integration-instances-search
+          description: "Search XSOAR integration instances."
+          operations:
+            - method: POST
+              name: search-integration-instances
+              description: "Search for integration instances in XSOAR."
+              inputParameters:
+                - name: filter
+                  in: body
+                  type: object
+                  required: false
+                  description: "Filter criteria for the search."
+              call: "cortex-xsoar-api.search-integration-instances"
+              with:
+                filter: "rest.filter"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # -------------------------------------------------------
+        # /v1/xsiam-assets — XSIAM Assets
+        # -------------------------------------------------------
+        - path: /v1/xsiam-assets/search
+          name: xsiam-assets-search
+          description: "Search XSIAM assets."
+          operations:
+            - method: POST
+              name: search-xsiam-assets
+              description: "List XSIAM assets with filters."
+              inputParameters:
+                - name: filters
+                  in: body
+                  type: array
+                  required: false
+                  description: "Array of filter objects."
+              call: "cortex-xsiam.list-assets"
+              with:
+                x-xdr-api-key: "{{CORTEX_XSIAM_API_KEY}}"
+                filters: "rest.filters"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        # -------------------------------------------------------
+        # /v1/xsiam-datasources — XSIAM Data Sources
+        # -------------------------------------------------------
+        - path: /v1/xsiam-datasources
+          name: xsiam-datasources
+          description: "Configure XSIAM datasources."
+          operations:
+            - method: POST
+              name: configure-datasource
+              description: "Configure a datasource for XSIAM ingestion."
+              inputParameters:
+                - name: name
+                  in: body
+                  type: string
+                  required: true
+                  description: "Name of the datasource."
+                - name: type
+                  in: body
+                  type: string
+                  required: true
+                  description: "Type of the datasource."
+                - name: config
+                  in: body
+                  type: object
+                  required: true
+                  description: "Datasource configuration."
+              call: "cortex-xsiam.configure-datasource"
+              with:
+                x-xdr-api-key: "{{CORTEX_XSIAM_API_KEY}}"
+                name: "rest.name"
+                type: "rest.type"
+                config: "rest.config"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # -------------------------------------------------------
+        # /v1/audit-logs — Audit Logs
+        # -------------------------------------------------------
+        - path: /v1/audit-logs/xdr
+          name: audit-logs-xdr
+          description: "Get XDR audit logs."
+          operations:
+            - method: POST
+              name: get-xdr-audit-logs
+              description: "Get audit management logs from XDR."
+              inputParameters:
+                - name: filters
+                  in: body
+                  type: array
+                  required: false
+                  description: "Array of filter objects."
+                - name: search_from
+                  in: body
+                  type: integer
+                  required: false
+                  description: "Start index for pagination."
+                - name: search_to
+                  in: body
+                  type: integer
+                  required: false
+                  description: "End index for pagination."
+                - name: sort
+                  in: body
+                  type: object
+                  required: false
+                  description: "Sort configuration."
+              call: "cortex-xdr.get-audit-management-logs"
+              with:
+                x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+                filters: "rest.filters"
+                search_from: "rest.search_from"
+                search_to: "rest.search_to"
+                sort: "rest.sort"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        - path: /v1/audit-logs/xpanse
+          name: audit-logs-xpanse
+          description: "Get Xpanse audit logs."
+          operations:
+            - method: POST
+              name: get-xpanse-audit-logs
+              description: "Get audit management logs from Xpanse."
+              inputParameters:
+                - name: filters
+                  in: body
+                  type: array
+                  required: false
+                  description: "Array of filter objects."
+                - name: search_from
+                  in: body
+                  type: integer
+                  required: false
+                  description: "Start index for pagination."
+                - name: search_to
+                  in: body
+                  type: integer
+                  required: false
+                  description: "End index for pagination."
+              call: "cortex-xpanse.get-audit-management-logs"
+              with:
+                x-xdr-api-key: "{{CORTEX_XPANSE_API_KEY}}"
+                filters: "rest.filters"
+                search_from: "rest.search_from"
+                search_to: "rest.search_to"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+        - path: /v1/audit-logs/xsiam
+          name: audit-logs-xsiam
+          description: "Get XSIAM management logs."
+          operations:
+            - method: POST
+              name: get-xsiam-management-logs
+              description: "Get management logs from XSIAM."
+              inputParameters:
+                - name: filters
+                  in: body
+                  type: array
+                  required: false
+                  description: "Array of filter objects."
+              call: "cortex-xsiam.get-management-logs"
+              with:
+                x-xdr-api-key: "{{CORTEX_XSIAM_API_KEY}}"
+                filters: "rest.filters"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+    # =============================================================
+    # MCP Server — AI-assisted incident response
+    # =============================================================
+    - type: mcp
+      port: 9090
+      namespace: incident-response-mcp
+      transport: http
+      description: "MCP server for AI-assisted incident response across the Cortex platform."
+      tools:
+
+        # ---------------------------------------------------------
+        # Incident Investigation
+        # ---------------------------------------------------------
+        - name: xdr-list-incidents
+          description: "List XDR incidents with optional filters, pagination, and sorting."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: filters
+              type: array
+              description: "Array of filter objects."
+              required: false
+            - name: search_from
+              type: integer
+              description: "Start index for pagination."
+              required: false
+            - name: search_to
+              type: integer
+              description: "End index for pagination."
+              required: false
+            - name: sort
+              type: object
+              description: "Sort configuration."
+              required: false
+          call: "cortex-xdr.get-incidents"
+          with:
+            x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+            filters: "tools.filters"
+            search_from: "tools.search_from"
+            search_to: "tools.search_to"
+            sort: "tools.sort"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: xdr-get-incident-details
+          description: "Get extra data for a specific XDR incident."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: incident_id
+              type: string
+              description: "The incident ID."
+              required: true
+          call: "cortex-xdr.get-incident-extra-data"
+          with:
+            x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+            incident_id: "tools.incident_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: xdr-update-incident
+          description: "Update an XDR incident."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: incident_id
+              type: string
+              description: "The incident ID."
+              required: true
+            - name: update_data
+              type: object
+              description: "Data to update on the incident."
+              required: true
+          call: "cortex-xdr.update-incident"
+          with:
+            x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+            incident_id: "tools.incident_id"
+            update_data: "tools.update_data"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: xsiam-list-incidents
+          description: "List XSIAM incidents with optional filters and pagination."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: filters
+              type: array
+              description: "Array of filter objects."
+              required: false
+            - name: search_from
+              type: integer
+              description: "Start index for pagination."
+              required: false
+            - name: search_to
+              type: integer
+              description: "End index for pagination."
+              required: false
+          call: "cortex-xsiam.get-incidents"
+          with:
+            x-xdr-api-key: "{{CORTEX_XSIAM_API_KEY}}"
+            filters: "tools.filters"
+            search_from: "tools.search_from"
+            search_to: "tools.search_to"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: xsoar-create-incident
+          description: "Create a new incident in Cortex XSOAR."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: name
+              type: string
+              description: "Name of the incident."
+              required: true
+            - name: type
+              type: string
+              description: "Type of the incident."
+              required: true
+            - name: severity
+              type: integer
+              description: "Severity level of the incident."
+              required: false
+            - name: details
+              type: string
+              description: "Details of the incident."
+              required: false
+          call: "cortex-xsoar-api.create-incident"
+          with:
+            name: "tools.name"
+            type: "tools.type"
+            severity: "tools.severity"
+            details: "tools.details"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: xsoar-search-incidents
+          description: "Search incidents with filters in Cortex XSOAR."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: filter
+              type: object
+              description: "Filter criteria for the search."
+              required: false
+            - name: page
+              type: integer
+              description: "Page number for pagination."
+              required: false
+            - name: size
+              type: integer
+              description: "Number of results per page."
+              required: false
+          call: "cortex-xsoar-api.search-incidents"
+          with:
+            filter: "tools.filter"
+            page: "tools.page"
+            size: "tools.size"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: xsoar-get-incident
+          description: "Retrieve a specific incident by ID from Cortex XSOAR."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              description: "The incident ID."
+              required: true
+          call: "cortex-xsoar-api.get-incident"
+          with:
+            id: "tools.id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: xsoar-update-incident
+          description: "Update an existing incident in Cortex XSOAR."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              description: "The incident ID to update."
+              required: true
+            - name: update_data
+              type: object
+              description: "Data to update on the incident."
+              required: true
+          call: "cortex-xsoar-api.update-incident"
+          with:
+            id: "tools.id"
+            update_data: "tools.update_data"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        # ---------------------------------------------------------
+        # Alert Triage
+        # ---------------------------------------------------------
+        - name: xdr-list-alerts
+          description: "List XDR alerts with optional filters, pagination, and sorting."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: filters
+              type: array
+              description: "Array of filter objects."
+              required: false
+            - name: search_from
+              type: integer
+              description: "Start index for pagination."
+              required: false
+            - name: search_to
+              type: integer
+              description: "End index for pagination."
+              required: false
+            - name: sort
+              type: object
+              description: "Sort configuration."
+              required: false
+          call: "cortex-xdr.get-alerts"
+          with:
+            x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+            filters: "tools.filters"
+            search_from: "tools.search_from"
+            search_to: "tools.search_to"
+            sort: "tools.sort"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: xsiam-list-alerts
+          description: "List XSIAM alerts with optional filters and pagination."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: filters
+              type: array
+              description: "Array of filter objects."
+              required: false
+            - name: search_from
+              type: integer
+              description: "Start index for pagination."
+              required: false
+            - name: search_to
+              type: integer
+              description: "End index for pagination."
+              required: false
+          call: "cortex-xsiam.get-alerts"
+          with:
+            x-xdr-api-key: "{{CORTEX_XSIAM_API_KEY}}"
+            filters: "tools.filters"
+            search_from: "tools.search_from"
+            search_to: "tools.search_to"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        # ---------------------------------------------------------
+        # Endpoint Response
+        # ---------------------------------------------------------
+        - name: xdr-list-endpoints
+          description: "List XDR endpoints with optional filters, pagination, and sorting."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: filters
+              type: array
+              description: "Array of filter objects."
+              required: false
+            - name: search_from
+              type: integer
+              description: "Start index for pagination."
+              required: false
+            - name: search_to
+              type: integer
+              description: "End index for pagination."
+              required: false
+            - name: sort
+              type: object
+              description: "Sort configuration."
+              required: false
+          call: "cortex-xdr.get-endpoints"
+          with:
+            x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+            filters: "tools.filters"
+            search_from: "tools.search_from"
+            search_to: "tools.search_to"
+            sort: "tools.sort"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: xdr-isolate-endpoints
+          description: "Isolate endpoints from the network via XDR."
+          hints:
+            readOnly: false
+            destructive: true
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: filters
+              type: array
+              description: "Array of filter objects to identify endpoints."
+              required: true
+          call: "cortex-xdr.isolate-endpoints"
+          with:
+            x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+            filters: "tools.filters"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: xdr-unisolate-endpoints
+          description: "Unisolate endpoints and restore network connectivity via XDR."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: filters
+              type: array
+              description: "Array of filter objects to identify endpoints."
+              required: true
+          call: "cortex-xdr.unisolate-endpoints"
+          with:
+            x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+            filters: "tools.filters"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: xdr-scan-endpoints
+          description: "Initiate a scan on endpoints via XDR."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: filters
+              type: array
+              description: "Array of filter objects to identify endpoints."
+              required: true
+          call: "cortex-xdr.scan-endpoints"
+          with:
+            x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+            filters: "tools.filters"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: xsiam-list-endpoints
+          description: "List XSIAM endpoints with optional filters."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: filters
+              type: array
+              description: "Array of filter objects."
+              required: false
+          call: "cortex-xsiam.get-endpoints"
+          with:
+            x-xdr-api-key: "{{CORTEX_XSIAM_API_KEY}}"
+            filters: "tools.filters"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        # ---------------------------------------------------------
+        # Script Execution
+        # ---------------------------------------------------------
+        - name: xdr-run-script
+          description: "Run a script on endpoints via XDR."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: script_uid
+              type: string
+              description: "UID of the script to run."
+              required: true
+            - name: timeout
+              type: integer
+              description: "Script execution timeout in seconds."
+              required: false
+            - name: endpoint_ids
+              type: array
+              description: "List of endpoint IDs."
+              required: true
+            - name: parameters
+              type: object
+              description: "Script parameters."
+              required: false
+          call: "cortex-xdr.run-script"
+          with:
+            x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+            script_uid: "tools.script_uid"
+            timeout: "tools.timeout"
+            endpoint_ids: "tools.endpoint_ids"
+            parameters: "tools.parameters"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: xdr-get-script-results
+          description: "Get script execution results from XDR."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: action_id
+              type: string
+              description: "The action ID from the script execution."
+              required: true
+          call: "cortex-xdr.get-script-execution-results"
+          with:
+            x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+            action_id: "tools.action_id"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        # ---------------------------------------------------------
+        # Threat Hunting (XQL)
+        # ---------------------------------------------------------
+        - name: xdr-start-xql-query
+          description: "Start an XQL query on XDR."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: query
+              type: string
+              description: "The XQL query string."
+              required: true
+            - name: timeframe
+              type: object
+              description: "Timeframe for the query."
+              required: false
+          call: "cortex-xdr.start-xql-query"
+          with:
+            x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+            query: "tools.query"
+            timeframe: "tools.timeframe"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: xdr-get-xql-results
+          description: "Get XQL query results from XDR."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: query_id
+              type: string
+              description: "The query ID from a started XQL query."
+              required: true
+          call: "cortex-xdr.get-xql-query-results"
+          with:
+            x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+            query_id: "tools.query_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: xsiam-start-xql-query
+          description: "Start an XQL query on XSIAM."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: query
+              type: string
+              description: "The XQL query string."
+              required: true
+            - name: timeframe
+              type: object
+              description: "Timeframe for the query."
+              required: false
+          call: "cortex-xsiam.start-xql-query"
+          with:
+            x-xdr-api-key: "{{CORTEX_XSIAM_API_KEY}}"
+            query: "tools.query"
+            timeframe: "tools.timeframe"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: xsiam-get-xql-results
+          description: "Get XQL query results from XSIAM."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: query_id
+              type: string
+              description: "The query ID from a started XQL query."
+              required: true
+          call: "cortex-xsiam.get-xql-query-results"
+          with:
+            x-xdr-api-key: "{{CORTEX_XSIAM_API_KEY}}"
+            query_id: "tools.query_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        # ---------------------------------------------------------
+        # Attack Surface (Xpanse)
+        # ---------------------------------------------------------
+        - name: xpanse-list-exposed-assets
+          description: "Get internet-exposed assets from Xpanse."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: filters
+              type: array
+              description: "Array of filter objects."
+              required: false
+            - name: search_from
+              type: integer
+              description: "Start index for pagination."
+              required: false
+            - name: search_to
+              type: integer
+              description: "End index for pagination."
+              required: false
+          call: "cortex-xpanse.get-assets-internet-exposure"
+          with:
+            x-xdr-api-key: "{{CORTEX_XPANSE_API_KEY}}"
+            filters: "tools.filters"
+            search_from: "tools.search_from"
+            search_to: "tools.search_to"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: xpanse-get-asset-details
+          description: "Get internet exposure details for specific assets from Xpanse."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: asm_id_list
+              type: array
+              description: "List of ASM IDs to query."
+              required: true
+          call: "cortex-xpanse.get-asset-internet-exposure"
+          with:
+            x-xdr-api-key: "{{CORTEX_XPANSE_API_KEY}}"
+            asm_id_list: "tools.asm_id_list"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: xpanse-list-incidents
+          description: "Get Xpanse incidents."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: filters
+              type: array
+              description: "Array of filter objects."
+              required: false
+            - name: search_from
+              type: integer
+              description: "Start index for pagination."
+              required: false
+            - name: search_to
+              type: integer
+              description: "End index for pagination."
+              required: false
+          call: "cortex-xpanse.get-incidents"
+          with:
+            x-xdr-api-key: "{{CORTEX_XPANSE_API_KEY}}"
+            filters: "tools.filters"
+            search_from: "tools.search_from"
+            search_to: "tools.search_to"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: xpanse-update-incident
+          description: "Update an Xpanse incident."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: incident_id
+              type: string
+              description: "The incident ID."
+              required: true
+            - name: update_data
+              type: object
+              description: "Data to update on the incident."
+              required: true
+          call: "cortex-xpanse.update-incident"
+          with:
+            x-xdr-api-key: "{{CORTEX_XPANSE_API_KEY}}"
+            incident_id: "tools.incident_id"
+            update_data: "tools.update_data"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: xpanse-list-attack-surface-rules
+          description: "Get attack surface rules from Xpanse."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: filters
+              type: array
+              description: "Array of filter objects."
+              required: false
+          call: "cortex-xpanse.get-attack-surface-rules"
+          with:
+            x-xdr-api-key: "{{CORTEX_XPANSE_API_KEY}}"
+            filters: "tools.filters"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: xpanse-update-attack-surface-rule
+          description: "Update an attack surface rule in Xpanse."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: rule_id
+              type: string
+              description: "The rule ID."
+              required: true
+            - name: update_data
+              type: object
+              description: "Data to update on the rule."
+              required: true
+          call: "cortex-xpanse.update-attack-surface-rule"
+          with:
+            x-xdr-api-key: "{{CORTEX_XPANSE_API_KEY}}"
+            rule_id: "tools.rule_id"
+            update_data: "tools.update_data"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: xpanse-list-services
+          description: "Get exposed services from Xpanse."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: filters
+              type: array
+              description: "Array of filter objects."
+              required: false
+          call: "cortex-xpanse.get-services"
+          with:
+            x-xdr-api-key: "{{CORTEX_XPANSE_API_KEY}}"
+            filters: "tools.filters"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: xpanse-list-ip-ranges
+          description: "Get owned IP ranges from Xpanse."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: search_params
+              type: object
+              description: "Search parameters for IP ranges."
+              required: false
+          call: "cortex-xpanse.get-owned-ip-ranges"
+          with:
+            x-xdr-api-key: "{{CORTEX_XPANSE_API_KEY}}"
+            search_params: "tools.search_params"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        # ---------------------------------------------------------
+        # Automation (XSOAR)
+        # ---------------------------------------------------------
+        - name: xsoar-create-investigation
+          description: "Create a new investigation in Cortex XSOAR."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: name
+              type: string
+              description: "Name of the investigation."
+              required: true
+            - name: type
+              type: string
+              description: "Type of the investigation."
+              required: false
+          call: "cortex-xsoar-api.create-investigation"
+          with:
+            name: "tools.name"
+            type: "tools.type"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: xsoar-get-investigation
+          description: "Retrieve a specific investigation by ID from Cortex XSOAR."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              description: "The investigation ID."
+              required: true
+          call: "cortex-xsoar-api.get-investigation"
+          with:
+            id: "tools.id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: xsoar-add-entry
+          description: "Add an entry to an investigation in Cortex XSOAR."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: investigationId
+              type: string
+              description: "The investigation ID to add the entry to."
+              required: true
+            - name: data
+              type: string
+              description: "The entry data content."
+              required: true
+            - name: markdown
+              type: boolean
+              description: "Whether the data is markdown formatted."
+              required: false
+          call: "cortex-xsoar-api.add-entry"
+          with:
+            investigationId: "tools.investigationId"
+            data: "tools.data"
+            markdown: "tools.markdown"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: xsoar-list-playbooks
+          description: "List available playbooks in Cortex XSOAR."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: page
+              type: integer
+              description: "Page number for pagination."
+              required: false
+            - name: size
+              type: integer
+              description: "Number of results per page."
+              required: false
+          call: "cortex-xsoar-api.list-playbooks"
+          with:
+            page: "tools.page"
+            size: "tools.size"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: xsoar-run-playbook
+          description: "Run a playbook on an investigation in Cortex XSOAR."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: playbookId
+              type: string
+              description: "The playbook ID to run."
+              required: true
+            - name: investigationId
+              type: string
+              description: "The investigation ID to run the playbook on."
+              required: true
+          call: "cortex-xsoar-api.run-playbook"
+          with:
+            playbookId: "tools.playbookId"
+            investigationId: "tools.investigationId"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: xsoar-search-integrations
+          description: "Search for available integrations in Cortex XSOAR."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: query
+              type: string
+              description: "Search query string."
+              required: false
+          call: "cortex-xsoar-api.search-integrations"
+          with:
+            query: "tools.query"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: xsoar-search-integration-instances
+          description: "Search for integration instances in Cortex XSOAR."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: filter
+              type: object
+              description: "Filter criteria for the search."
+              required: false
+          call: "cortex-xsoar-api.search-integration-instances"
+          with:
+            filter: "tools.filter"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        # ---------------------------------------------------------
+        # XSIAM Management
+        # ---------------------------------------------------------
+        - name: xsiam-list-assets
+          description: "List XSIAM assets with optional filters."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: filters
+              type: array
+              description: "Array of filter objects."
+              required: false
+          call: "cortex-xsiam.list-assets"
+          with:
+            x-xdr-api-key: "{{CORTEX_XSIAM_API_KEY}}"
+            filters: "tools.filters"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: xsiam-configure-datasource
+          description: "Configure a datasource for XSIAM ingestion."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: name
+              type: string
+              description: "Name of the datasource."
+              required: true
+            - name: type
+              type: string
+              description: "Type of the datasource."
+              required: true
+            - name: config
+              type: object
+              description: "Datasource configuration."
+              required: true
+          call: "cortex-xsiam.configure-datasource"
+          with:
+            x-xdr-api-key: "{{CORTEX_XSIAM_API_KEY}}"
+            name: "tools.name"
+            type: "tools.type"
+            config: "tools.config"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        # ---------------------------------------------------------
+        # Audit
+        # ---------------------------------------------------------
+        - name: xdr-get-audit-logs
+          description: "Get audit management logs from XDR."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: filters
+              type: array
+              description: "Array of filter objects."
+              required: false
+            - name: search_from
+              type: integer
+              description: "Start index for pagination."
+              required: false
+            - name: search_to
+              type: integer
+              description: "End index for pagination."
+              required: false
+            - name: sort
+              type: object
+              description: "Sort configuration."
+              required: false
+          call: "cortex-xdr.get-audit-management-logs"
+          with:
+            x-xdr-api-key: "{{CORTEX_XDR_API_KEY}}"
+            filters: "tools.filters"
+            search_from: "tools.search_from"
+            search_to: "tools.search_to"
+            sort: "tools.sort"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: xpanse-get-audit-logs
+          description: "Get audit management logs from Xpanse."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: filters
+              type: array
+              description: "Array of filter objects."
+              required: false
+            - name: search_from
+              type: integer
+              description: "Start index for pagination."
+              required: false
+            - name: search_to
+              type: integer
+              description: "End index for pagination."
+              required: false
+          call: "cortex-xpanse.get-audit-management-logs"
+          with:
+            x-xdr-api-key: "{{CORTEX_XPANSE_API_KEY}}"
+            filters: "tools.filters"
+            search_from: "tools.search_from"
+            search_to: "tools.search_to"
+          outputParameters:
+            - type: array
+              mapping: "$."
+
+        - name: xsiam-get-management-logs
+          description: "Get management logs from XSIAM."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: filters
+              type: array
+              description: "Array of filter objects."
+              required: false
+          call: "cortex-xsiam.get-management-logs"
+          with:
+            x-xdr-api-key: "{{CORTEX_XSIAM_API_KEY}}"
+            filters: "tools.filters"
+          outputParameters:
+            - type: array
+              mapping: "$."

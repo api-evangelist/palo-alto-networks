@@ -1,0 +1,418 @@
+naftiko: "1.0.0-alpha1"
+
+info:
+  label: "Palo Alto Networks Browser Security"
+  description: "Browser security capability for managing enterprise browser policies, user sessions, and deployments through the Prisma Access Browser API."
+  tags:
+    - palo-alto-networks
+    - browser-security
+    - enterprise-browser
+    - prisma-access
+  created: "2026-04-16"
+  modified: "2026-04-16"
+
+binds:
+  - namespace: env
+    keys:
+      PALO_ALTO_OAUTH_TOKEN: PALO_ALTO_OAUTH_TOKEN
+
+capability:
+  consumes:
+    - import: prisma-access-browser
+      location: ./shared/prisma-access-browser.yaml
+
+  exposes:
+    - type: rest
+      port: 8089
+      namespace: browser-security-rest
+      description: "REST API for managing enterprise browser security policies, users, and deployments."
+      resources:
+
+        # -- Browser Policies ------------------------------------------------
+        - path: /v1/browser-policies
+          name: browser-policies
+          description: "Manage enterprise browser security policies."
+          operations:
+            - method: GET
+              name: list-browser-policies
+              description: "List all browser policies with pagination."
+              inputParameters:
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              call: "prisma-access-browser.list-browser-policies"
+              with:
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: POST
+              name: create-browser-policy
+              description: "Create a new browser policy."
+              inputParameters:
+                - name: name
+                  in: body
+                  type: string
+                  required: true
+                - name: rules
+                  in: body
+                  type: object
+                  required: true
+                - name: enabled
+                  in: body
+                  type: boolean
+                  required: true
+              call: "prisma-access-browser.create-browser-policy"
+              with:
+                name: "rest.name"
+                rules: "rest.rules"
+                enabled: "rest.enabled"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/browser-policies/{policy_id}
+          name: browser-policy
+          description: "Manage a specific browser policy by ID."
+          operations:
+            - method: GET
+              name: get-browser-policy
+              description: "Get a specific browser policy by ID."
+              inputParameters:
+                - name: policy_id
+                  in: path
+                  type: string
+                  required: true
+              call: "prisma-access-browser.get-browser-policy"
+              with:
+                policy_id: "rest.policy_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: PUT
+              name: update-browser-policy
+              description: "Update a specific browser policy by ID."
+              inputParameters:
+                - name: policy_id
+                  in: path
+                  type: string
+                  required: true
+              call: "prisma-access-browser.update-browser-policy"
+              with:
+                policy_id: "rest.policy_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: DELETE
+              name: delete-browser-policy
+              description: "Delete a specific browser policy by ID."
+              inputParameters:
+                - name: policy_id
+                  in: path
+                  type: string
+                  required: true
+              call: "prisma-access-browser.delete-browser-policy"
+              with:
+                policy_id: "rest.policy_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # -- Browser Users ---------------------------------------------------
+        - path: /v1/browser-users
+          name: browser-users
+          description: "List enterprise browser users."
+          operations:
+            - method: GET
+              name: list-browser-users
+              description: "List all browser users with pagination."
+              inputParameters:
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              call: "prisma-access-browser.list-browser-users"
+              with:
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/browser-users/{user_id}/sessions
+          name: user-sessions
+          description: "Get sessions for a specific browser user."
+          operations:
+            - method: GET
+              name: get-user-sessions
+              description: "Get sessions for a specific user."
+              inputParameters:
+                - name: user_id
+                  in: path
+                  type: string
+                  required: true
+              call: "prisma-access-browser.get-user-sessions"
+              with:
+                user_id: "rest.user_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        # -- Deployments -----------------------------------------------------
+        - path: /v1/browser-deployments
+          name: browser-deployments
+          description: "Manage browser deployments across platforms."
+          operations:
+            - method: GET
+              name: list-browser-deployments
+              description: "List all browser deployments with pagination."
+              inputParameters:
+                - name: offset
+                  in: query
+                  type: integer
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+              call: "prisma-access-browser.list-deployments"
+              with:
+                offset: "rest.offset"
+                limit: "rest.limit"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: POST
+              name: create-browser-deployment
+              description: "Create a new browser deployment."
+              inputParameters:
+                - name: name
+                  in: body
+                  type: string
+                  required: true
+                - name: platform
+                  in: body
+                  type: string
+                  required: true
+                - name: settings
+                  in: body
+                  type: object
+                  required: true
+              call: "prisma-access-browser.create-deployment"
+              with:
+                name: "rest.name"
+                platform: "rest.platform"
+                settings: "rest.settings"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+    - type: mcp
+      port: 9099
+      namespace: browser-security-mcp
+      transport: http
+      description: "MCP server for AI-assisted enterprise browser security management."
+      tools:
+
+        # -- Browser Policies ------------------------------------------------
+        - name: list-browser-policies
+          description: "List all browser policies with pagination."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: offset
+              type: integer
+              required: false
+            - name: limit
+              type: integer
+              required: false
+          call: "prisma-access-browser.list-browser-policies"
+          with:
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: create-browser-policy
+          description: "Create a new browser policy."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: name
+              type: string
+              required: true
+            - name: rules
+              type: object
+              required: true
+            - name: enabled
+              type: boolean
+              required: true
+          call: "prisma-access-browser.create-browser-policy"
+          with:
+            name: "tools.name"
+            rules: "tools.rules"
+            enabled: "tools.enabled"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-browser-policy
+          description: "Get a specific browser policy by ID."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: policy_id
+              type: string
+              required: true
+          call: "prisma-access-browser.get-browser-policy"
+          with:
+            policy_id: "tools.policy_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: update-browser-policy
+          description: "Update a specific browser policy by ID."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: policy_id
+              type: string
+              required: true
+          call: "prisma-access-browser.update-browser-policy"
+          with:
+            policy_id: "tools.policy_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: delete-browser-policy
+          description: "Delete a specific browser policy by ID."
+          hints:
+            readOnly: false
+            destructive: true
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: policy_id
+              type: string
+              required: true
+          call: "prisma-access-browser.delete-browser-policy"
+          with:
+            policy_id: "tools.policy_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        # -- Browser Users ---------------------------------------------------
+        - name: list-browser-users
+          description: "List all browser users with pagination."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: offset
+              type: integer
+              required: false
+            - name: limit
+              type: integer
+              required: false
+          call: "prisma-access-browser.list-browser-users"
+          with:
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-user-sessions
+          description: "Get sessions for a specific user."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: user_id
+              type: string
+              required: true
+          call: "prisma-access-browser.get-user-sessions"
+          with:
+            user_id: "tools.user_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        # -- Deployments -----------------------------------------------------
+        - name: list-browser-deployments
+          description: "List all browser deployments with pagination."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: offset
+              type: integer
+              required: false
+            - name: limit
+              type: integer
+              required: false
+          call: "prisma-access-browser.list-deployments"
+          with:
+            offset: "tools.offset"
+            limit: "tools.limit"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: create-browser-deployment
+          description: "Create a new browser deployment."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: name
+              type: string
+              required: true
+            - name: platform
+              type: string
+              required: true
+            - name: settings
+              type: object
+              required: true
+          call: "prisma-access-browser.create-deployment"
+          with:
+            name: "tools.name"
+            platform: "tools.platform"
+            settings: "tools.settings"
+          outputParameters:
+            - type: object
+              mapping: "$."

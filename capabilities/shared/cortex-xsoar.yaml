@@ -1,0 +1,868 @@
+naftiko: "1.0.0-alpha1"
+
+info:
+  label: "Cortex XSOAR"
+  description: "Provides access to the Palo Alto Networks Cortex XSOAR API for managing incidents, investigations, playbooks, and integrations."
+  tags:
+    - security
+    - soar
+    - incidents
+    - automation
+    - palo-alto-networks
+  created: "2026-04-16"
+  modified: "2026-04-16"
+
+binds:
+  - namespace: env
+    keys:
+      CORTEX_XSOAR_API_KEY: CORTEX_XSOAR_API_KEY
+
+capability:
+  consumes:
+    - type: http
+      namespace: cortex-xsoar-api
+      baseUri: https://{fqdn}
+      description: "Cortex XSOAR API for incident management, investigations, playbooks, and integrations."
+      authentication:
+        type: apikey
+        in: header
+        name: Authorization
+        value: "{{CORTEX_XSOAR_API_KEY}}"
+      resources:
+        - name: incidents
+          path: /incident
+          description: "Manage XSOAR incidents."
+          operations:
+            - name: create-incident
+              method: POST
+              description: "Create a new incident in Cortex XSOAR."
+              inputParameters:
+                - name: name
+                  in: body
+                  type: string
+                  required: true
+                  description: "Name of the incident."
+                - name: type
+                  in: body
+                  type: string
+                  required: true
+                  description: "Type of the incident."
+                - name: severity
+                  in: body
+                  type: integer
+                  required: false
+                  description: "Severity level of the incident."
+                - name: details
+                  in: body
+                  type: string
+                  required: false
+                  description: "Details of the incident."
+              body:
+                type: json
+                data:
+                  name: "{{tools.name}}"
+                  type: "{{tools.type}}"
+                  severity: "{{tools.severity}}"
+                  details: "{{tools.details}}"
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+            - name: get-incident
+              method: GET
+              description: "Retrieve a specific incident by ID."
+              inputParameters:
+                - name: id
+                  in: path
+                  type: string
+                  required: true
+                  description: "The incident ID."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: incidents-search
+          path: /incidents/search
+          description: "Search for incidents."
+          operations:
+            - name: search-incidents
+              method: POST
+              description: "Search incidents with filters."
+              inputParameters:
+                - name: filter
+                  in: body
+                  type: object
+                  required: false
+                  description: "Filter criteria for the search."
+                - name: page
+                  in: body
+                  type: integer
+                  required: false
+                  description: "Page number for pagination."
+                - name: size
+                  in: body
+                  type: integer
+                  required: false
+                  description: "Number of results per page."
+              body:
+                type: json
+                data:
+                  filter: "{{tools.filter}}"
+                  page: "{{tools.page}}"
+                  size: "{{tools.size}}"
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: incident-update
+          path: /incident/update
+          description: "Update an existing incident."
+          operations:
+            - name: update-incident
+              method: POST
+              description: "Update an incident with new data."
+              inputParameters:
+                - name: id
+                  in: body
+                  type: string
+                  required: true
+                  description: "The incident ID to update."
+                - name: update_data
+                  in: body
+                  type: object
+                  required: true
+                  description: "Data to update on the incident."
+              body:
+                type: json
+                data:
+                  id: "{{tools.id}}"
+                  update_data: "{{tools.update_data}}"
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: entries
+          path: /entry
+          description: "Manage investigation entries."
+          operations:
+            - name: add-entry
+              method: POST
+              description: "Add an entry to an investigation."
+              inputParameters:
+                - name: investigationId
+                  in: body
+                  type: string
+                  required: true
+                  description: "The investigation ID to add the entry to."
+                - name: data
+                  in: body
+                  type: string
+                  required: true
+                  description: "The entry data content."
+                - name: markdown
+                  in: body
+                  type: boolean
+                  required: false
+                  description: "Whether the data is markdown formatted."
+              body:
+                type: json
+                data:
+                  investigationId: "{{tools.investigationId}}"
+                  data: "{{tools.data}}"
+                  markdown: "{{tools.markdown}}"
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: investigations
+          path: /investigations
+          description: "Manage investigations."
+          operations:
+            - name: get-investigation
+              method: GET
+              description: "Retrieve a specific investigation by ID."
+              inputParameters:
+                - name: id
+                  in: path
+                  type: string
+                  required: true
+                  description: "The investigation ID."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: investigation-add
+          path: /investigation/add
+          description: "Create new investigations."
+          operations:
+            - name: create-investigation
+              method: POST
+              description: "Create a new investigation."
+              inputParameters:
+                - name: name
+                  in: body
+                  type: string
+                  required: true
+                  description: "Name of the investigation."
+                - name: type
+                  in: body
+                  type: string
+                  required: false
+                  description: "Type of the investigation."
+              body:
+                type: json
+                data:
+                  name: "{{tools.name}}"
+                  type: "{{tools.type}}"
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: playbooks
+          path: /playbook
+          description: "Manage playbooks."
+          operations:
+            - name: list-playbooks
+              method: GET
+              description: "List available playbooks."
+              inputParameters:
+                - name: page
+                  in: query
+                  type: integer
+                  required: false
+                  description: "Page number for pagination."
+                - name: size
+                  in: query
+                  type: integer
+                  required: false
+                  description: "Number of results per page."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: playbook-run
+          path: /playbook/run
+          description: "Run playbooks."
+          operations:
+            - name: run-playbook
+              method: POST
+              description: "Run a playbook on an investigation."
+              inputParameters:
+                - name: playbookId
+                  in: body
+                  type: string
+                  required: true
+                  description: "The playbook ID to run."
+                - name: investigationId
+                  in: body
+                  type: string
+                  required: true
+                  description: "The investigation ID to run the playbook on."
+              body:
+                type: json
+                data:
+                  playbookId: "{{tools.playbookId}}"
+                  investigationId: "{{tools.investigationId}}"
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: integrations
+          path: /integration/search
+          description: "Search integrations."
+          operations:
+            - name: search-integrations
+              method: GET
+              description: "Search for available integrations."
+              inputParameters:
+                - name: query
+                  in: query
+                  type: string
+                  required: false
+                  description: "Search query string."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+        - name: integration-instances
+          path: /settings/integration/search
+          description: "Search integration instances."
+          operations:
+            - name: search-integration-instances
+              method: POST
+              description: "Search for integration instances."
+              inputParameters:
+                - name: filter
+                  in: body
+                  type: object
+                  required: false
+                  description: "Filter criteria for the search."
+              body:
+                type: json
+                data:
+                  filter: "{{tools.filter}}"
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+  exposes:
+    - type: rest
+      port: 8087
+      namespace: cortex-xsoar-rest
+      description: "REST API adapter for Cortex XSOAR operations."
+      resources:
+        - path: /v1/incidents
+          name: incidents
+          description: "Manage XSOAR incidents."
+          operations:
+            - method: POST
+              name: create-incident
+              description: "Create a new incident."
+              inputParameters:
+                - name: name
+                  in: body
+                  type: string
+                  required: true
+                - name: type
+                  in: body
+                  type: string
+                  required: true
+                - name: severity
+                  in: body
+                  type: integer
+                  required: false
+                - name: details
+                  in: body
+                  type: string
+                  required: false
+              call: "cortex-xsoar-api.create-incident"
+              with:
+                name: "rest.name"
+                type: "rest.type"
+                severity: "rest.severity"
+                details: "rest.details"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/incidents/search
+          name: incidents-search
+          description: "Search for incidents."
+          operations:
+            - method: POST
+              name: search-incidents
+              description: "Search incidents with filters."
+              inputParameters:
+                - name: filter
+                  in: body
+                  type: object
+                  required: false
+                - name: page
+                  in: body
+                  type: integer
+                  required: false
+                - name: size
+                  in: body
+                  type: integer
+                  required: false
+              call: "cortex-xsoar-api.search-incidents"
+              with:
+                filter: "rest.filter"
+                page: "rest.page"
+                size: "rest.size"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/incidents/{id}
+          name: incident-detail
+          description: "Get a specific incident."
+          operations:
+            - method: GET
+              name: get-incident
+              description: "Retrieve a specific incident by ID."
+              inputParameters:
+                - name: id
+                  in: path
+                  type: string
+                  required: true
+              call: "cortex-xsoar-api.get-incident"
+              with:
+                id: "rest.id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/incidents/updates
+          name: incident-updates
+          description: "Update an existing incident."
+          operations:
+            - method: POST
+              name: update-incident
+              description: "Update an incident."
+              inputParameters:
+                - name: id
+                  in: body
+                  type: string
+                  required: true
+                - name: update_data
+                  in: body
+                  type: object
+                  required: true
+              call: "cortex-xsoar-api.update-incident"
+              with:
+                id: "rest.id"
+                update_data: "rest.update_data"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/entries
+          name: entries
+          description: "Manage investigation entries."
+          operations:
+            - method: POST
+              name: add-entry
+              description: "Add an entry to an investigation."
+              inputParameters:
+                - name: investigationId
+                  in: body
+                  type: string
+                  required: true
+                - name: data
+                  in: body
+                  type: string
+                  required: true
+                - name: markdown
+                  in: body
+                  type: boolean
+                  required: false
+              call: "cortex-xsoar-api.add-entry"
+              with:
+                investigationId: "rest.investigationId"
+                data: "rest.data"
+                markdown: "rest.markdown"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/investigations/{id}
+          name: investigation-detail
+          description: "Get a specific investigation."
+          operations:
+            - method: GET
+              name: get-investigation
+              description: "Retrieve a specific investigation by ID."
+              inputParameters:
+                - name: id
+                  in: path
+                  type: string
+                  required: true
+              call: "cortex-xsoar-api.get-investigation"
+              with:
+                id: "rest.id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/investigations
+          name: investigations
+          description: "Create investigations."
+          operations:
+            - method: POST
+              name: create-investigation
+              description: "Create a new investigation."
+              inputParameters:
+                - name: name
+                  in: body
+                  type: string
+                  required: true
+                - name: type
+                  in: body
+                  type: string
+                  required: false
+              call: "cortex-xsoar-api.create-investigation"
+              with:
+                name: "rest.name"
+                type: "rest.type"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/playbooks
+          name: playbooks
+          description: "List and manage playbooks."
+          operations:
+            - method: GET
+              name: list-playbooks
+              description: "List available playbooks."
+              inputParameters:
+                - name: page
+                  in: query
+                  type: integer
+                  required: false
+                - name: size
+                  in: query
+                  type: integer
+                  required: false
+              call: "cortex-xsoar-api.list-playbooks"
+              with:
+                page: "rest.page"
+                size: "rest.size"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/playbooks/runs
+          name: playbook-runs
+          description: "Run playbooks."
+          operations:
+            - method: POST
+              name: run-playbook
+              description: "Run a playbook on an investigation."
+              inputParameters:
+                - name: playbookId
+                  in: body
+                  type: string
+                  required: true
+                - name: investigationId
+                  in: body
+                  type: string
+                  required: true
+              call: "cortex-xsoar-api.run-playbook"
+              with:
+                playbookId: "rest.playbookId"
+                investigationId: "rest.investigationId"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/integrations
+          name: integrations
+          description: "Search integrations."
+          operations:
+            - method: GET
+              name: search-integrations
+              description: "Search for available integrations."
+              inputParameters:
+                - name: query
+                  in: query
+                  type: string
+                  required: false
+              call: "cortex-xsoar-api.search-integrations"
+              with:
+                query: "rest.query"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+        - path: /v1/integration-instances
+          name: integration-instances
+          description: "Search integration instances."
+          operations:
+            - method: POST
+              name: search-integration-instances
+              description: "Search for integration instances."
+              inputParameters:
+                - name: filter
+                  in: body
+                  type: object
+                  required: false
+              call: "cortex-xsoar-api.search-integration-instances"
+              with:
+                filter: "rest.filter"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+    - type: mcp
+      port: 9097
+      namespace: cortex-xsoar-mcp
+      transport: http
+      description: "MCP adapter for Cortex XSOAR operations."
+      tools:
+        - name: create-incident
+          description: "Create a new incident in Cortex XSOAR."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: name
+              type: string
+              description: "Name of the incident."
+              required: true
+            - name: type
+              type: string
+              description: "Type of the incident."
+              required: true
+            - name: severity
+              type: integer
+              description: "Severity level of the incident."
+              required: false
+            - name: details
+              type: string
+              description: "Details of the incident."
+              required: false
+          call: "cortex-xsoar-api.create-incident"
+          with:
+            name: "tools.name"
+            type: "tools.type"
+            severity: "tools.severity"
+            details: "tools.details"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: search-incidents
+          description: "Search incidents with filters in Cortex XSOAR."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: filter
+              type: object
+              description: "Filter criteria for the search."
+              required: false
+            - name: page
+              type: integer
+              description: "Page number for pagination."
+              required: false
+            - name: size
+              type: integer
+              description: "Number of results per page."
+              required: false
+          call: "cortex-xsoar-api.search-incidents"
+          with:
+            filter: "tools.filter"
+            page: "tools.page"
+            size: "tools.size"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-incident
+          description: "Retrieve a specific incident by ID from Cortex XSOAR."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              description: "The incident ID."
+              required: true
+          call: "cortex-xsoar-api.get-incident"
+          with:
+            id: "tools.id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: update-incident
+          description: "Update an existing incident in Cortex XSOAR."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              description: "The incident ID to update."
+              required: true
+            - name: update_data
+              type: object
+              description: "Data to update on the incident."
+              required: true
+          call: "cortex-xsoar-api.update-incident"
+          with:
+            id: "tools.id"
+            update_data: "tools.update_data"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: add-entry
+          description: "Add an entry to an investigation in Cortex XSOAR."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: investigationId
+              type: string
+              description: "The investigation ID to add the entry to."
+              required: true
+            - name: data
+              type: string
+              description: "The entry data content."
+              required: true
+            - name: markdown
+              type: boolean
+              description: "Whether the data is markdown formatted."
+              required: false
+          call: "cortex-xsoar-api.add-entry"
+          with:
+            investigationId: "tools.investigationId"
+            data: "tools.data"
+            markdown: "tools.markdown"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: get-investigation
+          description: "Retrieve a specific investigation by ID from Cortex XSOAR."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: id
+              type: string
+              description: "The investigation ID."
+              required: true
+          call: "cortex-xsoar-api.get-investigation"
+          with:
+            id: "tools.id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: create-investigation
+          description: "Create a new investigation in Cortex XSOAR."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: name
+              type: string
+              description: "Name of the investigation."
+              required: true
+            - name: type
+              type: string
+              description: "Type of the investigation."
+              required: false
+          call: "cortex-xsoar-api.create-investigation"
+          with:
+            name: "tools.name"
+            type: "tools.type"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: list-playbooks
+          description: "List available playbooks in Cortex XSOAR."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: page
+              type: integer
+              description: "Page number for pagination."
+              required: false
+            - name: size
+              type: integer
+              description: "Number of results per page."
+              required: false
+          call: "cortex-xsoar-api.list-playbooks"
+          with:
+            page: "tools.page"
+            size: "tools.size"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: run-playbook
+          description: "Run a playbook on an investigation in Cortex XSOAR."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: playbookId
+              type: string
+              description: "The playbook ID to run."
+              required: true
+            - name: investigationId
+              type: string
+              description: "The investigation ID to run the playbook on."
+              required: true
+          call: "cortex-xsoar-api.run-playbook"
+          with:
+            playbookId: "tools.playbookId"
+            investigationId: "tools.investigationId"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: search-integrations
+          description: "Search for available integrations in Cortex XSOAR."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: query
+              type: string
+              description: "Search query string."
+              required: false
+          call: "cortex-xsoar-api.search-integrations"
+          with:
+            query: "tools.query"
+          outputParameters:
+            - type: object
+              mapping: "$."
+
+        - name: search-integration-instances
+          description: "Search for integration instances in Cortex XSOAR."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: filter
+              type: object
+              description: "Filter criteria for the search."
+              required: false
+          call: "cortex-xsoar-api.search-integration-instances"
+          with:
+            filter: "tools.filter"
+          outputParameters:
+            - type: object
+              mapping: "$."

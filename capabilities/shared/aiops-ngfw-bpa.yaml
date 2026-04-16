@@ -1,0 +1,278 @@
+naftiko: "1.0.0-alpha1"
+
+info:
+  label: "AIOps for NGFW BPA"
+  description: "Capability for the Palo Alto Networks AIOps for NGFW Best Practice Assessment (BPA) API, enabling submission and retrieval of BPA requests and reports."
+  tags:
+    - palo-alto-networks
+    - aiops
+    - ngfw
+    - bpa
+    - security
+  created: "2026-04-16"
+  modified: "2026-04-16"
+
+binds:
+  - namespace: env
+    keys:
+      PALO_ALTO_OAUTH_TOKEN: PALO_ALTO_OAUTH_TOKEN
+
+capability:
+  consumes:
+    - type: http
+      namespace: aiops-ngfw-bpa
+      baseUri: https://api.sase.paloaltonetworks.com/aiops/bpa
+      description: "Palo Alto Networks AIOps for NGFW BPA API for submitting and retrieving best practice assessment requests and reports."
+      authentication:
+        type: bearer
+        token: "{{PALO_ALTO_OAUTH_TOKEN}}"
+      resources:
+        - name: requests
+          path: /requests
+          description: "BPA request operations."
+          operations:
+            - name: submit-bpa-request
+              method: POST
+              description: "Submit a BPA request."
+              inputParameters:
+                - name: device_serial
+                  in: body
+                  type: string
+                  required: true
+                  description: "The serial number of the device to assess."
+                - name: config_type
+                  in: body
+                  type: string
+                  required: true
+                  description: "The configuration type for the BPA request."
+              outputRawFormat: json
+              outputParameters:
+                - name: request_id
+                  type: string
+                  value: "$.request_id"
+                - name: status
+                  type: string
+                  value: "$.status"
+              body:
+                type: json
+                data:
+                  device_serial: "{{tools.device_serial}}"
+                  config_type: "{{tools.config_type}}"
+            - name: get-bpa-request-status
+              method: GET
+              description: "Check the status of a BPA request."
+              inputParameters:
+                - name: request_id
+                  in: path
+                  type: string
+                  required: true
+                  description: "The ID of the BPA request."
+              outputRawFormat: json
+              outputParameters:
+                - name: request_id
+                  type: string
+                  value: "$.request_id"
+                - name: status
+                  type: string
+                  value: "$.status"
+        - name: reports
+          path: /reports
+          description: "BPA report operations."
+          operations:
+            - name: get-bpa-report
+              method: GET
+              description: "Get a BPA report."
+              inputParameters:
+                - name: report_id
+                  in: path
+                  type: string
+                  required: true
+                  description: "The ID of the BPA report."
+              outputRawFormat: json
+              outputParameters:
+                - name: report
+                  type: object
+                  value: "$."
+            - name: get-bpa-report-checks
+              method: GET
+              description: "Get BPA report check details."
+              inputParameters:
+                - name: report_id
+                  in: path
+                  type: string
+                  required: true
+                  description: "The ID of the BPA report."
+              outputRawFormat: json
+              outputParameters:
+                - name: checks
+                  type: array
+                  value: "$.checks"
+
+  exposes:
+    - type: rest
+      port: 8081
+      namespace: aiops-ngfw-bpa-rest
+      description: "REST adapter for the AIOps for NGFW BPA API."
+      resources:
+        - path: /v1/bpa-requests
+          name: bpa-requests
+          description: "BPA request operations."
+          operations:
+            - method: POST
+              name: submit-bpa-request
+              description: "Submit a BPA request."
+              inputParameters:
+                - name: device_serial
+                  in: body
+                  type: string
+                  required: true
+                  description: "The serial number of the device to assess."
+                - name: config_type
+                  in: body
+                  type: string
+                  required: true
+                  description: "The configuration type for the BPA request."
+              call: "aiops-ngfw-bpa.submit-bpa-request"
+              with:
+                device_serial: "rest.device_serial"
+                config_type: "rest.config_type"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: GET
+              name: get-bpa-request-status
+              description: "Check the status of a BPA request."
+              inputParameters:
+                - name: request_id
+                  in: path
+                  type: string
+                  required: true
+                  description: "The ID of the BPA request."
+              call: "aiops-ngfw-bpa.get-bpa-request-status"
+              with:
+                request_id: "rest.request_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/bpa-reports
+          name: bpa-reports
+          description: "BPA report operations."
+          operations:
+            - method: GET
+              name: get-bpa-report
+              description: "Get a BPA report."
+              inputParameters:
+                - name: report_id
+                  in: path
+                  type: string
+                  required: true
+                  description: "The ID of the BPA report."
+              call: "aiops-ngfw-bpa.get-bpa-report"
+              with:
+                report_id: "rest.report_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/bpa-reports/{report_id}/checks
+          name: bpa-report-checks
+          description: "BPA report check details."
+          operations:
+            - method: GET
+              name: get-bpa-report-checks
+              description: "Get BPA report check details."
+              inputParameters:
+                - name: report_id
+                  in: path
+                  type: string
+                  required: true
+                  description: "The ID of the BPA report."
+              call: "aiops-ngfw-bpa.get-bpa-report-checks"
+              with:
+                report_id: "rest.report_id"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+    - type: mcp
+      port: 9091
+      namespace: aiops-ngfw-bpa-mcp
+      transport: http
+      description: "MCP adapter for the AIOps for NGFW BPA API."
+      tools:
+        - name: submit-bpa-request
+          description: "Submit a BPA request for a device."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: device_serial
+              type: string
+              description: "The serial number of the device to assess."
+              required: true
+            - name: config_type
+              type: string
+              description: "The configuration type for the BPA request."
+              required: true
+          call: "aiops-ngfw-bpa.submit-bpa-request"
+          with:
+            device_serial: "tools.device_serial"
+            config_type: "tools.config_type"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-bpa-request-status
+          description: "Check the status of a BPA request."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: request_id
+              type: string
+              description: "The ID of the BPA request."
+              required: true
+          call: "aiops-ngfw-bpa.get-bpa-request-status"
+          with:
+            request_id: "tools.request_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-bpa-report
+          description: "Get a BPA report."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: report_id
+              type: string
+              description: "The ID of the BPA report."
+              required: true
+          call: "aiops-ngfw-bpa.get-bpa-report"
+          with:
+            report_id: "tools.report_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-bpa-report-checks
+          description: "Get BPA report check details."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: report_id
+              type: string
+              description: "The ID of the BPA report."
+              required: true
+          call: "aiops-ngfw-bpa.get-bpa-report-checks"
+          with:
+            report_id: "tools.report_id"
+          outputParameters:
+            - type: array
+              mapping: "$."

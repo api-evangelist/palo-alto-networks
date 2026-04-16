@@ -1,0 +1,296 @@
+naftiko: "1.0.0-alpha1"
+
+info:
+  label: "Prisma Access Insights"
+  description: "Queries and exports Prisma Access Insights data resources with custom filtering and time ranges."
+  tags:
+    - insights
+    - analytics
+    - sase
+    - palo-alto
+  created: "2026-04-16"
+  modified: "2026-04-16"
+
+binds:
+  - namespace: env
+    keys:
+      PALO_ALTO_OAUTH_TOKEN: PALO_ALTO_OAUTH_TOKEN
+
+capability:
+  consumes:
+    - type: http
+      namespace: prisma-access-insights
+      baseUri: https://api.sase.paloaltonetworks.com
+      description: "Prisma Access Insights API for querying, custom querying, and exporting data resources."
+      authentication:
+        type: bearer
+        token: "{{env.PALO_ALTO_OAUTH_TOKEN}}"
+      resources:
+        - name: resource-query
+          path: /insights/v3.0/resource/query/{resource_name}
+          operations:
+            - name: query-data-resource
+              method: POST
+              description: "Query a specific data resource with filters and time range."
+              inputParameters:
+                - name: resource_name
+                  in: path
+                  type: string
+                  required: true
+                - name: filter
+                  in: body
+                  type: object
+                  required: false
+                - name: time_range
+                  in: body
+                  type: object
+                  required: true
+                - name: count
+                  in: body
+                  type: integer
+                  required: false
+                - name: properties
+                  in: body
+                  type: object
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  filter: "{{tools.filter}}"
+                  time_range: "{{tools.time_range}}"
+                  count: "{{tools.count}}"
+                  properties: "{{tools.properties}}"
+        - name: custom-query
+          path: /insights/v3.0/resource/custom-query
+          operations:
+            - name: execute-custom-query
+              method: POST
+              description: "Execute a custom query against insights data."
+              inputParameters:
+                - name: query
+                  in: body
+                  type: string
+                  required: true
+                - name: time_range
+                  in: body
+                  type: object
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  query: "{{tools.query}}"
+                  time_range: "{{tools.time_range}}"
+        - name: resource-export
+          path: /insights/v3.0/resource/export/{resource_name}
+          operations:
+            - name: export-data-resource
+              method: POST
+              description: "Export a specific data resource with filters and time range."
+              inputParameters:
+                - name: resource_name
+                  in: path
+                  type: string
+                  required: true
+                - name: filter
+                  in: body
+                  type: object
+                  required: false
+                - name: time_range
+                  in: body
+                  type: object
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  filter: "{{tools.filter}}"
+                  time_range: "{{tools.time_range}}"
+        - name: export-job-status
+          path: /insights/v3.0/resource/export/{job_id}/status
+          operations:
+            - name: get-export-job-status
+              method: GET
+              description: "Get the status of an export job."
+              inputParameters:
+                - name: job_id
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+  exposes:
+    - type: rest
+      port: 8095
+      namespace: prisma-access-insights-rest
+      resources:
+        - path: /v1/resource-queries/{resource_name}
+          name: resource-query
+          operations:
+            - method: POST
+              name: query-data-resource
+              call: "prisma-access-insights.query-data-resource"
+              with:
+                resource_name: "rest.resource_name"
+                filter: "rest.filter"
+                time_range: "rest.time_range"
+                count: "rest.count"
+                properties: "rest.properties"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/custom-queries
+          name: custom-query
+          operations:
+            - method: POST
+              name: execute-custom-query
+              call: "prisma-access-insights.execute-custom-query"
+              with:
+                query: "rest.query"
+                time_range: "rest.time_range"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/resource-exports/{resource_name}
+          name: resource-export
+          operations:
+            - method: POST
+              name: export-data-resource
+              call: "prisma-access-insights.export-data-resource"
+              with:
+                resource_name: "rest.resource_name"
+                filter: "rest.filter"
+                time_range: "rest.time_range"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/export-jobs/{job_id}/status
+          name: export-job-status
+          operations:
+            - method: GET
+              name: get-export-job-status
+              call: "prisma-access-insights.get-export-job-status"
+              with:
+                job_id: "rest.job_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+    - type: mcp
+      port: 9105
+      namespace: prisma-access-insights-mcp
+      transport: http
+      tools:
+        - name: query-data-resource
+          description: "Query a specific data resource with filters and time range."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: resource_name
+              type: string
+              required: true
+            - name: filter
+              type: object
+              required: false
+            - name: time_range
+              type: object
+              required: true
+            - name: count
+              type: integer
+              required: false
+            - name: properties
+              type: object
+              required: false
+          call: "prisma-access-insights.query-data-resource"
+          with:
+            resource_name: "tools.resource_name"
+            filter: "tools.filter"
+            time_range: "tools.time_range"
+            count: "tools.count"
+            properties: "tools.properties"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: execute-custom-query
+          description: "Execute a custom query against insights data."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: query
+              type: string
+              required: true
+            - name: time_range
+              type: object
+              required: true
+          call: "prisma-access-insights.execute-custom-query"
+          with:
+            query: "tools.query"
+            time_range: "tools.time_range"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: export-data-resource
+          description: "Export a specific data resource with filters and time range."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: resource_name
+              type: string
+              required: true
+            - name: filter
+              type: object
+              required: false
+            - name: time_range
+              type: object
+              required: true
+          call: "prisma-access-insights.export-data-resource"
+          with:
+            resource_name: "tools.resource_name"
+            filter: "tools.filter"
+            time_range: "tools.time_range"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-export-job-status
+          description: "Get the status of an export job."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: job_id
+              type: string
+              required: true
+          call: "prisma-access-insights.get-export-job-status"
+          with:
+            job_id: "tools.job_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
