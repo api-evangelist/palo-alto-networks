@@ -1,0 +1,225 @@
+naftiko: "1.0.0-alpha1"
+
+info:
+  label: "Cloud Identity Engine"
+  description: "Query the CIE Directory Sync Service for real-time user, group, and domain information from connected directories."
+  tags:
+    - "Identity"
+    - "Cloud Identity"
+    - "Directory Sync"
+    - "Active Directory"
+  created: "2026-04-17"
+  modified: "2026-04-17"
+
+binds:
+  - namespace: env
+    keys:
+      PALO_ALTO_SASE_ACCESS_TOKEN: PALO_ALTO_SASE_ACCESS_TOKEN
+
+capability:
+  consumes:
+    - type: http
+      namespace: cloud-identity-engine
+      baseUri: https://api.strata.paloaltonetworks.com
+      authentication:
+        type: bearer
+        token: "{{env.PALO_ALTO_SASE_ACCESS_TOKEN}}"
+      resources:
+        - name: domains
+          path: /cie/directory-sync/v1/domains
+          operations:
+            - name: get-domain-details
+              method: GET
+              description: "Retrieve a list of all domains configured for a CIE tenant within the Directory Sync Service."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+        - name: cache-users
+          path: /cie/directory-sync/v1/cache-users
+          operations:
+            - name: query-users
+              method: POST
+              description: "Query user information for a domain including listing all users, filtering by attributes, listing users in groups, and checking group membership."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  domain: "{{tools.domain}}"
+                  attrs: "{{tools.attrs}}"
+                  useNormalizedAttrs: "{{tools.useNormalizedAttrs}}"
+                  name: "{{tools.name}}"
+                  filter: "{{tools.filter}}"
+                  pageNum: "{{tools.pageNum}}"
+                  pageSz: "{{tools.pageSz}}"
+        - name: cache-groups
+          path: /cie/directory-sync/v1/cache-groups
+          operations:
+            - name: query-groups
+              method: POST
+              description: "Query group information for a domain including listing all groups, filtering by attributes, listing groups a user belongs to, and checking user membership."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  domain: "{{tools.domain}}"
+                  attrs: "{{tools.attrs}}"
+                  useNormalizedAttrs: "{{tools.useNormalizedAttrs}}"
+                  name: "{{tools.name}}"
+                  filter: "{{tools.filter}}"
+                  pageNum: "{{tools.pageNum}}"
+                  pageSz: "{{tools.pageSz}}"
+
+  exposes:
+    - type: rest
+      port: 8139
+      namespace: cloud-identity-engine-rest
+      resources:
+        - path: /v1/domains
+          operations:
+            - method: GET
+              name: get-domain-details
+              call: "cloud-identity-engine.get-domain-details"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/cache-users
+          operations:
+            - method: POST
+              name: query-users
+              call: "cloud-identity-engine.query-users"
+              with:
+                domain: "rest.domain"
+                attrs: "rest.attrs"
+                useNormalizedAttrs: "rest.useNormalizedAttrs"
+                name: "rest.name"
+                filter: "rest.filter"
+                pageNum: "rest.pageNum"
+                pageSz: "rest.pageSz"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/cache-groups
+          operations:
+            - method: POST
+              name: query-groups
+              call: "cloud-identity-engine.query-groups"
+              with:
+                domain: "rest.domain"
+                attrs: "rest.attrs"
+                useNormalizedAttrs: "rest.useNormalizedAttrs"
+                name: "rest.name"
+                filter: "rest.filter"
+                pageNum: "rest.pageNum"
+                pageSz: "rest.pageSz"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+    - type: mcp
+      port: 9139
+      namespace: cloud-identity-engine-mcp
+      transport: http
+      tools:
+        - name: get-domain-details
+          description: "Retrieve a list of all domains configured for a CIE tenant within the Directory Sync Service."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          call: "cloud-identity-engine.get-domain-details"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: query-users
+          description: "Query user information for a domain including listing all users, filtering by attributes, listing users in groups, and checking group membership."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: domain
+              type: string
+              required: true
+            - name: attrs
+              type: array
+              required: false
+            - name: useNormalizedAttrs
+              type: string
+              required: false
+            - name: name
+              type: object
+              required: false
+            - name: filter
+              type: object
+              required: false
+            - name: pageNum
+              type: integer
+              required: false
+            - name: pageSz
+              type: integer
+              required: false
+          call: "cloud-identity-engine.query-users"
+          with:
+            domain: "tools.domain"
+            attrs: "tools.attrs"
+            useNormalizedAttrs: "tools.useNormalizedAttrs"
+            name: "tools.name"
+            filter: "tools.filter"
+            pageNum: "tools.pageNum"
+            pageSz: "tools.pageSz"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: query-groups
+          description: "Query group information for a domain including listing all groups, filtering by attributes, listing groups a user belongs to, and checking user membership."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: domain
+              type: string
+              required: true
+            - name: attrs
+              type: array
+              required: false
+            - name: useNormalizedAttrs
+              type: string
+              required: false
+            - name: name
+              type: object
+              required: false
+            - name: filter
+              type: object
+              required: false
+            - name: pageNum
+              type: integer
+              required: false
+            - name: pageSz
+              type: integer
+              required: false
+          call: "cloud-identity-engine.query-groups"
+          with:
+            domain: "tools.domain"
+            attrs: "tools.attrs"
+            useNormalizedAttrs: "tools.useNormalizedAttrs"
+            name: "tools.name"
+            filter: "tools.filter"
+            pageNum: "tools.pageNum"
+            pageSz: "tools.pageSz"
+          outputParameters:
+            - type: object
+              mapping: "$."

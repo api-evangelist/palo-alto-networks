@@ -3,6 +3,8 @@ Palo Alto Networks is a global cybersecurity leader providing advanced security 
 
 **URL:** [Visit APIs.json URL](https://raw.githubusercontent.com/api-evangelist/palo-alto-networks/refs/heads/main/apis.yml)
 
+**Run:** [Capabilities Using Naftiko](https://github.com/naftiko/fleet?utm_source=api-evangelist&utm_medium=readme&utm_campaign=company-api-evangelist&utm_content=repo)
+
 ## Scope
 
 - **Type:** Contract
@@ -16,7 +18,7 @@ Palo Alto Networks is a global cybersecurity leader providing advanced security 
 ## Timestamps
 
 - **Created:** 2024-01-01
-- **Modified:** 2026-03-12
+- **Modified:** 2026-04-17
 
 ## APIs
 
@@ -878,6 +880,76 @@ A REST API for querying the health and performance of Prisma Access network depl
 - [Documentation](https://pan.dev/swfw/)
 - [IntegrationsApplication](https://splunkbase.splunk.com/app/2757)
 - [Partner](https://www.paloaltonetworks.com/partners)
+- [Prisma SASE Python SDK](https://github.com/PaloAltoNetworks/prisma-sase-sdk-python)
+- [Cortex Cloud Go SDK](https://github.com/PaloAltoNetworks/cortex-cloud-go)
+- [Cloud NGFW AWS Go SDK](https://github.com/PaloAltoNetworks/cloud-ngfw-aws-go)
+- [Cortex CLI](https://github.com/PaloAltoNetworks/homebrew-cortexcli)
+- [PAN-OS Upgrade Assurance CLI](https://github.com/PaloAltoNetworks/upgrade-assurance-cli)
+- [Terraform PAN-OS Provider](https://registry.terraform.io/providers/PaloAltoNetworks/panos/latest)
+- [Terraform SCM Provider](https://registry.terraform.io/providers/PaloAltoNetworks/scm/latest)
+- [Terraform Cortex Cloud Provider](https://registry.terraform.io/providers/PaloAltoNetworks/cortexcloud/latest)
+- [Terraform Prisma SD-WAN Provider](https://registry.terraform.io/providers/PaloAltoNetworks/prismasdwan/latest)
+- [PAN-OS Upgrade Assurance](https://github.com/PaloAltoNetworks/pan-os-upgrade-assurance)
+- [Prisma Cloud Scan GitHub Action](https://github.com/PaloAltoNetworks/prisma-cloud-scan)
+- [COBRA Tool](https://github.com/PaloAltoNetworks/cobra-tool)
+
+## Features
+
+| Name | Description |
+|------|-------------|
+| Zero Trust Network Security | Next-generation firewall policies with application, user, and content awareness for enforcing zero trust across on-premises and cloud environments. |
+| AI-Powered Threat Prevention | Machine learning and deep learning models that detect and prevent known and unknown threats in real time across network traffic, files, and URLs. |
+| Cloud-Native Application Protection | Full lifecycle cloud security spanning code, build, deploy, and runtime with CSPM, CWPP, code security, and data security posture management. |
+| Security Orchestration and Automation | Automated incident response with playbooks, integrations, and case management through Cortex XSOAR and XSIAM platforms. |
+| Extended Detection and Response | Cross-data-source threat detection correlating endpoint, network, cloud, and identity data through Cortex XDR for unified security operations. |
+| AI Runtime Security | Real-time scanning of AI application prompts and responses for prompt injection, data leakage, toxic content, and other AI-specific threats. |
+| Secure Access Service Edge | Cloud-delivered security and networking combining Prisma Access, SD-WAN, ZTNA, and cloud SWG for secure access from any location. |
+| Attack Surface Management | Continuous discovery and monitoring of internet-facing assets and exposures through Cortex Xpanse for external attack surface visibility. |
+| Infrastructure as Code Security | Automated security scanning of Terraform, CloudFormation, Kubernetes, and other IaC templates for misconfigurations before deployment. |
+| Digital Experience Monitoring | End-to-end visibility into application performance and user experience across SASE connections with Autonomous DEM. |
+| Threat Intelligence | Comprehensive threat intelligence through Threat Vault, WildFire malware analysis, DNS Security, and Unit 42 research for proactive defense. |
+| Multi-Tenant Management | Hierarchical tenant management with delegated administration, aggregate monitoring, and shared policy for MSSPs and large enterprises. |
+
+## Use Cases
+
+| Name | Description |
+|------|-------------|
+| SOC Automation | Automate alert triage, incident investigation, and response actions using Cortex XDR, XSOAR playbooks, and XSIAM correlation rules. |
+| Firewall Policy Management | Programmatically manage security policies, address objects, and NAT rules across PAN-OS firewalls and Panorama using REST or XML APIs. |
+| Cloud Security Posture | Monitor and remediate cloud misconfigurations, compliance violations, and vulnerabilities across AWS, Azure, and GCP using Prisma Cloud APIs. |
+| Threat Hunting | Query threat intelligence databases, submit suspicious files for analysis, and correlate IOCs across Threat Vault, WildFire, and DNS Security. |
+| SASE Deployment Automation | Automate Prisma Access remote network onboarding, SD-WAN site configuration, and ZTNA connector deployment using SASE platform APIs. |
+| DevSecOps Pipeline Integration | Embed security scanning into CI/CD pipelines with Prisma Cloud code security APIs for IaC scanning, SCA, and secrets detection. |
+| AI Application Security | Integrate Prisma AIRS API Intercept into AI application code to scan LLM prompts and responses for security threats in real time. |
+| Compliance Monitoring | Continuously assess cloud infrastructure against CIS benchmarks, PCI DSS, HIPAA, SOC 2, and custom compliance standards using Prisma Cloud. |
+| Log Forwarding and SIEM Integration | Forward security logs from firewalls and cloud services to Splunk, QRadar, and other SIEMs using Strata Logging Service APIs. |
+| Multi-Tenant Security Operations | Manage security across tenant hierarchies with aggregate monitoring, shared notifications, and delegated administration for MSSPs. |
+
+## Integrations
+
+| Name | Description |
+|------|-------------|
+| Splunk | Splunk App and Add-on for ingesting PAN-OS, Prisma Cloud, and Cortex logs with pre-built dashboards, reports, and data models. |
+| Terraform | Official Terraform providers for PAN-OS, Strata Cloud Manager, Prisma Cloud, Cloud NGFW, and Prisma Cloud Compute for infrastructure as code. |
+| Ansible | Official Ansible collection with 60+ modules for PAN-OS firewall and Panorama configuration automation. |
+| AWS | Cloud NGFW for AWS, VM-Series on AWS, Prisma Cloud AWS account onboarding, and CloudFormation template support. |
+| Azure | Cloud NGFW for Azure, VM-Series on Azure, Prisma Cloud Azure subscription onboarding, and Azure AD integration. |
+| Google Cloud | VM-Series on GCP, Prisma Cloud GCP project onboarding, and Google Workspace integration with Cloud Identity Engine. |
+| ServiceNow | Cortex XSOAR integration for bi-directional ticket synchronization and automated incident response workflows. |
+| Slack | Cortex XSOAR Slack integration for alert notifications, war room collaboration, and ChatOps-driven security operations. |
+| Active Directory | Cloud Identity Engine directory sync with on-premises Active Directory for user-to-IP mapping and identity-aware firewall policies. |
+| Okta | Cloud Identity Engine integration with Okta for SSO user context and identity-aware security policy enforcement. |
+
+## Solutions
+
+| Name | Description |
+|------|-------------|
+| Strata Network Security Platform | Next-generation firewall platform including PAN-OS hardware and software firewalls, Panorama management, and Strata Cloud Manager. |
+| Prisma Cloud | Cloud-native application protection platform with CSPM, CWPP, code security, DSPM, and CIEM for multi-cloud environments. |
+| Prisma SASE | Secure access service edge platform combining Prisma Access, SD-WAN, ZTNA, Autonomous DEM, and cloud SWG. |
+| Cortex SecOps | Security operations platform with Cortex XDR for detection and response, XSOAR for automation, and XSIAM for AI-driven SOC. |
+| Prisma AIRS | AI runtime security platform for securing generative AI applications with API Intercept scanning and AI Red Teaming. |
+| Unit 42 Threat Intelligence | Threat research and intelligence services including Threat Vault, WildFire malware analysis, DNS Security, and security advisory feeds. |
 
 ## Spectral Rules
 

@@ -1,0 +1,1160 @@
+naftiko: "1.0.0-alpha1"
+
+info:
+  label: "SASE Multi-Tenant Interconnect"
+  description: "Manage Service Provider Interconnects, VLAN attachments, IP address pools, physical connections, and egress settings for multi-tenant environments."
+  tags:
+    - "SASE"
+    - "Multi Tenant"
+    - "Interconnect"
+    - "Service Provider"
+  created: "2026-04-17"
+  modified: "2026-04-17"
+
+binds:
+  - namespace: env
+    keys:
+      PALO_ALTO_SASE_ACCESS_TOKEN: PALO_ALTO_SASE_ACCESS_TOKEN
+
+capability:
+  consumes:
+    - type: http
+      namespace: sase-multitenant-interconnect
+      baseUri: https://api.sase.paloaltonetworks.com
+      authentication:
+        type: bearer
+        token: "{{env.PALO_ALTO_SASE_ACCESS_TOKEN}}"
+      resources:
+        - name: interconnects
+          path: /mt/sp-interconnect/interconnects
+          operations:
+            - name: list-interconnects
+              method: GET
+              description: "Retrieve all Service Provider Interconnects in the multi-tenant environment."
+              inputParameters:
+                - name: includeDefaultInterconnect
+                  in: query
+                  type: boolean
+                  required: false
+                - name: includeTenantsAssociated
+                  in: query
+                  type: boolean
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: create-interconnect
+              method: POST
+              description: "Provision a new Interconnect resource as a logical container for virtual connectivity."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  name: "{{tools.name}}"
+                  region: "{{tools.region}}"
+                  partnerName: "{{tools.partnerName}}"
+                  partnerEmail: "{{tools.partnerEmail}}"
+                  usage: "{{tools.usage}}"
+                  cloudProvider: "{{tools.cloudProvider}}"
+                  type: "{{tools.type}}"
+                  tsgId: "{{tools.tsgId}}"
+                  vlanAttachment: "{{tools.vlanAttachment}}"
+            - name: get-interconnect
+              method: GET
+              description: "Retrieve a specific Interconnect by ID."
+              path: /{interconnectId}
+              inputParameters:
+                - name: interconnectId
+                  in: path
+                  type: string
+                  required: true
+                - name: includeTenantsAssociated
+                  in: query
+                  type: boolean
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: delete-interconnect
+              method: DELETE
+              description: "Permanently remove an Interconnect and its configuration."
+              path: /{interconnectId}
+              inputParameters:
+                - name: interconnectId
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+        - name: interconnect-summary
+          path: /mt/sp-interconnect/interconnects/summary
+          operations:
+            - name: get-interconnect-summary
+              method: GET
+              description: "View a high-level statistical snapshot of the Interconnect ecosystem."
+              inputParameters:
+                - name: usage
+                  in: query
+                  type: string
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+        - name: physical-connections
+          path: /mt/sp-interconnect/interconnects/physical-connections
+          operations:
+            - name: list-physical-connections
+              method: GET
+              description: "Retrieve technical data regarding underlying hardware links."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: create-physical-connection
+              method: POST
+              description: "Provision a physical link at a specific colocation facility."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  physicalConnectionName: "{{tools.physicalConnectionName}}"
+                  linkType: "{{tools.linkType}}"
+                  requestedLinkCount: "{{tools.requestedLinkCount}}"
+                  coloFacilities: "{{tools.coloFacilities}}"
+                  macSecEnabled: "{{tools.macSecEnabled}}"
+                  partnerName: "{{tools.partnerName}}"
+                  partnerEmail: "{{tools.partnerEmail}}"
+            - name: get-physical-connection
+              method: GET
+              description: "View detailed technical specification of a single physical link."
+              path: /{physicalConnectionId}
+              inputParameters:
+                - name: physicalConnectionId
+                  in: path
+                  type: string
+                  required: true
+                - name: includeDetails
+                  in: query
+                  type: boolean
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: delete-physical-connection
+              method: DELETE
+              description: "Decommission a specific physical link."
+              path: /{physicalConnectionId}
+              inputParameters:
+                - name: physicalConnectionId
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+        - name: ip-pool
+          path: /mt/sp-interconnect/interconnects/{interconnectId}/ip-pool
+          operations:
+            - name: get-ip-pool
+              method: GET
+              description: "View the current IP address pool assigned to an Interconnect."
+              inputParameters:
+                - name: interconnectId
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: create-ip-pool
+              method: POST
+              description: "Provision and attach a new IP address pool to an Interconnect."
+              inputParameters:
+                - name: interconnectId
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  ipProvider: "{{tools.ipProvider}}"
+                  ipBlocks: "{{tools.ipBlocks}}"
+            - name: update-ip-pool
+              method: PUT
+              description: "Update IP address pool configuration."
+              inputParameters:
+                - name: interconnectId
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  ipProvider: "{{tools.ipProvider}}"
+                  ipBlocks: "{{tools.ipBlocks}}"
+            - name: delete-ip-pool
+              method: DELETE
+              description: "Remove all IP block associations from the specified Interconnect."
+              inputParameters:
+                - name: interconnectId
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+        - name: vlan-attachments
+          path: /mt/sp-interconnect/interconnects/{interconnectId}/vlan-attachments
+          operations:
+            - name: list-vlan-attachments
+              method: GET
+              description: "Retrieve all virtual circuits within a specific Interconnect."
+              inputParameters:
+                - name: interconnectId
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: create-vlan-attachment
+              method: POST
+              description: "Create a new VLAN attachment within an Interconnect."
+              inputParameters:
+                - name: interconnectId
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  name: "{{tools.name}}"
+                  bgpPeerAsn: "{{tools.bgpPeerAsn}}"
+                  bgpPeerBfdSessionInitMode: "{{tools.bgpPeerBfdSessionInitMode}}"
+                  stackType: "{{tools.stackType}}"
+                  bgpPeerMd5AuthEnabled: "{{tools.bgpPeerMd5AuthEnabled}}"
+                  bandwidth: "{{tools.bandwidth}}"
+            - name: get-vlan-attachment
+              method: GET
+              description: "View the full technical specification of a single VLAN attachment."
+              path: /{vlanAttachmentId}
+              inputParameters:
+                - name: interconnectId
+                  in: path
+                  type: string
+                  required: true
+                - name: vlanAttachmentId
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: delete-vlan-attachment
+              method: DELETE
+              description: "Permanently remove a VLAN attachment from an Interconnect."
+              path: /{vlanAttachmentId}
+              inputParameters:
+                - name: interconnectId
+                  in: path
+                  type: string
+                  required: true
+                - name: vlanAttachmentId
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: accept-aws-attachment
+              method: POST
+              description: "Accept a pending AWS Direct Connect attachment."
+              path: /{vlanAttachmentId}/accept
+              inputParameters:
+                - name: interconnectId
+                  in: path
+                  type: string
+                  required: true
+                - name: vlanAttachmentId
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: get-vlan-attachment-logs
+              method: GET
+              description: "Get GCP CloudRouter logs for a VLAN attachment."
+              path: /{vlanAttachmentId}/logs
+              inputParameters:
+                - name: interconnectId
+                  in: path
+                  type: string
+                  required: true
+                - name: vlanAttachmentId
+                  in: path
+                  type: string
+                  required: true
+                - name: duration
+                  in: query
+                  type: string
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+        - name: regions
+          path: /mt/sp-interconnect/regions
+          operations:
+            - name: list-regions
+              method: GET
+              description: "Fetch the list of all regions and edge locations supported by SP Interconnect."
+              inputParameters:
+                - name: cloudProvider
+                  in: query
+                  type: string
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+        - name: physical-connection-regions
+          path: /mt/sp-interconnect/regions/physical-connections
+          operations:
+            - name: list-physical-connection-regions
+              method: GET
+              description: "Retrieve regions and colocation facilities for physical interconnect deployments."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+        - name: settings
+          path: /mt/sp-interconnect/settings
+          operations:
+            - name: get-egress-settings
+              method: GET
+              description: "View the current egress and routing configuration for the tenant."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: configure-egress-settings
+              method: POST
+              description: "Apply traffic routing preferences and egress behavior for a TSG."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  egressType: "{{tools.egressType}}"
+                  cidr: "{{tools.cidr}}"
+
+  exposes:
+    - type: rest
+      port: 8137
+      namespace: sase-multitenant-interconnect-rest
+      resources:
+        - path: /v1/interconnects
+          operations:
+            - method: GET
+              name: list-interconnects
+              call: "sase-multitenant-interconnect.list-interconnects"
+              with:
+                includeDefaultInterconnect: "rest.includeDefaultInterconnect"
+                includeTenantsAssociated: "rest.includeTenantsAssociated"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+            - method: POST
+              name: create-interconnect
+              call: "sase-multitenant-interconnect.create-interconnect"
+              with:
+                name: "rest.name"
+                region: "rest.region"
+                partnerName: "rest.partnerName"
+                partnerEmail: "rest.partnerEmail"
+                usage: "rest.usage"
+                cloudProvider: "rest.cloudProvider"
+                type: "rest.type"
+                tsgId: "rest.tsgId"
+                vlanAttachment: "rest.vlanAttachment"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/interconnects/{interconnectId}
+          operations:
+            - method: GET
+              name: get-interconnect
+              call: "sase-multitenant-interconnect.get-interconnect"
+              with:
+                interconnectId: "rest.interconnectId"
+                includeTenantsAssociated: "rest.includeTenantsAssociated"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: DELETE
+              name: delete-interconnect
+              call: "sase-multitenant-interconnect.delete-interconnect"
+              with:
+                interconnectId: "rest.interconnectId"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/interconnects/summary
+          operations:
+            - method: GET
+              name: get-interconnect-summary
+              call: "sase-multitenant-interconnect.get-interconnect-summary"
+              with:
+                usage: "rest.usage"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/interconnects/physical-connections
+          operations:
+            - method: GET
+              name: list-physical-connections
+              call: "sase-multitenant-interconnect.list-physical-connections"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+            - method: POST
+              name: create-physical-connection
+              call: "sase-multitenant-interconnect.create-physical-connection"
+              with:
+                physicalConnectionName: "rest.physicalConnectionName"
+                linkType: "rest.linkType"
+                requestedLinkCount: "rest.requestedLinkCount"
+                coloFacilities: "rest.coloFacilities"
+                macSecEnabled: "rest.macSecEnabled"
+                partnerName: "rest.partnerName"
+                partnerEmail: "rest.partnerEmail"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/interconnects/physical-connections/{physicalConnectionId}
+          operations:
+            - method: GET
+              name: get-physical-connection
+              call: "sase-multitenant-interconnect.get-physical-connection"
+              with:
+                physicalConnectionId: "rest.physicalConnectionId"
+                includeDetails: "rest.includeDetails"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: DELETE
+              name: delete-physical-connection
+              call: "sase-multitenant-interconnect.delete-physical-connection"
+              with:
+                physicalConnectionId: "rest.physicalConnectionId"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/interconnects/{interconnectId}/ip-pool
+          operations:
+            - method: GET
+              name: get-ip-pool
+              call: "sase-multitenant-interconnect.get-ip-pool"
+              with:
+                interconnectId: "rest.interconnectId"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: POST
+              name: create-ip-pool
+              call: "sase-multitenant-interconnect.create-ip-pool"
+              with:
+                interconnectId: "rest.interconnectId"
+                ipProvider: "rest.ipProvider"
+                ipBlocks: "rest.ipBlocks"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: PUT
+              name: update-ip-pool
+              call: "sase-multitenant-interconnect.update-ip-pool"
+              with:
+                interconnectId: "rest.interconnectId"
+                ipProvider: "rest.ipProvider"
+                ipBlocks: "rest.ipBlocks"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: DELETE
+              name: delete-ip-pool
+              call: "sase-multitenant-interconnect.delete-ip-pool"
+              with:
+                interconnectId: "rest.interconnectId"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/interconnects/{interconnectId}/vlan-attachments
+          operations:
+            - method: GET
+              name: list-vlan-attachments
+              call: "sase-multitenant-interconnect.list-vlan-attachments"
+              with:
+                interconnectId: "rest.interconnectId"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+            - method: POST
+              name: create-vlan-attachment
+              call: "sase-multitenant-interconnect.create-vlan-attachment"
+              with:
+                interconnectId: "rest.interconnectId"
+                name: "rest.name"
+                bgpPeerAsn: "rest.bgpPeerAsn"
+                bgpPeerBfdSessionInitMode: "rest.bgpPeerBfdSessionInitMode"
+                stackType: "rest.stackType"
+                bgpPeerMd5AuthEnabled: "rest.bgpPeerMd5AuthEnabled"
+                bandwidth: "rest.bandwidth"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/interconnects/{interconnectId}/vlan-attachments/{vlanAttachmentId}
+          operations:
+            - method: GET
+              name: get-vlan-attachment
+              call: "sase-multitenant-interconnect.get-vlan-attachment"
+              with:
+                interconnectId: "rest.interconnectId"
+                vlanAttachmentId: "rest.vlanAttachmentId"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: DELETE
+              name: delete-vlan-attachment
+              call: "sase-multitenant-interconnect.delete-vlan-attachment"
+              with:
+                interconnectId: "rest.interconnectId"
+                vlanAttachmentId: "rest.vlanAttachmentId"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/interconnects/{interconnectId}/vlan-attachments/{vlanAttachmentId}/accept
+          operations:
+            - method: POST
+              name: accept-aws-attachment
+              call: "sase-multitenant-interconnect.accept-aws-attachment"
+              with:
+                interconnectId: "rest.interconnectId"
+                vlanAttachmentId: "rest.vlanAttachmentId"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/interconnects/{interconnectId}/vlan-attachments/{vlanAttachmentId}/logs
+          operations:
+            - method: GET
+              name: get-vlan-attachment-logs
+              call: "sase-multitenant-interconnect.get-vlan-attachment-logs"
+              with:
+                interconnectId: "rest.interconnectId"
+                vlanAttachmentId: "rest.vlanAttachmentId"
+                duration: "rest.duration"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/regions
+          operations:
+            - method: GET
+              name: list-regions
+              call: "sase-multitenant-interconnect.list-regions"
+              with:
+                cloudProvider: "rest.cloudProvider"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+        - path: /v1/regions/physical-connections
+          operations:
+            - method: GET
+              name: list-physical-connection-regions
+              call: "sase-multitenant-interconnect.list-physical-connection-regions"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/settings
+          operations:
+            - method: GET
+              name: get-egress-settings
+              call: "sase-multitenant-interconnect.get-egress-settings"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: POST
+              name: configure-egress-settings
+              call: "sase-multitenant-interconnect.configure-egress-settings"
+              with:
+                egressType: "rest.egressType"
+                cidr: "rest.cidr"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+    - type: mcp
+      port: 9137
+      namespace: sase-multitenant-interconnect-mcp
+      transport: http
+      tools:
+        - name: list-interconnects
+          description: "Retrieve all Service Provider Interconnects in the multi-tenant environment."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: includeDefaultInterconnect
+              type: boolean
+              required: false
+            - name: includeTenantsAssociated
+              type: boolean
+              required: false
+          call: "sase-multitenant-interconnect.list-interconnects"
+          with:
+            includeDefaultInterconnect: "tools.includeDefaultInterconnect"
+            includeTenantsAssociated: "tools.includeTenantsAssociated"
+          outputParameters:
+            - type: array
+              mapping: "$."
+        - name: create-interconnect
+          description: "Provision a new Interconnect resource as a logical container for virtual connectivity."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: name
+              type: string
+              required: true
+            - name: region
+              type: string
+              required: true
+            - name: partnerName
+              type: string
+              required: true
+            - name: partnerEmail
+              type: string
+              required: true
+            - name: usage
+              type: string
+              required: true
+            - name: cloudProvider
+              type: string
+              required: true
+            - name: type
+              type: string
+              required: true
+            - name: tsgId
+              type: string
+              required: false
+            - name: vlanAttachment
+              type: object
+              required: false
+          call: "sase-multitenant-interconnect.create-interconnect"
+          with:
+            name: "tools.name"
+            region: "tools.region"
+            partnerName: "tools.partnerName"
+            partnerEmail: "tools.partnerEmail"
+            usage: "tools.usage"
+            cloudProvider: "tools.cloudProvider"
+            type: "tools.type"
+            tsgId: "tools.tsgId"
+            vlanAttachment: "tools.vlanAttachment"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-interconnect
+          description: "Retrieve a specific Interconnect by ID."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: interconnectId
+              type: string
+              required: true
+            - name: includeTenantsAssociated
+              type: boolean
+              required: false
+          call: "sase-multitenant-interconnect.get-interconnect"
+          with:
+            interconnectId: "tools.interconnectId"
+            includeTenantsAssociated: "tools.includeTenantsAssociated"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: delete-interconnect
+          description: "Permanently remove an Interconnect and its configuration."
+          hints:
+            readOnly: false
+            destructive: true
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: interconnectId
+              type: string
+              required: true
+          call: "sase-multitenant-interconnect.delete-interconnect"
+          with:
+            interconnectId: "tools.interconnectId"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-interconnect-summary
+          description: "View a high-level statistical snapshot of the Interconnect ecosystem."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: usage
+              type: string
+              required: false
+          call: "sase-multitenant-interconnect.get-interconnect-summary"
+          with:
+            usage: "tools.usage"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: list-physical-connections
+          description: "Retrieve technical data regarding underlying hardware links."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          call: "sase-multitenant-interconnect.list-physical-connections"
+          outputParameters:
+            - type: array
+              mapping: "$."
+        - name: create-physical-connection
+          description: "Provision a physical link at a specific colocation facility."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: physicalConnectionName
+              type: string
+              required: true
+            - name: linkType
+              type: string
+              required: true
+            - name: requestedLinkCount
+              type: integer
+              required: false
+            - name: coloFacilities
+              type: array
+              required: true
+            - name: macSecEnabled
+              type: boolean
+              required: false
+            - name: partnerName
+              type: string
+              required: true
+            - name: partnerEmail
+              type: string
+              required: true
+          call: "sase-multitenant-interconnect.create-physical-connection"
+          with:
+            physicalConnectionName: "tools.physicalConnectionName"
+            linkType: "tools.linkType"
+            requestedLinkCount: "tools.requestedLinkCount"
+            coloFacilities: "tools.coloFacilities"
+            macSecEnabled: "tools.macSecEnabled"
+            partnerName: "tools.partnerName"
+            partnerEmail: "tools.partnerEmail"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-physical-connection
+          description: "View detailed technical specification of a single physical link."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: physicalConnectionId
+              type: string
+              required: true
+            - name: includeDetails
+              type: boolean
+              required: false
+          call: "sase-multitenant-interconnect.get-physical-connection"
+          with:
+            physicalConnectionId: "tools.physicalConnectionId"
+            includeDetails: "tools.includeDetails"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: delete-physical-connection
+          description: "Decommission a specific physical link."
+          hints:
+            readOnly: false
+            destructive: true
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: physicalConnectionId
+              type: string
+              required: true
+          call: "sase-multitenant-interconnect.delete-physical-connection"
+          with:
+            physicalConnectionId: "tools.physicalConnectionId"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-ip-pool
+          description: "View the current IP address pool assigned to an Interconnect."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: interconnectId
+              type: string
+              required: true
+          call: "sase-multitenant-interconnect.get-ip-pool"
+          with:
+            interconnectId: "tools.interconnectId"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: create-ip-pool
+          description: "Provision and attach a new IP address pool to an Interconnect."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: interconnectId
+              type: string
+              required: true
+            - name: ipProvider
+              type: string
+              required: true
+            - name: ipBlocks
+              type: array
+              required: false
+          call: "sase-multitenant-interconnect.create-ip-pool"
+          with:
+            interconnectId: "tools.interconnectId"
+            ipProvider: "tools.ipProvider"
+            ipBlocks: "tools.ipBlocks"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: update-ip-pool
+          description: "Update IP address pool configuration."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: interconnectId
+              type: string
+              required: true
+            - name: ipProvider
+              type: string
+              required: true
+            - name: ipBlocks
+              type: array
+              required: false
+          call: "sase-multitenant-interconnect.update-ip-pool"
+          with:
+            interconnectId: "tools.interconnectId"
+            ipProvider: "tools.ipProvider"
+            ipBlocks: "tools.ipBlocks"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: delete-ip-pool
+          description: "Remove all IP block associations from the specified Interconnect."
+          hints:
+            readOnly: false
+            destructive: true
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: interconnectId
+              type: string
+              required: true
+          call: "sase-multitenant-interconnect.delete-ip-pool"
+          with:
+            interconnectId: "tools.interconnectId"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: list-vlan-attachments
+          description: "Retrieve all virtual circuits within a specific Interconnect."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: interconnectId
+              type: string
+              required: true
+          call: "sase-multitenant-interconnect.list-vlan-attachments"
+          with:
+            interconnectId: "tools.interconnectId"
+          outputParameters:
+            - type: array
+              mapping: "$."
+        - name: create-vlan-attachment
+          description: "Create a new VLAN attachment within an Interconnect."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: interconnectId
+              type: string
+              required: true
+            - name: name
+              type: string
+              required: true
+            - name: bgpPeerAsn
+              type: integer
+              required: true
+            - name: bgpPeerBfdSessionInitMode
+              type: string
+              required: true
+            - name: stackType
+              type: string
+              required: false
+            - name: bgpPeerMd5AuthEnabled
+              type: boolean
+              required: false
+            - name: bandwidth
+              type: string
+              required: false
+          call: "sase-multitenant-interconnect.create-vlan-attachment"
+          with:
+            interconnectId: "tools.interconnectId"
+            name: "tools.name"
+            bgpPeerAsn: "tools.bgpPeerAsn"
+            bgpPeerBfdSessionInitMode: "tools.bgpPeerBfdSessionInitMode"
+            stackType: "tools.stackType"
+            bgpPeerMd5AuthEnabled: "tools.bgpPeerMd5AuthEnabled"
+            bandwidth: "tools.bandwidth"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-vlan-attachment
+          description: "View the full technical specification of a single VLAN attachment."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: interconnectId
+              type: string
+              required: true
+            - name: vlanAttachmentId
+              type: string
+              required: true
+          call: "sase-multitenant-interconnect.get-vlan-attachment"
+          with:
+            interconnectId: "tools.interconnectId"
+            vlanAttachmentId: "tools.vlanAttachmentId"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: delete-vlan-attachment
+          description: "Permanently remove a VLAN attachment from an Interconnect."
+          hints:
+            readOnly: false
+            destructive: true
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: interconnectId
+              type: string
+              required: true
+            - name: vlanAttachmentId
+              type: string
+              required: true
+          call: "sase-multitenant-interconnect.delete-vlan-attachment"
+          with:
+            interconnectId: "tools.interconnectId"
+            vlanAttachmentId: "tools.vlanAttachmentId"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: accept-aws-attachment
+          description: "Accept a pending AWS Direct Connect attachment."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: interconnectId
+              type: string
+              required: true
+            - name: vlanAttachmentId
+              type: string
+              required: true
+          call: "sase-multitenant-interconnect.accept-aws-attachment"
+          with:
+            interconnectId: "tools.interconnectId"
+            vlanAttachmentId: "tools.vlanAttachmentId"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-vlan-attachment-logs
+          description: "Get GCP CloudRouter logs for a VLAN attachment."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: interconnectId
+              type: string
+              required: true
+            - name: vlanAttachmentId
+              type: string
+              required: true
+            - name: duration
+              type: string
+              required: false
+          call: "sase-multitenant-interconnect.get-vlan-attachment-logs"
+          with:
+            interconnectId: "tools.interconnectId"
+            vlanAttachmentId: "tools.vlanAttachmentId"
+            duration: "tools.duration"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: list-regions
+          description: "Fetch the list of all regions and edge locations supported by SP Interconnect."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: cloudProvider
+              type: string
+              required: false
+          call: "sase-multitenant-interconnect.list-regions"
+          with:
+            cloudProvider: "tools.cloudProvider"
+          outputParameters:
+            - type: array
+              mapping: "$."
+        - name: list-physical-connection-regions
+          description: "Retrieve regions and colocation facilities for physical interconnect deployments."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          call: "sase-multitenant-interconnect.list-physical-connection-regions"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-egress-settings
+          description: "View the current egress and routing configuration for the tenant."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          call: "sase-multitenant-interconnect.get-egress-settings"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: configure-egress-settings
+          description: "Apply traffic routing preferences and egress behavior for a TSG."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: egressType
+              type: string
+              required: true
+            - name: cidr
+              type: array
+              required: false
+          call: "sase-multitenant-interconnect.configure-egress-settings"
+          with:
+            egressType: "tools.egressType"
+            cidr: "tools.cidr"
+          outputParameters:
+            - type: object
+              mapping: "$."

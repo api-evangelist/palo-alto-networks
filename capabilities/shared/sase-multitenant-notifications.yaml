@@ -1,0 +1,587 @@
+naftiko: "1.0.0-alpha1"
+
+info:
+  label: "SASE Multi-Tenant Notifications"
+  description: "Manage multi-tenant notification profiles, list notifications, track read state, and test webhook connectivity."
+  tags:
+    - "SASE"
+    - "Multi Tenant"
+    - "Notifications"
+    - "Webhooks"
+  created: "2026-04-17"
+  modified: "2026-04-17"
+
+binds:
+  - namespace: env
+    keys:
+      PALO_ALTO_SASE_ACCESS_TOKEN: PALO_ALTO_SASE_ACCESS_TOKEN
+
+capability:
+  consumes:
+    - type: http
+      namespace: sase-multitenant-notifications
+      baseUri: https://api.sase.paloaltonetworks.com
+      authentication:
+        type: bearer
+        token: "{{env.PALO_ALTO_SASE_ACCESS_TOKEN}}"
+      resources:
+        - name: notification-profiles
+          path: /api/cloud/2.0/agg/notifications/profiles
+          operations:
+            - name: list-notification-profiles
+              method: GET
+              description: "List notification profiles associated with the current tenant."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: create-notification-profile
+              method: POST
+              description: "Create a new notification profile with inputs and output channels."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  profileName: "{{tools.profileName}}"
+                  opState: "{{tools.opState}}"
+                  description: "{{tools.description}}"
+                  tenantList: "{{tools.tenantList}}"
+                  notifTypeDetails: "{{tools.notifTypeDetails}}"
+                  notifChannels: "{{tools.notifChannels}}"
+            - name: get-notification-profile
+              method: GET
+              description: "Get a specific notification profile by ID."
+              path: /{notification_profile_id}
+              inputParameters:
+                - name: notification_profile_id
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: delete-notification-profile
+              method: DELETE
+              description: "Delete a notification profile by ID."
+              path: /{notification_profile_id}
+              inputParameters:
+                - name: notification_profile_id
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+        - name: notification-profile-opstate
+          path: /api/cloud/2.0/agg/notifications/profiles/opstate
+          operations:
+            - name: update-profile-opstate
+              method: PUT
+              description: "Enable or disable a notification profile."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  profileId: "{{tools.profileId}}"
+                  opState: "{{tools.opState}}"
+        - name: notification-profile-types
+          path: /api/cloud/2.0/agg/notifications/profiles/types
+          operations:
+            - name: get-notification-types
+              method: GET
+              description: "Retrieve valid notification types, categories, and sub-categories."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+        - name: notification-webhook-test
+          path: /api/cloud/2.0/agg/notifications/profiles/webhook/test
+          operations:
+            - name: test-webhook-connectivity
+              method: POST
+              description: "Test webhook connectivity from the notification service."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  urls: "{{tools.urls}}"
+                  auth_type: "{{tools.auth_type}}"
+                  token: "{{tools.token}}"
+        - name: notification-profile-retry
+          path: /api/cloud/2.0/agg/notifications/profiles/retryOp
+          operations:
+            - name: retry-profile-operation
+              method: POST
+              description: "Retry incident profile push to selected child tenants."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  profileId: "{{tools.profileId}}"
+                  tenantList: "{{tools.tenantList}}"
+        - name: notifications
+          path: /api/cloud/2.0/agg/notifications/list
+          operations:
+            - name: list-notifications
+              method: POST
+              description: "List notifications for all child tenants with filtering and sorting."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  filters: "{{tools.filters}}"
+                  sortByList: "{{tools.sortByList}}"
+                  page: "{{tools.page}}"
+        - name: notification-count
+          path: /api/cloud/2.0/agg/notifications/list/count
+          operations:
+            - name: get-notification-count
+              method: POST
+              description: "Get notification count filtered by state or type."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  filters: "{{tools.filters}}"
+                  sortByList: "{{tools.sortByList}}"
+        - name: notification-state
+          path: /api/cloud/2.0/agg/notifications/list/state
+          operations:
+            - name: set-notification-read-state
+              method: POST
+              description: "Set read state to READ or UNREAD for specified notifications."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  notifIds: "{{tools.notifIds}}"
+                  readState: "{{tools.readState}}"
+            - name: get-notification-read-state
+              method: GET
+              description: "Get read state of a specific notification."
+              path: /{notification_id}
+              inputParameters:
+                - name: notification_id
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+  exposes:
+    - type: rest
+      port: 8136
+      namespace: sase-multitenant-notifications-rest
+      resources:
+        - path: /v1/notifications/profiles
+          operations:
+            - method: GET
+              name: list-notification-profiles
+              call: "sase-multitenant-notifications.list-notification-profiles"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+            - method: POST
+              name: create-notification-profile
+              call: "sase-multitenant-notifications.create-notification-profile"
+              with:
+                profileName: "rest.profileName"
+                opState: "rest.opState"
+                description: "rest.description"
+                tenantList: "rest.tenantList"
+                notifTypeDetails: "rest.notifTypeDetails"
+                notifChannels: "rest.notifChannels"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/notifications/profiles/{notification_profile_id}
+          operations:
+            - method: GET
+              name: get-notification-profile
+              call: "sase-multitenant-notifications.get-notification-profile"
+              with:
+                notification_profile_id: "rest.notification_profile_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: DELETE
+              name: delete-notification-profile
+              call: "sase-multitenant-notifications.delete-notification-profile"
+              with:
+                notification_profile_id: "rest.notification_profile_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/notifications/profiles/opstate
+          operations:
+            - method: PUT
+              name: update-profile-opstate
+              call: "sase-multitenant-notifications.update-profile-opstate"
+              with:
+                profileId: "rest.profileId"
+                opState: "rest.opState"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/notifications/profiles/types
+          operations:
+            - method: GET
+              name: get-notification-types
+              call: "sase-multitenant-notifications.get-notification-types"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+        - path: /v1/notifications/profiles/webhook/test
+          operations:
+            - method: POST
+              name: test-webhook-connectivity
+              call: "sase-multitenant-notifications.test-webhook-connectivity"
+              with:
+                urls: "rest.urls"
+                auth_type: "rest.auth_type"
+                token: "rest.token"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/notifications/profiles/retryOp
+          operations:
+            - method: POST
+              name: retry-profile-operation
+              call: "sase-multitenant-notifications.retry-profile-operation"
+              with:
+                profileId: "rest.profileId"
+                tenantList: "rest.tenantList"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/notifications/list
+          operations:
+            - method: POST
+              name: list-notifications
+              call: "sase-multitenant-notifications.list-notifications"
+              with:
+                filters: "rest.filters"
+                sortByList: "rest.sortByList"
+                page: "rest.page"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+        - path: /v1/notifications/list/count
+          operations:
+            - method: POST
+              name: get-notification-count
+              call: "sase-multitenant-notifications.get-notification-count"
+              with:
+                filters: "rest.filters"
+                sortByList: "rest.sortByList"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/notifications/list/state
+          operations:
+            - method: POST
+              name: set-notification-read-state
+              call: "sase-multitenant-notifications.set-notification-read-state"
+              with:
+                notifIds: "rest.notifIds"
+                readState: "rest.readState"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/notifications/list/state/{notification_id}
+          operations:
+            - method: GET
+              name: get-notification-read-state
+              call: "sase-multitenant-notifications.get-notification-read-state"
+              with:
+                notification_id: "rest.notification_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+
+    - type: mcp
+      port: 9136
+      namespace: sase-multitenant-notifications-mcp
+      transport: http
+      tools:
+        - name: list-notification-profiles
+          description: "List notification profiles associated with the current tenant."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          call: "sase-multitenant-notifications.list-notification-profiles"
+          outputParameters:
+            - type: array
+              mapping: "$."
+        - name: create-notification-profile
+          description: "Create a new notification profile with inputs and output channels."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: profileName
+              type: string
+              required: true
+            - name: opState
+              type: string
+              required: true
+            - name: description
+              type: string
+              required: false
+            - name: tenantList
+              type: array
+              required: true
+            - name: notifTypeDetails
+              type: array
+              required: true
+            - name: notifChannels
+              type: array
+              required: true
+          call: "sase-multitenant-notifications.create-notification-profile"
+          with:
+            profileName: "tools.profileName"
+            opState: "tools.opState"
+            description: "tools.description"
+            tenantList: "tools.tenantList"
+            notifTypeDetails: "tools.notifTypeDetails"
+            notifChannels: "tools.notifChannels"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-notification-profile
+          description: "Get a specific notification profile by ID."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: notification_profile_id
+              type: string
+              required: true
+          call: "sase-multitenant-notifications.get-notification-profile"
+          with:
+            notification_profile_id: "tools.notification_profile_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: delete-notification-profile
+          description: "Delete a notification profile by ID."
+          hints:
+            readOnly: false
+            destructive: true
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: notification_profile_id
+              type: string
+              required: true
+          call: "sase-multitenant-notifications.delete-notification-profile"
+          with:
+            notification_profile_id: "tools.notification_profile_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: update-profile-opstate
+          description: "Enable or disable a notification profile."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: profileId
+              type: string
+              required: true
+            - name: opState
+              type: string
+              required: true
+          call: "sase-multitenant-notifications.update-profile-opstate"
+          with:
+            profileId: "tools.profileId"
+            opState: "tools.opState"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-notification-types
+          description: "Retrieve valid notification types, categories, and sub-categories."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          call: "sase-multitenant-notifications.get-notification-types"
+          outputParameters:
+            - type: array
+              mapping: "$."
+        - name: test-webhook-connectivity
+          description: "Test webhook connectivity from the notification service."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: urls
+              type: array
+              required: true
+            - name: auth_type
+              type: string
+              required: true
+            - name: token
+              type: string
+              required: false
+          call: "sase-multitenant-notifications.test-webhook-connectivity"
+          with:
+            urls: "tools.urls"
+            auth_type: "tools.auth_type"
+            token: "tools.token"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: retry-profile-operation
+          description: "Retry incident profile push to selected child tenants."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: profileId
+              type: string
+              required: true
+            - name: tenantList
+              type: array
+              required: true
+          call: "sase-multitenant-notifications.retry-profile-operation"
+          with:
+            profileId: "tools.profileId"
+            tenantList: "tools.tenantList"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: list-notifications
+          description: "List notifications for all child tenants with filtering and sorting."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: filters
+              type: array
+              required: false
+            - name: sortByList
+              type: array
+              required: false
+            - name: page
+              type: object
+              required: false
+          call: "sase-multitenant-notifications.list-notifications"
+          with:
+            filters: "tools.filters"
+            sortByList: "tools.sortByList"
+            page: "tools.page"
+          outputParameters:
+            - type: array
+              mapping: "$."
+        - name: get-notification-count
+          description: "Get notification count filtered by state or type."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: filters
+              type: array
+              required: false
+            - name: sortByList
+              type: array
+              required: false
+          call: "sase-multitenant-notifications.get-notification-count"
+          with:
+            filters: "tools.filters"
+            sortByList: "tools.sortByList"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: set-notification-read-state
+          description: "Set read state to READ or UNREAD for specified notifications."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: notifIds
+              type: array
+              required: true
+            - name: readState
+              type: string
+              required: true
+          call: "sase-multitenant-notifications.set-notification-read-state"
+          with:
+            notifIds: "tools.notifIds"
+            readState: "tools.readState"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-notification-read-state
+          description: "Get read state of a specific notification."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: notification_id
+              type: string
+              required: true
+          call: "sase-multitenant-notifications.get-notification-read-state"
+          with:
+            notification_id: "tools.notification_id"
+          outputParameters:
+            - type: object
+              mapping: "$."

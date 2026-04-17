@@ -1,0 +1,1191 @@
+naftiko: "1.0.0-alpha1"
+
+info:
+  label: "Identity Security Posture Management"
+  description: "Manage identity posture security including IDPs, MFA activity, SaaS accounts, SaaS activity logs, and ticketing for SSPM and ITDR."
+  tags:
+    - "Identity"
+    - "Security Posture"
+    - "SSPM"
+    - "ITDR"
+  created: "2026-04-17"
+  modified: "2026-04-17"
+
+binds:
+  - namespace: env
+    keys:
+      PALO_ALTO_SASE_ACCESS_TOKEN: PALO_ALTO_SASE_ACCESS_TOKEN
+
+capability:
+  consumes:
+    - type: http
+      namespace: identity-security-posture
+      baseUri: https://api.sase.paloaltonetworks.com
+      authentication:
+        type: bearer
+        token: "{{env.PALO_ALTO_SASE_ACCESS_TOKEN}}"
+      resources:
+        - name: catalog
+          path: /sspm/identity/v1/catalog
+          operations:
+            - name: get-application-catalog
+              method: GET
+              description: "Retrieve application catalog details based on the specified application type."
+              path: /{appType}
+              inputParameters:
+                - name: appType
+                  in: path
+                  type: string
+                  required: true
+                - name: feature
+                  in: query
+                  type: string
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+        - name: idps
+          path: /sspm/identity/v1/idps
+          operations:
+            - name: list-identity-providers
+              method: GET
+              description: "Retrieve a list of identity providers configured for the tenant."
+              inputParameters:
+                - name: designated
+                  in: query
+                  type: boolean
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: create-identity-provider
+              method: POST
+              description: "Create a new identity provider entry for the tenant."
+              inputParameters:
+                - name: designated
+                  in: query
+                  type: boolean
+                  required: false
+                - name: idpId
+                  in: query
+                  type: string
+                  required: false
+                - name: idpType
+                  in: query
+                  type: string
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: get-logout-status
+              method: GET
+              description: "Retrieve logout status of user accounts for an IDP."
+              path: /{idpId}/accounts/logout
+              inputParameters:
+                - name: idpId
+                  in: path
+                  type: string
+                  required: true
+                - name: batch_id
+                  in: query
+                  type: string
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: trigger-account-logout
+              method: POST
+              description: "Initiate a logout request for user accounts associated with an IDP."
+              path: /{idpId}/accounts/logout
+              inputParameters:
+                - name: idpId
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  users: "{{tools.users}}"
+            - name: get-idp-feature-state
+              method: GET
+              description: "Retrieve the current status and last scan timestamp of a feature for an IDP."
+              path: /{idpId}/feature_state
+              inputParameters:
+                - name: idpId
+                  in: path
+                  type: string
+                  required: true
+                - name: feature
+                  in: query
+                  type: string
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: get-idp-account-count
+              method: GET
+              description: "Return the number of user accounts linked to an IDP."
+              path: /{idpId}/idp_accounts/count
+              inputParameters:
+                - name: idpId
+                  in: path
+                  type: string
+                  required: true
+                - name: filter
+                  in: query
+                  type: string
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: generate-idp-account-csv
+              method: POST
+              description: "Generate a CSV report of accounts associated with an IDP."
+              path: /{idpId}/idp_accounts/csv_report
+              inputParameters:
+                - name: idpId
+                  in: path
+                  type: string
+                  required: true
+                - name: filter
+                  in: query
+                  type: string
+                  required: false
+                - name: sortBy
+                  in: query
+                  type: string
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  userFullName: "{{tools.userFullName}}"
+                  userEmail: "{{tools.userEmail}}"
+                  service: "{{tools.service}}"
+            - name: get-mfa-activity
+              method: GET
+              description: "Retrieve MFA activity logs for an IDP."
+              path: /{idpId}/mfa_activity
+              inputParameters:
+                - name: idpId
+                  in: path
+                  type: string
+                  required: true
+                - name: filter
+                  in: query
+                  type: string
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+                - name: page
+                  in: query
+                  type: integer
+                  required: false
+                - name: sortBy
+                  in: query
+                  type: string
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: get-mfa-activity-count
+              method: GET
+              description: "Return the number of MFA activities for an IDP."
+              path: /{idpId}/mfa_activity/count
+              inputParameters:
+                - name: idpId
+                  in: path
+                  type: string
+                  required: true
+                - name: filter
+                  in: query
+                  type: string
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: get-mfa-activity-count-by-app-type
+              method: GET
+              description: "Return MFA activity count grouped by application type."
+              path: /{idpId}/mfa_activity/count_by_app_type
+              inputParameters:
+                - name: idpId
+                  in: path
+                  type: string
+                  required: true
+                - name: filter
+                  in: query
+                  type: string
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+                - name: page
+                  in: query
+                  type: integer
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: generate-mfa-activity-csv
+              method: POST
+              description: "Generate a CSV report of MFA activities for an IDP."
+              path: /{idpId}/mfa_activity/csv_report
+              inputParameters:
+                - name: idpId
+                  in: path
+                  type: string
+                  required: true
+                - name: filter
+                  in: query
+                  type: string
+                  required: false
+                - name: sortBy
+                  in: query
+                  type: string
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  userFullName: "{{tools.userFullName}}"
+                  userEmail: "{{tools.userEmail}}"
+                  service: "{{tools.service}}"
+        - name: saas-instances
+          path: /sspm/identity/v1/saas_instances
+          operations:
+            - name: list-saas-instances
+              method: GET
+              description: "Retrieve a list of SaaS instances configured for the tenant."
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: list-saas-accounts
+              method: GET
+              description: "Retrieve a list of user accounts for a SaaS instance."
+              path: /{saasInstanceId}/saas_accounts
+              inputParameters:
+                - name: saasInstanceId
+                  in: path
+                  type: string
+                  required: true
+                - name: filter
+                  in: query
+                  type: string
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+                - name: page
+                  in: query
+                  type: integer
+                  required: false
+                - name: sortBy
+                  in: query
+                  type: string
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: get-saas-account-count
+              method: GET
+              description: "Return the number of user accounts for a SaaS instance."
+              path: /{saasInstanceId}/saas_accounts/count
+              inputParameters:
+                - name: saasInstanceId
+                  in: path
+                  type: string
+                  required: true
+                - name: filter
+                  in: query
+                  type: string
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: generate-saas-account-csv
+              method: POST
+              description: "Generate a CSV report of accounts for a SaaS instance."
+              path: /{saasInstanceId}/saas_accounts/csv_report
+              inputParameters:
+                - name: saasInstanceId
+                  in: path
+                  type: string
+                  required: true
+                - name: filter
+                  in: query
+                  type: string
+                  required: false
+                - name: sortBy
+                  in: query
+                  type: string
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  userFullName: "{{tools.userFullName}}"
+                  userEmail: "{{tools.userEmail}}"
+                  service: "{{tools.service}}"
+            - name: get-saas-activity
+              method: GET
+              description: "Retrieve activity logs for a SaaS instance."
+              path: /{saasInstanceId}/saas_activity
+              inputParameters:
+                - name: saasInstanceId
+                  in: path
+                  type: string
+                  required: true
+                - name: filter
+                  in: query
+                  type: string
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+                - name: page
+                  in: query
+                  type: integer
+                  required: false
+                - name: sortBy
+                  in: query
+                  type: string
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+        - name: tickets
+          path: /sspm/identity/v1/{saasInstanceId}/tickets
+          operations:
+            - name: list-saas-tickets
+              method: GET
+              description: "Retrieve tickets associated with a SaaS instance."
+              inputParameters:
+                - name: saasInstanceId
+                  in: path
+                  type: string
+                  required: true
+                - name: filter
+                  in: query
+                  type: string
+                  required: false
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+                - name: page
+                  in: query
+                  type: integer
+                  required: false
+                - name: sortBy
+                  in: query
+                  type: string
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+            - name: create-saas-ticket
+              method: POST
+              description: "Create a new ticket for a SaaS instance."
+              inputParameters:
+                - name: saasInstanceId
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  resourceIds: "{{tools.resourceIds}}"
+                  feature: "{{tools.feature}}"
+                  integrationId: "{{tools.integrationId}}"
+                  type: "{{tools.type}}"
+                  issueTypeId: "{{tools.issueTypeId}}"
+                  summary: "{{tools.summary}}"
+                  description: "{{tools.description}}"
+            - name: delete-saas-tickets
+              method: DELETE
+              description: "Delete or unlink tickets associated with a SaaS instance."
+              inputParameters:
+                - name: saasInstanceId
+                  in: path
+                  type: string
+                  required: true
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+              body:
+                type: json
+                data:
+                  id: "{{tools.id}}"
+                  resourceIds: "{{tools.resourceIds}}"
+                  feature: "{{tools.feature}}"
+            - name: get-ticket-issues
+              method: GET
+              description: "Retrieve issues linked to a specific ticket for a SaaS instance."
+              path: /{ticketKey}/issues
+              inputParameters:
+                - name: saasInstanceId
+                  in: path
+                  type: string
+                  required: true
+                - name: ticketKey
+                  in: path
+                  type: string
+                  required: true
+                - name: limit
+                  in: query
+                  type: integer
+                  required: false
+                - name: page
+                  in: query
+                  type: integer
+                  required: false
+              outputRawFormat: json
+              outputParameters:
+                - name: result
+                  type: object
+                  value: "$."
+
+  exposes:
+    - type: rest
+      port: 8138
+      namespace: identity-security-posture-rest
+      resources:
+        - path: /v1/catalog/{appType}
+          operations:
+            - method: GET
+              name: get-application-catalog
+              call: "identity-security-posture.get-application-catalog"
+              with:
+                appType: "rest.appType"
+                feature: "rest.feature"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/idps
+          operations:
+            - method: GET
+              name: list-identity-providers
+              call: "identity-security-posture.list-identity-providers"
+              with:
+                designated: "rest.designated"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: POST
+              name: create-identity-provider
+              call: "identity-security-posture.create-identity-provider"
+              with:
+                designated: "rest.designated"
+                idpId: "rest.idpId"
+                idpType: "rest.idpType"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/idps/{idpId}/accounts/logout
+          operations:
+            - method: GET
+              name: get-logout-status
+              call: "identity-security-posture.get-logout-status"
+              with:
+                idpId: "rest.idpId"
+                batch_id: "rest.batch_id"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: POST
+              name: trigger-account-logout
+              call: "identity-security-posture.trigger-account-logout"
+              with:
+                idpId: "rest.idpId"
+                users: "rest.users"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/idps/{idpId}/feature_state
+          operations:
+            - method: GET
+              name: get-idp-feature-state
+              call: "identity-security-posture.get-idp-feature-state"
+              with:
+                idpId: "rest.idpId"
+                feature: "rest.feature"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/idps/{idpId}/idp_accounts/count
+          operations:
+            - method: GET
+              name: get-idp-account-count
+              call: "identity-security-posture.get-idp-account-count"
+              with:
+                idpId: "rest.idpId"
+                filter: "rest.filter"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/idps/{idpId}/mfa_activity
+          operations:
+            - method: GET
+              name: get-mfa-activity
+              call: "identity-security-posture.get-mfa-activity"
+              with:
+                idpId: "rest.idpId"
+                filter: "rest.filter"
+                limit: "rest.limit"
+                page: "rest.page"
+                sortBy: "rest.sortBy"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+        - path: /v1/idps/{idpId}/mfa_activity/count
+          operations:
+            - method: GET
+              name: get-mfa-activity-count
+              call: "identity-security-posture.get-mfa-activity-count"
+              with:
+                idpId: "rest.idpId"
+                filter: "rest.filter"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/idps/{idpId}/mfa_activity/count_by_app_type
+          operations:
+            - method: GET
+              name: get-mfa-activity-count-by-app-type
+              call: "identity-security-posture.get-mfa-activity-count-by-app-type"
+              with:
+                idpId: "rest.idpId"
+                filter: "rest.filter"
+                limit: "rest.limit"
+                page: "rest.page"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+        - path: /v1/saas_instances
+          operations:
+            - method: GET
+              name: list-saas-instances
+              call: "identity-security-posture.list-saas-instances"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/saas_instances/{saasInstanceId}/saas_accounts
+          operations:
+            - method: GET
+              name: list-saas-accounts
+              call: "identity-security-posture.list-saas-accounts"
+              with:
+                saasInstanceId: "rest.saasInstanceId"
+                filter: "rest.filter"
+                limit: "rest.limit"
+                page: "rest.page"
+                sortBy: "rest.sortBy"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+        - path: /v1/saas_instances/{saasInstanceId}/saas_accounts/count
+          operations:
+            - method: GET
+              name: get-saas-account-count
+              call: "identity-security-posture.get-saas-account-count"
+              with:
+                saasInstanceId: "rest.saasInstanceId"
+                filter: "rest.filter"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/saas_instances/{saasInstanceId}/saas_activity
+          operations:
+            - method: GET
+              name: get-saas-activity
+              call: "identity-security-posture.get-saas-activity"
+              with:
+                saasInstanceId: "rest.saasInstanceId"
+                filter: "rest.filter"
+                limit: "rest.limit"
+                page: "rest.page"
+                sortBy: "rest.sortBy"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+        - path: /v1/{saasInstanceId}/tickets
+          operations:
+            - method: GET
+              name: list-saas-tickets
+              call: "identity-security-posture.list-saas-tickets"
+              with:
+                saasInstanceId: "rest.saasInstanceId"
+                filter: "rest.filter"
+                limit: "rest.limit"
+                page: "rest.page"
+                sortBy: "rest.sortBy"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+            - method: POST
+              name: create-saas-ticket
+              call: "identity-security-posture.create-saas-ticket"
+              with:
+                saasInstanceId: "rest.saasInstanceId"
+                resourceIds: "rest.resourceIds"
+                feature: "rest.feature"
+                integrationId: "rest.integrationId"
+                type: "rest.type"
+                issueTypeId: "rest.issueTypeId"
+                summary: "rest.summary"
+                description: "rest.description"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+            - method: DELETE
+              name: delete-saas-tickets
+              call: "identity-security-posture.delete-saas-tickets"
+              with:
+                saasInstanceId: "rest.saasInstanceId"
+                id: "rest.id"
+                resourceIds: "rest.resourceIds"
+                feature: "rest.feature"
+              outputParameters:
+                - type: object
+                  mapping: "$."
+        - path: /v1/{saasInstanceId}/tickets/{ticketKey}/issues
+          operations:
+            - method: GET
+              name: get-ticket-issues
+              call: "identity-security-posture.get-ticket-issues"
+              with:
+                saasInstanceId: "rest.saasInstanceId"
+                ticketKey: "rest.ticketKey"
+                limit: "rest.limit"
+                page: "rest.page"
+              outputParameters:
+                - type: array
+                  mapping: "$."
+
+    - type: mcp
+      port: 9138
+      namespace: identity-security-posture-mcp
+      transport: http
+      tools:
+        - name: get-application-catalog
+          description: "Retrieve application catalog details based on the specified application type."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: appType
+              type: string
+              required: true
+            - name: feature
+              type: string
+              required: false
+          call: "identity-security-posture.get-application-catalog"
+          with:
+            appType: "tools.appType"
+            feature: "tools.feature"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: list-identity-providers
+          description: "Retrieve a list of identity providers configured for the tenant."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: designated
+              type: boolean
+              required: false
+          call: "identity-security-posture.list-identity-providers"
+          with:
+            designated: "tools.designated"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: create-identity-provider
+          description: "Create a new identity provider entry for the tenant."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: designated
+              type: boolean
+              required: false
+            - name: idpId
+              type: string
+              required: false
+            - name: idpType
+              type: string
+              required: false
+          call: "identity-security-posture.create-identity-provider"
+          with:
+            designated: "tools.designated"
+            idpId: "tools.idpId"
+            idpType: "tools.idpType"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-logout-status
+          description: "Retrieve logout status of user accounts for an IDP."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: idpId
+              type: string
+              required: true
+            - name: batch_id
+              type: string
+              required: false
+          call: "identity-security-posture.get-logout-status"
+          with:
+            idpId: "tools.idpId"
+            batch_id: "tools.batch_id"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: trigger-account-logout
+          description: "Initiate a logout request for user accounts associated with an IDP."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: idpId
+              type: string
+              required: true
+            - name: users
+              type: array
+              required: true
+          call: "identity-security-posture.trigger-account-logout"
+          with:
+            idpId: "tools.idpId"
+            users: "tools.users"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-idp-feature-state
+          description: "Retrieve the current status and last scan timestamp of a feature for an IDP."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: idpId
+              type: string
+              required: true
+            - name: feature
+              type: string
+              required: false
+          call: "identity-security-posture.get-idp-feature-state"
+          with:
+            idpId: "tools.idpId"
+            feature: "tools.feature"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-idp-account-count
+          description: "Return the number of user accounts linked to an IDP."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: idpId
+              type: string
+              required: true
+            - name: filter
+              type: string
+              required: false
+          call: "identity-security-posture.get-idp-account-count"
+          with:
+            idpId: "tools.idpId"
+            filter: "tools.filter"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-mfa-activity
+          description: "Retrieve MFA activity logs for an IDP."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: idpId
+              type: string
+              required: true
+            - name: filter
+              type: string
+              required: false
+            - name: limit
+              type: integer
+              required: false
+            - name: page
+              type: integer
+              required: false
+            - name: sortBy
+              type: string
+              required: false
+          call: "identity-security-posture.get-mfa-activity"
+          with:
+            idpId: "tools.idpId"
+            filter: "tools.filter"
+            limit: "tools.limit"
+            page: "tools.page"
+            sortBy: "tools.sortBy"
+          outputParameters:
+            - type: array
+              mapping: "$."
+        - name: get-mfa-activity-count
+          description: "Return the number of MFA activities for an IDP."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: idpId
+              type: string
+              required: true
+            - name: filter
+              type: string
+              required: false
+          call: "identity-security-posture.get-mfa-activity-count"
+          with:
+            idpId: "tools.idpId"
+            filter: "tools.filter"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-mfa-activity-count-by-app-type
+          description: "Return MFA activity count grouped by application type."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: idpId
+              type: string
+              required: true
+            - name: filter
+              type: string
+              required: false
+            - name: limit
+              type: integer
+              required: false
+            - name: page
+              type: integer
+              required: false
+          call: "identity-security-posture.get-mfa-activity-count-by-app-type"
+          with:
+            idpId: "tools.idpId"
+            filter: "tools.filter"
+            limit: "tools.limit"
+            page: "tools.page"
+          outputParameters:
+            - type: array
+              mapping: "$."
+        - name: list-saas-instances
+          description: "Retrieve a list of SaaS instances configured for the tenant."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          call: "identity-security-posture.list-saas-instances"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: list-saas-accounts
+          description: "Retrieve a list of user accounts for a SaaS instance."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: saasInstanceId
+              type: string
+              required: true
+            - name: filter
+              type: string
+              required: false
+            - name: limit
+              type: integer
+              required: false
+            - name: page
+              type: integer
+              required: false
+            - name: sortBy
+              type: string
+              required: false
+          call: "identity-security-posture.list-saas-accounts"
+          with:
+            saasInstanceId: "tools.saasInstanceId"
+            filter: "tools.filter"
+            limit: "tools.limit"
+            page: "tools.page"
+            sortBy: "tools.sortBy"
+          outputParameters:
+            - type: array
+              mapping: "$."
+        - name: get-saas-account-count
+          description: "Return the number of user accounts for a SaaS instance."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: saasInstanceId
+              type: string
+              required: true
+            - name: filter
+              type: string
+              required: false
+          call: "identity-security-posture.get-saas-account-count"
+          with:
+            saasInstanceId: "tools.saasInstanceId"
+            filter: "tools.filter"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-saas-activity
+          description: "Retrieve activity logs for a SaaS instance."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: saasInstanceId
+              type: string
+              required: true
+            - name: filter
+              type: string
+              required: false
+            - name: limit
+              type: integer
+              required: false
+            - name: page
+              type: integer
+              required: false
+            - name: sortBy
+              type: string
+              required: false
+          call: "identity-security-posture.get-saas-activity"
+          with:
+            saasInstanceId: "tools.saasInstanceId"
+            filter: "tools.filter"
+            limit: "tools.limit"
+            page: "tools.page"
+            sortBy: "tools.sortBy"
+          outputParameters:
+            - type: array
+              mapping: "$."
+        - name: list-saas-tickets
+          description: "Retrieve tickets associated with a SaaS instance."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: saasInstanceId
+              type: string
+              required: true
+            - name: filter
+              type: string
+              required: false
+            - name: limit
+              type: integer
+              required: false
+            - name: page
+              type: integer
+              required: false
+            - name: sortBy
+              type: string
+              required: false
+          call: "identity-security-posture.list-saas-tickets"
+          with:
+            saasInstanceId: "tools.saasInstanceId"
+            filter: "tools.filter"
+            limit: "tools.limit"
+            page: "tools.page"
+            sortBy: "tools.sortBy"
+          outputParameters:
+            - type: array
+              mapping: "$."
+        - name: create-saas-ticket
+          description: "Create a new ticket for a SaaS instance."
+          hints:
+            readOnly: false
+            destructive: false
+            idempotent: false
+            openWorld: true
+          inputParameters:
+            - name: saasInstanceId
+              type: string
+              required: true
+            - name: resourceIds
+              type: array
+              required: true
+            - name: feature
+              type: string
+              required: true
+            - name: integrationId
+              type: string
+              required: true
+            - name: type
+              type: string
+              required: true
+            - name: issueTypeId
+              type: string
+              required: true
+            - name: summary
+              type: string
+              required: true
+            - name: description
+              type: string
+              required: false
+          call: "identity-security-posture.create-saas-ticket"
+          with:
+            saasInstanceId: "tools.saasInstanceId"
+            resourceIds: "tools.resourceIds"
+            feature: "tools.feature"
+            integrationId: "tools.integrationId"
+            type: "tools.type"
+            issueTypeId: "tools.issueTypeId"
+            summary: "tools.summary"
+            description: "tools.description"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: delete-saas-tickets
+          description: "Delete or unlink tickets associated with a SaaS instance."
+          hints:
+            readOnly: false
+            destructive: true
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: saasInstanceId
+              type: string
+              required: true
+            - name: id
+              type: string
+              required: true
+            - name: resourceIds
+              type: array
+              required: false
+            - name: feature
+              type: string
+              required: true
+          call: "identity-security-posture.delete-saas-tickets"
+          with:
+            saasInstanceId: "tools.saasInstanceId"
+            id: "tools.id"
+            resourceIds: "tools.resourceIds"
+            feature: "tools.feature"
+          outputParameters:
+            - type: object
+              mapping: "$."
+        - name: get-ticket-issues
+          description: "Retrieve issues linked to a specific ticket for a SaaS instance."
+          hints:
+            readOnly: true
+            destructive: false
+            idempotent: true
+            openWorld: true
+          inputParameters:
+            - name: saasInstanceId
+              type: string
+              required: true
+            - name: ticketKey
+              type: string
+              required: true
+            - name: limit
+              type: integer
+              required: false
+            - name: page
+              type: integer
+              required: false
+          call: "identity-security-posture.get-ticket-issues"
+          with:
+            saasInstanceId: "tools.saasInstanceId"
+            ticketKey: "tools.ticketKey"
+            limit: "tools.limit"
+            page: "tools.page"
+          outputParameters:
+            - type: array
+              mapping: "$."
