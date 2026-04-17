@@ -951,6 +951,10 @@ A REST API for querying the health and performance of Prisma Access network depl
 | Prisma AIRS | AI runtime security platform for securing generative AI applications with API Intercept scanning and AI Red Teaming. |
 | Unit 42 Threat Intelligence | Threat research and intelligence services including Threat Vault, WildFire malware analysis, DNS Security, and security advisory feeds. |
 
+## Vocabulary
+
+- [Palo Alto Networks Vocabulary](vocabulary/palo-alto-networks-vocabulary.yaml) — Unified taxonomy mapping 36 resources, 17 actions, 10 workflows, and 21 personas across operational (51 APIs) and capability (41 shared definitions) dimensions
+
 ## Spectral Rules
 
 A custom Spectral ruleset at [rules/palo-alto-networks-spectral-rules.yml](rules/palo-alto-networks-spectral-rules.yml) enforces consistency across all Palo Alto Networks OpenAPI specifications with 60+ rules covering:
