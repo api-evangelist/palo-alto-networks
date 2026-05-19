@@ -1,0 +1,140 @@
+naftiko: 1.0.0-alpha2
+info:
+  label: Palo Alto Networks DNS Security API — Domains
+  description: 'Palo Alto Networks DNS Security API — Domains. 2 operations. Lead operation: Palo Alto Networks Query Domain
+    Details. Self-contained Naftiko capability covering one Palo Alto Networks business surface.'
+  tags:
+  - Palo Alto Networks
+  - Domains
+  created: '2026-05-19'
+  modified: '2026-05-19'
+binds:
+- namespace: env
+  keys:
+    PALO_ALTO_NETWORKS_API_KEY: PALO_ALTO_NETWORKS_API_KEY
+capability:
+  consumes:
+  - type: http
+    namespace: palo-alto-dns-security-domains
+    baseUri: https://api.dns.service.paloaltonetworks.com/v1
+    description: Palo Alto Networks DNS Security API — Domains business capability. Self-contained, no shared references.
+    resources:
+    - name: domain
+      path: /domain
+      operations:
+      - name: getdomain
+        method: GET
+        description: Palo Alto Networks Query Domain Details
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: domain
+          in: query
+          type: string
+          description: Fully qualified domain name to query (e.g., example.com).
+          required: true
+        - name: customerid
+          in: query
+          type: string
+          description: Customer ID associated with the DNS Security subscription. Used to scope results to the tenant's DNS
+            Security policy context.
+          required: true
+    - name: domain-bulk
+      path: /domain/bulk
+      operations:
+      - name: getdomainbulk
+        method: GET
+        description: Palo Alto Networks Bulk Domain Query
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: domains
+          in: query
+          type: array
+          description: Array of fully qualified domain names to query. Provide multiple values using repeated query parameters
+            or a comma-separated list.
+          required: true
+        - name: customerid
+          in: query
+          type: string
+          description: Customer ID associated with the DNS Security subscription.
+          required: true
+    authentication:
+      type: apikey
+      key: X-DNS-API-APIKEY
+      value: '{{env.PALO_ALTO_NETWORKS_API_KEY}}'
+      placement: header
+  exposes:
+  - type: rest
+    namespace: palo-alto-dns-security-domains-rest
+    port: 8080
+    description: REST adapter for Palo Alto Networks DNS Security API — Domains. One Spectral-compliant resource per consumed
+      operation, prefixed with /v1.
+    resources:
+    - path: /v1/domain
+      name: domain
+      description: REST surface for domain.
+      operations:
+      - method: GET
+        name: getdomain
+        description: Palo Alto Networks Query Domain Details
+        call: palo-alto-dns-security-domains.getdomain
+        with:
+          domain: rest.domain
+          customerid: rest.customerid
+        outputParameters:
+        - type: object
+          mapping: $.
+    - path: /v1/domain/bulk
+      name: domain-bulk
+      description: REST surface for domain-bulk.
+      operations:
+      - method: GET
+        name: getdomainbulk
+        description: Palo Alto Networks Bulk Domain Query
+        call: palo-alto-dns-security-domains.getdomainbulk
+        with:
+          domains: rest.domains
+          customerid: rest.customerid
+        outputParameters:
+        - type: object
+          mapping: $.
+  - type: mcp
+    namespace: palo-alto-dns-security-domains-mcp
+    port: 9090
+    transport: http
+    description: MCP adapter for Palo Alto Networks DNS Security API — Domains. One tool per consumed operation, routed inline
+      through this capability's consumes block.
+    tools:
+    - name: palo-alto-networks-query-domain
+      description: Palo Alto Networks Query Domain Details
+      hints:
+        readOnly: true
+        destructive: false
+        idempotent: true
+      call: palo-alto-dns-security-domains.getdomain
+      with:
+        domain: tools.domain
+        customerid: tools.customerid
+      outputParameters:
+      - type: object
+        mapping: $.
+    - name: palo-alto-networks-bulk-domain
+      description: Palo Alto Networks Bulk Domain Query
+      hints:
+        readOnly: true
+        destructive: false
+        idempotent: true
+      call: palo-alto-dns-security-domains.getdomainbulk
+      with:
+        domains: tools.domains
+        customerid: tools.customerid
+      outputParameters:
+      - type: object
+        mapping: $.

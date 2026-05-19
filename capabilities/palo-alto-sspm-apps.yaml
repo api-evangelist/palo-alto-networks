@@ -1,0 +1,169 @@
+naftiko: 1.0.0-alpha2
+info:
+  label: Palo Alto Networks SaaS Security Posture Management API — Apps
+  description: 'Palo Alto Networks SaaS Security Posture Management API — Apps. 3 operations. Lead operation: Palo Alto Networks
+    List Onboarded SaaS Applications. Self-contained Naftiko capability covering one Palo Alto Networks business surface.'
+  tags:
+  - Palo Alto Networks
+  - Apps
+  created: '2026-05-19'
+  modified: '2026-05-19'
+binds:
+- namespace: env
+  keys:
+    PALO_ALTO_NETWORKS_API_KEY: PALO_ALTO_NETWORKS_API_KEY
+capability:
+  consumes:
+  - type: http
+    namespace: palo-alto-sspm-apps
+    baseUri: https://api.sase.paloaltonetworks.com/sspm
+    description: Palo Alto Networks SaaS Security Posture Management API — Apps business capability. Self-contained, no shared
+      references.
+    resources:
+    - name: v1-apps
+      path: /v1/apps
+      operations:
+      - name: listonboardedapps
+        method: GET
+        description: Palo Alto Networks List Onboarded SaaS Applications
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: status
+          in: query
+          type: string
+          description: Filter applications by connection status.
+        - name: offset
+          in: query
+          type: integer
+          description: Number of results to skip for pagination.
+        - name: limit
+          in: query
+          type: integer
+          description: Maximum number of applications to return.
+      - name: onboardapp
+        method: POST
+        description: Palo Alto Networks Onboard New Application
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: body
+          in: body
+          type: object
+          description: Request body (JSON).
+          required: true
+    - name: v1-apps-app_id
+      path: /v1/apps/{app_id}
+      operations:
+      - name: removeapp
+        method: DELETE
+        description: Palo Alto Networks Remove Onboarded Application
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: app_id
+          in: path
+          type: string
+          description: Unique identifier of the onboarded application.
+          required: true
+    authentication:
+      type: bearer
+      token: '{{env.PALO_ALTO_NETWORKS_API_KEY}}'
+  exposes:
+  - type: rest
+    namespace: palo-alto-sspm-apps-rest
+    port: 8080
+    description: REST adapter for Palo Alto Networks SaaS Security Posture Management API — Apps. One Spectral-compliant resource
+      per consumed operation, prefixed with /v1.
+    resources:
+    - path: /v1/v1/apps
+      name: v1-apps
+      description: REST surface for v1-apps.
+      operations:
+      - method: GET
+        name: listonboardedapps
+        description: Palo Alto Networks List Onboarded SaaS Applications
+        call: palo-alto-sspm-apps.listonboardedapps
+        with:
+          status: rest.status
+          offset: rest.offset
+          limit: rest.limit
+        outputParameters:
+        - type: object
+          mapping: $.
+      - method: POST
+        name: onboardapp
+        description: Palo Alto Networks Onboard New Application
+        call: palo-alto-sspm-apps.onboardapp
+        with:
+          body: rest.body
+        outputParameters:
+        - type: object
+          mapping: $.
+    - path: /v1/v1/apps/{app-id}
+      name: v1-apps-app-id
+      description: REST surface for v1-apps-app_id.
+      operations:
+      - method: DELETE
+        name: removeapp
+        description: Palo Alto Networks Remove Onboarded Application
+        call: palo-alto-sspm-apps.removeapp
+        with:
+          app_id: rest.app_id
+        outputParameters:
+        - type: object
+          mapping: $.
+  - type: mcp
+    namespace: palo-alto-sspm-apps-mcp
+    port: 9090
+    transport: http
+    description: MCP adapter for Palo Alto Networks SaaS Security Posture Management API — Apps. One tool per consumed operation,
+      routed inline through this capability's consumes block.
+    tools:
+    - name: palo-alto-networks-list-onboarded
+      description: Palo Alto Networks List Onboarded SaaS Applications
+      hints:
+        readOnly: true
+        destructive: false
+        idempotent: true
+      call: palo-alto-sspm-apps.listonboardedapps
+      with:
+        status: tools.status
+        offset: tools.offset
+        limit: tools.limit
+      outputParameters:
+      - type: object
+        mapping: $.
+    - name: palo-alto-networks-onboard-new
+      description: Palo Alto Networks Onboard New Application
+      hints:
+        readOnly: false
+        destructive: false
+        idempotent: false
+      call: palo-alto-sspm-apps.onboardapp
+      with:
+        body: tools.body
+      outputParameters:
+      - type: object
+        mapping: $.
+    - name: palo-alto-networks-remove-onboarded
+      description: Palo Alto Networks Remove Onboarded Application
+      hints:
+        readOnly: false
+        destructive: true
+        idempotent: true
+      call: palo-alto-sspm-apps.removeapp
+      with:
+        app_id: tools.app_id
+      outputParameters:
+      - type: object
+        mapping: $.

@@ -1,0 +1,145 @@
+naftiko: 1.0.0-alpha2
+info:
+  label: Palo Alto Networks SaaS Security API — Assets
+  description: 'Palo Alto Networks SaaS Security API — Assets. 2 operations. Lead operation: Palo Alto Networks List Scanned
+    Assets. Self-contained Naftiko capability covering one Palo Alto Networks business surface.'
+  tags:
+  - Palo Alto Networks
+  - Assets
+  created: '2026-05-19'
+  modified: '2026-05-19'
+binds:
+- namespace: env
+  keys:
+    PALO_ALTO_NETWORKS_API_KEY: PALO_ALTO_NETWORKS_API_KEY
+capability:
+  consumes:
+  - type: http
+    namespace: palo-alto-saas-security-assets
+    baseUri: https://api.aperture.paloaltonetworks.com
+    description: Palo Alto Networks SaaS Security API — Assets business capability. Self-contained, no shared references.
+    resources:
+    - name: api-assets
+      path: /api/assets
+      operations:
+      - name: listassets
+        method: GET
+        description: Palo Alto Networks List Scanned Assets
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: app_id
+          in: query
+          type: string
+          description: Filter assets by SaaS application ID.
+        - name: type
+          in: query
+          type: string
+          description: Filter by asset type.
+        - name: exposure
+          in: query
+          type: string
+          description: Filter by exposure level.
+        - name: offset
+          in: query
+          type: integer
+          description: Number of results to skip for pagination.
+        - name: limit
+          in: query
+          type: integer
+          description: Maximum number of assets to return per page.
+    - name: api-assets-id
+      path: /api/assets/{id}
+      operations:
+      - name: getasset
+        method: GET
+        description: Palo Alto Networks Get Asset Details
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: id
+          in: path
+          type: string
+          description: Unique identifier of the asset.
+          required: true
+    authentication:
+      type: bearer
+      token: '{{env.PALO_ALTO_NETWORKS_API_KEY}}'
+  exposes:
+  - type: rest
+    namespace: palo-alto-saas-security-assets-rest
+    port: 8080
+    description: REST adapter for Palo Alto Networks SaaS Security API — Assets. One Spectral-compliant resource per consumed
+      operation, prefixed with /v1.
+    resources:
+    - path: /v1/api/assets
+      name: api-assets
+      description: REST surface for api-assets.
+      operations:
+      - method: GET
+        name: listassets
+        description: Palo Alto Networks List Scanned Assets
+        call: palo-alto-saas-security-assets.listassets
+        with:
+          app_id: rest.app_id
+          type: rest.type
+          exposure: rest.exposure
+          offset: rest.offset
+          limit: rest.limit
+        outputParameters:
+        - type: object
+          mapping: $.
+    - path: /v1/api/assets/{id}
+      name: api-assets-id
+      description: REST surface for api-assets-id.
+      operations:
+      - method: GET
+        name: getasset
+        description: Palo Alto Networks Get Asset Details
+        call: palo-alto-saas-security-assets.getasset
+        with:
+          id: rest.id
+        outputParameters:
+        - type: object
+          mapping: $.
+  - type: mcp
+    namespace: palo-alto-saas-security-assets-mcp
+    port: 9090
+    transport: http
+    description: MCP adapter for Palo Alto Networks SaaS Security API — Assets. One tool per consumed operation, routed inline
+      through this capability's consumes block.
+    tools:
+    - name: palo-alto-networks-list-scanned
+      description: Palo Alto Networks List Scanned Assets
+      hints:
+        readOnly: true
+        destructive: false
+        idempotent: true
+      call: palo-alto-saas-security-assets.listassets
+      with:
+        app_id: tools.app_id
+        type: tools.type
+        exposure: tools.exposure
+        offset: tools.offset
+        limit: tools.limit
+      outputParameters:
+      - type: object
+        mapping: $.
+    - name: palo-alto-networks-get-asset
+      description: Palo Alto Networks Get Asset Details
+      hints:
+        readOnly: true
+        destructive: false
+        idempotent: true
+      call: palo-alto-saas-security-assets.getasset
+      with:
+        id: tools.id
+      outputParameters:
+      - type: object
+        mapping: $.

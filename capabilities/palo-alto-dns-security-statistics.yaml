@@ -1,0 +1,102 @@
+naftiko: 1.0.0-alpha2
+info:
+  label: Palo Alto Networks DNS Security API — Statistics
+  description: 'Palo Alto Networks DNS Security API — Statistics. 1 operations. Lead operation: Palo Alto Networks Get Network
+    Access Statistics. Self-contained Naftiko capability covering one Palo Alto Networks business surface.'
+  tags:
+  - Palo Alto Networks
+  - Statistics
+  created: '2026-05-19'
+  modified: '2026-05-19'
+binds:
+- namespace: env
+  keys:
+    PALO_ALTO_NETWORKS_API_KEY: PALO_ALTO_NETWORKS_API_KEY
+capability:
+  consumes:
+  - type: http
+    namespace: palo-alto-dns-security-statistics
+    baseUri: https://api.dns.service.paloaltonetworks.com/v1
+    description: Palo Alto Networks DNS Security API — Statistics business capability. Self-contained, no shared references.
+    resources:
+    - name: stats-network
+      path: /stats/network
+      operations:
+      - name: getnetworkstats
+        method: GET
+        description: Palo Alto Networks Get Network Access Statistics
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: customerid
+          in: query
+          type: string
+          description: Customer ID for which to return network statistics.
+          required: true
+        - name: domain
+          in: query
+          type: string
+          description: Filter statistics to a specific domain. When omitted, aggregate statistics for all domains are returned.
+        - name: stime
+          in: query
+          type: string
+          description: Start time for the statistics period in ISO 8601 format or Unix epoch seconds.
+          required: true
+        - name: etime
+          in: query
+          type: string
+          description: End time for the statistics period in ISO 8601 format or Unix epoch seconds.
+          required: true
+    authentication:
+      type: apikey
+      key: X-DNS-API-APIKEY
+      value: '{{env.PALO_ALTO_NETWORKS_API_KEY}}'
+      placement: header
+  exposes:
+  - type: rest
+    namespace: palo-alto-dns-security-statistics-rest
+    port: 8080
+    description: REST adapter for Palo Alto Networks DNS Security API — Statistics. One Spectral-compliant resource per consumed
+      operation, prefixed with /v1.
+    resources:
+    - path: /v1/stats/network
+      name: stats-network
+      description: REST surface for stats-network.
+      operations:
+      - method: GET
+        name: getnetworkstats
+        description: Palo Alto Networks Get Network Access Statistics
+        call: palo-alto-dns-security-statistics.getnetworkstats
+        with:
+          customerid: rest.customerid
+          domain: rest.domain
+          stime: rest.stime
+          etime: rest.etime
+        outputParameters:
+        - type: object
+          mapping: $.
+  - type: mcp
+    namespace: palo-alto-dns-security-statistics-mcp
+    port: 9090
+    transport: http
+    description: MCP adapter for Palo Alto Networks DNS Security API — Statistics. One tool per consumed operation, routed
+      inline through this capability's consumes block.
+    tools:
+    - name: palo-alto-networks-get-network
+      description: Palo Alto Networks Get Network Access Statistics
+      hints:
+        readOnly: true
+        destructive: false
+        idempotent: true
+      call: palo-alto-dns-security-statistics.getnetworkstats
+      with:
+        customerid: tools.customerid
+        domain: tools.domain
+        stime: tools.stime
+        etime: tools.etime
+      outputParameters:
+      - type: object
+        mapping: $.
