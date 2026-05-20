@@ -1,0 +1,260 @@
+# Curated top Palo Alto Networks integrations grouped by category.
+# Each entry becomes one Naftiko capability YAML in integrations/.
+# Categories reflect the security / firewall / SOC ecosystem around Cortex,
+# Prisma Cloud, Prisma Access, and PAN-OS.
+
+# SIEM (2)
+- partner: splunk
+  name: Forward Cortex XDR incidents into Splunk SIEM
+  category: SIEM
+  use_case: Stream Cortex XDR incidents and alerts into Splunk as HEC events so the SOC can correlate Palo Alto detections with the rest of their telemetry.
+  partner_baseUri: https://splunk.example.com:8088
+  partner_api: Splunk HTTP Event Collector
+  provider_ops:
+    - method: POST
+      path: /incidents/get_incidents
+      name: getIncidents
+      description: Cortex XDR — list incidents for forwarding into the SIEM.
+    - method: POST
+      path: /incidents/get_incident_extra_data
+      name: getIncidentExtraData
+      description: Cortex XDR — fetch full incident context (alerts, artifacts) for enrichment.
+  partner_ops:
+    - method: POST
+      path: /services/collector/event
+      name: postEvent
+
+- partner: microsoft-sentinel
+  name: Push Prisma Cloud alerts into Microsoft Sentinel
+  category: SIEM
+  use_case: Forward Prisma Cloud CSPM alerts into Microsoft Sentinel as custom-log entries so cloud-posture findings appear alongside Azure-native detections.
+  partner_baseUri: https://yourworkspace.ods.opinsights.azure.com
+  partner_api: Microsoft Sentinel Log Ingestion API
+  provider_ops:
+    - method: GET
+      path: /alert
+      name: listAlerts
+      description: Prisma Cloud CSPM — list alerts for export to Sentinel.
+    - method: GET
+      path: /alert/{id}
+      name: getAlert
+      description: Prisma Cloud CSPM — fetch single alert detail.
+  partner_ops:
+    - method: POST
+      path: /api/logs
+      name: postLogs
+
+# Observability (1)
+- partner: datadog
+  name: Stream Prisma Cloud Compute findings to Datadog
+  category: Observability
+  use_case: Forward Prisma Cloud Compute container vulnerability and runtime findings into Datadog as events and logs so DevOps sees them in the same pane as application metrics.
+  partner_baseUri: https://api.datadoghq.com
+  partner_api: Datadog API
+  provider_ops:
+    - method: GET
+      path: /images
+      name: getImages
+      description: Prisma Cloud Compute — list scanned container images.
+    - method: GET
+      path: /containers
+      name: getContainers
+      description: Prisma Cloud Compute — list monitored containers.
+  partner_ops:
+    - method: POST
+      path: /api/v2/logs
+      name: postLogs
+    - method: POST
+      path: /api/v1/events
+      name: postEvent
+
+# ITSM (1)
+- partner: servicenow
+  name: Open ServiceNow incidents from Cortex XDR detections
+  category: ITSM
+  use_case: When a Cortex XDR incident crosses a severity threshold, open a matching ServiceNow Incident with full Palo Alto context attached for the SOC change-management workflow.
+  partner_baseUri: https://yourinstance.service-now.com
+  partner_api: ServiceNow Table API
+  provider_ops:
+    - method: POST
+      path: /incidents/get_incidents
+      name: getIncidents
+      description: Cortex XDR — list incidents to mirror into ServiceNow.
+    - method: POST
+      path: /incidents/update_incident
+      name: updateIncident
+      description: Cortex XDR — write back ServiceNow ticket ID and status.
+  partner_ops:
+    - method: POST
+      path: /api/now/table/incident
+      name: createIncident
+    - method: PATCH
+      path: /api/now/table/incident/{sys_id}
+      name: updateIncident
+
+# Incident management / ChatOps (3)
+- partner: jira
+  name: File Prisma Cloud Code Security findings as Jira tickets
+  category: Incident management
+  use_case: For every Prisma Cloud Code Security finding above a configured severity, file a Jira issue in the relevant project and link the Prisma scan back to the ticket.
+  partner_baseUri: https://yourdomain.atlassian.net
+  partner_api: Jira Cloud REST API
+  provider_ops:
+    - method: GET
+      path: /scans
+      name: listScans
+      description: Prisma Cloud Code Security — list code scans.
+    - method: GET
+      path: /scans/{scan_id}
+      name: getScan
+      description: Prisma Cloud Code Security — fetch full scan details with findings.
+  partner_ops:
+    - method: POST
+      path: /rest/api/3/issue
+      name: createIssue
+
+- partner: slack
+  name: Post Cortex XSOAR investigation alerts to Slack
+  category: ChatOps
+  use_case: When Cortex XSOAR opens or updates a high-severity investigation, post a formatted alert (with playbook links) to a designated Slack channel.
+  partner_baseUri: https://slack.com
+  partner_api: Slack Web API
+  provider_ops:
+    - method: POST
+      path: /incidents/search
+      name: searchIncidents
+      description: Cortex XSOAR — search active incidents for Slack notification.
+    - method: POST
+      path: /incident/update
+      name: updateIncident
+      description: Cortex XSOAR — write back the Slack thread URL to the incident.
+  partner_ops:
+    - method: POST
+      path: /api/chat.postMessage
+      name: postMessage
+
+- partner: pagerduty
+  name: Page on-call from IoT Security critical alerts
+  category: Incident response
+  use_case: When IoT Security raises a critical-severity alert against an OT or medical device, trigger a PagerDuty incident routed to the correct on-call escalation policy.
+  partner_baseUri: https://events.pagerduty.com
+  partner_api: PagerDuty Events API v2
+  provider_ops:
+    - method: GET
+      path: /alert/list
+      name: listAlerts
+      description: IoT Security — list active alerts for paging logic.
+    - method: GET
+      path: /alert/detail
+      name: getAlert
+      description: IoT Security — fetch alert detail including affected device.
+  partner_ops:
+    - method: POST
+      path: /v2/enqueue
+      name: triggerIncident
+
+# Identity (1)
+- partner: okta
+  name: Sync Okta groups into PAN-OS user-id for firewall policy
+  category: Identity
+  use_case: Map Okta group membership into PAN-OS user-id tag mappings so firewall security rules and NAT rules can be authored against Okta groups instead of static IPs.
+  partner_baseUri: https://yourdomain.okta.com
+  partner_api: Okta API
+  provider_ops:
+    - method: GET
+      path: /Policies/SecurityRules
+      name: listSecurityRules
+      description: PAN-OS — list security rules to scope by Okta group.
+    - method: POST
+      path: /Objects/AddressGroups
+      name: createAddressGroup
+      description: PAN-OS — create or update address groups based on Okta group membership.
+  partner_ops:
+    - method: GET
+      path: /api/v1/groups
+      name: listGroups
+    - method: GET
+      path: /api/v1/groups/{groupId}/users
+      name: listGroupUsers
+
+# Cloud-native threat detection (1)
+- partner: aws-guardduty
+  name: Enrich Prisma Cloud CSPM findings with AWS GuardDuty
+  category: Cloud threat detection
+  use_case: For each Prisma Cloud CSPM alert on an AWS resource, pull the matching GuardDuty findings for that resource and attach them to the alert so the SOC sees both posture and runtime signals in one place.
+  partner_baseUri: https://guardduty.us-east-1.amazonaws.com
+  partner_api: AWS GuardDuty API
+  provider_ops:
+    - method: GET
+      path: /alert
+      name: listAlerts
+      description: Prisma Cloud CSPM — list alerts on AWS resources.
+    - method: POST
+      path: /alert/dismiss
+      name: dismissAlert
+      description: Prisma Cloud CSPM — dismiss alerts that GuardDuty confirms are benign.
+  partner_ops:
+    - method: POST
+      path: /detector/{detectorId}/findings
+      name: listFindings
+
+# DevSecOps / code security (3)
+- partner: github-advanced-security
+  name: Mirror Prisma Cloud Code Security findings into GitHub code scanning
+  category: DevSecOps
+  use_case: Push Prisma Cloud Code Security findings into GitHub's code scanning alerts so developers see Palo Alto IaC and SCA findings directly in the GitHub UI.
+  partner_baseUri: https://api.github.com
+  partner_api: GitHub REST API
+  provider_ops:
+    - method: GET
+      path: /repositories
+      name: listRepositories
+      description: Prisma Cloud Code Security — list integrated repositories.
+    - method: GET
+      path: /scans
+      name: listScans
+      description: Prisma Cloud Code Security — list code scans whose findings should be mirrored.
+  partner_ops:
+    - method: POST
+      path: /repos/{owner}/{repo}/code-scanning/sarifs
+      name: uploadSarif
+
+- partner: wiz
+  name: De-dupe Wiz and Prisma Cloud CSPM findings
+  category: CSPM
+  use_case: For shared cloud accounts monitored by both Wiz and Prisma Cloud CSPM, correlate findings on the same resource and dismiss duplicates in Prisma Cloud where Wiz has the equivalent finding.
+  partner_baseUri: https://api.us1.app.wiz.io
+  partner_api: Wiz API
+  provider_ops:
+    - method: GET
+      path: /alert
+      name: listAlerts
+      description: Prisma Cloud CSPM — list alerts to compare against Wiz.
+    - method: POST
+      path: /alert/dismiss
+      name: dismissAlert
+      description: Prisma Cloud CSPM — dismiss duplicates of Wiz findings.
+  partner_ops:
+    - method: POST
+      path: /graphql
+      name: queryIssues
+
+- partner: snyk
+  name: Augment Prisma Cloud Code Security with Snyk vulnerability data
+  category: DevSecOps
+  use_case: Enrich Prisma Cloud Code Security SCA findings with Snyk vulnerability database context (exploit maturity, fix advice) before opening developer tickets.
+  partner_baseUri: https://api.snyk.io
+  partner_api: Snyk REST API
+  provider_ops:
+    - method: GET
+      path: /scans
+      name: listScans
+      description: Prisma Cloud Code Security — list scans whose findings need Snyk enrichment.
+    - method: POST
+      path: /fixes/pull_request
+      name: openFixPullRequest
+      description: Prisma Cloud Code Security — open a fix PR for the Snyk-enriched finding.
+  partner_ops:
+    - method: GET
+      path: /rest/orgs/{org_id}/issues
+      name: listIssues

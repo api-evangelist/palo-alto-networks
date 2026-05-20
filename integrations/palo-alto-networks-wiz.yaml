@@ -1,0 +1,107 @@
+naftiko: 1.0.0-alpha2
+info:
+  label: De-dupe Wiz and Prisma Cloud CSPM findings
+  description: For shared cloud accounts monitored by both Wiz and Prisma Cloud CSPM, correlate findings on the same resource and dismiss duplicates in Prisma Cloud where Wiz has the equivalent finding.
+  tags:
+  - Palo Alto Networks
+  - Integration
+  - CSPM
+  - wiz
+  created: '2026-05-20'
+  modified: '2026-05-20'
+binds:
+- namespace: env
+  keys:
+    PALO_ALTO_NETWORKS_API_KEY: PALO_ALTO_NETWORKS_API_KEY
+    WIZ_API_KEY: WIZ_API_KEY
+capability:
+  consumes:
+  - type: http
+    namespace: palo-alto-networks
+    baseUri: https://api.paloaltonetworks.com
+    description: Palo Alto Networks API operations consumed by this integration.
+    resources:
+    - name: alert
+      path: /alert
+      operations:
+      - name: listalerts
+        method: GET
+        description: Prisma Cloud CSPM — list alerts to compare against Wiz.
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters: []
+    - name: alert-dismiss
+      path: /alert/dismiss
+      operations:
+      - name: dismissalert
+        method: POST
+        description: Prisma Cloud CSPM — dismiss duplicates of Wiz findings.
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: body
+          in: body
+          type: object
+          description: Request body (JSON).
+          required: true
+  - type: http
+    namespace: wiz
+    baseUri: https://api.us1.app.wiz.io
+    description: Wiz API operations consumed by this integration.
+    resources:
+    - name: graphql
+      path: /graphql
+      operations:
+      - name: queryissues
+        method: POST
+        description: 'Wiz API: queryIssues'
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: body
+          in: body
+          type: object
+          description: Request body (JSON).
+          required: true
+  exposes:
+  - type: mcp
+    namespace: palo-alto-networks-wiz-mcp
+    description: MCP adapter for the palo-alto-networks-wiz integration.
+    tools:
+    - name: palo_alto_networks_wiz
+      description: Execute the palo alto networks wiz integration end-to-end.
+      inputSchema:
+        type: object
+        properties:
+          trigger_event:
+            type: object
+            description: Triggering event payload.
+        required:
+        - trigger_event
+  - type: rest
+    namespace: palo-alto-networks-wiz-rest
+    port: 8080
+    description: REST adapter for the palo-alto-networks-wiz integration.
+    resources:
+    - path: /palo-alto-networks-wiz
+      name: palo-alto-networks-wiz
+      description: REST surface for the palo-alto-networks-wiz integration.
+      operations:
+      - method: POST
+        name: trigger
+        description: Trigger the palo-alto-networks-wiz integration.
+        call: palo_alto_networks_wiz
+        with:
+          trigger_event: rest.body
+        outputParameters:
+        - type: object
+          mapping: $.

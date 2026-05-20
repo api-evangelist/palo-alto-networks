@@ -1,0 +1,102 @@
+naftiko: 1.0.0-alpha2
+info:
+  label: Page on-call from IoT Security critical alerts
+  description: When IoT Security raises a critical-severity alert against an OT or medical device, trigger a PagerDuty incident routed to the correct on-call escalation policy.
+  tags:
+  - Palo Alto Networks
+  - Integration
+  - Incident response
+  - pagerduty
+  created: '2026-05-20'
+  modified: '2026-05-20'
+binds:
+- namespace: env
+  keys:
+    PALO_ALTO_NETWORKS_API_KEY: PALO_ALTO_NETWORKS_API_KEY
+    PAGERDUTY_API_KEY: PAGERDUTY_API_KEY
+capability:
+  consumes:
+  - type: http
+    namespace: palo-alto-networks
+    baseUri: https://api.paloaltonetworks.com
+    description: Palo Alto Networks API operations consumed by this integration.
+    resources:
+    - name: alert-list
+      path: /alert/list
+      operations:
+      - name: listalerts
+        method: GET
+        description: IoT Security — list active alerts for paging logic.
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters: []
+    - name: alert-detail
+      path: /alert/detail
+      operations:
+      - name: getalert
+        method: GET
+        description: IoT Security — fetch alert detail including affected device.
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters: []
+  - type: http
+    namespace: pagerduty
+    baseUri: https://events.pagerduty.com
+    description: PagerDuty Events API v2 operations consumed by this integration.
+    resources:
+    - name: v2-enqueue
+      path: /v2/enqueue
+      operations:
+      - name: triggerincident
+        method: POST
+        description: 'PagerDuty Events API v2: triggerIncident'
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: body
+          in: body
+          type: object
+          description: Request body (JSON).
+          required: true
+  exposes:
+  - type: mcp
+    namespace: palo-alto-networks-pagerduty-mcp
+    description: MCP adapter for the palo-alto-networks-pagerduty integration.
+    tools:
+    - name: palo_alto_networks_pagerduty
+      description: Execute the palo alto networks pagerduty integration end-to-end.
+      inputSchema:
+        type: object
+        properties:
+          trigger_event:
+            type: object
+            description: Triggering event payload.
+        required:
+        - trigger_event
+  - type: rest
+    namespace: palo-alto-networks-pagerduty-rest
+    port: 8080
+    description: REST adapter for the palo-alto-networks-pagerduty integration.
+    resources:
+    - path: /palo-alto-networks-pagerduty
+      name: palo-alto-networks-pagerduty
+      description: REST surface for the palo-alto-networks-pagerduty integration.
+      operations:
+      - method: POST
+        name: trigger
+        description: Trigger the palo-alto-networks-pagerduty integration.
+        call: palo_alto_networks_pagerduty
+        with:
+          trigger_event: rest.body
+        outputParameters:
+        - type: object
+          mapping: $.

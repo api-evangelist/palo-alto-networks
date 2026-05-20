@@ -1,0 +1,107 @@
+naftiko: 1.0.0-alpha2
+info:
+  label: File Prisma Cloud Code Security findings as Jira tickets
+  description: For every Prisma Cloud Code Security finding above a configured severity, file a Jira issue in the relevant project and link the Prisma scan back to the ticket.
+  tags:
+  - Palo Alto Networks
+  - Integration
+  - Incident management
+  - jira
+  created: '2026-05-20'
+  modified: '2026-05-20'
+binds:
+- namespace: env
+  keys:
+    PALO_ALTO_NETWORKS_API_KEY: PALO_ALTO_NETWORKS_API_KEY
+    JIRA_API_KEY: JIRA_API_KEY
+capability:
+  consumes:
+  - type: http
+    namespace: palo-alto-networks
+    baseUri: https://api.paloaltonetworks.com
+    description: Palo Alto Networks API operations consumed by this integration.
+    resources:
+    - name: scans
+      path: /scans
+      operations:
+      - name: listscans
+        method: GET
+        description: Prisma Cloud Code Security — list code scans.
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters: []
+    - name: scans-scan-id
+      path: /scans/{scan_id}
+      operations:
+      - name: getscan
+        method: GET
+        description: Prisma Cloud Code Security — fetch full scan details with findings.
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: scan_id
+          in: path
+          type: string
+          description: Path parameter scan_id.
+          required: true
+  - type: http
+    namespace: jira
+    baseUri: https://yourdomain.atlassian.net
+    description: Jira Cloud REST API operations consumed by this integration.
+    resources:
+    - name: rest-api-3-issue
+      path: /rest/api/3/issue
+      operations:
+      - name: createissue
+        method: POST
+        description: 'Jira Cloud REST API: createIssue'
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: body
+          in: body
+          type: object
+          description: Request body (JSON).
+          required: true
+  exposes:
+  - type: mcp
+    namespace: palo-alto-networks-jira-mcp
+    description: MCP adapter for the palo-alto-networks-jira integration.
+    tools:
+    - name: palo_alto_networks_jira
+      description: Execute the palo alto networks jira integration end-to-end.
+      inputSchema:
+        type: object
+        properties:
+          trigger_event:
+            type: object
+            description: Triggering event payload.
+        required:
+        - trigger_event
+  - type: rest
+    namespace: palo-alto-networks-jira-rest
+    port: 8080
+    description: REST adapter for the palo-alto-networks-jira integration.
+    resources:
+    - path: /palo-alto-networks-jira
+      name: palo-alto-networks-jira
+      description: REST surface for the palo-alto-networks-jira integration.
+      operations:
+      - method: POST
+        name: trigger
+        description: Trigger the palo-alto-networks-jira integration.
+        call: palo_alto_networks_jira
+        with:
+          trigger_event: rest.body
+        outputParameters:
+        - type: object
+          mapping: $.

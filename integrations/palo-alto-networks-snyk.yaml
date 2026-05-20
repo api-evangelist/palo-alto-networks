@@ -1,0 +1,107 @@
+naftiko: 1.0.0-alpha2
+info:
+  label: Augment Prisma Cloud Code Security with Snyk vulnerability data
+  description: Enrich Prisma Cloud Code Security SCA findings with Snyk vulnerability database context (exploit maturity, fix advice) before opening developer tickets.
+  tags:
+  - Palo Alto Networks
+  - Integration
+  - DevSecOps
+  - snyk
+  created: '2026-05-20'
+  modified: '2026-05-20'
+binds:
+- namespace: env
+  keys:
+    PALO_ALTO_NETWORKS_API_KEY: PALO_ALTO_NETWORKS_API_KEY
+    SNYK_API_KEY: SNYK_API_KEY
+capability:
+  consumes:
+  - type: http
+    namespace: palo-alto-networks
+    baseUri: https://api.paloaltonetworks.com
+    description: Palo Alto Networks API operations consumed by this integration.
+    resources:
+    - name: scans
+      path: /scans
+      operations:
+      - name: listscans
+        method: GET
+        description: Prisma Cloud Code Security — list scans whose findings need Snyk enrichment.
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters: []
+    - name: fixes-pull-request
+      path: /fixes/pull_request
+      operations:
+      - name: openfixpullrequest
+        method: POST
+        description: Prisma Cloud Code Security — open a fix PR for the Snyk-enriched finding.
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: body
+          in: body
+          type: object
+          description: Request body (JSON).
+          required: true
+  - type: http
+    namespace: snyk
+    baseUri: https://api.snyk.io
+    description: Snyk REST API operations consumed by this integration.
+    resources:
+    - name: rest-orgs-org-id-issues
+      path: /rest/orgs/{org_id}/issues
+      operations:
+      - name: listissues
+        method: GET
+        description: 'Snyk REST API: listIssues'
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: org_id
+          in: path
+          type: string
+          description: Path parameter org_id.
+          required: true
+  exposes:
+  - type: mcp
+    namespace: palo-alto-networks-snyk-mcp
+    description: MCP adapter for the palo-alto-networks-snyk integration.
+    tools:
+    - name: palo_alto_networks_snyk
+      description: Execute the palo alto networks snyk integration end-to-end.
+      inputSchema:
+        type: object
+        properties:
+          trigger_event:
+            type: object
+            description: Triggering event payload.
+        required:
+        - trigger_event
+  - type: rest
+    namespace: palo-alto-networks-snyk-rest
+    port: 8080
+    description: REST adapter for the palo-alto-networks-snyk integration.
+    resources:
+    - path: /palo-alto-networks-snyk
+      name: palo-alto-networks-snyk
+      description: REST surface for the palo-alto-networks-snyk integration.
+      operations:
+      - method: POST
+        name: trigger
+        description: Trigger the palo-alto-networks-snyk integration.
+        call: palo_alto_networks_snyk
+        with:
+          trigger_event: rest.body
+        outputParameters:
+        - type: object
+          mapping: $.

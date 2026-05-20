@@ -1,0 +1,112 @@
+naftiko: 1.0.0-alpha2
+info:
+  label: Post Cortex XSOAR investigation alerts to Slack
+  description: When Cortex XSOAR opens or updates a high-severity investigation, post a formatted alert (with playbook links) to a designated Slack channel.
+  tags:
+  - Palo Alto Networks
+  - Integration
+  - ChatOps
+  - slack
+  created: '2026-05-20'
+  modified: '2026-05-20'
+binds:
+- namespace: env
+  keys:
+    PALO_ALTO_NETWORKS_API_KEY: PALO_ALTO_NETWORKS_API_KEY
+    SLACK_API_KEY: SLACK_API_KEY
+capability:
+  consumes:
+  - type: http
+    namespace: palo-alto-networks
+    baseUri: https://api.paloaltonetworks.com
+    description: Palo Alto Networks API operations consumed by this integration.
+    resources:
+    - name: incidents-search
+      path: /incidents/search
+      operations:
+      - name: searchincidents
+        method: POST
+        description: Cortex XSOAR — search active incidents for Slack notification.
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: body
+          in: body
+          type: object
+          description: Request body (JSON).
+          required: true
+    - name: incident-update
+      path: /incident/update
+      operations:
+      - name: updateincident
+        method: POST
+        description: Cortex XSOAR — write back the Slack thread URL to the incident.
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: body
+          in: body
+          type: object
+          description: Request body (JSON).
+          required: true
+  - type: http
+    namespace: slack
+    baseUri: https://slack.com
+    description: Slack Web API operations consumed by this integration.
+    resources:
+    - name: api-chat-postmessage
+      path: /api/chat.postMessage
+      operations:
+      - name: postmessage
+        method: POST
+        description: 'Slack Web API: postMessage'
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: body
+          in: body
+          type: object
+          description: Request body (JSON).
+          required: true
+  exposes:
+  - type: mcp
+    namespace: palo-alto-networks-slack-mcp
+    description: MCP adapter for the palo-alto-networks-slack integration.
+    tools:
+    - name: palo_alto_networks_slack
+      description: Execute the palo alto networks slack integration end-to-end.
+      inputSchema:
+        type: object
+        properties:
+          trigger_event:
+            type: object
+            description: Triggering event payload.
+        required:
+        - trigger_event
+  - type: rest
+    namespace: palo-alto-networks-slack-rest
+    port: 8080
+    description: REST adapter for the palo-alto-networks-slack integration.
+    resources:
+    - path: /palo-alto-networks-slack
+      name: palo-alto-networks-slack
+      description: REST surface for the palo-alto-networks-slack integration.
+      operations:
+      - method: POST
+        name: trigger
+        description: Trigger the palo-alto-networks-slack integration.
+        call: palo_alto_networks_slack
+        with:
+          trigger_event: rest.body
+        outputParameters:
+        - type: object
+          mapping: $.

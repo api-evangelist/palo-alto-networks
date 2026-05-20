@@ -1,0 +1,112 @@
+naftiko: 1.0.0-alpha2
+info:
+  label: Mirror Prisma Cloud Code Security findings into GitHub code scanning
+  description: Push Prisma Cloud Code Security findings into GitHub's code scanning alerts so developers see Palo Alto IaC and SCA findings directly in the GitHub UI.
+  tags:
+  - Palo Alto Networks
+  - Integration
+  - DevSecOps
+  - github-advanced-security
+  created: '2026-05-20'
+  modified: '2026-05-20'
+binds:
+- namespace: env
+  keys:
+    PALO_ALTO_NETWORKS_API_KEY: PALO_ALTO_NETWORKS_API_KEY
+    GITHUB_ADVANCED_SECURITY_API_KEY: GITHUB_ADVANCED_SECURITY_API_KEY
+capability:
+  consumes:
+  - type: http
+    namespace: palo-alto-networks
+    baseUri: https://api.paloaltonetworks.com
+    description: Palo Alto Networks API operations consumed by this integration.
+    resources:
+    - name: repositories
+      path: /repositories
+      operations:
+      - name: listrepositories
+        method: GET
+        description: Prisma Cloud Code Security — list integrated repositories.
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters: []
+    - name: scans
+      path: /scans
+      operations:
+      - name: listscans
+        method: GET
+        description: Prisma Cloud Code Security — list code scans whose findings should be mirrored.
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters: []
+  - type: http
+    namespace: github-advanced-security
+    baseUri: https://api.github.com
+    description: GitHub REST API operations consumed by this integration.
+    resources:
+    - name: repos-owner-repo-code-scanning-sarifs
+      path: /repos/{owner}/{repo}/code-scanning/sarifs
+      operations:
+      - name: uploadsarif
+        method: POST
+        description: 'GitHub REST API: uploadSarif'
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: owner
+          in: path
+          type: string
+          description: Path parameter owner.
+          required: true
+        - name: repo
+          in: path
+          type: string
+          description: Path parameter repo.
+          required: true
+        - name: body
+          in: body
+          type: object
+          description: Request body (JSON).
+          required: true
+  exposes:
+  - type: mcp
+    namespace: palo-alto-networks-github-advanced-security-mcp
+    description: MCP adapter for the palo-alto-networks-github-advanced-security integration.
+    tools:
+    - name: palo_alto_networks_github_advanced_security
+      description: Execute the palo alto networks github advanced security integration end-to-end.
+      inputSchema:
+        type: object
+        properties:
+          trigger_event:
+            type: object
+            description: Triggering event payload.
+        required:
+        - trigger_event
+  - type: rest
+    namespace: palo-alto-networks-github-advanced-security-rest
+    port: 8080
+    description: REST adapter for the palo-alto-networks-github-advanced-security integration.
+    resources:
+    - path: /palo-alto-networks-github-advanced-security
+      name: palo-alto-networks-github-advanced-security
+      description: REST surface for the palo-alto-networks-github-advanced-security integration.
+      operations:
+      - method: POST
+        name: trigger
+        description: Trigger the palo-alto-networks-github-advanced-security integration.
+        call: palo_alto_networks_github_advanced_security
+        with:
+          trigger_event: rest.body
+        outputParameters:
+        - type: object
+          mapping: $.

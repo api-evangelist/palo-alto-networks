@@ -1,0 +1,107 @@
+naftiko: 1.0.0-alpha2
+info:
+  label: Push Prisma Cloud alerts into Microsoft Sentinel
+  description: Forward Prisma Cloud CSPM alerts into Microsoft Sentinel as custom-log entries so cloud-posture findings appear alongside Azure-native detections.
+  tags:
+  - Palo Alto Networks
+  - Integration
+  - SIEM
+  - microsoft-sentinel
+  created: '2026-05-20'
+  modified: '2026-05-20'
+binds:
+- namespace: env
+  keys:
+    PALO_ALTO_NETWORKS_API_KEY: PALO_ALTO_NETWORKS_API_KEY
+    MICROSOFT_SENTINEL_API_KEY: MICROSOFT_SENTINEL_API_KEY
+capability:
+  consumes:
+  - type: http
+    namespace: palo-alto-networks
+    baseUri: https://api.paloaltonetworks.com
+    description: Palo Alto Networks API operations consumed by this integration.
+    resources:
+    - name: alert
+      path: /alert
+      operations:
+      - name: listalerts
+        method: GET
+        description: Prisma Cloud CSPM — list alerts for export to Sentinel.
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters: []
+    - name: alert-id
+      path: /alert/{id}
+      operations:
+      - name: getalert
+        method: GET
+        description: Prisma Cloud CSPM — fetch single alert detail.
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: id
+          in: path
+          type: string
+          description: Path parameter id.
+          required: true
+  - type: http
+    namespace: microsoft-sentinel
+    baseUri: https://yourworkspace.ods.opinsights.azure.com
+    description: Microsoft Sentinel Log Ingestion API operations consumed by this integration.
+    resources:
+    - name: api-logs
+      path: /api/logs
+      operations:
+      - name: postlogs
+        method: POST
+        description: 'Microsoft Sentinel Log Ingestion API: postLogs'
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: body
+          in: body
+          type: object
+          description: Request body (JSON).
+          required: true
+  exposes:
+  - type: mcp
+    namespace: palo-alto-networks-microsoft-sentinel-mcp
+    description: MCP adapter for the palo-alto-networks-microsoft-sentinel integration.
+    tools:
+    - name: palo_alto_networks_microsoft_sentinel
+      description: Execute the palo alto networks microsoft sentinel integration end-to-end.
+      inputSchema:
+        type: object
+        properties:
+          trigger_event:
+            type: object
+            description: Triggering event payload.
+        required:
+        - trigger_event
+  - type: rest
+    namespace: palo-alto-networks-microsoft-sentinel-rest
+    port: 8080
+    description: REST adapter for the palo-alto-networks-microsoft-sentinel integration.
+    resources:
+    - path: /palo-alto-networks-microsoft-sentinel
+      name: palo-alto-networks-microsoft-sentinel
+      description: REST surface for the palo-alto-networks-microsoft-sentinel integration.
+      operations:
+      - method: POST
+        name: trigger
+        description: Trigger the palo-alto-networks-microsoft-sentinel integration.
+        call: palo_alto_networks_microsoft_sentinel
+        with:
+          trigger_event: rest.body
+        outputParameters:
+        - type: object
+          mapping: $.

@@ -1,0 +1,112 @@
+naftiko: 1.0.0-alpha2
+info:
+  label: Enrich Prisma Cloud CSPM findings with AWS GuardDuty
+  description: For each Prisma Cloud CSPM alert on an AWS resource, pull the matching GuardDuty findings for that resource and attach them to the alert so the SOC sees both posture and runtime signals in one place.
+  tags:
+  - Palo Alto Networks
+  - Integration
+  - Cloud threat detection
+  - aws-guardduty
+  created: '2026-05-20'
+  modified: '2026-05-20'
+binds:
+- namespace: env
+  keys:
+    PALO_ALTO_NETWORKS_API_KEY: PALO_ALTO_NETWORKS_API_KEY
+    AWS_GUARDDUTY_API_KEY: AWS_GUARDDUTY_API_KEY
+capability:
+  consumes:
+  - type: http
+    namespace: palo-alto-networks
+    baseUri: https://api.paloaltonetworks.com
+    description: Palo Alto Networks API operations consumed by this integration.
+    resources:
+    - name: alert
+      path: /alert
+      operations:
+      - name: listalerts
+        method: GET
+        description: Prisma Cloud CSPM — list alerts on AWS resources.
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters: []
+    - name: alert-dismiss
+      path: /alert/dismiss
+      operations:
+      - name: dismissalert
+        method: POST
+        description: Prisma Cloud CSPM — dismiss alerts that GuardDuty confirms are benign.
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: body
+          in: body
+          type: object
+          description: Request body (JSON).
+          required: true
+  - type: http
+    namespace: aws-guardduty
+    baseUri: https://guardduty.us-east-1.amazonaws.com
+    description: AWS GuardDuty API operations consumed by this integration.
+    resources:
+    - name: detector-detectorid-findings
+      path: /detector/{detectorId}/findings
+      operations:
+      - name: listfindings
+        method: POST
+        description: 'AWS GuardDuty API: listFindings'
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: detectorId
+          in: path
+          type: string
+          description: Path parameter detectorId.
+          required: true
+        - name: body
+          in: body
+          type: object
+          description: Request body (JSON).
+          required: true
+  exposes:
+  - type: mcp
+    namespace: palo-alto-networks-aws-guardduty-mcp
+    description: MCP adapter for the palo-alto-networks-aws-guardduty integration.
+    tools:
+    - name: palo_alto_networks_aws_guardduty
+      description: Execute the palo alto networks aws guardduty integration end-to-end.
+      inputSchema:
+        type: object
+        properties:
+          trigger_event:
+            type: object
+            description: Triggering event payload.
+        required:
+        - trigger_event
+  - type: rest
+    namespace: palo-alto-networks-aws-guardduty-rest
+    port: 8080
+    description: REST adapter for the palo-alto-networks-aws-guardduty integration.
+    resources:
+    - path: /palo-alto-networks-aws-guardduty
+      name: palo-alto-networks-aws-guardduty
+      description: REST surface for the palo-alto-networks-aws-guardduty integration.
+      operations:
+      - method: POST
+        name: trigger
+        description: Trigger the palo-alto-networks-aws-guardduty integration.
+        call: palo_alto_networks_aws_guardduty
+        with:
+          trigger_event: rest.body
+        outputParameters:
+        - type: object
+          mapping: $.

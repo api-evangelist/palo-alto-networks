@@ -1,0 +1,134 @@
+naftiko: 1.0.0-alpha2
+info:
+  label: Open ServiceNow incidents from Cortex XDR detections
+  description: When a Cortex XDR incident crosses a severity threshold, open a matching ServiceNow Incident with full Palo Alto context attached for the SOC change-management workflow.
+  tags:
+  - Palo Alto Networks
+  - Integration
+  - ITSM
+  - servicenow
+  created: '2026-05-20'
+  modified: '2026-05-20'
+binds:
+- namespace: env
+  keys:
+    PALO_ALTO_NETWORKS_API_KEY: PALO_ALTO_NETWORKS_API_KEY
+    SERVICENOW_API_KEY: SERVICENOW_API_KEY
+capability:
+  consumes:
+  - type: http
+    namespace: palo-alto-networks
+    baseUri: https://api.paloaltonetworks.com
+    description: Palo Alto Networks API operations consumed by this integration.
+    resources:
+    - name: incidents-get-incidents
+      path: /incidents/get_incidents
+      operations:
+      - name: getincidents
+        method: POST
+        description: Cortex XDR — list incidents to mirror into ServiceNow.
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: body
+          in: body
+          type: object
+          description: Request body (JSON).
+          required: true
+    - name: incidents-update-incident
+      path: /incidents/update_incident
+      operations:
+      - name: updateincident
+        method: POST
+        description: Cortex XDR — write back ServiceNow ticket ID and status.
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: body
+          in: body
+          type: object
+          description: Request body (JSON).
+          required: true
+  - type: http
+    namespace: servicenow
+    baseUri: https://yourinstance.service-now.com
+    description: ServiceNow Table API operations consumed by this integration.
+    resources:
+    - name: api-now-table-incident
+      path: /api/now/table/incident
+      operations:
+      - name: createincident
+        method: POST
+        description: 'ServiceNow Table API: createIncident'
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: body
+          in: body
+          type: object
+          description: Request body (JSON).
+          required: true
+    - name: api-now-table-incident-sys-id
+      path: /api/now/table/incident/{sys_id}
+      operations:
+      - name: updateincident
+        method: PATCH
+        description: 'ServiceNow Table API: updateIncident'
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: sys_id
+          in: path
+          type: string
+          description: Path parameter sys_id.
+          required: true
+        - name: body
+          in: body
+          type: object
+          description: Request body (JSON).
+          required: true
+  exposes:
+  - type: mcp
+    namespace: palo-alto-networks-servicenow-mcp
+    description: MCP adapter for the palo-alto-networks-servicenow integration.
+    tools:
+    - name: palo_alto_networks_servicenow
+      description: Execute the palo alto networks servicenow integration end-to-end.
+      inputSchema:
+        type: object
+        properties:
+          trigger_event:
+            type: object
+            description: Triggering event payload.
+        required:
+        - trigger_event
+  - type: rest
+    namespace: palo-alto-networks-servicenow-rest
+    port: 8080
+    description: REST adapter for the palo-alto-networks-servicenow integration.
+    resources:
+    - path: /palo-alto-networks-servicenow
+      name: palo-alto-networks-servicenow
+      description: REST surface for the palo-alto-networks-servicenow integration.
+      operations:
+      - method: POST
+        name: trigger
+        description: Trigger the palo-alto-networks-servicenow integration.
+        call: palo_alto_networks_servicenow
+        with:
+          trigger_event: rest.body
+        outputParameters:
+        - type: object
+          mapping: $.

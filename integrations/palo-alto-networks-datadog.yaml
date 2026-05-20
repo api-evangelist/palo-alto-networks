@@ -1,0 +1,119 @@
+naftiko: 1.0.0-alpha2
+info:
+  label: Stream Prisma Cloud Compute findings to Datadog
+  description: Forward Prisma Cloud Compute container vulnerability and runtime findings into Datadog as events and logs so DevOps sees them in the same pane as application metrics.
+  tags:
+  - Palo Alto Networks
+  - Integration
+  - Observability
+  - datadog
+  created: '2026-05-20'
+  modified: '2026-05-20'
+binds:
+- namespace: env
+  keys:
+    PALO_ALTO_NETWORKS_API_KEY: PALO_ALTO_NETWORKS_API_KEY
+    DATADOG_API_KEY: DATADOG_API_KEY
+capability:
+  consumes:
+  - type: http
+    namespace: palo-alto-networks
+    baseUri: https://api.paloaltonetworks.com
+    description: Palo Alto Networks API operations consumed by this integration.
+    resources:
+    - name: images
+      path: /images
+      operations:
+      - name: getimages
+        method: GET
+        description: Prisma Cloud Compute — list scanned container images.
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters: []
+    - name: containers
+      path: /containers
+      operations:
+      - name: getcontainers
+        method: GET
+        description: Prisma Cloud Compute — list monitored containers.
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters: []
+  - type: http
+    namespace: datadog
+    baseUri: https://api.datadoghq.com
+    description: Datadog API operations consumed by this integration.
+    resources:
+    - name: api-v2-logs
+      path: /api/v2/logs
+      operations:
+      - name: postlogs
+        method: POST
+        description: 'Datadog API: postLogs'
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: body
+          in: body
+          type: object
+          description: Request body (JSON).
+          required: true
+    - name: api-v1-events
+      path: /api/v1/events
+      operations:
+      - name: postevent
+        method: POST
+        description: 'Datadog API: postEvent'
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: body
+          in: body
+          type: object
+          description: Request body (JSON).
+          required: true
+  exposes:
+  - type: mcp
+    namespace: palo-alto-networks-datadog-mcp
+    description: MCP adapter for the palo-alto-networks-datadog integration.
+    tools:
+    - name: palo_alto_networks_datadog
+      description: Execute the palo alto networks datadog integration end-to-end.
+      inputSchema:
+        type: object
+        properties:
+          trigger_event:
+            type: object
+            description: Triggering event payload.
+        required:
+        - trigger_event
+  - type: rest
+    namespace: palo-alto-networks-datadog-rest
+    port: 8080
+    description: REST adapter for the palo-alto-networks-datadog integration.
+    resources:
+    - path: /palo-alto-networks-datadog
+      name: palo-alto-networks-datadog
+      description: REST surface for the palo-alto-networks-datadog integration.
+      operations:
+      - method: POST
+        name: trigger
+        description: Trigger the palo-alto-networks-datadog integration.
+        call: palo_alto_networks_datadog
+        with:
+          trigger_event: rest.body
+        outputParameters:
+        - type: object
+          mapping: $.

@@ -1,0 +1,112 @@
+naftiko: 1.0.0-alpha2
+info:
+  label: Forward Cortex XDR incidents into Splunk SIEM
+  description: Stream Cortex XDR incidents and alerts into Splunk as HEC events so the SOC can correlate Palo Alto detections with the rest of their telemetry.
+  tags:
+  - Palo Alto Networks
+  - Integration
+  - SIEM
+  - splunk
+  created: '2026-05-20'
+  modified: '2026-05-20'
+binds:
+- namespace: env
+  keys:
+    PALO_ALTO_NETWORKS_API_KEY: PALO_ALTO_NETWORKS_API_KEY
+    SPLUNK_API_KEY: SPLUNK_API_KEY
+capability:
+  consumes:
+  - type: http
+    namespace: palo-alto-networks
+    baseUri: https://api.paloaltonetworks.com
+    description: Palo Alto Networks API operations consumed by this integration.
+    resources:
+    - name: incidents-get-incidents
+      path: /incidents/get_incidents
+      operations:
+      - name: getincidents
+        method: POST
+        description: Cortex XDR — list incidents for forwarding into the SIEM.
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: body
+          in: body
+          type: object
+          description: Request body (JSON).
+          required: true
+    - name: incidents-get-incident-extra-data
+      path: /incidents/get_incident_extra_data
+      operations:
+      - name: getincidentextradata
+        method: POST
+        description: Cortex XDR — fetch full incident context (alerts, artifacts) for enrichment.
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: body
+          in: body
+          type: object
+          description: Request body (JSON).
+          required: true
+  - type: http
+    namespace: splunk
+    baseUri: https://splunk.example.com:8088
+    description: Splunk HTTP Event Collector operations consumed by this integration.
+    resources:
+    - name: services-collector-event
+      path: /services/collector/event
+      operations:
+      - name: postevent
+        method: POST
+        description: 'Splunk HTTP Event Collector: postEvent'
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: body
+          in: body
+          type: object
+          description: Request body (JSON).
+          required: true
+  exposes:
+  - type: mcp
+    namespace: palo-alto-networks-splunk-mcp
+    description: MCP adapter for the palo-alto-networks-splunk integration.
+    tools:
+    - name: palo_alto_networks_splunk
+      description: Execute the palo alto networks splunk integration end-to-end.
+      inputSchema:
+        type: object
+        properties:
+          trigger_event:
+            type: object
+            description: Triggering event payload.
+        required:
+        - trigger_event
+  - type: rest
+    namespace: palo-alto-networks-splunk-rest
+    port: 8080
+    description: REST adapter for the palo-alto-networks-splunk integration.
+    resources:
+    - path: /palo-alto-networks-splunk
+      name: palo-alto-networks-splunk
+      description: REST surface for the palo-alto-networks-splunk integration.
+      operations:
+      - method: POST
+        name: trigger
+        description: Trigger the palo-alto-networks-splunk integration.
+        call: palo_alto_networks_splunk
+        with:
+          trigger_event: rest.body
+        outputParameters:
+        - type: object
+          mapping: $.

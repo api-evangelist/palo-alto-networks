@@ -1,0 +1,119 @@
+naftiko: 1.0.0-alpha2
+info:
+  label: Sync Okta groups into PAN-OS user-id for firewall policy
+  description: Map Okta group membership into PAN-OS user-id tag mappings so firewall security rules and NAT rules can be authored against Okta groups instead of static IPs.
+  tags:
+  - Palo Alto Networks
+  - Integration
+  - Identity
+  - okta
+  created: '2026-05-20'
+  modified: '2026-05-20'
+binds:
+- namespace: env
+  keys:
+    PALO_ALTO_NETWORKS_API_KEY: PALO_ALTO_NETWORKS_API_KEY
+    OKTA_API_KEY: OKTA_API_KEY
+capability:
+  consumes:
+  - type: http
+    namespace: palo-alto-networks
+    baseUri: https://api.paloaltonetworks.com
+    description: Palo Alto Networks API operations consumed by this integration.
+    resources:
+    - name: policies-securityrules
+      path: /Policies/SecurityRules
+      operations:
+      - name: listsecurityrules
+        method: GET
+        description: PAN-OS — list security rules to scope by Okta group.
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters: []
+    - name: objects-addressgroups
+      path: /Objects/AddressGroups
+      operations:
+      - name: createaddressgroup
+        method: POST
+        description: PAN-OS — create or update address groups based on Okta group membership.
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: body
+          in: body
+          type: object
+          description: Request body (JSON).
+          required: true
+  - type: http
+    namespace: okta
+    baseUri: https://yourdomain.okta.com
+    description: Okta API operations consumed by this integration.
+    resources:
+    - name: api-v1-groups
+      path: /api/v1/groups
+      operations:
+      - name: listgroups
+        method: GET
+        description: 'Okta API: listGroups'
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters: []
+    - name: api-v1-groups-groupid-users
+      path: /api/v1/groups/{groupId}/users
+      operations:
+      - name: listgroupusers
+        method: GET
+        description: 'Okta API: listGroupUsers'
+        outputRawFormat: json
+        outputParameters:
+        - name: result
+          type: object
+          value: $.
+        inputParameters:
+        - name: groupId
+          in: path
+          type: string
+          description: Path parameter groupId.
+          required: true
+  exposes:
+  - type: mcp
+    namespace: palo-alto-networks-okta-mcp
+    description: MCP adapter for the palo-alto-networks-okta integration.
+    tools:
+    - name: palo_alto_networks_okta
+      description: Execute the palo alto networks okta integration end-to-end.
+      inputSchema:
+        type: object
+        properties:
+          trigger_event:
+            type: object
+            description: Triggering event payload.
+        required:
+        - trigger_event
+  - type: rest
+    namespace: palo-alto-networks-okta-rest
+    port: 8080
+    description: REST adapter for the palo-alto-networks-okta integration.
+    resources:
+    - path: /palo-alto-networks-okta
+      name: palo-alto-networks-okta
+      description: REST surface for the palo-alto-networks-okta integration.
+      operations:
+      - method: POST
+        name: trigger
+        description: Trigger the palo-alto-networks-okta integration.
+        call: palo_alto_networks_okta
+        with:
+          trigger_event: rest.body
+        outputParameters:
+        - type: object
+          mapping: $.
