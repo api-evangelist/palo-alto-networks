@@ -1,0 +1,113 @@
+arazzo: 1.0.1
+info:
+  title: Cortex XDR Script Remediation with Result Polling
+  summary: Run a remediation script on endpoints, then poll the action until execution results are ready.
+  description: >-
+    A live response flow for Cortex XDR. The workflow resolves target endpoints
+    by filter, executes a library script against them, and then polls the script
+    execution results endpoint until the action reaches a terminal state,
+    branching to an end once the run has completed, failed, timed out, or been
+    canceled. Every step spells out its request inline so the remediation flow
+    can be read and executed without opening the underlying OpenAPI description.
+  version: 1.0.0
+sourceDescriptions:
+- name: cortexXdrApi
+  url: ../openapi/palo-alto-cortex-xdr-api-openapi-original.yml
+  type: openapi
+workflows:
+- workflowId: run-script-and-collect-results
+  summary: Execute a Cortex XDR script on matched endpoints and collect the results.
+  description: >-
+    Selects endpoints by filter, launches a script run, and polls for execution
+    results until the action reaches a terminal status.
+  inputs:
+    type: object
+    required:
+    - scriptUid
+    - filterField
+    - filterValue
+    properties:
+      scriptUid:
+        type: string
+        description: Unique identifier of the script from the Cortex XDR script library.
+      filterField:
+        type: string
+        description: Endpoint field to filter on (e.g. endpoint_name, ip).
+      filterOperator:
+        type: string
+        description: Comparison operator for the filter (e.g. eq, in).
+        default: eq
+      filterValue:
+        type: string
+        description: Value the filter field is compared against.
+      timeout:
+        type: integer
+        description: Script execution timeout in seconds.
+        default: 600
+  steps:
+  - stepId: findEndpoints
+    description: Return endpoints matching the filter so they can be targeted by the script run.
+    operationId: getEndpoints
+    requestBody:
+      contentType: application/json
+      payload:
+        request_data:
+          filters:
+          - field: $inputs.filterField
+            operator: $inputs.filterOperator
+            value: $inputs.filterValue
+          search_from: 0
+          search_to: 100
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      endpointId: $response.body#/reply/endpoints/0/endpoint_id
+  - stepId: runScript
+    description: Execute the supplied script against the resolved endpoint and capture the action id.
+    operationId: runScript
+    requestBody:
+      contentType: application/json
+      payload:
+        request_data:
+          script_uid: $inputs.scriptUid
+          endpoint_ids:
+          - $steps.findEndpoints.outputs.endpointId
+          parameters_values: {}
+          timeout: $inputs.timeout
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      actionId: $response.body#/reply/action_id
+  - stepId: pollResults
+    description: >-
+      Retrieve execution results for the action. Repeat while the action is
+      still pending or in progress, and end once a terminal status is reached.
+    operationId: getScriptExecutionResults
+    requestBody:
+      contentType: application/json
+      payload:
+        request_data:
+          action_id: $steps.runScript.outputs.actionId
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      status: $response.body#/reply/status
+      results: $response.body#/reply/results
+    onSuccess:
+    - name: stillRunning
+      type: goto
+      stepId: pollResults
+      criteria:
+      - context: $response.body
+        condition: $.reply.status == "PENDING" || $.reply.status == "IN_PROGRESS"
+        type: jsonpath
+    - name: finished
+      type: end
+      criteria:
+      - context: $response.body
+        condition: $.reply.status == "COMPLETED_SUCCESSFULLY" || $.reply.status == "FAILED" || $.reply.status == "TIMEOUT" || $.reply.status == "CANCELED"
+        type: jsonpath
+  outputs:
+    actionId: $steps.runScript.outputs.actionId
+    status: $steps.pollResults.outputs.status
+    results: $steps.pollResults.outputs.results

@@ -1,0 +1,116 @@
+arazzo: 1.0.1
+info:
+  title: Cortex XSOAR Incident Response Orchestration
+  summary: Create an XSOAR incident, run a response playbook against it, then log a war room entry.
+  description: >-
+    A Cortex XSOAR orchestration flow. The workflow creates an incident with an
+    investigation, executes a named response playbook against the new incident,
+    and records a work note in the incident's war room investigation. The XSOAR
+    API key is passed inline as the Authorization header on each step, matching
+    the spec's apiKey security scheme. Every step spells out its request inline
+    so the response flow can be read and executed without opening the underlying
+    OpenAPI description.
+  version: 1.0.0
+sourceDescriptions:
+- name: cortexXsoarApi
+  url: ../openapi/palo-alto-cortex-xsoar-api-openapi-original.yml
+  type: openapi
+workflows:
+- workflowId: create-incident-and-run-playbook
+  summary: Create an XSOAR incident, run a playbook, and add a war room entry.
+  description: >-
+    Creates an incident with an investigation, runs the supplied playbook
+    against it, and logs a note to the resulting investigation's war room.
+  inputs:
+    type: object
+    required:
+    - apiKey
+    - incidentName
+    - incidentType
+    - playbookId
+    - note
+    properties:
+      apiKey:
+        type: string
+        description: Cortex XSOAR API key passed as the Authorization header.
+      incidentName:
+        type: string
+        description: Name for the new incident.
+      incidentType:
+        type: string
+        description: Incident type as defined in the XSOAR instance.
+      severity:
+        type: integer
+        description: Incident severity (numeric XSOAR severity level).
+        default: 2
+      details:
+        type: string
+        description: Free-text details describing the incident.
+        default: Created via Arazzo incident response workflow.
+      playbookId:
+        type: string
+        description: Identifier of the playbook to run against the incident.
+      note:
+        type: string
+        description: Work note to record in the investigation war room.
+  steps:
+  - stepId: createIncident
+    description: >-
+      Create a new incident with an investigation so a playbook and war room
+      entries can be attached to it.
+    operationId: createIncident
+    parameters:
+    - name: Authorization
+      in: header
+      value: $inputs.apiKey
+    requestBody:
+      contentType: application/json
+      payload:
+        name: $inputs.incidentName
+        type: $inputs.incidentType
+        severity: $inputs.severity
+        details: $inputs.details
+        createInvestigation: true
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      incidentId: $response.body#/id
+      investigationId: $response.body#/investigationId
+  - stepId: runPlaybook
+    description: Execute the supplied playbook against the newly created incident.
+    operationId: runPlaybook
+    parameters:
+    - name: Authorization
+      in: header
+      value: $inputs.apiKey
+    requestBody:
+      contentType: application/json
+      payload:
+        incidentId: $steps.createIncident.outputs.incidentId
+        playbookId: $inputs.playbookId
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      playbookRunId: $response.body#/id
+  - stepId: addWarRoomEntry
+    description: Record a work note in the incident's war room investigation.
+    operationId: addEntry
+    parameters:
+    - name: Authorization
+      in: header
+      value: $inputs.apiKey
+    requestBody:
+      contentType: application/json
+      payload:
+        investigationId: $steps.createIncident.outputs.investigationId
+        data: $inputs.note
+        markdown: false
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      entryId: $response.body#/id
+  outputs:
+    incidentId: $steps.createIncident.outputs.incidentId
+    investigationId: $steps.createIncident.outputs.investigationId
+    playbookRunId: $steps.runPlaybook.outputs.playbookRunId
+    entryId: $steps.addWarRoomEntry.outputs.entryId

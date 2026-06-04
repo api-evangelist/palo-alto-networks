@@ -1,0 +1,123 @@
+arazzo: 1.0.1
+info:
+  title: Prisma Cloud RQL Configuration and Asset Search
+  summary: Authenticate to Prisma Cloud, run an RQL config query, then run a matching RQL asset query.
+  description: >-
+    A Prisma Cloud CSPM investigation flow built on Resource Query Language
+    (RQL). The workflow logs in with access-key credentials to obtain a
+    short-lived JWT, executes an RQL config query against cloud resource
+    configurations, and then runs an RQL asset query over the same relative time
+    window to enumerate matching assets. The JWT obtained at login is passed
+    inline as the Authorization header on each protected step. Every step spells
+    out its request inline so the investigation flow can be read and executed
+    without opening the underlying OpenAPI description.
+  version: 1.0.0
+sourceDescriptions:
+- name: prismaCloudCspmApi
+  url: ../openapi/palo-alto-prisma-cloud-cspm-api-openapi-original.yml
+  type: openapi
+workflows:
+- workflowId: rql-config-and-asset-search
+  summary: Run an RQL config search and an RQL asset search against Prisma Cloud.
+  description: >-
+    Authenticates with Prisma Cloud, runs an RQL config query, and then runs an
+    RQL asset query over a relative time window, returning the matched resource
+    counts from each.
+  inputs:
+    type: object
+    required:
+    - username
+    - password
+    - configQuery
+    - assetQuery
+    properties:
+      username:
+        type: string
+        description: Prisma Cloud Access Key ID.
+      password:
+        type: string
+        description: Prisma Cloud Secret Key for the access key.
+      configQuery:
+        type: string
+        description: RQL config query string (e.g. config from cloud.resource where cloud.type = 'aws').
+      assetQuery:
+        type: string
+        description: RQL asset query string to enumerate matching assets.
+      timeAmount:
+        type: integer
+        description: Amount of time units for the relative time window.
+        default: 7
+      timeUnit:
+        type: string
+        description: Time unit for the relative window (e.g. day, week, month).
+        default: day
+      limit:
+        type: integer
+        description: Maximum number of resources to return per query.
+        default: 100
+  steps:
+  - stepId: authenticate
+    description: Authenticate with access-key credentials and capture the JWT for later steps.
+    operationId: login
+    requestBody:
+      contentType: application/json
+      payload:
+        username: $inputs.username
+        password: $inputs.password
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      token: $response.body#/token
+  - stepId: searchConfig
+    description: >-
+      Run the RQL config query against cloud resource configurations over a
+      relative time window, authorizing with the JWT from the login step.
+    operationId: searchConfig
+    parameters:
+    - name: Authorization
+      in: header
+      value: Bearer $steps.authenticate.outputs.token
+    requestBody:
+      contentType: application/json
+      payload:
+        query: $inputs.configQuery
+        timeRange:
+          type: relative
+          value:
+            amount: $inputs.timeAmount
+            unit: $inputs.timeUnit
+        limit: $inputs.limit
+        withResourceJson: false
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      configTotalRows: $response.body#/data/totalRows
+      configItems: $response.body#/data/items
+  - stepId: searchAsset
+    description: >-
+      Run the RQL asset query over the same relative time window to enumerate
+      the matching assets.
+    operationId: searchAsset
+    parameters:
+    - name: Authorization
+      in: header
+      value: Bearer $steps.authenticate.outputs.token
+    requestBody:
+      contentType: application/json
+      payload:
+        query: $inputs.assetQuery
+        timeRange:
+          type: relative
+          value:
+            amount: $inputs.timeAmount
+            unit: $inputs.timeUnit
+        limit: $inputs.limit
+        withResourceJson: false
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      assetTotalRows: $response.body#/data/totalRows
+      assetItems: $response.body#/data/items
+  outputs:
+    configTotalRows: $steps.searchConfig.outputs.configTotalRows
+    assetTotalRows: $steps.searchAsset.outputs.assetTotalRows

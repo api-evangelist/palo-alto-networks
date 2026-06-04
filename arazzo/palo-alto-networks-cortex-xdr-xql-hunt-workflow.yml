@@ -1,0 +1,91 @@
+arazzo: 1.0.1
+info:
+  title: Cortex XDR XQL Threat Hunt
+  summary: Launch an XQL query against the XDR data lake and poll until results are ready.
+  description: >-
+    A threat-hunting flow for Cortex XDR. The workflow starts an XQL (Extended
+    Query Language) query against the data lake, captures the returned query id,
+    and polls the results endpoint until the query reaches a terminal status,
+    branching to an end once the query succeeds, fails, or is canceled. Every
+    step spells out its request inline so the hunting flow can be read and
+    executed without opening the underlying OpenAPI description.
+  version: 1.0.0
+sourceDescriptions:
+- name: cortexXdrApi
+  url: ../openapi/palo-alto-cortex-xdr-api-openapi-original.yml
+  type: openapi
+workflows:
+- workflowId: run-xql-query
+  summary: Execute an XQL query and retrieve its results once complete.
+  description: >-
+    Submits an XQL query over a relative timeframe, then polls the results
+    endpoint until the query status is terminal.
+  inputs:
+    type: object
+    required:
+    - query
+    properties:
+      query:
+        type: string
+        description: XQL query string to execute against the Cortex XDR data lake.
+      relativeTime:
+        type: string
+        description: Relative time range for the query (e.g. last_24_hours, last_7_days).
+        default: last_24_hours
+      maxResults:
+        type: integer
+        description: Maximum number of result rows to return.
+        default: 1000
+  steps:
+  - stepId: startQuery
+    description: Initiate the XQL query over the supplied timeframe and capture the query id.
+    operationId: startXqlQuery
+    requestBody:
+      contentType: application/json
+      payload:
+        request_data:
+          query: $inputs.query
+          timeframe:
+            relativeTime: $inputs.relativeTime
+          max_results: $inputs.maxResults
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      queryId: $response.body#/reply
+  - stepId: pollQueryResults
+    description: >-
+      Retrieve the query results. Repeat while the query is still pending, and
+      end once the status is SUCCESS, FAILED, or CANCELED.
+    operationId: getXqlQueryResults
+    requestBody:
+      contentType: application/json
+      payload:
+        request_data:
+          query_id: $steps.startQuery.outputs.queryId
+          pending_duration: 10
+          max_results: $inputs.maxResults
+          format: json
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      status: $response.body#/reply/status
+      numberOfResults: $response.body#/reply/number_of_results
+      data: $response.body#/reply/results/data
+    onSuccess:
+    - name: stillPending
+      type: goto
+      stepId: pollQueryResults
+      criteria:
+      - context: $response.body
+        condition: $.reply.status == "PENDING"
+        type: jsonpath
+    - name: finished
+      type: end
+      criteria:
+      - context: $response.body
+        condition: $.reply.status == "SUCCESS" || $.reply.status == "FAILED" || $.reply.status == "CANCELED"
+        type: jsonpath
+  outputs:
+    queryId: $steps.startQuery.outputs.queryId
+    status: $steps.pollQueryResults.outputs.status
+    data: $steps.pollQueryResults.outputs.data

@@ -1,0 +1,116 @@
+arazzo: 1.0.1
+info:
+  title: Prisma Cloud Policy Review and Update
+  summary: Authenticate to Prisma Cloud, list policies, inspect one, then update it.
+  description: >-
+    A Prisma Cloud CSPM policy-governance flow. The workflow logs in with
+    access-key credentials to obtain a short-lived JWT, lists all security
+    policies, retrieves the full detail of the first policy, and then updates
+    that policy's severity and enabled state. The JWT obtained at login is
+    passed inline as the Authorization header on each protected step. Every step
+    spells out its request inline so the governance flow can be read and
+    executed without opening the underlying OpenAPI description.
+  version: 1.0.0
+sourceDescriptions:
+- name: prismaCloudCspmApi
+  url: ../openapi/palo-alto-prisma-cloud-cspm-api-openapi-original.yml
+  type: openapi
+workflows:
+- workflowId: review-and-update-policy
+  summary: Review a Prisma Cloud policy and update its severity and enabled state.
+  description: >-
+    Authenticates with Prisma Cloud, lists policies, reads the first policy's
+    detail, and submits an update preserving its core definition while changing
+    severity and enabled state.
+  inputs:
+    type: object
+    required:
+    - username
+    - password
+    - newSeverity
+    - enabled
+    properties:
+      username:
+        type: string
+        description: Prisma Cloud Access Key ID.
+      password:
+        type: string
+        description: Prisma Cloud Secret Key for the access key.
+      newSeverity:
+        type: string
+        description: Target severity for the policy (e.g. high, medium, low).
+      enabled:
+        type: boolean
+        description: Whether the policy should be enabled after the update.
+  steps:
+  - stepId: authenticate
+    description: Authenticate with access-key credentials and capture the JWT for later steps.
+    operationId: login
+    requestBody:
+      contentType: application/json
+      payload:
+        username: $inputs.username
+        password: $inputs.password
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      token: $response.body#/token
+  - stepId: listPolicies
+    description: List all security policies, authorizing with the JWT from the login step.
+    operationId: listPolicies
+    parameters:
+    - name: Authorization
+      in: header
+      value: Bearer $steps.authenticate.outputs.token
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      policyId: $response.body#/0/policyId
+  - stepId: getPolicyDetail
+    description: Retrieve the full definition of the first policy so it can be updated in place.
+    operationId: getPolicy
+    parameters:
+    - name: Authorization
+      in: header
+      value: Bearer $steps.authenticate.outputs.token
+    - name: policyId
+      in: path
+      value: $steps.listPolicies.outputs.policyId
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      name: $response.body#/name
+      policyType: $response.body#/policyType
+      description: $response.body#/description
+      cloudType: $response.body#/cloudType
+      rule: $response.body#/rule
+  - stepId: updatePolicy
+    description: >-
+      Update the policy, preserving its name, type, description, cloud type, and
+      rule while applying the new severity and enabled state.
+    operationId: updatePolicy
+    parameters:
+    - name: Authorization
+      in: header
+      value: Bearer $steps.authenticate.outputs.token
+    - name: policyId
+      in: path
+      value: $steps.listPolicies.outputs.policyId
+    requestBody:
+      contentType: application/json
+      payload:
+        name: $steps.getPolicyDetail.outputs.name
+        policyType: $steps.getPolicyDetail.outputs.policyType
+        severity: $inputs.newSeverity
+        description: $steps.getPolicyDetail.outputs.description
+        cloudType: $steps.getPolicyDetail.outputs.cloudType
+        enabled: $inputs.enabled
+        rule: $steps.getPolicyDetail.outputs.rule
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      updatedPolicyId: $response.body#/policyId
+      updatedSeverity: $response.body#/severity
+  outputs:
+    policyId: $steps.listPolicies.outputs.policyId
+    updatedSeverity: $steps.updatePolicy.outputs.updatedSeverity

@@ -1,0 +1,154 @@
+arazzo: 1.0.1
+info:
+  title: Cortex XSIAM Incident-Driven Asset and XQL Hunt
+  summary: List XSIAM incidents, enumerate assets, then run an XQL hunt and poll for results.
+  description: >-
+    A Cortex XSIAM investigation flow. The workflow lists incidents matching a
+    filter, enumerates high-risk assets tracked by XSIAM, launches an XQL query
+    against the XSIAM data lake, and polls the results endpoint until the query
+    reaches a terminal status. Cortex XSIAM authenticates with a custom
+    HMAC-SHA256 scheme requiring the x-xdr-auth-id, x-xdr-nonce, x-xdr-timestamp,
+    and x-xdr-hmac-v2 headers, which the calling environment supplies per the
+    spec's apiKey security scheme. Every step spells out its request inline so
+    the hunt flow can be read and executed without opening the underlying
+    OpenAPI description.
+  version: 1.0.0
+sourceDescriptions:
+- name: cortexXsiamApi
+  url: ../openapi/palo-alto-cortex-xsiam-api-openapi-original.yml
+  type: openapi
+workflows:
+- workflowId: incident-driven-hunt
+  summary: Pivot from XSIAM incidents to assets and an XQL hunt with result polling.
+  description: >-
+    Lists incidents by filter, enumerates assets, starts an XQL query over a
+    relative timeframe, and polls until the query reaches a terminal status.
+  inputs:
+    type: object
+    required:
+    - filterField
+    - filterValue
+    - query
+    properties:
+      filterField:
+        type: string
+        description: Incident field to filter on (e.g. status, severity).
+      filterOperator:
+        type: string
+        description: Comparison operator for the incident filter (e.g. eq, gte).
+        default: eq
+      filterValue:
+        type: string
+        description: Value the incident filter field is compared against.
+      assetFilterField:
+        type: string
+        description: Asset field to filter on (e.g. asset_type, risk_score).
+        default: asset_type
+      assetFilterValue:
+        type: string
+        description: Value the asset filter field is compared against.
+        default: DEVICE
+      query:
+        type: string
+        description: XQL query string to execute against the XSIAM data lake.
+      relativeTime:
+        type: string
+        description: Relative time range for the XQL query (e.g. last_24_hours, last_7_days).
+        default: last_24_hours
+      maxResults:
+        type: integer
+        description: Maximum number of XQL result rows to return.
+        default: 1000
+  steps:
+  - stepId: listIncidents
+    description: Return incidents matching the supplied filter, sorted by creation time.
+    operationId: getIncidents
+    requestBody:
+      contentType: application/json
+      payload:
+        request_data:
+          filters:
+          - field: $inputs.filterField
+            operator: $inputs.filterOperator
+            value: $inputs.filterValue
+          search_from: 0
+          search_to: 100
+          sort:
+            field: creation_time
+            keyword: desc
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      incidentId: $response.body#/reply/incidents/0/incident_id
+      totalCount: $response.body#/reply/total_count
+  - stepId: listAssets
+    description: Enumerate assets matching the supplied asset filter for investigation context.
+    operationId: listAssets
+    requestBody:
+      contentType: application/json
+      payload:
+        request_data:
+          filters:
+          - field: $inputs.assetFilterField
+            operator: eq
+            value: $inputs.assetFilterValue
+          search_from: 0
+          search_to: 100
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      assetId: $response.body#/reply/assets/0/asset_id
+      assetCount: $response.body#/reply/total_count
+  - stepId: startQuery
+    description: Initiate the XQL query over the supplied relative timeframe and capture the query id.
+    operationId: startXqlQuery
+    requestBody:
+      contentType: application/json
+      payload:
+        request_data:
+          query: $inputs.query
+          timeframe:
+            relativeTime: $inputs.relativeTime
+          max_results: $inputs.maxResults
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      queryId: $response.body#/reply
+  - stepId: pollQueryResults
+    description: >-
+      Retrieve the query results. Repeat while the query is still pending, and
+      end once the status is SUCCESS, FAILED, or CANCELED.
+    operationId: getXqlQueryResults
+    requestBody:
+      contentType: application/json
+      payload:
+        request_data:
+          query_id: $steps.startQuery.outputs.queryId
+          pending_duration: 10
+          max_results: $inputs.maxResults
+          format: json
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      status: $response.body#/reply/status
+      numberOfResults: $response.body#/reply/number_of_results
+      data: $response.body#/reply/results/data
+    onSuccess:
+    - name: stillPending
+      type: goto
+      stepId: pollQueryResults
+      criteria:
+      - context: $response.body
+        condition: $.reply.status == "PENDING"
+        type: jsonpath
+    - name: finished
+      type: end
+      criteria:
+      - context: $response.body
+        condition: $.reply.status == "SUCCESS" || $.reply.status == "FAILED" || $.reply.status == "CANCELED"
+        type: jsonpath
+  outputs:
+    incidentId: $steps.listIncidents.outputs.incidentId
+    assetCount: $steps.listAssets.outputs.assetCount
+    queryStatus: $steps.pollQueryResults.outputs.status
+    data: $steps.pollQueryResults.outputs.data

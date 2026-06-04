@@ -1,0 +1,111 @@
+arazzo: 1.0.1
+info:
+  title: IoT Security Device Risk and Policy Recommendation
+  summary: List IoT devices, inspect one device, then pull its policy recommendations.
+  description: >-
+    A Palo Alto Networks IoT Security device-governance flow. The workflow lists
+    devices for a customer tenant, retrieves the full detail of the first device
+    including its risk score, and then fetches the IoT Security policy
+    recommendations generated for that device so suggested microsegmentation and
+    access rules can be reviewed. The IoT Security API key identifier and access
+    key are passed inline as the X-Key-Id and X-Access-Key headers on each step.
+    Every step spells out its request inline so the governance flow can be read
+    and executed without opening the underlying OpenAPI description.
+  version: 1.0.0
+sourceDescriptions:
+- name: iotSecurityApi
+  url: ../openapi/palo-alto-iot-security-api-openapi-original.yml
+  type: openapi
+workflows:
+- workflowId: review-device-and-recommendations
+  summary: Review an IoT device's risk detail and its policy recommendations.
+  description: >-
+    Lists devices for a tenant, reads the first device's detail and risk score,
+    and retrieves the policy recommendations generated for that device.
+  inputs:
+    type: object
+    required:
+    - keyId
+    - accessKey
+    - customerid
+    properties:
+      keyId:
+        type: string
+        description: IoT Security API key identifier (X-Key-Id header).
+      accessKey:
+        type: string
+        description: IoT Security API access key (X-Access-Key header).
+      customerid:
+        type: string
+        description: Customer tenant identifier.
+  steps:
+  - stepId: listDevices
+    description: List the first page of devices for the customer tenant.
+    operationId: listDevices
+    parameters:
+    - name: X-Key-Id
+      in: header
+      value: $inputs.keyId
+    - name: X-Access-Key
+      in: header
+      value: $inputs.accessKey
+    - name: customerid
+      in: query
+      value: $inputs.customerid
+    - name: offset
+      in: query
+      value: 0
+    - name: pagelength
+      in: query
+      value: 100
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      deviceId: $response.body#/devices/0/deviceid
+      total: $response.body#/total
+  - stepId: getDeviceDetail
+    description: Retrieve the full detail and risk score of the first device.
+    operationId: getDeviceDetail
+    parameters:
+    - name: X-Key-Id
+      in: header
+      value: $inputs.keyId
+    - name: X-Access-Key
+      in: header
+      value: $inputs.accessKey
+    - name: customerid
+      in: query
+      value: $inputs.customerid
+    - name: deviceid
+      in: query
+      value: $steps.listDevices.outputs.deviceId
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      hostname: $response.body#/device/hostname
+      riskScore: $response.body#/device/risk_score
+  - stepId: getPolicyRecommendation
+    description: Fetch the policy recommendations generated for the inspected device.
+    operationId: getPolicyRecommendation
+    parameters:
+    - name: X-Key-Id
+      in: header
+      value: $inputs.keyId
+    - name: X-Access-Key
+      in: header
+      value: $inputs.accessKey
+    - name: customerid
+      in: query
+      value: $inputs.customerid
+    - name: deviceid
+      in: query
+      value: $steps.listDevices.outputs.deviceId
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      recommendationCount: $response.body#/total
+      recommendations: $response.body#/recommendations
+  outputs:
+    deviceId: $steps.listDevices.outputs.deviceId
+    riskScore: $steps.getDeviceDetail.outputs.riskScore
+    recommendationCount: $steps.getPolicyRecommendation.outputs.recommendationCount

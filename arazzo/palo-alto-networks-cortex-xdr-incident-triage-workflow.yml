@@ -1,0 +1,120 @@
+arazzo: 1.0.1
+info:
+  title: Cortex XDR Incident Triage and Resolution
+  summary: List XDR incidents, pull full detail for one, then update its status and assignee.
+  description: >-
+    A core Cortex XDR analyst flow. The workflow lists incidents matching a
+    filter, selects the first incident, retrieves its full investigation context
+    (associated alerts, artifacts, and endpoint details), and then updates the
+    incident with a new status, severity, assignee, and resolution comment.
+    Every step spells out its request inline so the triage flow can be read and
+    executed without opening the underlying OpenAPI description.
+  version: 1.0.0
+sourceDescriptions:
+- name: cortexXdrApi
+  url: ../openapi/palo-alto-cortex-xdr-api-openapi-original.yml
+  type: openapi
+workflows:
+- workflowId: triage-incident
+  summary: Triage a Cortex XDR incident end to end, from listing through resolution.
+  description: >-
+    Lists incidents using a supplied filter, fetches the extra data for the
+    first returned incident, and resolves it by updating status, severity,
+    assignee, and resolution comment.
+  inputs:
+    type: object
+    required:
+    - filterField
+    - filterValue
+    - newStatus
+    - resolveComment
+    properties:
+      filterField:
+        type: string
+        description: Incident field to filter on (e.g. status, severity, creation_time).
+      filterOperator:
+        type: string
+        description: Comparison operator for the filter (e.g. eq, gte, lte).
+        default: gte
+      filterValue:
+        type: string
+        description: Value the filter field is compared against.
+      newStatus:
+        type: string
+        description: >-
+          Target incident status (new, under_investigation,
+          resolved_threat_handled, resolved_known_issue, resolved_duplicate,
+          resolved_false_positive, resolved_other).
+      newSeverity:
+        type: string
+        description: Target incident severity (high, medium, low).
+        default: medium
+      assignedUserMail:
+        type: string
+        description: Email of the analyst to assign the incident to.
+        default: security-ops@example.com
+      resolveComment:
+        type: string
+        description: Resolution comment recorded when closing the incident.
+  steps:
+  - stepId: listIncidents
+    description: >-
+      Return incidents matching the supplied filter, requesting the first page
+      of results sorted by creation time.
+    operationId: getIncidents
+    requestBody:
+      contentType: application/json
+      payload:
+        request_data:
+          filters:
+          - field: $inputs.filterField
+            operator: $inputs.filterOperator
+            value: $inputs.filterValue
+          search_from: 0
+          search_to: 100
+          sort:
+            field: creation_time
+            keyword: desc
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      incidentId: $response.body#/reply/incidents/0/incident_id
+      totalCount: $response.body#/reply/total_count
+  - stepId: getIncidentDetail
+    description: >-
+      Retrieve the full investigation context for the first incident, including
+      its associated alerts and artifacts.
+    operationId: getIncidentExtraData
+    requestBody:
+      contentType: application/json
+      payload:
+        request_data:
+          incident_id: $steps.listIncidents.outputs.incidentId
+          alerts_limit: 1000
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      alertCount: $response.body#/reply/alerts/total_count
+      incident: $response.body#/reply/incident
+  - stepId: resolveIncident
+    description: >-
+      Update the incident with the target status, severity, assignee, and
+      resolution comment. Only the supplied fields are modified.
+    operationId: updateIncident
+    requestBody:
+      contentType: application/json
+      payload:
+        request_data:
+          incident_id: $steps.listIncidents.outputs.incidentId
+          status: $inputs.newStatus
+          severity: $inputs.newSeverity
+          assigned_user_mail: $inputs.assignedUserMail
+          resolve_comment: $inputs.resolveComment
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      updated: $response.body#/reply
+  outputs:
+    incidentId: $steps.listIncidents.outputs.incidentId
+    alertCount: $steps.getIncidentDetail.outputs.alertCount
+    updated: $steps.resolveIncident.outputs.updated

@@ -1,0 +1,128 @@
+arazzo: 1.0.1
+info:
+  title: Prisma Cloud Alert Triage and Dismissal
+  summary: Authenticate to Prisma Cloud, list open alerts, inspect one, then dismiss it with a note.
+  description: >-
+    A Prisma Cloud CSPM analyst flow. The workflow logs in with access-key
+    credentials to obtain a short-lived JWT, lists open security alerts filtered
+    by severity, retrieves the full detail of the first alert, and then dismisses
+    that alert with a documented reason. The JWT obtained at login is passed
+    inline as the Authorization header on each protected step. Every step spells
+    out its request inline so the triage flow can be read and executed without
+    opening the underlying OpenAPI description.
+  version: 1.0.0
+sourceDescriptions:
+- name: prismaCloudCspmApi
+  url: ../openapi/palo-alto-prisma-cloud-cspm-api-openapi-original.yml
+  type: openapi
+workflows:
+- workflowId: triage-and-dismiss-alert
+  summary: Triage a Prisma Cloud alert from login through dismissal.
+  description: >-
+    Authenticates with Prisma Cloud, lists alerts of the requested severity over
+    a relative time window, fetches the first alert's details, and dismisses it
+    with a note.
+  inputs:
+    type: object
+    required:
+    - username
+    - password
+    - dismissalNote
+    properties:
+      username:
+        type: string
+        description: Prisma Cloud Access Key ID.
+      password:
+        type: string
+        description: Prisma Cloud Secret Key for the access key.
+      severity:
+        type: string
+        description: Alert severity to filter on (critical, high, medium, low, informational).
+        default: high
+      timeAmount:
+        type: integer
+        description: Amount of time units for the relative time window.
+        default: 24
+      timeUnit:
+        type: string
+        description: Time unit for the relative window (minute, hour, day, week, month, year).
+        default: hour
+      dismissalNote:
+        type: string
+        description: Reason recorded when dismissing the alert.
+  steps:
+  - stepId: authenticate
+    description: Authenticate with access-key credentials and capture the JWT for later steps.
+    operationId: login
+    requestBody:
+      contentType: application/json
+      payload:
+        username: $inputs.username
+        password: $inputs.password
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      token: $response.body#/token
+  - stepId: listAlerts
+    description: >-
+      List open alerts of the requested severity over a relative time window,
+      authorizing with the JWT from the login step.
+    operationId: getAlerts
+    parameters:
+    - name: Authorization
+      in: header
+      value: Bearer $steps.authenticate.outputs.token
+    - name: timeType
+      in: query
+      value: relative
+    - name: timeAmount
+      in: query
+      value: $inputs.timeAmount
+    - name: timeUnit
+      in: query
+      value: $inputs.timeUnit
+    - name: severity
+      in: query
+      value: $inputs.severity
+    - name: detailed
+      in: query
+      value: true
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      alertId: $response.body#/items/0/id
+      totalRows: $response.body#/totalRows
+  - stepId: getAlertDetail
+    description: Retrieve the full detail of the first alert returned by the list step.
+    operationId: getAlert
+    parameters:
+    - name: Authorization
+      in: header
+      value: Bearer $steps.authenticate.outputs.token
+    - name: id
+      in: path
+      value: $steps.listAlerts.outputs.alertId
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      status: $response.body#/status
+      policyId: $response.body#/policy/policyId
+  - stepId: dismissAlert
+    description: Dismiss the inspected alert with the supplied dismissal note.
+    operationId: dismissAlerts
+    parameters:
+    - name: Authorization
+      in: header
+      value: Bearer $steps.authenticate.outputs.token
+    requestBody:
+      contentType: application/json
+      payload:
+        alerts:
+        - id: $steps.listAlerts.outputs.alertId
+        dismissalNote: $inputs.dismissalNote
+    successCriteria:
+    - condition: $statusCode == 200
+  outputs:
+    alertId: $steps.listAlerts.outputs.alertId
+    alertStatus: $steps.getAlertDetail.outputs.status
+    policyId: $steps.getAlertDetail.outputs.policyId

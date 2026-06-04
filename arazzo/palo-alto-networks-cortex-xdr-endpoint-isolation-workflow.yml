@@ -1,0 +1,108 @@
+arazzo: 1.0.1
+info:
+  title: Cortex XDR Endpoint Isolation and Verification
+  summary: Find an endpoint by filter, isolate it from the network, then poll until isolation is confirmed.
+  description: >-
+    A containment response flow for Cortex XDR. The workflow locates an endpoint
+    using a filter, isolates it from the network so it can only reach the Cortex
+    XDR service, and then re-reads the endpoint to confirm its isolation state
+    has transitioned away from PENDING_ISOLATION. Every step spells out its
+    request inline so the containment flow can be read and executed without
+    opening the underlying OpenAPI description.
+  version: 1.0.0
+sourceDescriptions:
+- name: cortexXdrApi
+  url: ../openapi/palo-alto-cortex-xdr-api-openapi-original.yml
+  type: openapi
+workflows:
+- workflowId: isolate-endpoint
+  summary: Isolate a Cortex XDR endpoint and verify the isolation took effect.
+  description: >-
+    Resolves an endpoint by filter, issues an isolation action, and then polls
+    the endpoint list until the endpoint reports an isolated state, branching to
+    a confirmed end once isolation is no longer pending.
+  inputs:
+    type: object
+    required:
+    - filterField
+    - filterValue
+    properties:
+      filterField:
+        type: string
+        description: Endpoint field to filter on (e.g. endpoint_name, ip, endpoint_id).
+      filterOperator:
+        type: string
+        description: Comparison operator for the filter (e.g. eq, in).
+        default: eq
+      filterValue:
+        type: string
+        description: Value the filter field is compared against.
+  steps:
+  - stepId: findEndpoint
+    description: Return endpoints matching the filter so a target can be selected for isolation.
+    operationId: getEndpoints
+    requestBody:
+      contentType: application/json
+      payload:
+        request_data:
+          filters:
+          - field: $inputs.filterField
+            operator: $inputs.filterOperator
+            value: $inputs.filterValue
+          search_from: 0
+          search_to: 100
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      endpointId: $response.body#/reply/endpoints/0/endpoint_id
+      isolationState: $response.body#/reply/endpoints/0/is_isolated
+  - stepId: isolateEndpoint
+    description: Issue a network isolation action for the resolved endpoint and capture the action id.
+    operationId: isolateEndpoints
+    requestBody:
+      contentType: application/json
+      payload:
+        request_data:
+          endpoint_id: $steps.findEndpoint.outputs.endpointId
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      actionId: $response.body#/reply/action_id
+      endpointsCount: $response.body#/reply/endpoints_count
+  - stepId: verifyIsolation
+    description: >-
+      Re-read the endpoint to confirm its isolation state. Repeat the read while
+      the endpoint is still pending isolation, and end once it reports isolated.
+    operationId: getEndpoints
+    requestBody:
+      contentType: application/json
+      payload:
+        request_data:
+          filters:
+          - field: endpoint_id_list
+            operator: in
+            value: $steps.findEndpoint.outputs.endpointId
+          search_from: 0
+          search_to: 100
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      isolationState: $response.body#/reply/endpoints/0/is_isolated
+    onSuccess:
+    - name: isolationConfirmed
+      type: end
+      criteria:
+      - context: $response.body
+        condition: $.reply.endpoints[0].is_isolated == "ISOLATED"
+        type: jsonpath
+    - name: stillPending
+      type: goto
+      stepId: verifyIsolation
+      criteria:
+      - context: $response.body
+        condition: $.reply.endpoints[0].is_isolated == "PENDING_ISOLATION"
+        type: jsonpath
+  outputs:
+    endpointId: $steps.findEndpoint.outputs.endpointId
+    actionId: $steps.isolateEndpoint.outputs.actionId
+    isolationState: $steps.verifyIsolation.outputs.isolationState

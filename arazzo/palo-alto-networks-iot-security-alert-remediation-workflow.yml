@@ -1,0 +1,123 @@
+arazzo: 1.0.1
+info:
+  title: IoT Security Alert Investigation and Resolution
+  summary: List unresolved IoT Security alerts, inspect one, then mark it resolved with a reason.
+  description: >-
+    A Palo Alto Networks IoT Security analyst flow. The workflow lists
+    unresolved security alerts for a customer tenant, retrieves the full detail
+    of the first alert, and then updates the alert's resolution status with a
+    documented reason. The IoT Security API key identifier and access key are
+    passed inline as the X-Key-Id and X-Access-Key headers on each step, matching
+    the spec's dual apiKey security scheme. Every step spells out its request
+    inline so the resolution flow can be read and executed without opening the
+    underlying OpenAPI description.
+  version: 1.0.0
+sourceDescriptions:
+- name: iotSecurityApi
+  url: ../openapi/palo-alto-iot-security-api-openapi-original.yml
+  type: openapi
+workflows:
+- workflowId: resolve-iot-alert
+  summary: Investigate an unresolved IoT Security alert and mark it resolved.
+  description: >-
+    Lists unresolved alerts for a tenant, fetches the first alert's detail, and
+    updates its resolution status with a reason.
+  inputs:
+    type: object
+    required:
+    - keyId
+    - accessKey
+    - customerid
+    - reason
+    properties:
+      keyId:
+        type: string
+        description: IoT Security API key identifier (X-Key-Id header).
+      accessKey:
+        type: string
+        description: IoT Security API access key (X-Access-Key header).
+      customerid:
+        type: string
+        description: Customer tenant identifier.
+      reason:
+        type: string
+        description: Reason recorded when resolving the alert.
+  steps:
+  - stepId: listAlerts
+    description: List the first page of unresolved alerts for the customer tenant.
+    operationId: listAlerts
+    parameters:
+    - name: X-Key-Id
+      in: header
+      value: $inputs.keyId
+    - name: X-Access-Key
+      in: header
+      value: $inputs.accessKey
+    - name: customerid
+      in: query
+      value: $inputs.customerid
+    - name: resolved
+      in: query
+      value: 'no'
+    - name: offset
+      in: query
+      value: 0
+    - name: pagelength
+      in: query
+      value: 100
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      alertId: $response.body#/alerts/0/id
+      total: $response.body#/total
+  - stepId: getAlertDetail
+    description: Retrieve the full detail of the first unresolved alert.
+    operationId: getAlertDetail
+    parameters:
+    - name: X-Key-Id
+      in: header
+      value: $inputs.keyId
+    - name: X-Access-Key
+      in: header
+      value: $inputs.accessKey
+    - name: customerid
+      in: query
+      value: $inputs.customerid
+    - name: id
+      in: query
+      value: $steps.listAlerts.outputs.alertId
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      deviceId: $response.body#/alert/deviceid
+      severity: $response.body#/alert/severity
+  - stepId: resolveAlert
+    description: Mark the inspected alert as resolved with the supplied reason.
+    operationId: updateAlert
+    parameters:
+    - name: X-Key-Id
+      in: header
+      value: $inputs.keyId
+    - name: X-Access-Key
+      in: header
+      value: $inputs.accessKey
+    - name: customerid
+      in: query
+      value: $inputs.customerid
+    - name: id
+      in: query
+      value: $steps.listAlerts.outputs.alertId
+    - name: resolved
+      in: query
+      value: 'yes'
+    - name: reason
+      in: query
+      value: $inputs.reason
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      success: $response.body#/success
+  outputs:
+    alertId: $steps.listAlerts.outputs.alertId
+    deviceId: $steps.getAlertDetail.outputs.deviceId
+    success: $steps.resolveAlert.outputs.success
