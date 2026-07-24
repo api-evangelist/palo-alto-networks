@@ -1,0 +1,551 @@
+openapi: 3.1.0
+info:
+  title: Palo Alto Networks AIOps for NGFW BPA 5G Deregistered Trend Endpoints API
+  description: AIOps for NGFW Best Practice Assessment (BPA) API. Provides programmatic access to submit BPA requests for Palo Alto Networks next-generation firewalls, check request processing status, and retrieve completed assessment reports. BPA reports analyze firewall configurations against Palo Alto Networks best practices and security benchmarks, identifying gaps and providing remediation guidance to improve security posture. Part of the Strata Cloud Manager platform.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+security:
+- oauth2Bearer: []
+tags:
+- name: Endpoints
+  description: Endpoint management, isolation, and scanning.
+paths:
+  /endpoints/get_endpoints:
+    post:
+      operationId: getEndpoints
+      summary: Palo Alto Networks List Endpoints
+      description: Returns a list of endpoints enrolled in Cortex XDR. Supports filtering by endpoint ID, hostname, IP address, operating system, and protection status.
+      tags:
+      - Endpoints
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_data:
+                  type: object
+                  properties:
+                    filters:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Filter'
+                    search_from:
+                      type: integer
+                      default: 0
+                    search_to:
+                      type: integer
+                      default: 100
+                    sort:
+                      $ref: '#/components/schemas/SortOrder'
+            examples:
+              GetEndpointsRequestExample:
+                summary: Default getEndpoints request
+                x-microcks-default: true
+                value:
+                  request_data:
+                    filters:
+                    - field: example-field
+                      operator: lte
+                      value: example-value
+                    - field: example-field
+                      operator: lte
+                      value: example-value
+                    search_from: 0
+                    search_to: 100
+                    sort:
+                      field: example-field
+                      keyword: asc
+      responses:
+        '200':
+          description: Endpoints returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      total_count:
+                        type: integer
+                      result_count:
+                        type: integer
+                      endpoints:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Endpoint'
+              examples:
+                GetEndpoints200Example:
+                  summary: Default getEndpoints 200 response
+                  x-microcks-default: true
+                  value:
+                    reply:
+                      total_count: 1
+                      result_count: 161
+                      endpoints:
+                      - endpoint_id: '472938'
+                        endpoint_name: Branch Sensor 33
+                        endpoint_type: WORKSTATION
+                        endpoint_status: UNINSTALLED
+                        os_type: AGENT_OS_LINUX
+                        ip:
+                        - example-ip_item
+                        - example-ip_item
+                        users:
+                        - example-users_item
+                        domain: api.example.com
+                        alias: example-alias
+                        first_seen: 568
+                        last_seen: 191
+                        content_version: 6.3.8
+                        installation_package: example-installation_package
+                        active_directory: example-active_directory
+                        install_date: 551
+                        endpoint_version: 4.5.5
+                        is_isolated: PENDING_ISOLATION
+                        isolation_reason: example-isolation_reason
+                        scan_status: SCAN_STATUS_PENDING
+                        group_name:
+                        - Production Gateway 60
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+  /endpoints/isolate:
+    post:
+      operationId: isolateEndpoints
+      summary: Palo Alto Networks Isolate Endpoints
+      description: Isolates one or more endpoints from the network, preventing all inbound and outbound communications except to the Cortex XDR service. Use endpoint IDs, IP addresses, or hostnames to identify targets.
+      tags:
+      - Endpoints
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - request_data
+              properties:
+                request_data:
+                  type: object
+                  properties:
+                    endpoint_id:
+                      type: string
+                      description: Single endpoint ID to isolate.
+                    endpoint_id_list:
+                      type: array
+                      items:
+                        type: string
+                      description: List of endpoint IDs to isolate.
+                    filters:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Filter'
+                      description: Filter to select endpoints for isolation.
+            examples:
+              IsolateEndpointsRequestExample:
+                summary: Default isolateEndpoints request
+                x-microcks-default: true
+                value:
+                  request_data:
+                    endpoint_id: '873939'
+                    endpoint_id_list:
+                    - '727469'
+                    - '227456'
+                    filters:
+                    - field: example-field
+                      operator: lte
+                      value: example-value
+      responses:
+        '200':
+          description: Endpoint isolation initiated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      action_id:
+                        type: string
+                        description: Action ID to poll for completion status.
+                      status:
+                        type: integer
+                      endpoints_count:
+                        type: integer
+              examples:
+                IsolateEndpoints200Example:
+                  summary: Default isolateEndpoints 200 response
+                  x-microcks-default: true
+                  value:
+                    reply:
+                      action_id: '179327'
+                      status: 199
+                      endpoints_count: 392
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+  /endpoints/unisolate:
+    post:
+      operationId: unisolateEndpoints
+      summary: Palo Alto Networks Unisolate Endpoints
+      description: Removes network isolation from one or more endpoints, restoring full network connectivity. Use this endpoint after an investigation is complete and the threat has been remediated.
+      tags:
+      - Endpoints
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - request_data
+              properties:
+                request_data:
+                  type: object
+                  properties:
+                    endpoint_id:
+                      type: string
+                    endpoint_id_list:
+                      type: array
+                      items:
+                        type: string
+                    filters:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Filter'
+            examples:
+              UnisolateEndpointsRequestExample:
+                summary: Default unisolateEndpoints request
+                x-microcks-default: true
+                value:
+                  request_data:
+                    endpoint_id: '692398'
+                    endpoint_id_list:
+                    - '178680'
+                    - '543834'
+                    filters:
+                    - field: example-field
+                      operator: lte
+                      value: example-value
+      responses:
+        '200':
+          description: Endpoint unisolation initiated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      action_id:
+                        type: string
+                      status:
+                        type: integer
+                      endpoints_count:
+                        type: integer
+              examples:
+                UnisolateEndpoints200Example:
+                  summary: Default unisolateEndpoints 200 response
+                  x-microcks-default: true
+                  value:
+                    reply:
+                      action_id: '168979'
+                      status: 596
+                      endpoints_count: 930
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+  /endpoints/scan:
+    post:
+      operationId: scanEndpoints
+      summary: Palo Alto Networks Scan Endpoints
+      description: Initiates a malware scan on one or more endpoints. The scan runs the Cortex XDR agent's local analysis engine to detect and quarantine malicious files.
+      tags:
+      - Endpoints
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - request_data
+              properties:
+                request_data:
+                  type: object
+                  properties:
+                    endpoint_id_list:
+                      type: array
+                      items:
+                        type: string
+                    filters:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Filter'
+            examples:
+              ScanEndpointsRequestExample:
+                summary: Default scanEndpoints request
+                x-microcks-default: true
+                value:
+                  request_data:
+                    endpoint_id_list:
+                    - '586813'
+                    - '318804'
+                    filters:
+                    - field: example-field
+                      operator: lte
+                      value: example-value
+      responses:
+        '200':
+          description: Endpoint scan initiated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      action_id:
+                        type: string
+                      status:
+                        type: integer
+                      endpoints_count:
+                        type: integer
+              examples:
+                ScanEndpoints200Example:
+                  summary: Default scanEndpoints 200 response
+                  x-microcks-default: true
+                  value:
+                    reply:
+                      action_id: '902089'
+                      status: 779
+                      endpoints_count: 286
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+components:
+  schemas:
+    Filter:
+      type: object
+      description: A filter criterion for querying XDR resources.
+      required:
+      - field
+      - operator
+      - value
+      properties:
+        field:
+          type: string
+          description: Field name to filter on (e.g., incident_id, status, severity).
+          example: example-field
+        operator:
+          type: string
+          enum:
+          - in
+          - contains
+          - gte
+          - lte
+          - eq
+          - neq
+          description: Comparison operator.
+          example: lte
+        value:
+          description: Filter value. Use an array for the "in" operator, a string or integer for others.
+          oneOf:
+          - type: string
+          - type: integer
+          - type: array
+            items:
+              oneOf:
+              - type: string
+              - type: integer
+          example: example-value
+    Endpoint:
+      type: object
+      description: An endpoint enrolled in Cortex XDR protection.
+      properties:
+        endpoint_id:
+          type: string
+          description: Unique endpoint identifier.
+          example: '472938'
+        endpoint_name:
+          type: string
+          description: Endpoint hostname.
+          example: Branch Sensor 33
+        endpoint_type:
+          type: string
+          enum:
+          - SERVER
+          - WORKSTATION
+          - LAPTOP
+          example: WORKSTATION
+        endpoint_status:
+          type: string
+          enum:
+          - CONNECTED
+          - DISCONNECTED
+          - LOST
+          - UNINSTALLED
+          example: UNINSTALLED
+        os_type:
+          type: string
+          enum:
+          - AGENT_OS_WINDOWS
+          - AGENT_OS_LINUX
+          - AGENT_OS_MAC
+          example: AGENT_OS_LINUX
+        ip:
+          type: array
+          items:
+            type: string
+          description: IP addresses assigned to the endpoint.
+          example:
+          - example-ip_item
+          - example-ip_item
+        users:
+          type: array
+          items:
+            type: string
+          description: Users logged into the endpoint.
+          example:
+          - example-users_item
+        domain:
+          type: string
+          example: api.example.com
+        alias:
+          type: string
+          example: example-alias
+        first_seen:
+          type: integer
+          description: First connection timestamp as Unix epoch milliseconds.
+          example: 568
+        last_seen:
+          type: integer
+          description: Last connection timestamp as Unix epoch milliseconds.
+          example: 191
+        content_version:
+          type: string
+          description: Cortex XDR agent content version.
+          example: 6.3.8
+        installation_package:
+          type: string
+          example: example-installation_package
+        active_directory:
+          type: string
+          example: example-active_directory
+        install_date:
+          type: integer
+          example: 551
+        endpoint_version:
+          type: string
+          description: Cortex XDR agent version.
+          example: 4.5.5
+        is_isolated:
+          type: string
+          enum:
+          - AGENT_ISOLATED
+          - AGENT_UNISOLATED
+          - PENDING_ISOLATION
+          - PENDING_UNISOLATION
+          example: PENDING_ISOLATION
+        isolation_reason:
+          type: string
+          example: example-isolation_reason
+        scan_status:
+          type: string
+          enum:
+          - SCAN_STATUS_NONE
+          - SCAN_STATUS_PENDING
+          - SCAN_STATUS_IN_PROGRESS
+          - SCAN_STATUS_DONE
+          - SCAN_STATUS_FAILED
+          - SCAN_STATUS_CANCELLED
+          example: SCAN_STATUS_PENDING
+        group_name:
+          type: array
+          items:
+            type: string
+          example:
+          - Production Gateway 60
+    ErrorResponse:
+      type: object
+      properties:
+        reply:
+          type: object
+          properties:
+            err_code:
+              type: integer
+              example: 782
+            err_msg:
+              type: string
+              example: example-err_msg
+            err_extra:
+              type: string
+              example: example-err_extra
+          example:
+            err_code: 270
+            err_msg: example-err_msg
+            err_extra: example-err_extra
+    SortOrder:
+      type: object
+      description: Sorting specification for result sets.
+      properties:
+        field:
+          type: string
+          description: Field to sort by.
+          example: example-field
+        keyword:
+          type: string
+          enum:
+          - asc
+          - desc
+          description: Sort direction.
+          example: asc
+  responses:
+    Unauthorized:
+      description: Missing or invalid authentication headers.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Malformed request body or invalid parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  securitySchemes:
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.

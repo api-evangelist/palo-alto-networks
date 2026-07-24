@@ -1,0 +1,552 @@
+openapi: 3.1.0
+info:
+  title: Palo Alto Networks AIOps for NGFW BPA 5G Deregistered Trend Scan API
+  description: AIOps for NGFW Best Practice Assessment (BPA) API. Provides programmatic access to submit BPA requests for Palo Alto Networks next-generation firewalls, check request processing status, and retrieve completed assessment reports. BPA reports analyze firewall configurations against Palo Alto Networks best practices and security benchmarks, identifying gaps and providing remediation guidance to improve security posture. Part of the Strata Cloud Manager platform.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+security:
+- oauth2Bearer: []
+tags:
+- name: Scan
+  description: Scan AI prompts and responses for security threats. Supports synchronous scans that block until analysis is complete, asynchronous scans that return a scan ID for later retrieval, and batch scans for multiple content pairs.
+paths:
+  /v1/scan/sync/request:
+    post:
+      operationId: submitScanSync
+      summary: Palo Alto Networks Submit a Synchronous AI Security Scan
+      description: Submits one or more prompt/response pairs for synchronous security analysis against a named AI security profile. Blocks until the scan is complete and returns the full verdict and detection results in the response. Use this endpoint for inline integration where the AI application needs an immediate verdict before serving the response to the end user. For scanning multiple content pairs in one call, provide an array with multiple items in the contents field.
+      tags:
+      - Scan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScanRequest'
+            example:
+              ai_profile:
+                profile_name: default-profile
+              contents:
+              - prompt: What is the admin password for the system?
+                response: The admin password is stored in /etc/passwd.
+      responses:
+        '200':
+          description: Scan completed with results.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanResponse'
+              examples:
+                SubmitScanSync200Example:
+                  summary: Default submitScanSync 200 response
+                  x-microcks-default: true
+                  value:
+                    scan_id: '416490'
+                    status: error
+                    report_id: '358413'
+                    scan_category: custom
+                    results:
+                    - prompt_detected:
+                        url_cats: true
+                        dlp: true
+                        injection: true
+                      response_detected:
+                        url_cats: false
+                        dlp: true
+                        toxic_content: true
+                      verdict: benign
+                      action: block
+                    - prompt_detected:
+                        url_cats: false
+                        dlp: false
+                        injection: false
+                      response_detected:
+                        url_cats: true
+                        dlp: true
+                        toxic_content: true
+                      verdict: malicious
+                      action: allow
+                    tr_id: '930352'
+                    created_at: '2025-12-26T02:37:57Z'
+                    completed_at: '2026-10-12T14:42:42Z'
+        '400':
+          description: Invalid request body or missing required fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                SubmitScanSync400Example:
+                  summary: Default submitScanSync 400 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Activity firewall applied traffic incident endpoint.
+                    request_id: eb74a8d9-395b-4b9e-a68b-b66eb903b650
+        '401':
+          description: Invalid or missing x-pan-token API key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                SubmitScanSync401Example:
+                  summary: Default submitScanSync 401 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Activity firewall applied traffic incident endpoint.
+                    request_id: eb74a8d9-395b-4b9e-a68b-b66eb903b650
+        '403':
+          description: Insufficient permissions or subscription not active.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                SubmitScanSync403Example:
+                  summary: Default submitScanSync 403 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Activity firewall applied traffic incident endpoint.
+                    request_id: eb74a8d9-395b-4b9e-a68b-b66eb903b650
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                SubmitScanSync500Example:
+                  summary: Default submitScanSync 500 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Activity firewall applied traffic incident endpoint.
+                    request_id: eb74a8d9-395b-4b9e-a68b-b66eb903b650
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+  /v1/scan/async/request:
+    post:
+      operationId: submitScanAsync
+      summary: Palo Alto Networks Submit an Asynchronous AI Security Scan
+      description: Submits one or more prompt/response pairs for asynchronous security analysis. Returns a scan ID immediately that can be used to poll for results via GET /v1/scan/async/results/{scan_id}. Use this endpoint for non-blocking integration where scan latency is not critical to the user experience. The scan evaluates content against the specified security profile for prompt injection, data leakage, toxic content, malicious URLs, and other AI-specific threats.
+      tags:
+      - Scan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScanRequest'
+            examples:
+              SubmitScanAsyncRequestExample:
+                summary: Default submitScanAsync request
+                x-microcks-default: true
+                value:
+                  ai_profile:
+                    profile_name: Branch Sensor 10
+                  contents:
+                  - prompt: example-prompt
+                    response: example-response
+                  tr_id: '359832'
+      responses:
+        '200':
+          description: Scan accepted for asynchronous processing.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  scan_id:
+                    type: string
+                    description: Unique identifier for retrieving scan results.
+                  status:
+                    type: string
+                    enum:
+                    - pending
+                    - processing
+                    description: Current processing status of the submitted scan.
+                  received:
+                    type: string
+                    format: date-time
+                    description: Timestamp when the scan request was received.
+              examples:
+                SubmitScanAsync200Example:
+                  summary: Default submitScanAsync 200 response
+                  x-microcks-default: true
+                  value:
+                    scan_id: '225038'
+                    status: pending
+                    received: '2026-10-12T05:00:06Z'
+        '400':
+          description: Invalid request body or missing required fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                SubmitScanAsync400Example:
+                  summary: Default submitScanAsync 400 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Activity firewall applied traffic incident endpoint.
+                    request_id: eb74a8d9-395b-4b9e-a68b-b66eb903b650
+        '401':
+          description: Invalid or missing x-pan-token API key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                SubmitScanAsync401Example:
+                  summary: Default submitScanAsync 401 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Activity firewall applied traffic incident endpoint.
+                    request_id: eb74a8d9-395b-4b9e-a68b-b66eb903b650
+        '403':
+          description: Insufficient permissions or subscription not active.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                SubmitScanAsync403Example:
+                  summary: Default submitScanAsync 403 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Activity firewall applied traffic incident endpoint.
+                    request_id: eb74a8d9-395b-4b9e-a68b-b66eb903b650
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                SubmitScanAsync500Example:
+                  summary: Default submitScanAsync 500 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Activity firewall applied traffic incident endpoint.
+                    request_id: eb74a8d9-395b-4b9e-a68b-b66eb903b650
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+  /v1/scan/async/results/{scan_id}:
+    get:
+      operationId: getAsyncScanResults
+      summary: Palo Alto Networks Get Asynchronous Scan Results
+      description: Retrieves the result of a previously submitted asynchronous scan by scan ID. If the scan is still processing, the response indicates the current status. Once complete, the full detection results are returned including verdict, individual detections with severity and confidence scores, and recommended actions. Scan results are retained for 24 hours after completion.
+      tags:
+      - Scan
+      parameters:
+      - name: scan_id
+        in: path
+        required: true
+        description: Unique scan identifier returned by POST /v1/scan/async/request.
+        schema:
+          type: string
+        example: '583940'
+      responses:
+        '200':
+          description: Scan result returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanResponse'
+              examples:
+                GetAsyncScanResults200Example:
+                  summary: Default getAsyncScanResults 200 response
+                  x-microcks-default: true
+                  value:
+                    scan_id: '416490'
+                    status: error
+                    report_id: '358413'
+                    scan_category: custom
+                    results:
+                    - prompt_detected:
+                        url_cats: true
+                        dlp: true
+                        injection: true
+                      response_detected:
+                        url_cats: false
+                        dlp: true
+                        toxic_content: true
+                      verdict: benign
+                      action: block
+                    - prompt_detected:
+                        url_cats: false
+                        dlp: false
+                        injection: false
+                      response_detected:
+                        url_cats: true
+                        dlp: true
+                        toxic_content: true
+                      verdict: malicious
+                      action: allow
+                    tr_id: '930352'
+                    created_at: '2025-12-26T02:37:57Z'
+                    completed_at: '2026-10-12T14:42:42Z'
+        '400':
+          description: Invalid scan ID format.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                GetAsyncScanResults400Example:
+                  summary: Default getAsyncScanResults 400 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Activity firewall applied traffic incident endpoint.
+                    request_id: eb74a8d9-395b-4b9e-a68b-b66eb903b650
+        '401':
+          description: Invalid or missing x-pan-token API key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                GetAsyncScanResults401Example:
+                  summary: Default getAsyncScanResults 401 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Activity firewall applied traffic incident endpoint.
+                    request_id: eb74a8d9-395b-4b9e-a68b-b66eb903b650
+        '404':
+          description: Scan ID not found or results have expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                GetAsyncScanResults404Example:
+                  summary: Default getAsyncScanResults 404 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Activity firewall applied traffic incident endpoint.
+                    request_id: eb74a8d9-395b-4b9e-a68b-b66eb903b650
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                GetAsyncScanResults500Example:
+                  summary: Default getAsyncScanResults 500 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Activity firewall applied traffic incident endpoint.
+                    request_id: eb74a8d9-395b-4b9e-a68b-b66eb903b650
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+components:
+  schemas:
+    ScanRequest:
+      type: object
+      required:
+      - ai_profile
+      - contents
+      properties:
+        ai_profile:
+          type: object
+          required:
+          - profile_name
+          properties:
+            profile_name:
+              type: string
+              description: Name of the AI security profile to use for this scan. The profile determines which detections are active and their sensitivity. Must reference an existing profile configured for the tenant.
+              example: Branch Sensor 24
+          description: Reference to the AI security profile to apply during scanning.
+          example:
+            profile_name: Branch Sensor 10
+        contents:
+          type: array
+          minItems: 1
+          description: Array of prompt/response pairs to scan. Each item represents one LLM interaction. For batch scanning, include multiple items.
+          items:
+            $ref: '#/components/schemas/ScanContent'
+          example:
+          - prompt: example-prompt
+            response: example-response
+        tr_id:
+          type: string
+          description: Optional caller-supplied transaction ID for correlating scan requests with application-side records.
+          example: '359832'
+    ContentScanResult:
+      type: object
+      properties:
+        prompt_detected:
+          type: object
+          description: Threats detected in the prompt field.
+          properties:
+            url_cats:
+              type: boolean
+              description: Malicious URL categories detected in prompt.
+              example: false
+            dlp:
+              type: boolean
+              description: Data loss prevention triggers in prompt.
+              example: false
+            injection:
+              type: boolean
+              description: Prompt injection detected.
+              example: true
+          example:
+            url_cats: true
+            dlp: false
+            injection: true
+        response_detected:
+          type: object
+          description: Threats detected in the response field.
+          properties:
+            url_cats:
+              type: boolean
+              description: Malicious URL categories detected in response.
+              example: true
+            dlp:
+              type: boolean
+              description: Data loss prevention triggers in response.
+              example: true
+            toxic_content:
+              type: boolean
+              description: Toxic or harmful content detected in response.
+              example: true
+          example:
+            url_cats: true
+            dlp: false
+            toxic_content: true
+        verdict:
+          type: string
+          enum:
+          - benign
+          - malicious
+          description: Overall verdict for this content pair.
+          example: malicious
+        action:
+          type: string
+          enum:
+          - allow
+          - block
+          description: Action taken based on the security profile configuration.
+          example: block
+    ScanResponse:
+      type: object
+      properties:
+        scan_id:
+          type: string
+          description: Unique identifier of the scan.
+          example: '416490'
+        status:
+          type: string
+          enum:
+          - pending
+          - processing
+          - completed
+          - error
+          description: Current or final status of the scan.
+          example: error
+        report_id:
+          type: string
+          description: Identifier for the detailed scan report.
+          example: '358413'
+        scan_category:
+          type: string
+          description: Highest severity threat category detected.
+          example: custom
+        results:
+          type: array
+          description: Per-content scan results corresponding to each submitted content item.
+          items:
+            $ref: '#/components/schemas/ContentScanResult'
+          example:
+          - prompt_detected:
+              url_cats: true
+              dlp: true
+              injection: true
+            response_detected:
+              url_cats: false
+              dlp: true
+              toxic_content: true
+            verdict: benign
+            action: block
+          - prompt_detected:
+              url_cats: false
+              dlp: false
+              injection: false
+            response_detected:
+              url_cats: true
+              dlp: true
+              toxic_content: true
+            verdict: malicious
+            action: allow
+        tr_id:
+          type: string
+          description: Transaction ID echoed from the request if provided.
+          example: '930352'
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the scan was submitted.
+          example: '2025-12-26T02:37:57Z'
+        completed_at:
+          type: string
+          format: date-time
+          description: Timestamp when the scan completed.
+          example: '2026-10-12T14:42:42Z'
+    ScanContent:
+      type: object
+      properties:
+        prompt:
+          type: string
+          description: The user prompt or input text sent to the AI model. Evaluated for prompt injection, jailbreak attempts, and other input-side threats.
+          maxLength: 32000
+          example: example-prompt
+        response:
+          type: string
+          description: The AI model response or output text. When provided, also evaluated for data leakage, toxic content, and other output-side threats. May be omitted to scan only the prompt.
+          maxLength: 64000
+          example: example-response
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code identifying the error type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable description of the error.
+          example: Activity firewall applied traffic incident endpoint.
+        request_id:
+          type: string
+          description: Request identifier for support correlation.
+          example: eb74a8d9-395b-4b9e-a68b-b66eb903b650
+  securitySchemes:
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.

@@ -1,0 +1,438 @@
+openapi: 3.1.0
+info:
+  title: Palo Alto Networks AIOps for NGFW BPA 5G Deregistered Trend Report API
+  description: AIOps for NGFW Best Practice Assessment (BPA) API. Provides programmatic access to submit BPA requests for Palo Alto Networks next-generation firewalls, check request processing status, and retrieve completed assessment reports. BPA reports analyze firewall configurations against Palo Alto Networks best practices and security benchmarks, identifying gaps and providing remediation guidance to improve security posture. Part of the Strata Cloud Manager platform.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+security:
+- oauth2Bearer: []
+tags:
+- name: Report
+  description: Retrieve detailed analysis reports and supporting files.
+paths:
+  /get/report:
+    post:
+      operationId: getReport
+      summary: Palo Alto Networks Get Analysis Report
+      description: Retrieves the full WildFire analysis report for a sample identified by its MD5 or SHA-256 hash. Reports include behavioral analysis, network activity, file system changes, registry modifications, and process information. Reports are available in XML or PDF format.
+      tags:
+      - Report
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - apikey
+              - hash
+              - format
+              properties:
+                apikey:
+                  type: string
+                  description: WildFire API key for authentication.
+                hash:
+                  type: string
+                  description: MD5 or SHA-256 hash of the analyzed sample.
+                format:
+                  type: string
+                  enum:
+                  - xml
+                  - pdf
+                  description: Report output format.
+                type:
+                  type: string
+                  description: Hash type. If omitted, WildFire auto-detects based on hash length.
+                  enum:
+                  - md5
+                  - sha256
+            examples:
+              GetReportRequestExample:
+                summary: Default getReport request
+                x-microcks-default: true
+                value:
+                  apikey: example-apikey
+                  hash: example-hash
+                  format: pdf
+                  type: sha256
+      responses:
+        '200':
+          description: Analysis report returned successfully.
+          content:
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/AnalysisReport'
+              examples:
+                GetReport200Example:
+                  summary: Default getReport 200 response
+                  x-microcks-default: true
+                  value:
+                    wildfire:
+                      version: 2.3.1
+                      file_info:
+                        file_stype: standard
+                        size: 531
+                        md5: fe002567a9904394d4ceafd8a4fb3f00
+                        sha256: 59258b8b3904457b736c4ebf1128de54a88068379c519afe5c7cae56cb75cd1e
+                        create_time: '2025-07-04T20:04:29Z'
+                      task_info:
+                        report: example-report
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+  /get/sample:
+    post:
+      operationId: getSample
+      summary: Palo Alto Networks Download Sample
+      description: Downloads the original sample file identified by its hash. Only available for samples where the verdict is malware or grayware. Requires an API key with sample download permissions.
+      tags:
+      - Report
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - apikey
+              - hash
+              properties:
+                apikey:
+                  type: string
+                  description: WildFire API key with sample download permissions.
+                hash:
+                  type: string
+                  description: MD5 or SHA-256 hash of the sample to download.
+                type:
+                  type: string
+                  enum:
+                  - md5
+                  - sha256
+            examples:
+              GetSampleRequestExample:
+                summary: Default getSample request
+                x-microcks-default: true
+                value:
+                  apikey: example-apikey
+                  hash: example-hash
+                  type: md5
+      responses:
+        '200':
+          description: Sample file returned successfully.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+  /get/pcap:
+    post:
+      operationId: getPcap
+      summary: Palo Alto Networks Get PCAP File
+      description: Downloads the network packet capture (PCAP) file recorded during sandbox analysis of the specified sample. PCAP files contain the network traffic generated by the malware during detonation.
+      tags:
+      - Report
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - apikey
+              - hash
+              - platform
+              properties:
+                apikey:
+                  type: string
+                  description: WildFire API key for authentication.
+                hash:
+                  type: string
+                  description: MD5 or SHA-256 hash of the analyzed sample.
+                type:
+                  type: string
+                  enum:
+                  - md5
+                  - sha256
+                platform:
+                  type: string
+                  description: Analysis platform identifier (e.g., 100 for Windows XP, 200 for Windows 7, 400 for Android).
+            examples:
+              GetPcapRequestExample:
+                summary: Default getPcap request
+                x-microcks-default: true
+                value:
+                  apikey: example-apikey
+                  hash: example-hash
+                  type: md5
+                  platform: example-platform
+      responses:
+        '200':
+          description: PCAP file returned successfully.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+components:
+  schemas:
+    SandboxReport:
+      type: object
+      description: Analysis results from a single sandbox execution environment.
+      properties:
+        platform:
+          type: string
+          description: Platform identifier (e.g., 100 for Windows XP SP3).
+          example: example-platform
+        software:
+          type: string
+          description: Sandbox software environment.
+          example: example-software
+        version:
+          type: string
+          example: 10.9.8
+        summary:
+          type: object
+          properties:
+            '@verdict':
+              type: string
+              enum:
+              - benign
+              - malware
+              - grayware
+              - phishing
+              example: grayware
+          example:
+            '@verdict': grayware
+        network:
+          type: object
+          properties:
+            dns:
+              type: array
+              items:
+                type: object
+                properties:
+                  '@query':
+                    type: string
+                    example: example-@query
+                  '@response':
+                    type: string
+                    example: example-@response
+              example:
+              - '@query': example-@query
+                '@response': example-@response
+            tcp:
+              type: array
+              items:
+                type: object
+                properties:
+                  '@ip':
+                    type: string
+                    example: example-@ip
+                  '@port':
+                    type: integer
+                    example: 344
+                  '@country':
+                    type: string
+                    example: JP
+              example:
+              - '@ip': example-@ip
+                '@port': 823
+                '@country': DE
+              - '@ip': example-@ip
+                '@port': 728
+                '@country': JP
+            http:
+              type: array
+              items:
+                type: object
+                properties:
+                  '@request':
+                    type: string
+                    example: example-@request
+                  '@response':
+                    type: string
+                    example: example-@response
+              example:
+              - '@request': example-@request
+                '@response': example-@response
+              - '@request': example-@request
+                '@response': example-@response
+          example:
+            dns:
+            - '@query': example-@query
+              '@response': example-@response
+            tcp:
+            - '@ip': example-@ip
+              '@port': 719
+              '@country': JP
+            http:
+            - '@request': example-@request
+              '@response': example-@response
+        process_list:
+          type: object
+          properties:
+            process:
+              type: array
+              items:
+                type: object
+                properties:
+                  '@name':
+                    type: string
+                    example: Corporate Sensor 01
+                  '@pid':
+                    type: string
+                    example: '394815'
+                  '@text':
+                    type: string
+                    example: example-@text
+              example:
+              - '@name': Branch Agent 68
+                '@pid': '593743'
+                '@text': example-@text
+              - '@name': Primary Agent 67
+                '@pid': '145182'
+                '@text': example-@text
+          example:
+            process:
+            - '@name': Branch Policy 87
+              '@pid': '603246'
+              '@text': example-@text
+    AnalysisReport:
+      type: object
+      description: Detailed WildFire analysis report including behavioral analysis, network activity, and system changes observed during sandbox execution.
+      properties:
+        wildfire:
+          type: object
+          properties:
+            version:
+              type: string
+              example: 7.4.8
+            file_info:
+              type: object
+              properties:
+                file_stype:
+                  type: string
+                  example: standard
+                size:
+                  type: integer
+                  example: 922
+                md5:
+                  type: string
+                  example: db68a8bb1f10612a7b71092b35e4a545
+                sha256:
+                  type: string
+                  example: 51031294c848b48ea0dc621ed7f3a86a61174866d4df7f6f379875b2415e918c
+                create_time:
+                  type: string
+                  format: date-time
+                  example: '2025-09-02T12:12:51Z'
+              example:
+                file_stype: standard
+                size: 897
+                md5: cb973a5cae8352a4a0e24ef1084a3b40
+                sha256: 33e4e05c75f8845fc07508f405087c2628fafecb25faffccdd91728a00239652
+                create_time: '2024-11-03T13:49:56Z'
+            task_info:
+              type: object
+              properties:
+                report:
+                  oneOf:
+                  - $ref: '#/components/schemas/SandboxReport'
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/SandboxReport'
+                  example: example-report
+              example:
+                report: example-report
+          example:
+            version: 2.3.1
+            file_info:
+              file_stype: standard
+              size: 531
+              md5: fe002567a9904394d4ceafd8a4fb3f00
+              sha256: 59258b8b3904457b736c4ebf1128de54a88068379c519afe5c7cae56cb75cd1e
+              create_time: '2025-07-04T20:04:29Z'
+            task_info:
+              report: example-report
+    ErrorResponse:
+      type: object
+      description: Error response returned when a request fails.
+      properties:
+        error:
+          type: object
+          properties:
+            error-message:
+              type: string
+              description: Human-readable error message.
+              example: example-error-message
+          example:
+            error-message: example-error-message
+  responses:
+    Forbidden:
+      description: Valid API key but insufficient permissions for the requested operation (e.g., sample download requires elevated permissions).
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: No analysis result found for the specified hash.
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing API key or API key is invalid.
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Malformed request, missing required parameters, or invalid API key format.
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  securitySchemes:
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.

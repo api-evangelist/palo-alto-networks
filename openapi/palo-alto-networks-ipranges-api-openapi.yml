@@ -1,0 +1,255 @@
+openapi: 3.1.0
+info:
+  title: Palo Alto Networks AIOps for NGFW BPA 5G Deregistered Trend IPRanges API
+  description: AIOps for NGFW Best Practice Assessment (BPA) API. Provides programmatic access to submit BPA requests for Palo Alto Networks next-generation firewalls, check request processing status, and retrieve completed assessment reports. BPA reports analyze firewall configurations against Palo Alto Networks best practices and security benchmarks, identifying gaps and providing remediation guidance to improve security posture. Part of the Strata Cloud Manager platform.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+security:
+- oauth2Bearer: []
+tags:
+- name: IPRanges
+  description: Owned IP range management.
+paths:
+  /ip_range/get_owned_ip_ranges:
+    post:
+      operationId: getOwnedIpRanges
+      summary: Palo Alto Networks Get Owned IP Ranges
+      description: Returns the IP ranges registered as owned by the organization in Xpanse. Owned IP ranges define the scope of internet-facing infrastructure that Xpanse monitors for exposures. Includes both manually configured ranges and auto-discovered ranges attributed to the organization.
+      tags:
+      - IPRanges
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_data:
+                  type: object
+                  properties:
+                    filters:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Filter'
+                    search_from:
+                      type: integer
+                      default: 0
+                    search_to:
+                      type: integer
+                      default: 100
+                    sort:
+                      $ref: '#/components/schemas/SortOrder'
+            examples:
+              GetOwnedIpRangesRequestExample:
+                summary: Default getOwnedIpRanges request
+                x-microcks-default: true
+                value:
+                  request_data:
+                    filters:
+                    - field: example-field
+                      operator: contains
+                      value: example-value
+                    search_from: 0
+                    search_to: 100
+                    sort:
+                      field: example-field
+                      keyword: asc
+      responses:
+        '200':
+          description: Owned IP ranges returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      total_count:
+                        type: integer
+                      result_count:
+                        type: integer
+                      owned_ip_ranges:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/OwnedIpRange'
+              examples:
+                GetOwnedIpRanges200Example:
+                  summary: Default getOwnedIpRanges 200 response
+                  x-microcks-default: true
+                  value:
+                    reply:
+                      total_count: 213
+                      result_count: 881
+                      owned_ip_ranges:
+                      - range_id: '919843'
+                        cidr: example-cidr
+                        first_ip: example-first_ip
+                        last_ip: example-last_ip
+                        range_size: 365
+                        business_units:
+                        - example-business_units_item
+                        - example-business_units_item
+                        attribution_reason: RIR
+                        created: 408
+                        modified: 724
+                        tags:
+                        - key: example-key
+                          value: example-value
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+components:
+  schemas:
+    Filter:
+      type: object
+      description: A filter criterion for querying Xpanse resources.
+      required:
+      - field
+      - operator
+      - value
+      properties:
+        field:
+          type: string
+          description: Field name to filter on.
+          example: example-field
+        operator:
+          type: string
+          enum:
+          - in
+          - contains
+          - gte
+          - lte
+          - eq
+          - neq
+          example: contains
+        value:
+          description: Filter value (string, integer, or array for "in" operator).
+          oneOf:
+          - type: string
+          - type: integer
+          - type: array
+            items:
+              oneOf:
+              - type: string
+              - type: integer
+          example: example-value
+    OwnedIpRange:
+      type: object
+      description: An IP range owned by the organization and monitored by Xpanse.
+      properties:
+        range_id:
+          type: string
+          example: '919843'
+        cidr:
+          type: string
+          description: IP range in CIDR notation (e.g., 203.0.113.0/24).
+          example: example-cidr
+        first_ip:
+          type: string
+          example: example-first_ip
+        last_ip:
+          type: string
+          example: example-last_ip
+        range_size:
+          type: integer
+          description: Number of IP addresses in the range.
+          example: 365
+        business_units:
+          type: array
+          items:
+            type: string
+          example:
+          - example-business_units_item
+          - example-business_units_item
+        attribution_reason:
+          type: string
+          enum:
+          - RIR
+          - InternallyAttributed
+          - ExternallyAttributed
+          example: RIR
+        created:
+          type: integer
+          description: Range creation timestamp as Unix epoch milliseconds.
+          example: 408
+        modified:
+          type: integer
+          example: 724
+        tags:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+                example: example-key
+              value:
+                type: string
+                example: example-value
+          example:
+          - key: example-key
+            value: example-value
+    ErrorResponse:
+      type: object
+      properties:
+        reply:
+          type: object
+          properties:
+            err_code:
+              type: integer
+              example: 849
+            err_msg:
+              type: string
+              example: example-err_msg
+            err_extra:
+              type: string
+              example: example-err_extra
+          example:
+            err_code: 931
+            err_msg: example-err_msg
+            err_extra: example-err_extra
+    SortOrder:
+      type: object
+      description: Sorting specification for result sets.
+      properties:
+        field:
+          type: string
+          example: example-field
+        keyword:
+          type: string
+          enum:
+          - asc
+          - desc
+          example: asc
+  responses:
+    Unauthorized:
+      description: Missing or invalid authentication headers.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Malformed request body or invalid parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  securitySchemes:
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
