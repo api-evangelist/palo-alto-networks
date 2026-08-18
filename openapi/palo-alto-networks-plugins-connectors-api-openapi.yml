@@ -1,0 +1,647 @@
+openapi: 3.2.0
+info:
+  title: TLS Protect Cloud API for Strata Cloud Manager Plugins (Connectors) API
+  description: Use the TLS Protect Cloud APIs to manage certificates, certificate requests, applications, machine identities, users, teams, event logs, and more. This Open API spec file was created on June 04, 2026. © 2026 Palo Alto Networks, Inc. Palo Alto Networks is a registered trademark of Palo Alto Networks. A list of our trademarks can be found at https://www.paloaltonetworks.com/company/trademarks.html. All other marks mentioned herein may be trademarks of their respective companies.
+  version: 1.0.0
+  license:
+    name: MIT
+    url: https://opensource.org/license/mit
+servers:
+- url: https://api.strata.paloaltonetworks.com/ngts
+  description: Strata Cloud Manager API
+security:
+- scmToken: []
+tags:
+- name: Plugins (Connectors)
+  description: APIs for Plugins (Connectors).
+paths:
+  /v1/plugins:
+    get:
+      description: Retrieve all the plugins for the tenant.
+      operationId: get-v1-plugins
+      parameters:
+      - description: Filter by provided plugin type.
+        in: query
+        name: pluginTypes
+        schema:
+          items:
+            $ref: '#/components/schemas/PluginType'
+          minItems: 1
+          type: array
+          uniqueItems: true
+      - description: Include disabled plugins if set to true.
+        in: query
+        name: includeDisabled
+        schema:
+          default: false
+          type: boolean
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                properties:
+                  plugins:
+                    items:
+                      $ref: '#/components/schemas/Plugin'
+                    type: array
+                required:
+                - plugins
+                type: object
+          description: Success. All plugins retrieved.
+      summary: Retrieve all plugins
+      tags:
+      - Plugins (Connectors)
+    post:
+      description: Create a custom plugin for your tenant's exclusive use. The user must be a SYSTEM_ADMIN or a PKI_ADMIN.
+      operationId: post-v1-plugins
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicPluginCreationRequest'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginResponse'
+          description: Success. Plugin created.
+      summary: Create a local plugin
+      tags:
+      - Plugins (Connectors)
+  /v1/plugins/{id}:
+    get:
+      description: Retrieve a plugin with the specified ID.
+      operationId: get-v1-plugins-id
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plugin'
+          description: Success. Plugin retrieved.
+      summary: Retrieve plugin by ID
+      tags:
+      - Plugins (Connectors)
+      parameters:
+      - description: Plugin ID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+    patch:
+      description: Update a plugin with specified ID. Plugin must be owned by the tenant and the user must be a SYSTEM_ADMIN or a PKI_ADMIN.
+      operationId: patch-v1-plugins-id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicPluginUpdateRequest'
+      responses:
+        '200':
+          description: Success. Plugin updated.
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+      summary: Update a local plugin
+      tags:
+      - Plugins (Connectors)
+      parameters:
+      - description: Plugin ID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+    delete:
+      description: Delete a plugin with the specified ID. Plugin must be owned by the tenant and the user must be a SYSTEM_ADMIN or a PKI_ADMIN.
+      operationId: delete-v1-plugins-id
+      responses:
+        '204':
+          description: No Content.
+      summary: Delete a local plugin
+      tags:
+      - Plugins (Connectors)
+      parameters:
+      - description: Plugin ID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+  /v1/plugins/{id}/disablements:
+    post:
+      description: Set a plugin to be disabled for your tenant.
+      operationId: post-v1-plugins-id-exclusions
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginResponse'
+          description: Successfully disabled the plugin for the current tenant.
+      summary: Disable a plugin
+      tags:
+      - Plugins (Connectors)
+      parameters:
+      - description: Plugin ID that is currently marked as disabled.
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+    delete:
+      description: Remove a plugin exclusion from your tenant.
+      operationId: delete-v1-plugins-id-exclusions
+      responses:
+        '204':
+          description: No Content. Successfully deleted the plugin disablement.
+      summary: Remove plugin disablement
+      tags:
+      - Plugins (Connectors)
+      parameters:
+      - description: Plugin ID that is currently marked as disabled.
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+  /v1/plugins/disablements:
+    get:
+      description: Retrieve all the disabled plugins for the current tenant.
+      operationId: get-v1-plugins-exclusions
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginResponse'
+          description: Successfully retrieved all the disabled plugins for the current tenant.
+      summary: Retrieve all disabled plugins
+      tags:
+      - Plugins (Connectors)
+components:
+  schemas:
+    Deployment:
+      properties:
+        executionTarget:
+          default: vsat
+          description: HELP
+          type: string
+        image:
+          description: URL for where the plugin image resides.
+          type: string
+      required:
+      - image
+      - executionTarget
+      title: Deployment
+      type: object
+      x-examples:
+        Example 1:
+          deployment:
+            executionTarget: vsat
+            image: public.ecr.aws/docker/library/nginx:mainline-alpine3.18-slim
+    PluginResponse:
+      properties:
+        plugins:
+          items:
+            $ref: '#/components/schemas/Plugin'
+          type: array
+      required:
+      - plugins
+      title: PluginResponse
+      type: object
+    PublicPluginCreationRequest:
+      properties:
+        maintainer:
+          description: Refers to the organization, individual, email, location, or website responsible for maintaining the plugin.
+          type:
+          - string
+          - 'null'
+        manifest:
+          $ref: '#/components/schemas/Manifest'
+        pluginType:
+          $ref: '#/components/schemas/PluginType'
+      required:
+      - manifest
+      - pluginType
+      title: PublicPluginCreationRequest
+      type: object
+      x-stoplight:
+        id: sto5fs3n5bxmf
+    WorkType:
+      description: Defines the type of supported workflow for the plugin.
+      enum:
+      - DISCOVERY
+      - CREDENTIAL
+      - PROVISIONING
+      - ISSUANCE
+      - CERTIFICATE_IMPORT
+      title: WorkType
+      type: string
+    PluginType:
+      description: Used for differentiation between different types of plugins.
+      enum:
+      - MACHINE
+      - CA
+      - TPP
+      - CREDENTIAL_MANAGER
+      title: PluginType
+      type: string
+    PublicPluginUpdateRequest:
+      properties:
+        image:
+          type:
+          - string
+          - 'null'
+        maintainer:
+          type:
+          - string
+          - 'null'
+        manifest:
+          $ref: '#/components/schemas/Manifest'
+      title: PublicPluginUpdateRequest
+      type: object
+      x-stoplight:
+        id: 8ypau6to0udah
+    Plugin:
+      properties:
+        creationTime:
+          description: Represents the date when the plugin was created.
+          format: date-time
+          type: string
+        disabled:
+          description: Indicates whether the tenant has disabled the plugin from its list of plugins.
+          type: boolean
+        id:
+          description: Represents the plugin ID.
+          type: string
+        lastModifiedOn:
+          description: Date the plugin was last modified.
+          format: date-time
+          type: string
+        maintainer:
+          description: Refers to the organization, individual, email, location, or website responsible for maintaining the plugin.
+          type:
+          - string
+          - 'null'
+        manifest:
+          $ref: '#/components/schemas/Manifest'
+        name:
+          description: Represents the name of the plugin. This must be unique.
+          type: string
+        pluginType:
+          $ref: '#/components/schemas/PluginType'
+        revision:
+          description: Represents the number of times the plugins has been updated.
+          type: integer
+        workTypes:
+          description: Represents the type of workflow the plugin supports.
+          items:
+            $ref: '#/components/schemas/WorkType'
+          minItems: 1
+          type: array
+      required:
+      - id
+      - name
+      - revision
+      - pluginType
+      - workTypes
+      - manifest
+      - lastModifiedOn
+      - creationTime
+      title: Plugin
+      type: object
+    LocalizationResource:
+      description: Translation map for the UI being rendered. This map is used with the manifest schema. The keys represent the values provided for the "x-localizationKey" property in the domain entity definition, and each key's value is used to represent field labels, enum values, or error messages.
+      properties:
+        en:
+          type: object
+      title: LocalizationResources
+      type:
+      - object
+      - 'null'
+      x-examples:
+        Example 1:
+          en:
+            address:
+              label: Server Hostname
+            binding:
+              label: Server Store Details
+            certificateName:
+              description: How the certificate should appear on the server.
+              label: Certificate Name
+            chainName:
+              label: Chain Bundle Name
+            discovery:
+              expiredCertificatesLabel: Exclude expired certificates
+              inactiveProfilesLabel: Exclude certificates that are not in use by either a virtual server or a monitor.
+              partitionDescription: A comma separated list of partition names.
+              partitionLabel: Partition(s)
+            discoveryType:
+              all: Both Monitors and Virtual Servers
+              label: Resource Types to Discover
+              monitor: Monitors
+              virtualServer: Virtual Servers
+            keystore:
+              label: Certificate Information
+            parentProfile:
+              description: No value is interpreted as "clientssl" or "serverssl" depending on the Profile Type selected.
+              label: Parent Profile
+            partition:
+              description: No value is interpreted as the "Common" partition.
+              label: Partition
+            password:
+              hidePassword: Hide Password
+              label: Password
+              showPassword: Show Password
+            port:
+              description: No value is interpreted as 443.
+              label: Port
+            serverName:
+              description: An alternative DNS name used for Server Name Indication.
+              label: SNI
+            sslProfile:
+              label: SSL Profile
+            sslProfileType:
+              client: Client SSL Profile
+              label: Profile Type
+              server: Server SSL Profile
+            username:
+              label: Username
+    Manifest:
+      properties:
+        deployment:
+          $ref: '#/components/schemas/Deployment'
+        description:
+          description: Description text for the plugin.
+          type: string
+        domainSchema:
+          type: object
+        hooks:
+          properties:
+            mapping:
+              type: object
+            requestConverters:
+              items: {}
+              type:
+              - array
+              - 'null'
+          required:
+          - mapping
+          type: object
+        localizationResources:
+          $ref: '#/components/schemas/LocalizationResource'
+        name:
+          description: Name of the plugin.
+          type: string
+        pluginType:
+          $ref: '#/components/schemas/PluginType'
+        workTypes:
+          description: Defines the type of workflows supported for the plugin.
+          items:
+            $ref: '#/components/schemas/WorkType'
+          minItems: 1
+          type: array
+          uniqueItems: true
+      required:
+      - name
+      - workTypes
+      - deployment
+      - domainSchema
+      - hooks
+      title: Manifest
+      type: object
+      x-examples:
+        Example 1:
+          deployment:
+            executionTarget: vsat
+            image: public.ecr.aws/docker/library/nginx:mainline-alpine3.18-slim
+          description: Description text.
+          domainSchema:
+            binding:
+              properties:
+                parentProfile:
+                  description: parentProfile.description
+                  type: string
+                  x-labelLocalizationKey: parentProfile.label
+                  x-rank: 1
+                serverName:
+                  description: serverName.description
+                  format: hostname
+                  type: string
+                  x-labelLocalizationKey: serverName.label
+                  x-rank: 3
+                  x-rule:
+                    condition:
+                      type: '#/properties/sslProfileType'
+                    effect: SHOW
+                sslProfile:
+                  type: string
+                  x-labelLocalizationKey: sslProfile.label
+                  x-rank: 2
+                sslProfileType:
+                  oneOf:
+                  - const: client
+                    x-labelLocalizationKey: sslProfileType.client
+                  - const: server
+                    x-labelLocalizationKey: sslProfileType.server
+                  x-labelLocalizationKey: sslProfileType.label
+                  x-rank: 0
+              required:
+              - sslProfile
+              - sslProfileType
+              type: object
+              x-labelLocalizationKey: binding.label
+              x-primaryKey:
+              - '#/sslProfileType'
+              - '#/sslProfile'
+            certificateBundle:
+              properties:
+                certificate:
+                  contentEncoding: base64
+                  type: string
+                certificateChain:
+                  contentEncoding: base64
+                  type: string
+                privateKey:
+                  contentEncoding: base64
+                  type: string
+                  x-encrypted-base64: true
+              required:
+              - certificate
+              - privateKey
+              - certificateChain
+              type: object
+            connection:
+              properties:
+                hostnameOrAddress:
+                  type: string
+                  x-labelLocalizationKey: address.label
+                  x-rank: 0
+                password:
+                  type: string
+                  x-controlOptions:
+                    hidePasswordLabel: password.hidePassword
+                    password: true
+                    showPasswordLabel: password.showPassword
+                  x-encrypted: true
+                  x-labelLocalizationKey: password.label
+                  x-rank: 3
+                port:
+                  description: port.description
+                  maximum: 65535
+                  minimum: 1
+                  type: integer
+                  x-labelLocalizationKey: port.label
+                  x-rank: 1
+                username:
+                  type: string
+                  x-encrypted: true
+                  x-labelLocalizationKey: username.label
+                  x-rank: 2
+              required:
+              - hostnameOrAddress
+              - username
+              - password
+              type: object
+            discovery:
+              properties:
+                discoveryType:
+                  oneOf:
+                  - const: all
+                    x-labelLocalizationKey: discoveryType.all
+                  - const: monitor
+                    x-labelLocalizationKey: discoveryType.monitor
+                  - const: virtualServer
+                    x-labelLocalizationKey: discoveryType.virtualServer
+                  x-labelLocalizationKey: discoveryType.label
+                  x-rank: 0
+                excludeExpiredCertificates:
+                  type: boolean
+                  x-labelLocalizationKey: discovery.expiredCertificatesLabel
+                  x-rank: 2
+                excludeInactiveProfiles:
+                  type: boolean
+                  x-labelLocalizationKey: discovery.inactiveProfilesLabel
+                  x-rank: 3
+                partition:
+                  default: Common
+                  description: discovery.partitionDescription
+                  maxLength: 64
+                  type: string
+                  x-labelLocalizationKey: discovery.partitionLabel
+                  x-rank: 1
+              type: object
+            discoveryControl:
+              properties:
+                maxResults:
+                  type: int
+              required:
+              - maxResults
+              type: object
+            discoveryPage:
+              properties:
+                discoveryType:
+                  type: string
+                paginator:
+                  type: string
+              type: object
+            keystore:
+              properties:
+                certificateName:
+                  description: certificateName.description
+                  type: string
+                  x-labelLocalizationKey: certificateName.label
+                  x-rank: 0
+                chainName:
+                  type: string
+                  x-labelLocalizationKey: chainName.label
+                  x-rank: 1
+                partition:
+                  description: partition.description
+                  maxLength: 64
+                  type: string
+                  x-labelLocalizationKey: partition.label
+                  x-rank: 2
+                  x-targetConfigurationRef: /partitions
+              required:
+              - certificateName
+              - chainName
+              type: object
+              x-labelLocalizationKey: keystore.label
+              x-primaryKey:
+              - '#/certificateName'
+              - '#/partition'
+          hooks:
+            mapping:
+              configureInstallationEndpoint: /v1/configureinstallationendpoint
+              discoverCertificates: /v1/discovercertificates
+              installCertificateBundle: /v1/installcertificatebundle
+              testConnection: /v1/testconnection
+            requestConverters:
+            - arguments-decrypter
+          localizationResources:
+            en:
+              address:
+                label: Server Hostname
+              binding:
+                label: Server Store Details
+              certificateName:
+                description: How the certificate should appear on the server.
+                label: Certificate Name
+              chainName:
+                label: Chain Bundle Name
+              discovery:
+                expiredCertificatesLabel: Exclude expired certificates.
+                inactiveProfilesLabel: Exclude certificates that are not in use by either a virtual server or a monitor.
+                partitionDescription: A comma separated list of partition names.
+                partitionLabel: Partition(s)
+              discoveryType:
+                all: Both Monitors and Virtual Servers
+                label: Resource Types to Discover
+                monitor: Monitors
+                virtualServer: Virtual Servers
+              keystore:
+                label: Certificate Information
+              parentProfile:
+                description: No value is interpreted as "clientssl" or "serverssl" depending on the Profile Type selected.
+                label: Parent Profile
+              partition:
+                description: No value is interpreted as the "Common" partition.
+                label: Partition
+              password:
+                hidePassword: Hide Password
+                label: Password
+                showPassword: Show Password
+              port:
+                description: No value is interpreted as 443.
+                label: Port
+              serverName:
+                description: An alternative DNS name used for Server Name Indication.
+                label: SNI
+              sslProfile:
+                label: SSL Profile
+              sslProfileType:
+                client: Client SSL Profile
+                label: Profile Type
+                server: Server SSL Profile
+              username:
+                label: Username
+          name: Sample Manifest
+  securitySchemes:
+    scmOAuth:
+      type: oauth2
+      description: 'Strata Cloud Manager APIs authenticate client requests using the OAuth 2.0 Client Credentials flow. Please use the `client_id`, `client_secret` values associated with an IAM service account along with a scope value of `tsg_id:XXXXXXXXXX`, where `XXXXXXXXXX` is the Tenant Service Group (TSG) ID. The resulting JWT access token should be attached to all API calls as a `Bearer` token in the `Authorization` header (ex. `Authorization: Bearer tokenstring`).'
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
+          scopes: {}
+    scmToken:
+      type: http
+      description: 'Strata Cloud Manager APIs authenticate client requests using the OAuth 2.0 Client Credentials flow. Please use the `client_id`, `client_secret` values associated with an IAM service account along with a scope value of `tsg_id:XXXXXXXXXX`, where `XXXXXXXXXX` is the Tenant Service Group (TSG) ID. The resulting JWT access token should be attached to all API calls as a `Bearer` token in the `Authorization` header (ex. `Authorization: Bearer tokenstring`).'
+      scheme: bearer
+      bearerFormat: JWT

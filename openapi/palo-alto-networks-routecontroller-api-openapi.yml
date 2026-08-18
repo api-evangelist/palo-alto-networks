@@ -1,0 +1,235 @@
+openapi: 3.2.0
+info:
+  title: ADEM data Route Controller API
+  version: 2.1.1
+  description: "This API provides access to the Autonomous Digital Experience Management timeseries data.\nAll responses are aggregates over a period of time specified by the start, end, or timerange query parameters. \nThe aggregrate used for each field will depend on the field type. For simple numerical types, for example application score, \nthe aggregate will typically be an average (for example, scores or metrics). In some cases, it may be a maximum, minimum, or sum. \nFor string fields, it may be a comma separated concatenation of distinct values in the sample period. This spec was created on February 13, 2026. © 2026 Palo Alto Networks, Inc."
+servers:
+- url: https://api.sase.paloaltonetworks.com
+security:
+- jwt: []
+tags:
+- name: RouteController
+paths:
+  /adem/telemetry/v2/measure/route/hops:
+    get:
+      x-controller-name: RouteController
+      x-operation-name: getRouteHops
+      tags:
+      - RouteController
+      summary: Get traceroute summary for overlay and underlay paths
+      responses:
+        '200':
+          description: Traceroute summary for overlay and underlay paths
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Route'
+        '400':
+          description: Invalid Request
+        '401':
+          description: Invalid Client
+        '500':
+          description: Server Error
+      parameters:
+      - name: start
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+          maximum: 2147483648
+          description: sample start time in seconds (unix epoch)
+      - name: end
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+          maximum: 2147483648
+          description: sample end time in seconds (unix epoch)
+      - name: timerange
+        in: query
+        required: false
+        schema:
+          type: string
+          description: A time range e.g 'last_3_hours', 'last_7_days'
+      - name: truncate-timerange
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: round timestamps to nearest sample period
+          default: true
+      - name: Prisma-Tenant
+        in: header
+        schema:
+          type: string
+          description: Tenant ( tenant_service_group or tenant_service_group:subtenant )
+        required: true
+      - name: Prisma-SubTenant
+        in: header
+        schema:
+          type: string
+          description: SubTenant
+        required: false
+      - name: filter
+        in: query
+        required: false
+        schema:
+          type: string
+          description: filter results e.g. application==zoom-meeting or application==zoom-meeting, application==Gmail
+      - name: endpoint-type
+        in: query
+        required: true
+        schema:
+          type: string
+          description: endpoint type
+          enum:
+          - muAgent
+          - muProbe
+          - rnAgent
+          - rnProbe
+      operationId: RouteController.getRouteHops
+      description: Retrieve the hops details through this endpoint.
+components:
+  schemas:
+    RouteHop:
+      title: RouteHop
+      type: object
+      properties:
+        address:
+          type: string
+          description: hop IPv4 address
+        hop:
+          type: number
+          description: hop index e.g first hop is 1
+        rdns:
+          type: string
+          description: hop hostname
+        country:
+          type: string
+          description: hop country code e.g KR
+        city:
+          type: string
+          description: hop city e.g Incheon
+        asn:
+          type: number
+          description: hop ASN
+        asnName:
+          type: string
+          description: hop ASN ORG
+        loss:
+          type: number
+          description: hop ICMP loss
+        sent:
+          type: number
+          description: 'ICMP packets sent '
+        rttAvg:
+          type: number
+          description: average round trip time, microseconds
+        jitterAvg:
+          type: number
+          description: average jitter, microseconds
+        dscp:
+          type: number
+          description: DSCP
+        mpls:
+          type: string
+          description: MPLS
+      required:
+      - address
+      - hop
+      - rdns
+      - country
+      - city
+      - asn
+      - asnName
+      - loss
+      - sent
+      - rttAvg
+      - jitterAvg
+      - dscp
+      - mpls
+      additionalProperties: false
+    Pagination:
+      title: Pagination
+      type: object
+      properties:
+        page:
+          type: number
+          description: page number
+        limit:
+          type: number
+          description: page limit
+        sortBy:
+          type: string
+          description: sort by field
+        sortOrder:
+          type: string
+          description: 'sort order : asc, desc'
+        enabled:
+          type: boolean
+      additionalProperties: false
+    Path:
+      title: Path
+      type: object
+      properties:
+        id:
+          type: object
+        endpoint:
+          type: string
+          description: endpoint uuid
+        targetAddress:
+          type: string
+          description: target IPv4 address
+        target:
+          type: string
+          description: target
+        tunnelIpv4:
+          type: string
+          description: tunnel IPv4 address
+        hops:
+          type: array
+          items:
+            $ref: '#/components/schemas/RouteHop'
+      required:
+      - id
+      - endpoint
+      - targetAddress
+      - target
+      - tunnelIpv4
+      additionalProperties: false
+    Route:
+      title: Route
+      type: object
+      properties:
+        startTime:
+          type: number
+          description: sample start time (Unix timestamp)
+        endTime:
+          type: number
+          description: sample end time (Unix timestamp)
+        endpointType:
+          type: string
+          description: 'endpoint type : muAgent, muProbe, rnAgent, rnProbe'
+        tenantServiceGroup:
+          type: string
+          description: array of tenant service groups
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        rowCount:
+          type: number
+        vpnUnderlayPaths:
+          type: array
+          items:
+            $ref: '#/components/schemas/Path'
+        vpnOverlayPaths:
+          type: array
+          items:
+            $ref: '#/components/schemas/Path'
+      additionalProperties: false
+  securitySchemes:
+    jwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

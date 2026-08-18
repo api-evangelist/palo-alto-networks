@@ -1,0 +1,542 @@
+openapi: 3.2.0
+info:
+  title: ADEM data Zoom Participant Controller API
+  version: 2.1.1
+  description: "This API provides access to the Autonomous Digital Experience Management timeseries data.\nAll responses are aggregates over a period of time specified by the start, end, or timerange query parameters. \nThe aggregrate used for each field will depend on the field type. For simple numerical types, for example application score, \nthe aggregate will typically be an average (for example, scores or metrics). In some cases, it may be a maximum, minimum, or sum. \nFor string fields, it may be a comma separated concatenation of distinct values in the sample period. This spec was created on February 13, 2026. © 2026 Palo Alto Networks, Inc."
+servers:
+- url: https://api.sase.paloaltonetworks.com
+security:
+- jwt: []
+tags:
+- name: ZoomParticipantController
+paths:
+  /adem/telemetry/v2/measure/zoom/participant:
+    get:
+      x-controller-name: ZoomParticipantController
+      x-operation-name: getZoomParticipant
+      tags:
+      - ZoomParticipantController
+      summary: Get Zoom participants
+      responses:
+        '200':
+          description: Return a list of Zoom participants
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZoomParticipant'
+        '400':
+          description: Invalid Request
+        '401':
+          description: Invalid Client
+        '500':
+          description: Server Error
+      parameters:
+      - name: start
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+          maximum: 2147483648
+          description: sample start time in seconds (unix epoch)
+      - name: end
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+          maximum: 2147483648
+          description: sample end time in seconds (unix epoch)
+      - name: timerange
+        in: query
+        required: false
+        schema:
+          type: string
+          description: A time range e.g 'last_3_hours', 'last_7_days'
+      - name: truncate-timerange
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: round timestamps to nearest sample period
+          default: true
+      - name: filter
+        in: query
+        required: false
+        schema:
+          type: string
+          description: filter results e.g. application==zoom-meeting or application==zoom-meeting, application==Gmail
+      - name: Prisma-Tenant
+        in: header
+        schema:
+          type: string
+          description: Tenant ( tenant_service_group or tenant_service_group:subtenant )
+        required: true
+      - name: Prisma-SubTenant
+        in: header
+        schema:
+          type: string
+          description: SubTenant
+        required: false
+      operationId: ZoomParticipantController.getZoomParticipant
+      description: Retrieve the participant details through this endpoint.
+  /adem/telemetry/v2/measure/zoom/participant-score:
+    get:
+      x-controller-name: ZoomParticipantController
+      x-operation-name: getZoomParticipantScore
+      tags:
+      - ZoomParticipantController
+      summary: Get Zoom participant score
+      responses:
+        '200':
+          description: Zoom participant score
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/ZoomParticipantScoreSeries'
+                - $ref: '#/components/schemas/ZoomParticipantScoreSummary'
+                - $ref: '#/components/schemas/ZoomParticipantScoreSeriesCollection'
+                - $ref: '#/components/schemas/ZoomParticipantScoreSummaryCollection'
+                - $ref: '#/components/schemas/ZoomParticipantScoreDistribution'
+      parameters:
+      - name: start
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+          maximum: 2147483648
+          description: sample start time in seconds (unix epoch)
+      - name: end
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+          maximum: 2147483648
+          description: sample end time in seconds (unix epoch)
+      - name: timerange
+        in: query
+        required: false
+        schema:
+          type: string
+          description: A time range e.g 'last_3_hours', 'last_7_days'
+      - name: truncate-timerange
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: round timestamps to nearest sample period
+          default: true
+      - name: filter
+        in: query
+        required: false
+        schema:
+          type: string
+          description: filter results e.g. application==zoom-meeting or application==zoom-meeting, application==Gmail
+      - name: Prisma-Tenant
+        in: header
+        schema:
+          type: string
+          description: Tenant ( tenant_service_group or tenant_service_group:subtenant )
+        required: true
+      - name: Prisma-SubTenant
+        in: header
+        schema:
+          type: string
+          description: SubTenant
+        required: false
+      - name: response-type
+        in: query
+        required: true
+        schema:
+          type: string
+          enum:
+          - timeseries
+          - summary
+          - distribution
+          - grouped-summary
+          - grouped-timeseries
+      - name: include
+        in: query
+        required: false
+        schema:
+          type: string
+          description: include entity counts e.g. EntityCounts.endpoint,EntityCounts.user
+      - name: group
+        in: query
+        required: false
+        schema:
+          type: string
+          description: entity to group results by (e.g. Entity.user or Entity.user,Entity.endpoint)
+      operationId: ZoomParticipantController.getZoomParticipantScore
+      description: Retrieve the participant score details through this endpoint.
+components:
+  schemas:
+    ZoomParticipantScoreSummary:
+      title: ZoomParticipantScoreSummary
+      type: object
+      properties:
+        startTime:
+          type: number
+          description: sample start time (Unix timestamp)
+        endTime:
+          type: number
+          description: sample end time (Unix timestamp)
+        endpointType:
+          type: string
+          description: 'endpoint type : muAgent, muProbe, rnAgent, rnProbe'
+        tenantServiceGroup:
+          type: string
+          description: array of tenant service groups
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        rowCount:
+          type: number
+        id:
+          type: string
+        average:
+          $ref: '#/components/schemas/ZoomParticipantScore'
+        entityCounts:
+          $ref: '#/components/schemas/ZoomParticipantScoreEntityCounts'
+      required:
+      - id
+      additionalProperties: false
+    Pagination:
+      title: Pagination
+      type: object
+      properties:
+        page:
+          type: number
+          description: page number
+        limit:
+          type: number
+          description: page limit
+        sortBy:
+          type: string
+          description: sort by field
+        sortOrder:
+          type: string
+          description: 'sort order : asc, desc'
+        enabled:
+          type: boolean
+      additionalProperties: false
+    ZoomParticipantScoreEntityCounts:
+      title: ZoomParticipantScoreEntityCounts
+      type: object
+      properties:
+        meetingUuid:
+          type: number
+        email:
+          type: number
+      additionalProperties: false
+    Distribution:
+      title: Distribution
+      type: object
+      properties:
+        sample:
+          type: number
+        score:
+          type: number
+          description: average of all scores in distribution
+        clients:
+          type: number
+          description: count of distribution entity e.g. application tests, endpoints
+        poor:
+          type: number
+          description: count of scores classified as poor
+        poorValues:
+          type: array
+          items:
+            type: string
+        fair:
+          type: number
+          description: count of scores classified as fair
+        fairValues:
+          type: array
+          items:
+            type: string
+        good:
+          type: number
+          description: count of scores classified as good
+        goodValues:
+          type: array
+          items:
+            type: string
+        unclassified:
+          type: number
+          description: count of unclassified scores
+      additionalProperties: false
+    ZoomParticipantScoreSeriesCollection:
+      title: ZoomParticipantScoreSeriesCollection
+      type: object
+      properties:
+        startTime:
+          type: number
+          description: sample start time (Unix timestamp)
+        endTime:
+          type: number
+          description: sample end time (Unix timestamp)
+        endpointType:
+          type: string
+          description: 'endpoint type : muAgent, muProbe, rnAgent, rnProbe'
+        tenantServiceGroup:
+          type: string
+          description: array of tenant service groups
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        rowCount:
+          type: number
+        collection:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZoomParticipantScoreSeries'
+        samplePeriod:
+          type: number
+          description: sample period in seconds
+      additionalProperties: false
+    ZoomParticipant:
+      title: ZoomParticipant
+      type: object
+      properties:
+        meetingUuid:
+          type: string
+          description: meeting UUID (hex representation of base64 encoded binary field) e.g. be16a46bf68f44ddacd8cb671e5faa84
+        email:
+          type: string
+          description: participant email address
+        recordId:
+          type: string
+          description: participant record id
+        accountId:
+          type: string
+          description: participant account id
+        duration:
+          type: number
+          description: meeting duration, seconds
+        startTime:
+          type: string
+          description: meeting start time, timestamp
+        timezone:
+          type: string
+          description: meeting timezone
+        topic:
+          type: string
+          description: meeting topic
+        meetingId:
+          type: string
+          description: meeting ID
+        userId:
+          type: string
+          description: user ID
+        userName:
+          type: string
+          description: user name
+        joinTime:
+          type: string
+          description: user join time, timestamp
+        leaveTime:
+          type: string
+          description: user leave time, timestamp
+        actualDuration:
+          type: number
+          description: actual meeting duration, seconds
+        meetingHostId:
+          type: string
+          description: meeting host ID
+        eventTimeEpoch:
+          type: number
+        eventTime:
+          type: number
+        pcName:
+          type: string
+          description: computer name
+        macAddress:
+          type: string
+          description: computer MAC address
+        domain:
+          type: string
+          description: domain name
+        harddiskId:
+          type: string
+          description: computer disk name
+        destinationIpPort:
+          type: string
+          description: destination IP port
+        destinationIpDomain:
+          type: string
+          description: destination IP domain
+        dataCenter:
+          type: string
+          description: data center
+        networkType:
+          type: string
+          description: network type e.g Wired, Other
+        location:
+          type: string
+          description: computer location e.g. Sydney(AU)
+        microphone:
+          type: string
+          description: 'microphone e.g. Microphone Array (Realtek(R) Audio) '
+        signalingInternalIpAddress:
+          type: string
+          description: signaling internal IP address
+        version:
+          type: string
+          description: software version e.g. 5.13.3.11494
+        device:
+          type: string
+          description: computer type e.g. Windoze, Mac
+        signalingInternalIpPort:
+          type: string
+          description: signaling internal IP port
+        asInternalIpAddress:
+          type: string
+          description: as internal IP address
+        asInternalIpPort:
+          type: string
+          description: as internal IP port
+        speaker:
+          type: string
+          description: speaker e.g. Speakers (Realtek(R) Audio)
+        videoInternalIpAddress:
+          type: string
+          description: video internal IP address
+        videoInternalIpPort:
+          type: string
+          description: video internal IP port
+        audioInternalIpPort:
+          type: string
+          description: audio internal IP port
+        audioInternalIpAddress:
+          type: string
+          description: audio internal IP address
+        camera:
+          type: string
+          description: camera e.g. HD User Facing
+        tenantId:
+          type: string
+          description: tenant ID
+        subTenantId:
+          type: string
+          description: subtenant ID
+        tenantServiceGroup:
+          type: string
+          description: tenant service group
+        agentUuid:
+          type: string
+          description: user agent UUID
+        score:
+          type: number
+          description: meeting score
+      required:
+      - meetingUuid
+      - email
+      additionalProperties: false
+    ZoomParticipantScoreSummaryCollection:
+      title: ZoomParticipantScoreSummaryCollection
+      type: object
+      properties:
+        startTime:
+          type: number
+          description: sample start time (Unix timestamp)
+        endTime:
+          type: number
+          description: sample end time (Unix timestamp)
+        endpointType:
+          type: string
+          description: 'endpoint type : muAgent, muProbe, rnAgent, rnProbe'
+        tenantServiceGroup:
+          type: string
+          description: array of tenant service groups
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        rowCount:
+          type: number
+        collection:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZoomParticipantScoreSummary'
+      additionalProperties: false
+    ZoomParticipantScoreDistribution:
+      title: ZoomParticipantScoreDistribution
+      type: object
+      properties:
+        startTime:
+          type: number
+          description: sample start time (Unix timestamp)
+        endTime:
+          type: number
+          description: sample end time (Unix timestamp)
+        endpointType:
+          type: string
+          description: 'endpoint type : muAgent, muProbe, rnAgent, rnProbe'
+        tenantServiceGroup:
+          type: string
+          description: array of tenant service groups
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        rowCount:
+          type: number
+        id:
+          type: string
+        classifier:
+          type: string
+        entityCounts:
+          $ref: '#/components/schemas/ZoomParticipantScoreEntityCounts'
+        distribution:
+          $ref: '#/components/schemas/Distribution'
+      additionalProperties: false
+    ZoomParticipantScore:
+      title: ZoomParticipantScore
+      type: object
+      properties:
+        sample:
+          type: number
+        score:
+          type: number
+        minScore:
+          type: number
+      additionalProperties: false
+    ZoomParticipantScoreSeries:
+      title: ZoomParticipantScoreSeries
+      type: object
+      properties:
+        startTime:
+          type: number
+          description: sample start time (Unix timestamp)
+        endTime:
+          type: number
+          description: sample end time (Unix timestamp)
+        endpointType:
+          type: string
+          description: 'endpoint type : muAgent, muProbe, rnAgent, rnProbe'
+        tenantServiceGroup:
+          type: string
+          description: array of tenant service groups
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        rowCount:
+          type: number
+        id:
+          type: string
+        samplePeriod:
+          type: number
+          description: sample period in seconds
+        series:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZoomParticipantScore'
+        seriesEntityCount:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZoomParticipantScoreEntityCounts'
+      required:
+      - id
+      additionalProperties: false
+  securitySchemes:
+    jwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

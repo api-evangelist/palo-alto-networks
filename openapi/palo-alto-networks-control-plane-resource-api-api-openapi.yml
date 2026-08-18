@@ -1,0 +1,268 @@
+openapi: 3.2.0
+info:
+  title: SASE 5G Manage Service Control Plane Resource API API
+  version: '1.0'
+  description: "The SASE 5G Management Service provides the administrative framework required to provision, \nconfigure, and oversee 5G security infrastructure within the Strata Cloud Manager (SCM) ecosystem. \nArchitects and administrators utilize these APIs during the activation and lifecycle management \nphases to bridge enterprise 5G networks with Prisma Access security.\n\nBy leveraging these endpoints, organizations implement robust hardware-to-tenant mapping using \nIMSI and IMEI identifiers, ensuring precise traffic attribution and policy enforcement. \nThe service manages critical control plane components—including certificate handling and \nRadius server integration—directly through the SCM management plane. This centralized \napproach allows technical teams to scale 5G connectivity across global compute regions \nwhile maintaining granular visibility into subscriber groups and regional interconnect health. This spec was created on February 11, 2026. © 2026 Palo Alto Networks, Inc."
+servers:
+- url: https://stratacloudmanager.paloaltonetworks.com
+security:
+- JWT: []
+tags:
+- name: Control Plane Resource API
+paths:
+  /mt/manage/5g/control/cert/download:
+    get:
+      tags:
+      - Control Plane Resource API
+      summary: Download Security Certificate
+      description: "Exports the security certificate required to enable 5G connectivity for a specific region. \nAdministrators download this file to the local control plane during the activation phase \nto authenticate regional 5G nodes securely. This step is mandatory before regional \ntraffic paths can be established."
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Bad Request
+        '404':
+          description: Data Not Found
+        '500':
+          description: Server Error
+      operationId: GetMtManage5gControlCertDownload
+  /mt/manage/5g/control/proxycert:
+    get:
+      tags:
+      - Control Plane Resource API
+      summary: Verify Certificate Status
+      description: "Validates whether a proxy certificate exists within the root TSG configuration. \nEngineers perform this check during pre-activation to ensure the control plane \nis prepared for encrypted signaling before establishing child tenant connectivity. \nThis prevents signaling failures during regional onboarding."
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Bad Request
+        '404':
+          description: Data Not Found
+        '500':
+          description: Server Error
+      operationId: GetMtManage5gControlProxycert
+  /mt/manage/5g/control/proxycert/upload:
+    post:
+      tags:
+      - Control Plane Resource API
+      summary: Upload Proxy Certificate
+      description: "Injects a proxy certificate into the root TSG via multipart form-data to facilitate \nsecure 5G control plane communications. Users execute this during gateway configuration \nto establish encrypted regional signaling paths. The management plane validates the \nfile format before committing the record."
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  format: binary
+                  type: string
+                filename:
+                  type: string
+                tsgId:
+                  type: string
+                rootTsgId:
+                  type: string
+            encoding:
+              file:
+                contentType: application/octet-stream
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Bad Request
+        '404':
+          description: Data Not Found
+        '500':
+          description: Server Error
+      operationId: PostMtManage5gControlProxycertUpload
+  /mt/manage/5g/control/radiusProxy:
+    get:
+      tags:
+      - Control Plane Resource API
+      summary: Fetch Proxy Secret
+      description: "Retrieves the Radius server shared secret associated with the root TSG. Administrators \ncall this during system audits to verify authentication credentials between the 5G \ncontrol plane and Radius infrastructure. The response ensures that the management \nplane retains the correct shared keys for secure access."
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Bad Request
+        '404':
+          description: Data Not Found
+        '500':
+          description: Server Error
+      operationId: GetMtManage5gControlRadiusproxy
+    post:
+      tags:
+      - Control Plane Resource API
+      summary: Configure Radius Proxy
+      description: "Assigns a Radius server shared secret to the root TSG to manage authentication traffic. \nSecurity teams perform this during integration to bridge 5G access requests with \nexisting Radius authentication services. Configuration involves mapping the server \nname to its specific IP Address address within the management plane."
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RadiusProxyRequest'
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Bad Request
+        '404':
+          description: Data Not Found
+        '500':
+          description: Server Error
+      operationId: PostMtManage5gControlRadiusproxy
+  /mt/manage/5g/control/radiusSecret:
+    get:
+      tags:
+      - Control Plane Resource API
+      summary: View Radius Secret
+      description: "Displays the active Radius server shared secret for the root TSG. Technical leads \nuse this when troubleshooting authentication failures to ensure secrets match the \non-premise Radius server configuration. This visibility is restricted to authorized \nmanagement plane users."
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Bad Request
+        '404':
+          description: Data Not Found
+        '500':
+          description: Server Error
+      operationId: GetMtManage5gControlRadiussecret
+    post:
+      tags:
+      - Control Plane Resource API
+      summary: Set Radius Secret
+      description: "Updates the Radius server shared secret for the root TSG. Administrators use this \nduring credential rotation or initial onboarding to secure communication between \nSASE components and external authentication servers. Changes are applied \nimmediately across the regional control plane."
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RadiusServerSecretRequest'
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Bad Request
+        '404':
+          description: Data Not Found
+        '500':
+          description: Server Error
+      operationId: PostMtManage5gControlRadiussecret
+  /mt/manage/5g/control/radiusServers:
+    get:
+      tags:
+      - Control Plane Resource API
+      summary: List Radius Servers
+      description: "Lists Radius server details currently configured for 5G connectivity in a specific \nregion. Infrastructure teams audit this information to verify which authentication \nnodes are active within the service environment and ensure regional redundancy."
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Bad Request
+        '404':
+          description: Data Not Found
+        '500':
+          description: Server Error
+      operationId: GetMtManage5gControlRadiusservers
+  /mt/manage/5g/control/supported/interfaces:
+    get:
+      tags:
+      - Control Plane Resource API
+      summary: List Supported Interfaces
+      description: "Displays available network interfaces compatible with 5G control plane integration. \nNetwork engineers reference this list during planning to determine the correct \nconnection types for specific 5G deployments within the SASE fabric."
+      responses:
+        '200':
+          description: Successful response
+        '500':
+          description: Server Error
+      operationId: GetMtManage5gControlSupportedInterfaces
+  /mt/manage/5g/control/interface:
+    get:
+      tags:
+      - Control Plane Resource API
+      summary: Show Selected Interface
+      description: "Retrieves the specific network interface currently assigned to 5G operations. \nAdministrators use this to verify active configuration settings after committing \ninterface changes to ensure signal traffic routing matches the intended design."
+      responses:
+        '200':
+          description: Successful response
+        '500':
+          description: Server Error
+      operationId: GetMtManage5gControlInterface
+    post:
+      tags:
+      - Control Plane Resource API
+      summary: Assign Network Interface
+      description: "Defines the interface type (e.g., RADIUS) and reporting intervals used for 5G control \nplane traffic. Users configure these settings during initial setup to customize how \nauthentication data flows between regional nodes and the management plane."
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetInterface'
+      responses:
+        '200':
+          description: Successful response
+        '400':
+          description: Bad Request
+        '500':
+          description: Server Error
+      operationId: PostMtManage5gControlInterface
+  /mt/manage/5g/control/interimMsg:
+    put:
+      tags:
+      - Control Plane Resource API
+      summary: Update Message Intervals
+      description: "Modifies the interim message configuration for the active 5G control plane. \nAdministrators adjust these reporting frequencies to balance management plane \ntraffic with real-time session visibility for active subscriber devices."
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateInterimMsg'
+      responses:
+        '200':
+          description: Successful response
+        '400':
+          description: Bad Request
+        '404':
+          description: Data Not Found
+        '500':
+          description: Server Error
+      operationId: PutMtManage5gControlInterimmsg
+components:
+  schemas:
+    RadiusProxyRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        ipaddress:
+          type: string
+    UpdateInterimMsg:
+      type: object
+      properties:
+        processMsg:
+          type: boolean
+          default: false
+        interval:
+          type: integer
+          description: How often interim messages will come(in minutes)
+    RadiusServerSecretRequest:
+      type: object
+      properties:
+        secret:
+          type: string
+        created_by:
+          type: string
+    SetInterface:
+      type: object
+      properties:
+        interfaceType:
+          type: string
+          example: RADIUS
+        processInterimMsg:
+          type: boolean
+          default: false
+        interimMsgInterval:
+          type: integer
+          description: How often interim messages will come(in minutes)
+      required:
+      - interfaceType

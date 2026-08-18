@@ -1,0 +1,178 @@
+openapi: 3.2.0
+info:
+  title: SP Interconnect Monitor Interconnect Traffic API
+  version: '1.0'
+  description: "These APIs deliver real-time visibility and performance analytics for all configured interconnect \nresources through the monitoring plane. They allow network teams to track health, bandwidth throughput, \nand data transfer volumes at the edge to ensure optimal network security and reliability. \nAccess these metrics during routine audits or active troubleshooting to diagnose latency spikes or BGP session instability. \nBy applying time-based filters and histograms, you can generate detailed traffic trends and monitor IP pool consumption across your global infrastructure. Created on February 12, 2026. © 2026 Palo Alto Networks, Inc."
+servers:
+- url: https://api.sase.paloaltonetworks.com
+security:
+- authKey: []
+tags:
+- name: Interconnect Traffic
+paths:
+  /mt/sp-interconnect/monitor/interconnects/traffic:
+    post:
+      tags:
+      - Interconnect Traffic
+      summary: Get Interconnect Data Transfer
+      description: Aggregate data transfer volumes for entire Interconnect containers to track total network consumption. This information is calculated at the edge locations and allows administrators to monitor data egress and ingress for billing or capacity planning. Utilize this for monthly usage reports or when analyzing long-term traffic trends across SHARED or PER_TENANT models. You can retrieve either specific windowed data or total lifetime traffic by toggling the lifetime query parameter and defining the appropriate time-based filters.
+      parameters:
+      - name: lifetime
+        in: query
+        schema:
+          type: boolean
+        description: Set to true to get lifetime traffic data
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MonitorRequest'
+            examples:
+              Egress Traffic Last N Days:
+                value:
+                  properties:
+                  - property: interconnect_name
+                    sort:
+                      order: asc
+                  - function: sum
+                    property: egress_traffic
+                  filter:
+                    operator: AND
+                    rules:
+                    - property: event_time
+                      operator: last_n_days
+                      values:
+                      - 30
+                    - property: interconnect_id
+                      operator: equals
+                      values:
+                      - c4ac1d7a-684e-11f0-92e9-4201ac16024e
+              Traffic Over Time:
+                value:
+                  properties:
+                  - property: egress_traffic
+                    function: sum
+                  - property: ingress_traffic
+                    function: sum
+                  - property: interconnect_name
+                    sort:
+                      order: asc
+                  filter:
+                    operator: AND
+                    rules:
+                    - property: event_time
+                      operator: last_n_days
+                      values:
+                      - 30
+                    - property: interconnect_id
+                      operator: in
+                      values:
+                      - c4ac1d7a-684e-11f0-92e9-4201ac16024e
+                  histogram:
+                    property: event_time
+                    range: day
+                    enableEmptyInterval: false
+                    value: '1'
+              Lifetime Traffic:
+                value:
+                  properties:
+                  - property: interconnect_name
+                    sort:
+                      order: asc
+                  - function: sum
+                    property: egress_traffic
+                  filter:
+                    operator: AND
+                    rules:
+                    - property: event_time
+                      operator: lessThan
+                      values:
+                      - '1766104066466'
+                    - property: interconnect_id
+                      operator: equals
+                      values:
+                      - c4ac1d7a-684e-11f0-92e9-4201ac16024e
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              examples:
+                Egress Traffic:
+                  value:
+                    data:
+                    - interconnect_name: ic-us-central1
+                      egress_traffic: 73.40927790249995
+                    requestId: c39c2083-2aa0-4255-9b22-d87c75ec6ade
+                Traffic Over Time:
+                  value:
+                    data:
+                    - interconnect_name: ic-us-central1
+                      event_time: 1763424000000
+                      egress_traffic: 25.912407871000052
+                      ingress_traffic: 50.45267106150007
+                    - interconnect_name: ic-us-central1
+                      event_time: 1763510400000
+                      egress_traffic: 26.001434308999958
+                      ingress_traffic: 48.22614097999999
+                    requestId: c9369eee-108d-4ab8-8498-15bcbb6cf55e
+        '400':
+          description: Bad Request
+        '401':
+          description: Permission Denied
+        '500':
+          description: Server Error
+      operationId: PostMtSp-interconnectMonitorInterconnectsTraffic
+components:
+  schemas:
+    MonitorRequest:
+      type: object
+      properties:
+        properties:
+          type: array
+          items:
+            type: object
+            properties:
+              property:
+                type: string
+              function:
+                type: string
+              alias:
+                type: string
+              sort:
+                type: object
+                properties:
+                  order:
+                    type: string
+        filter:
+          type: object
+          properties:
+            operator:
+              type: string
+            rules:
+              type: array
+              items:
+                type: object
+                properties:
+                  property:
+                    type: string
+                  operator:
+                    type: string
+                  values:
+                    type: array
+                    items: {}
+        histogram:
+          type: object
+          properties:
+            property:
+              type: string
+            range:
+              type: string
+            enableEmptyInterval:
+              type: boolean
+            value:
+              type: string
+  securitySchemes:
+    authKey:
+      type: http
+      scheme: Bearer

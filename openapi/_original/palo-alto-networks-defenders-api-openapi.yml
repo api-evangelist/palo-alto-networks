@@ -1,0 +1,303 @@
+openapi: 3.2.0
+info:
+  title: Palo Alto Networks AIOps for NGFW BPA 5G Deregistered Trend Defenders API
+  description: AIOps for NGFW Best Practice Assessment (BPA) API. Provides programmatic access to submit BPA requests for Palo Alto Networks next-generation firewalls, check request processing status, and retrieve completed assessment reports. BPA reports analyze firewall configurations against Palo Alto Networks best practices and security benchmarks, identifying gaps and providing remediation guidance to improve security posture. Part of the Strata Cloud Manager platform.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+security:
+- oauth2Bearer: []
+tags:
+- name: Defenders
+  description: Defender agent deployment and management.
+paths:
+  /defenders:
+    get:
+      operationId: getDefenders
+      summary: Palo Alto Networks List Defenders
+      description: Returns information about all deployed Defenders including their connection status, version, type, and the host they are running on. Defenders are the runtime agents that enforce security policies and report vulnerability and compliance data to the Console.
+      tags:
+      - Defenders
+      parameters:
+      - name: offset
+        in: query
+        description: Number of records to skip for pagination.
+        schema:
+          type: integer
+          default: 0
+        example: 0
+      - name: limit
+        in: query
+        description: Maximum number of records to return.
+        schema:
+          type: integer
+          default: 50
+        example: 50
+      - name: search
+        in: query
+        description: Search term to filter Defenders by hostname.
+        schema:
+          type: string
+        example: example-search
+      - name: connected
+        in: query
+        description: Filter by connection status.
+        schema:
+          type: boolean
+        example: true
+      - name: type
+        in: query
+        description: Filter by Defender type.
+        schema:
+          type: string
+          enum:
+          - docker
+          - dockerWindows
+          - cri
+          - fargate
+          - appEmbedded
+          - serverless
+        example: serverless
+      - name: cluster
+        in: query
+        description: Filter by cluster name.
+        schema:
+          type: string
+        example: example-cluster
+      responses:
+        '200':
+          description: Defender list returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Defender'
+              examples:
+                GetDefenders200Example:
+                  summary: Default getDefenders 200 response
+                  x-microcks-default: true
+                  value:
+                  - hostname: host-7a08
+                    version: 9.6.1
+                    type: cri
+                    connected: true
+                    lastModified: '2024-10-15T05:34:16Z'
+                    cluster: example-cluster
+                    cloudMetadata:
+                      provider: example-provider
+                      accountId: '210791'
+                      region: us-west-2
+                    category: appEmbedded
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+  /defenders/summary:
+    get:
+      operationId: getDefendersSummary
+      summary: Palo Alto Networks Get Defender Summary Statistics
+      description: Returns summary statistics about deployed Defenders including total count, connected count, version distribution, and deployment type breakdown.
+      tags:
+      - Defenders
+      responses:
+        '200':
+          description: Defender summary statistics returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DefenderSummary'
+              examples:
+                GetDefendersSummary200Example:
+                  summary: Default getDefendersSummary 200 response
+                  x-microcks-default: true
+                  value:
+                    total: 699
+                    connected: 599
+                    disconnected: 938
+                    by_type:
+                      docker: 291
+                      dockerWindows: 218
+                      cri: 483
+                      fargate: 38
+                      appEmbedded: 555
+                      serverless: 454
+                    version_distribution:
+                    - version: 1.1.4
+                      count: 916
+                    - version: 9.6.3
+                      count: 298
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+components:
+  schemas:
+    Defender:
+      type: object
+      properties:
+        hostname:
+          type: string
+          description: Hostname where the Defender is deployed.
+          example: host-7a08
+        version:
+          type: string
+          description: Defender agent version.
+          example: 9.6.1
+        type:
+          type: string
+          enum:
+          - docker
+          - dockerWindows
+          - cri
+          - fargate
+          - appEmbedded
+          - serverless
+          description: Type of Defender deployment.
+          example: cri
+        connected:
+          type: boolean
+          description: Whether the Defender is currently connected to the Console.
+          example: true
+        lastModified:
+          type: string
+          format: date-time
+          description: Timestamp of the last status update from the Defender.
+          example: '2024-10-15T05:34:16Z'
+        cluster:
+          type: string
+          description: Kubernetes cluster name if applicable.
+          example: example-cluster
+        cloudMetadata:
+          type: object
+          properties:
+            provider:
+              type: string
+              example: example-provider
+            accountId:
+              type: string
+              example: '642621'
+            region:
+              type: string
+              example: us-west-2
+          example:
+            provider: example-provider
+            accountId: '210791'
+            region: us-west-2
+        category:
+          type: string
+          enum:
+          - container
+          - host
+          - serverless
+          - appEmbedded
+          example: appEmbedded
+    DefenderSummary:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of deployed Defenders.
+          example: 699
+        connected:
+          type: integer
+          description: Number of currently connected Defenders.
+          example: 599
+        disconnected:
+          type: integer
+          description: Number of disconnected Defenders.
+          example: 938
+        by_type:
+          type: object
+          description: Defender count breakdown by deployment type.
+          properties:
+            docker:
+              type: integer
+              example: 337
+            dockerWindows:
+              type: integer
+              example: 871
+            cri:
+              type: integer
+              example: 582
+            fargate:
+              type: integer
+              example: 950
+            appEmbedded:
+              type: integer
+              example: 172
+            serverless:
+              type: integer
+              example: 889
+          example:
+            docker: 291
+            dockerWindows: 218
+            cri: 483
+            fargate: 38
+            appEmbedded: 555
+            serverless: 454
+        version_distribution:
+          type: array
+          items:
+            type: object
+            properties:
+              version:
+                type: string
+                example: 7.8.9
+              count:
+                type: integer
+                example: 568
+          example:
+          - version: 1.1.4
+            count: 916
+          - version: 9.6.3
+            count: 298
+    ErrorResponse:
+      type: object
+      properties:
+        err:
+          type: string
+          description: Error message.
+          example: example-err
+  responses:
+    Unauthorized:
+      description: Invalid or expired authentication credentials.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  securitySchemes:
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.

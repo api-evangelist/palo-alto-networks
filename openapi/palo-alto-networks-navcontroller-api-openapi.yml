@@ -1,0 +1,259 @@
+openapi: 3.2.0
+info:
+  title: ADEM data Nav Controller API
+  version: 2.1.1
+  description: "This API provides access to the Autonomous Digital Experience Management timeseries data.\nAll responses are aggregates over a period of time specified by the start, end, or timerange query parameters. \nThe aggregrate used for each field will depend on the field type. For simple numerical types, for example application score, \nthe aggregate will typically be an average (for example, scores or metrics). In some cases, it may be a maximum, minimum, or sum. \nFor string fields, it may be a comma separated concatenation of distinct values in the sample period. This spec was created on February 13, 2026. © 2026 Palo Alto Networks, Inc."
+servers:
+- url: https://api.sase.paloaltonetworks.com
+security:
+- jwt: []
+tags:
+- name: NavController
+paths:
+  /adem/telemetry/v2/measure/nav/traffic:
+    get:
+      x-controller-name: NavController
+      x-operation-name: getNavTraffic
+      tags:
+      - NavController
+      summary: Get NAV traffic
+      responses:
+        '200':
+          description: NAV traffic
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/TrafficSeries'
+                - $ref: '#/components/schemas/TrafficSummary'
+                - $ref: '#/components/schemas/TrafficSeriesCollection'
+                - $ref: '#/components/schemas/TrafficSummaryCollection'
+        '400':
+          description: Invalid Request
+        '401':
+          description: Invalid Client
+        '500':
+          description: Server Error
+      parameters:
+      - name: start
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+          maximum: 2147483648
+          description: sample start time in seconds (unix epoch)
+      - name: end
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+          maximum: 2147483648
+          description: sample end time in seconds (unix epoch)
+      - name: timerange
+        in: query
+        required: false
+        schema:
+          type: string
+          description: A time range e.g 'last_3_hours', 'last_7_days'
+      - name: truncate-timerange
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: round timestamps to nearest sample period
+          default: true
+      - name: filter
+        in: query
+        required: false
+        schema:
+          type: string
+          description: filter results e.g. application==zoom-meeting or application==zoom-meeting, application==Gmail
+      - name: Prisma-Tenant
+        in: header
+        schema:
+          type: string
+          description: Tenant ( tenant_service_group or tenant_service_group:subtenant )
+        required: true
+      - name: Prisma-SubTenant
+        in: header
+        schema:
+          type: string
+          description: SubTenant
+        required: false
+      - name: response-type
+        in: query
+        required: true
+        schema:
+          type: string
+          enum:
+          - timeseries
+          - summary
+          - grouped-timeseries
+          - grouped-summary
+      - name: group
+        in: query
+        required: false
+        schema:
+          type: string
+          description: entity to group results by (e.g. Entity.user or Entity.user,Entity.endpoint)
+      operationId: NavController.getNavTraffic
+      description: Retrieve the traffic details through this endpoint.
+components:
+  schemas:
+    TrafficSummaryCollection:
+      title: TrafficSummaryCollection
+      type: object
+      properties:
+        startTime:
+          type: number
+          description: sample start time (Unix timestamp)
+        endTime:
+          type: number
+          description: sample end time (Unix timestamp)
+        endpointType:
+          type: string
+          description: 'endpoint type : muAgent, muProbe, rnAgent, rnProbe'
+        tenantServiceGroup:
+          type: string
+          description: array of tenant service groups
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        rowCount:
+          type: number
+        collection:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrafficSummary'
+      additionalProperties: false
+    Pagination:
+      title: Pagination
+      type: object
+      properties:
+        page:
+          type: number
+          description: page number
+        limit:
+          type: number
+          description: page limit
+        sortBy:
+          type: string
+          description: sort by field
+        sortOrder:
+          type: string
+          description: 'sort order : asc, desc'
+        enabled:
+          type: boolean
+      additionalProperties: false
+    TrafficSummary:
+      title: TrafficSummary
+      type: object
+      properties:
+        startTime:
+          type: number
+          description: sample start time (Unix timestamp)
+        endTime:
+          type: number
+          description: sample end time (Unix timestamp)
+        endpointType:
+          type: string
+          description: 'endpoint type : muAgent, muProbe, rnAgent, rnProbe'
+        tenantServiceGroup:
+          type: string
+          description: array of tenant service groups
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        rowCount:
+          type: number
+        id:
+          type: string
+        average:
+          $ref: '#/components/schemas/Traffic'
+      required:
+      - id
+      additionalProperties: false
+    TrafficSeries:
+      title: TrafficSeries
+      type: object
+      properties:
+        startTime:
+          type: number
+          description: sample start time (Unix timestamp)
+        endTime:
+          type: number
+          description: sample end time (Unix timestamp)
+        endpointType:
+          type: string
+          description: 'endpoint type : muAgent, muProbe, rnAgent, rnProbe'
+        tenantServiceGroup:
+          type: string
+          description: array of tenant service groups
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        rowCount:
+          type: number
+        id:
+          type: string
+        samplePeriod:
+          type: number
+          description: sample period in seconds
+        series:
+          type: array
+          items:
+            $ref: '#/components/schemas/Traffic'
+      required:
+      - id
+      additionalProperties: false
+    TrafficSeriesCollection:
+      title: TrafficSeriesCollection
+      type: object
+      properties:
+        startTime:
+          type: number
+          description: sample start time (Unix timestamp)
+        endTime:
+          type: number
+          description: sample end time (Unix timestamp)
+        endpointType:
+          type: string
+          description: 'endpoint type : muAgent, muProbe, rnAgent, rnProbe'
+        tenantServiceGroup:
+          type: string
+          description: array of tenant service groups
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        rowCount:
+          type: number
+        collection:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrafficSeries'
+        samplePeriod:
+          type: number
+          description: sample period in seconds
+      additionalProperties: false
+    Traffic:
+      title: Traffic
+      type: object
+      properties:
+        sample:
+          type: number
+        bytesSent:
+          type: number
+          description: number of bytes sent
+        bytesReceived:
+          type: number
+          description: number of bytes received
+        packetsSent:
+          type: number
+          description: number of packets sent
+        packetsReceived:
+          type: number
+          description: number of packets received
+      additionalProperties: false
+  securitySchemes:
+    jwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

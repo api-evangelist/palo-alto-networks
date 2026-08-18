@@ -1,0 +1,659 @@
+openapi: 3.2.0
+info:
+  contact:
+    email: support@paloaltonetworks.com
+    name: Palo Alto Networks Technical Support
+    url: https://support.paloaltonetworks.com
+  title: Prisma AIRS AI Runtime API Intercept Scan Reports API
+  description: "This Open API spec file represents the APIs available for the Prisma AIRS AI Runtime: API Intercept.\n \nThese APIs use the API key authentication and base URL.\n \nTo use the APIs, you must first activate and associate a deployment profile in Customer Support Portal for Prisma AIRS AI Runtime API intercept and then onboard the API intercept in Strata Cloud Manager.For licensing, onboarding, activation, and to obtain the API authentication key and profile name, refer to the Prisma AIRS AI Runtime API intercept [Administration guide](https://docs.paloaltonetworks.com/ai-runtime-security/activation-and-onboarding/ai-runtime-security-api-intercept-overview).\n\n This Open API spec file was created on June 04, 2024.\n\n© 2024 Palo Alto Networks, Inc. Palo Alto Networks is a registered trademark of Palo Alto Networks.A list of our trademarks can be found at https://www.paloaltonetworks.com/company/trademarks.html. All other marks mentioned herein may be trademarks of their respective companies.\n"
+  license:
+    name: MIT
+    url: https://opensource.org/license/mit
+  version: 0.0.0
+servers:
+- url: https://service.api.aisecurity.paloaltonetworks.com
+  description: Prisma AIRS API service URL for US regions
+- url: https://service-de.api.aisecurity.paloaltonetworks.com
+  description: Prisma AIRS API service URL for EU (Germany) regions
+- url: https://service-in.api.aisecurity.paloaltonetworks.com
+  description: Prisma AIRS API service URL for India regions
+- url: https://service-sg.api.aisecurity.paloaltonetworks.com
+  description: Prisma AIRS API service URL for Singapore regions
+tags:
+- name: Scan Reports
+  description: Operations for retrieving detailed scan reports
+paths:
+  /v1/scan/reports:
+    get:
+      summary: Retrieve Threat Scan Reports
+      description: Get the threat scan reports for a given list of report_ids
+      security:
+      - x-pan-token: []
+      tags:
+      - Scan Reports
+      operationId: GetThreatScanReports
+      parameters:
+      - name: report_ids
+        in: query
+        description: Report IDs for results.
+        required: true
+        allowEmptyValue: false
+        schema:
+          type: array
+          items:
+            type: string
+          maximum: 5
+        style: form
+        explode: false
+      responses:
+        200:
+          description: Successfully returned threat scan reports
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThreatScanReportObjects'
+              examples:
+                ExampleAsyncReports:
+                  $ref: '#/components/examples/ExampleMultipleThreatScanReports'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '413':
+          $ref: '#/components/responses/RequestTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        default:
+          description: error occurred
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    PiReportObject:
+      type: object
+      properties:
+        verdict:
+          type: string
+          description: Detection service verdict such as "malicious" or "benign"
+    CgReportObject:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Indicates the status of cg explanation such as  "completed" or "pending"
+        explanation:
+          type: string
+          description: Indicates the the contextual grounding explanation given by the model
+        category:
+          type: string
+          description: Indicates the predefined category of contextual grounding results
+    CmdEntryObject:
+      type: object
+      properties:
+        code_block:
+          type: string
+          description: Code block extracted from prompt or response content
+        verdict:
+          type: string
+          description: Detection service verdict such as "malicious" or "benign"
+    DlpReportObject:
+      type: object
+      properties:
+        dlp_report_id:
+          type: string
+          description: Unique identifier for the DLP report
+        dlp_profile_name:
+          type: string
+          description: DLP profile name used for the scan
+        dlp_profile_id:
+          type: string
+          description: Unique identifier for the DLP profile used for the scan
+        dlp_profile_version:
+          type: integer
+          format: int32
+          description: Version of the DLP profile used for the scan
+        data_pattern_rule1_verdict:
+          type: string
+          description: Indicates whether there was a content match for this rule such as "MATCHED" or "NOT MATCHED"
+        data_pattern_rule2_verdict:
+          type: string
+          description: Indicates whether there was a content match for this rule such as "MATCHED" or "NOT MATCHED"
+        data_pattern_detection_offsets:
+          type: array
+          description: Matched patterns and their byte locations
+          items:
+            $ref: '#/components/schemas/DlpPatternDetectionsObject'
+    ThreatScanReportObjects:
+      type: array
+      items:
+        $ref: '#/components/schemas/ThreatScanReportObject'
+    CmdInjectReportObject:
+      type: array
+      items:
+        $ref: '#/components/schemas/CmdEntryObject'
+    TcReportObject:
+      type: object
+      properties:
+        confidence:
+          type: string
+          description: Confidence level of the threat classification ("high" and "moderate")
+        verdict:
+          type: string
+          description: Detection service verdict such as "malicious" or "benign"
+        toxic_categories:
+          type: array
+          items:
+            type: string
+          description: Indicates the list of topics that is detected
+    DetectionServiceResultObject:
+      type: object
+      properties:
+        data_type:
+          type: string
+          description: Content type such as "prompt", "response" or "tool_event"
+        detection_service:
+          type: string
+          description: Detection service name generating the results such as "urlf", "dlp", and "prompt injection"
+        verdict:
+          type: string
+          description: Detection service verdict such as "malicious" or "benign"
+        action:
+          type: string
+          description: The action is set to "block" or "allow" based on AI security profile used for scanning
+        metadata:
+          $ref: '#/components/schemas/DSResultMetadata'
+        result_detail:
+          $ref: '#/components/schemas/DSDetailResultObject'
+    UrlFilterReportObject:
+      type: array
+      items:
+        $ref: '#/components/schemas/UrlfEntryObject'
+    Snippets:
+      type: array
+      maxItems: 10
+      description: Up to 10 content snippets; each item must be <= 1000 characters.
+      items:
+        type: string
+        maxLength: 1000
+    DbsEntryObject:
+      type: object
+      properties:
+        sub_type:
+          type: string
+          description: Database security sql query sub-type, such as "create", "read", "update", or "delete"
+        verdict:
+          type: string
+          description: Detection service verdict such as "malicious" or "benign"
+        action:
+          type: string
+          description: The action is set to "block" or "allow" based on AI security profile used for scanning
+    MalwareReportObject:
+      type: object
+      properties:
+        verdict:
+          type: string
+          description: Detection service verdict such as "malicious" or "benign"
+    OffsetObject:
+      type: array
+      description: Array of start, end offsets
+      items:
+        type: array
+        items:
+          type: integer
+    ThreatScanReportObject:
+      type: object
+      properties:
+        source:
+          type: string
+          description: Source of the scan request (e.g., 'AI-Runtime-MCP-Server' or 'AI-Runtime-API')
+        report_id:
+          type: string
+          description: Unique identifier for the scan report
+        scan_id:
+          type: string
+          description: Unique identifier for the scan
+        req_id:
+          type: integer
+          format: uint32
+          description: Unique identifier of an individual element sent in the batch scan request
+        transaction_id:
+          type: string
+          description: Unique identifier for the transaction
+        session_id:
+          type: string
+          description: Unique identifier for tracking Sessions
+        detection_results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetectionServiceResultObject'
+    DlpSnippetObject:
+      type: object
+      properties:
+        meta:
+          $ref: '#/components/schemas/DlpSnippetMeta'
+        snippets:
+          $ref: '#/components/schemas/Snippets'
+      required:
+      - meta
+      - snippets
+    TgReportObject:
+      type: object
+      properties:
+        allowed_topic_list:
+          type: string
+          description: Indicates whether there was a content match for the topic allow list such as "MATCHED" or "NOT MATCHED"
+        blocked_topic_list:
+          type: string
+          description: Indicates whether there was a content match for the topic block list such as "MATCHED" or "NOT MATCHED"
+        allowedTopics:
+          type: array
+          items:
+            type: string
+          description: Indicates the list of allowed topics if there was a content match for the topic allow list
+        blockedTopics:
+          type: array
+          items:
+            type: string
+          description: Indicates the list of blocked topics if there was a content match for the topic allow list
+    AgentReportObject:
+      type: object
+      properties:
+        model_verdict:
+          type: string
+          description: Detection service verdict such as "malicious" or "benign"
+        agent_framework:
+          type: string
+          description: Agent builder framework used to build Agents such as "AWS_Agent_Builder", "Microsoft_copilot_studio" and others
+        agent_patterns:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentEntryObject'
+    DSResultMetadata:
+      type: object
+      properties:
+        ecosystem:
+          type: string
+          example: mcp
+        method:
+          type: string
+          example: tools/call
+        server_name:
+          type: string
+          example: MCP server
+        tool_invoked:
+          type: string
+          example: get_file
+        direction:
+          type: string
+          enum:
+          - input
+          - output
+          description: Indicates the direction of data flow, either input to or output from a tool or service
+    DlpSnippetMeta:
+      type: object
+      properties:
+        data_pattern:
+          description: pattern_id (DLP response snippets map key)
+          type: string
+        confidence_level:
+          type: string
+          enum:
+          - low
+          - medium
+          - high
+        data_pattern_type:
+          description: proximity keyword (first one if any)
+          type: string
+        occurrence:
+          type: integer
+          format: int64
+      required:
+      - data_pattern
+      - confidence_level
+      - occurrence
+    McEntryObject:
+      type: object
+      properties:
+        file_type:
+          type: string
+          description: code file type, such as "javascript", "Python", "VBScript" and others
+        code_sha256:
+          type: string
+          description: SHA256 of the code file that was analyzed, such as a code snippet containing the potentially malicious code
+    Error:
+      type: object
+      properties:
+        status_code:
+          type: integer
+          format: int32
+          description: The HTTP status code for the error
+        message:
+          type: string
+          description: The error message
+      required:
+      - status_code
+      - message
+    DSDetailResultObject:
+      type: object
+      properties:
+        urlf_report:
+          $ref: '#/components/schemas/UrlFilterReportObject'
+        dlp_report:
+          $ref: '#/components/schemas/DlpReportObject'
+        dlp_snippets:
+          $ref: '#/components/schemas/DlpSnippetObject'
+        dbs_report:
+          $ref: '#/components/schemas/DbsReportObject'
+        dbs_snippets:
+          $ref: '#/components/schemas/Snippets'
+        tc_report:
+          $ref: '#/components/schemas/TcReportObject'
+        tc_snippets:
+          $ref: '#/components/schemas/Snippets'
+        mc_report:
+          $ref: '#/components/schemas/McReportObject'
+        agent_report:
+          $ref: '#/components/schemas/AgentReportObject'
+        topic_guardrails_report:
+          $ref: '#/components/schemas/TgReportObject'
+        cg_report:
+          $ref: '#/components/schemas/CgReportObject'
+        pi_report:
+          $ref: '#/components/schemas/PiReportObject'
+        pi_snippets:
+          $ref: '#/components/schemas/Snippets'
+    DbsReportObject:
+      type: array
+      items:
+        $ref: '#/components/schemas/DbsEntryObject'
+    UrlfEntryObject:
+      type: object
+      properties:
+        url:
+          type: string
+          description: URL in the scan request
+        risk_level:
+          type: string
+          description: Risk level associated with the URL, such as "high", "medium", or "low"
+        action:
+          type: string
+          description: Action associated with the URL Category, such as "allow", "block", or "unknown"
+        categories:
+          type: array
+          description: Categories associated with the URL
+          items:
+            type: string
+    AgentEntryObject:
+      type: object
+      properties:
+        category_type:
+          type: string
+          description: Agent threat category type, such as "tools misuse", "memory manipulation" and others
+        verdict:
+          type: string
+          description: Verdict associated with the Agent threat Category, such as "malicious" or "benign"
+    DlpPatternDetectionsObject:
+      type: object
+      properties:
+        data_pattern_id:
+          type: string
+          description: Unique identifier for the data pattern matched
+        version:
+          type: integer
+          description: Version of the data pattern matched
+        name:
+          type: string
+          description: Name of the data pattern matched
+        high_confidence_detections:
+          $ref: '#/components/schemas/OffsetObject'
+        medium_confidence_detections:
+          $ref: '#/components/schemas/OffsetObject'
+        low_confidence_detections:
+          $ref: '#/components/schemas/OffsetObject'
+    McReportObject:
+      type: object
+      properties:
+        all_code_blocks:
+          type: array
+          items:
+            type: string
+            description: Code blocks extracted from prompt or response content
+        code_analysis_by_type:
+          type: array
+          items:
+            $ref: '#/components/schemas/McEntryObject'
+        verdict:
+          type: string
+          description: Detection service verdict such as "malicious" or "benign"
+        malware_script_report:
+          $ref: '#/components/schemas/MalwareReportObject'
+          description: Malware script scanning report details
+        command_injection_report:
+          $ref: '#/components/schemas/CmdInjectReportObject'
+          description: Command injection scanning report details
+  responses:
+    Forbidden:
+      description: Forbidden - Invalid API Key
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Invalid API Key
+    BadRequest:
+      description: Bad Request - Request data is invalid or malformed
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Request data is invalid or malformed
+    MethodNotAllowed:
+      description: Method Not Allowed - The method is not allowed
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: The method is not allowed
+    NotFound:
+      description: Not Found - Resource is not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Resource is not found
+    TooManyRequests:
+      description: Too Many Requests - Request exceeds limit
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Request exceeds limit
+                  retry_after:
+                    type: object
+                    properties:
+                      interval:
+                        type: integer
+                        example: 5
+                      unit:
+                        type: string
+                        example: minute
+    RequestTooLarge:
+      description: Request Too Large - The request body is too large
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: The request body is too large
+    UnsupportedMediaType:
+      description: Unsupported Media Type - The media type is not supported
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: The media type is not supported
+    Unauthenticated:
+      description: Unauthenticated - Not Authenticated
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Not Authenticated
+  examples:
+    ExampleMultipleThreatScanReports:
+      summary: Example response with multiple threat scan report entries
+      value:
+      - detection_results:
+        - action: allow
+          data_type: prompt
+          detection_service: malicious_code
+          result_detail:
+            mc_report:
+              code_analysis_by_type: []
+              verdict: benign
+          verdict: benign
+        - action: allow
+          data_type: prompt
+          detection_service: pi
+          result_detail: {}
+          verdict: benign
+        - action: allow
+          data_type: response
+          detection_service: malicious_code
+          result_detail:
+            mc_report:
+              code_analysis_by_type: []
+              verdict: benign
+          verdict: benign
+        report_id: R46ea2f2b-0000-42e1-9972-bbc444628a26
+        req_id: 1
+        scan_id: 46ea2f2b-0000-42e1-9972-bbc444628a26
+        transaction_id: '2882'
+      - detection_results:
+        - action: allow
+          data_type: prompt
+          detection_service: dlp
+          result_detail:
+            dlp_report:
+              data_pattern_rule1_verdict: NOT_MATCHED
+              data_pattern_rule2_verdict: ''
+              dlp_profile_id: '11995043'
+              dlp_profile_name: Sensitive Content
+              dlp_report_id: 3550C248655A559664EF2C5A2F905D4E1C29DF04818616D52B2FD3884A86F3F3
+          verdict: benign
+        - action: allow
+          data_type: prompt
+          detection_service: pi
+          result_detail: {}
+          verdict: benign
+        - action: allow
+          data_type: prompt
+          detection_service: tc
+          result_detail:
+            tc_report:
+              confidence: ''
+              verdict: benign
+          verdict: benign
+        - action: allow
+          data_type: prompt
+          detection_service: uf
+          result_detail:
+            urlf_report: []
+          verdict: benign
+        - action: allow
+          data_type: response
+          detection_service: dbs
+          result_detail:
+            dbs_report: []
+          verdict: benign
+        - action: allow
+          data_type: response
+          detection_service: dlp
+          result_detail:
+            dlp_report:
+              data_pattern_rule1_verdict: NOT_MATCHED
+              data_pattern_rule2_verdict: ''
+              dlp_profile_id: '11995043'
+              dlp_profile_name: Sensitive Content
+              dlp_report_id: 1163C2B1618398358DE8DB8789C405AE87FECA33BECADF4BCE94780BD51C9A5C
+          verdict: benign
+        - action: block
+          data_type: response
+          detection_service: tc
+          result_detail:
+            tc_report:
+              confidence: high
+              verdict: malicious
+          verdict: malicious
+        - action: allow
+          data_type: response
+          detection_service: uf
+          result_detail:
+            urlf_report: []
+          verdict: benign
+        report_id: R46ea2f2b-0000-42e1-9972-bbc444628a26
+        req_id: 2
+        scan_id: 46ea2f2b-0000-42e1-9972-bbc444628a26
+        transaction_id: '2082'
+  securitySchemes:
+    x-pan-token:
+      description: API key token generated during [onboarding Prisma AIRS AI Runtime API intercept](https://docs.paloaltonetworks.com/ai-runtime-security/activation-and-onboarding/ai-runtime-security-api-intercept-overview/onboard-api-runtime-security-api-intercept-in-scm) in Strata Cloud Manager.
+      in: header
+      name: x-pan-token
+      type: apiKey

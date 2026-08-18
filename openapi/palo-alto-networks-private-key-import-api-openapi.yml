@@ -1,0 +1,221 @@
+openapi: 3.2.0
+info:
+  title: TLS Protect Cloud API for Strata Cloud Manager Private Key Import API
+  description: Use the TLS Protect Cloud APIs to manage certificates, certificate requests, applications, machine identities, users, teams, event logs, and more. This Open API spec file was created on June 04, 2026. © 2026 Palo Alto Networks, Inc. Palo Alto Networks is a registered trademark of Palo Alto Networks. A list of our trademarks can be found at https://www.paloaltonetworks.com/company/trademarks.html. All other marks mentioned herein may be trademarks of their respective companies.
+  version: 1.0.0
+  license:
+    name: MIT
+    url: https://opensource.org/license/mit
+servers:
+- url: https://api.strata.paloaltonetworks.com/ngts
+  description: Strata Cloud Manager API
+security:
+- scmToken: []
+tags:
+- name: Private Key Import
+  description: APIs for Private Key Import.
+paths:
+  /v1/certificates/imports:
+    post:
+      description: Import a list of certificates and their associated private key pairs
+      operationId: certificates_import
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CertificateImportRequest2'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CertificateImportResponse2'
+          description: Certificates and private keys imported
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse5'
+          description: Request Conditions Failed
+        '412':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse5'
+          description: Request Conditions Failed
+      summary: Import a list of certificates and
+      tags:
+      - Private Key Import
+  /v1/certificates/imports/{id}:
+    get:
+      description: Retrieve import details
+      operationId: certificatesImport_getByImportId
+      parameters:
+      - description: Import id associated with the result of importing a list of certificates and private keys
+        in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CertificateImportStatusDetailResponse'
+          description: Import details matching the specified import id
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse5'
+          description: Request Conditions Failed
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse5'
+          description: Import details not found
+        '412':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse5'
+          description: Request Conditions Failed
+      summary: Retrieve import details
+      tags:
+      - Private Key Import
+components:
+  schemas:
+    ErrorInformation5:
+      properties:
+        args:
+          items:
+            $ref: '#/components/schemas/AnyValue5'
+          type: array
+        code:
+          format: int32
+          type: integer
+        message:
+          type: string
+      type: object
+    CertificateImportStatusDetail:
+      description: Status detail information for each certificate and private key imported related to the import id
+      properties:
+        certificateBytes:
+          description: Bytes of the imported certificate
+          format: byte
+          type: string
+        fingerprint:
+          description: Unique identifier for the imported certificate
+          type: string
+        reason:
+          description: Reason for the status result
+          type: string
+        status:
+          description: Result status for the import
+          enum:
+          - IMPORTED
+          - FAILED
+          - SKIPPED
+          - PROCESSING
+          type: string
+      type: object
+    CertificateImportStatusDetailResponse:
+      properties:
+        id:
+          description: Import id
+          format: uuid
+          type: string
+        results:
+          description: Status detail information for each certificate and private key imported related to the import id
+          items:
+            $ref: '#/components/schemas/CertificateImportStatusDetail'
+          type: array
+        status:
+          description: Status of bulk import
+          enum:
+          - PROCESSING
+          - COMPLETED
+          - WAITING
+          - FAILED
+          type: string
+      type: object
+    ErrorResponse5:
+      properties:
+        errors:
+          items:
+            $ref: '#/components/schemas/ErrorInformation5'
+          type: array
+      type: object
+    CertificateImportRequest2:
+      properties:
+        edgeInstanceId:
+          description: Id for edge instance
+          format: uuid
+          type: string
+        encryptionKeyId:
+          description: Id for data encryption key
+          minLength: 1
+          type: string
+        importInformation:
+          description: List of the certificates and private key pairs to import
+          items:
+            $ref: '#/components/schemas/CertificateImportInformation'
+          maxItems: 100
+          minItems: 1
+          type: array
+      required:
+      - edgeInstanceId
+      - encryptionKeyId
+      - importInformation
+      type: object
+    CertificateImportResponse2:
+      properties:
+        creationDate:
+          description: Import creation date of certificates and private keys
+          format: date-time
+          type: string
+        id:
+          description: Import id used to check the status of the bulk operation
+          type: string
+      type: object
+    CertificateImportInformation:
+      description: List of the certificates and private key pairs to import
+      properties:
+        certificate:
+          description: Certificate to import
+          type: string
+        dekEncryptedPassword:
+          description: Password to decrypt the certificate
+          type: string
+        dekEncryptedPrivateKey:
+          description: Format of the private key
+          type: string
+        passwordEncryptedPrivateKey:
+          description: Private key for certificate to import
+          type: string
+        pkcs12Keystore:
+          description: pkcs12 keystore base64 encoded string
+          type: string
+      required:
+      - certificate
+      - dekEncryptedPrivateKey
+      - passwordEncryptedPrivateKey
+      type: object
+    AnyValue5:
+      description: Can be any value - string, number, boolean, array or object.
+  securitySchemes:
+    scmOAuth:
+      type: oauth2
+      description: 'Strata Cloud Manager APIs authenticate client requests using the OAuth 2.0 Client Credentials flow. Please use the `client_id`, `client_secret` values associated with an IAM service account along with a scope value of `tsg_id:XXXXXXXXXX`, where `XXXXXXXXXX` is the Tenant Service Group (TSG) ID. The resulting JWT access token should be attached to all API calls as a `Bearer` token in the `Authorization` header (ex. `Authorization: Bearer tokenstring`).'
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
+          scopes: {}
+    scmToken:
+      type: http
+      description: 'Strata Cloud Manager APIs authenticate client requests using the OAuth 2.0 Client Credentials flow. Please use the `client_id`, `client_secret` values associated with an IAM service account along with a scope value of `tsg_id:XXXXXXXXXX`, where `XXXXXXXXXX` is the Tenant Service Group (TSG) ID. The resulting JWT access token should be attached to all API calls as a `Bearer` token in the `Authorization` header (ex. `Authorization: Bearer tokenstring`).'
+      scheme: bearer
+      bearerFormat: JWT

@@ -1,0 +1,386 @@
+openapi: 3.2.0
+info:
+  title: Palo Alto Networks AIOps for NGFW BPA 5G Deregistered Trend Repositories API
+  description: AIOps for NGFW Best Practice Assessment (BPA) API. Provides programmatic access to submit BPA requests for Palo Alto Networks next-generation firewalls, check request processing status, and retrieve completed assessment reports. BPA reports analyze firewall configurations against Palo Alto Networks best practices and security benchmarks, identifying gaps and providing remediation guidance to improve security posture. Part of the Strata Cloud Manager platform.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+security:
+- oauth2Bearer: []
+tags:
+- name: Repositories
+  description: VCS repository onboarding and management.
+paths:
+  /repositories:
+    get:
+      operationId: listRepositories
+      summary: Palo Alto Networks List Connected Repositories
+      description: Returns a list of all repositories that have been connected to Prisma Cloud Code Security. Includes repository metadata such as the source VCS provider, default branch, last scan time, and counts of open security errors.
+      tags:
+      - Repositories
+      parameters:
+      - name: offset
+        in: query
+        description: Number of records to skip for pagination.
+        schema:
+          type: integer
+          default: 0
+        example: 0
+      - name: limit
+        in: query
+        description: Maximum number of records to return.
+        schema:
+          type: integer
+          default: 25
+        example: 25
+      - name: search
+        in: query
+        description: Search term to filter repositories by name or owner.
+        schema:
+          type: string
+        example: example-search
+      - name: sourceType
+        in: query
+        description: Filter by VCS provider type.
+        schema:
+          type: string
+          enum:
+          - Github
+          - Gitlab
+          - Bitbucket
+          - AzureRepos
+          - githubEnterprise
+          - gitlabEnterprise
+          - bitbucketEnterprise
+        example: Github
+      responses:
+        '200':
+          description: Repositories returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalCount:
+                    type: integer
+                    description: Total number of connected repositories.
+                  repositories:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Repository'
+              examples:
+                ListRepositories200Example:
+                  summary: Default listRepositories 200 response
+                  x-microcks-default: true
+                  value:
+                    totalCount: 937
+                    repositories:
+                    - id: example-id
+                      name: Production Agent 31
+                      owner: example-owner
+                      fullName: Branch Sensor 57
+                      sourceType: githubEnterprise
+                      defaultBranch: example-defaultBranch
+                      url: https://vpn.test-corp.net/02d758
+                      isPublic: true
+                      lastScanDate: '2026-08-07T04:21:38Z'
+                      lastScanStatus: pending
+                      errorCounts:
+                        critical: 381
+                        high: 403
+                        medium: 984
+                        low: 743
+                        info: 996
+                      createdAt: '2024-04-02T14:25:56Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+    post:
+      operationId: addRepository
+      summary: Palo Alto Networks Add a Repository
+      description: Connects a new VCS repository to Prisma Cloud Code Security for automated scanning. Triggers an initial scan of the default branch after onboarding.
+      tags:
+      - Repositories
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - id
+              - sourceType
+              - owner
+              - name
+              properties:
+                id:
+                  type: string
+                  description: Repository identifier in the VCS provider.
+                sourceType:
+                  type: string
+                  enum:
+                  - Github
+                  - Gitlab
+                  - Bitbucket
+                  - AzureRepos
+                  - githubEnterprise
+                  - gitlabEnterprise
+                  - bitbucketEnterprise
+                  description: VCS provider type.
+                owner:
+                  type: string
+                  description: Repository owner or organization name.
+                name:
+                  type: string
+                  description: Repository name.
+                defaultBranch:
+                  type: string
+                  description: Default branch to scan. Defaults to the VCS default branch.
+            examples:
+              AddRepositoryRequestExample:
+                summary: Default addRepository request
+                x-microcks-default: true
+                value:
+                  id: example-id
+                  sourceType: githubEnterprise
+                  owner: example-owner
+                  name: Branch Policy 04
+                  defaultBranch: example-defaultBranch
+      responses:
+        '200':
+          description: Repository added successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Repository'
+              examples:
+                AddRepository200Example:
+                  summary: Default addRepository 200 response
+                  x-microcks-default: true
+                  value:
+                    id: example-id
+                    name: Production Agent 31
+                    owner: example-owner
+                    fullName: Branch Sensor 57
+                    sourceType: githubEnterprise
+                    defaultBranch: example-defaultBranch
+                    url: https://vpn.test-corp.net/02d758
+                    isPublic: true
+                    lastScanDate: '2026-08-07T04:21:38Z'
+                    lastScanStatus: pending
+                    errorCounts:
+                      critical: 381
+                      high: 403
+                      medium: 984
+                      low: 743
+                      info: 996
+                    createdAt: '2024-04-02T14:25:56Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+    delete:
+      operationId: removeRepository
+      summary: Palo Alto Networks Remove a Repository
+      description: Disconnects a repository from Prisma Cloud Code Security. Scan history and error records are retained for audit purposes.
+      tags:
+      - Repositories
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - id
+              properties:
+                id:
+                  type: string
+                  description: Repository identifier to remove.
+                sourceType:
+                  type: string
+                  description: VCS provider type.
+            examples:
+              RemoveRepositoryRequestExample:
+                summary: Default removeRepository request
+                x-microcks-default: true
+                value:
+                  id: example-id
+                  sourceType: standard
+      responses:
+        '200':
+          description: Repository removed successfully.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+components:
+  schemas:
+    Repository:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique repository identifier in Prisma Cloud.
+          example: example-id
+        name:
+          type: string
+          description: Repository name.
+          example: Production Agent 31
+        owner:
+          type: string
+          description: Repository owner or organization name.
+          example: example-owner
+        fullName:
+          type: string
+          description: Full repository name in owner/repo format.
+          example: Branch Sensor 57
+        sourceType:
+          type: string
+          enum:
+          - Github
+          - Gitlab
+          - Bitbucket
+          - AzureRepos
+          - githubEnterprise
+          - gitlabEnterprise
+          - bitbucketEnterprise
+          description: VCS provider type.
+          example: githubEnterprise
+        defaultBranch:
+          type: string
+          description: Default branch of the repository.
+          example: example-defaultBranch
+        url:
+          type: string
+          description: URL to the repository in the VCS provider.
+          example: https://vpn.test-corp.net/02d758
+        isPublic:
+          type: boolean
+          description: Whether the repository is publicly accessible.
+          example: true
+        lastScanDate:
+          type: string
+          format: date-time
+          description: Timestamp of the most recent scan.
+          example: '2026-08-07T04:21:38Z'
+        lastScanStatus:
+          type: string
+          enum:
+          - completed
+          - running
+          - failed
+          - pending
+          description: Status of the most recent scan.
+          example: pending
+        errorCounts:
+          type: object
+          description: Count of open errors by severity.
+          properties:
+            critical:
+              type: integer
+              example: 956
+            high:
+              type: integer
+              example: 723
+            medium:
+              type: integer
+              example: 176
+            low:
+              type: integer
+              example: 486
+            info:
+              type: integer
+              example: 135
+          example:
+            critical: 381
+            high: 403
+            medium: 984
+            low: 743
+            info: 996
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when the repository was connected.
+          example: '2024-04-02T14:25:56Z'
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          description: HTTP status code.
+          example: 602
+        message:
+          type: string
+          description: Human-readable error message.
+          example: Traffic activity investigation malware violation policy Security monitoring.
+        error:
+          type: string
+          description: Error code.
+          example: example-error
+  responses:
+    Unauthorized:
+      description: Invalid or expired authentication token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Invalid request parameters or body.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  securitySchemes:
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.

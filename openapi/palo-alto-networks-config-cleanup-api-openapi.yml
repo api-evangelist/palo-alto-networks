@@ -1,0 +1,275 @@
+openapi: 3.2.0
+info:
+  title: Posture Management Config Cleanup API
+  description: 'This API provides comprehensive posture management capabilities including:
+
+    - Custom posture check management (create, update, delete, clone, batch operations)
+
+    - Config file upload for BPA (Best Practice Assessment) results
+
+    - Config cleanup for identifying unused or redundant configuration objects
+
+    - Compliance framework definition management (create, update, delete, release)
+
+    - Compliance analytics and reporting
+
+    - Benchmark monitoring and BPC (Best Practice Check) verdict tracking
+
+    '
+  version: 1.1.0
+  termsOfService: https://www.paloaltonetworks.com/content/dam/pan/en_US/assets/pdf/legal/palo-alto-networks-end-user-license-agreement-eula.pdf
+  contact:
+    email: support@paloaltonetworks.com
+    name: Palo Alto Networks Technical Support
+    url: https://support.paloaltonetworks.com
+  license:
+    name: MIT
+    url: https://opensource.org/license/mit
+servers:
+- url: https://api.strata.paloaltonetworks.com/posture
+  description: Current
+security:
+- BearerAuth: []
+tags:
+- name: Config Cleanup
+  description: Operations for identifying unused or redundant configuration objects.
+paths:
+  /config-cleanup/v1/zerohit-rules:
+    get:
+      tags:
+      - Config Cleanup
+      summary: Get Zero-Hit Security Rules
+      description: 'Retrieves security rules that have never been hit (zero traffic matches) for a specified manager.
+
+
+        Use "SCM" as the manager_hostname to retrieve rules from Strata Cloud Manager.
+
+        For Panorama, provide the Panorama hostname.
+
+        '
+      operationId: GetZeroHitRules
+      parameters:
+      - name: manager_hostname
+        in: query
+        required: true
+        schema:
+          type: string
+        description: 'Manager hostname to query. Use "SCM" for Strata Cloud Manager,
+
+          or the Panorama hostname for Panorama-managed rules.
+
+          '
+        example: SCM
+      - name: location
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Filter by folder (SCM) or device group (Panorama).
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 200
+        description: Maximum number of rules to return.
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+        description: Number of rules to skip for pagination.
+      responses:
+        '200':
+          description: Zero-hit rules retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZeroHitRulesResponse'
+        '400':
+          description: Invalid request parameters (e.g., missing manager_hostname).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Manager not found or no data available.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    ZeroHitRulesResult:
+      type: object
+      description: Zero-hit rules result data.
+      required:
+      - status
+      - data
+      - total
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - in_progress
+          - failed
+        currentTime:
+          type: string
+          format: date-time
+        lastAnalysisTime:
+          type: string
+          format: date-time
+        platform:
+          type: string
+          enum:
+          - scm
+          - panorama
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZeroHitRule'
+        limit:
+          type: integer
+        offset:
+          type: integer
+        total:
+          type: integer
+    ZeroHitRulesResponse:
+      type: object
+      description: Response containing zero-hit security rules.
+      required:
+      - ok
+      - result
+      properties:
+        ok:
+          type: boolean
+        result:
+          $ref: '#/components/schemas/ZeroHitRulesResult'
+    ZeroHitRule:
+      type: object
+      description: A security rule with zero traffic hits.
+      required:
+      - name
+      - uuid
+      - type
+      - location
+      - platform
+      properties:
+        name:
+          type: string
+          description: Rule name.
+        uuid:
+          type: string
+          description: Rule UUID.
+        type:
+          type: string
+          description: Rule type (e.g., "security", "nat").
+        location:
+          type: string
+          description: Folder (SCM) or Device Group (Panorama).
+        platform:
+          type: string
+          enum:
+          - scm
+          - panorama
+        created_time:
+          type: string
+          format: date-time
+        updated_time:
+          type: string
+          format: date-time
+        hit_timestamp:
+          type: string
+          format: date-time
+          description: Last hit timestamp (empty if never hit).
+        days_with_zero_hits:
+          type: integer
+          description: Number of days since the rule had zero hits.
+        description:
+          type: string
+          description: Rule description.
+        tag:
+          type: array
+          items:
+            type: string
+          description: Rule tags.
+        status:
+          type: string
+          description: Rule status (Panorama only).
+        disabled:
+          type: boolean
+        action:
+          type: string
+          description: Rule action (allow, deny, drop).
+        from:
+          type: array
+          items:
+            type: string
+        to:
+          type: array
+          items:
+            type: string
+        source:
+          type: array
+          items:
+            type: string
+        destination:
+          type: array
+          items:
+            type: string
+        application:
+          type: array
+          items:
+            type: string
+        service:
+          type: array
+          items:
+            type: string
+        profile_setting:
+          type: object
+          description: Security profile settings.
+          additionalProperties: true
+    Error:
+      type: object
+      properties:
+        _errors:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+                description: The error code representing a specific error condition.
+              message:
+                type: string
+                description: A brief description of the error condition.
+              details:
+                type: array
+                items:
+                  type: string
+                description: An explanation of the error condition.
+              help:
+                type: string
+                format: uri
+                description: A URL link to documentation describing the error condition.
+        _request_id:
+          type: string
+          format: uuid
+          description: The request ID for troubleshooting purposes.
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Bearer token authentication using JWT.

@@ -1,0 +1,245 @@
+openapi: 3.2.0
+info:
+  title: TLS Protect Cloud API for Strata Cloud Manager Certificate Auto-renewal Monitoring API
+  description: Use the TLS Protect Cloud APIs to manage certificates, certificate requests, applications, machine identities, users, teams, event logs, and more. This Open API spec file was created on June 04, 2026. © 2026 Palo Alto Networks, Inc. Palo Alto Networks is a registered trademark of Palo Alto Networks. A list of our trademarks can be found at https://www.paloaltonetworks.com/company/trademarks.html. All other marks mentioned herein may be trademarks of their respective companies.
+  version: 1.0.0
+  license:
+    name: MIT
+    url: https://opensource.org/license/mit
+servers:
+- url: https://api.strata.paloaltonetworks.com/ngts
+  description: Strata Cloud Manager API
+security:
+- scmToken: []
+tags:
+- name: Certificate Auto-renewal Monitoring
+  description: APIs for Certificate Auto-renewal Monitoring.
+paths:
+  /v1/autorenewal/tenantconfiguration:
+    get:
+      description: Retrieve the certificate expiration monitoring configuration for the current tenant
+      operationId: get-v1-tenant-renewal-configuration
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                id: 12a05220-4352-11ee-ac28-c1379e5decf9
+                renewalWindow:
+                  days: 30
+              schema:
+                $ref: '#/components/schemas/TenantRenewalConfiguration'
+          description: Success
+        '400':
+          description: BadRequest
+        '401':
+          description: Unauthorized
+        '500':
+          description: InternalServerError
+      summary: Retrieve the monitoring configuration
+      tags:
+      - Certificate Auto-renewal Monitoring
+    put:
+      description: Update the certificate expiration monitoring configuration for the current tenant
+      operationId: put-v1-tenant-renewal-configuration
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantRenewalConfiguration'
+        description: The options to apply
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantRenewalConfiguration'
+          description: Success. The tenant configuration was successfully updated.
+        '400':
+          description: BadRequest
+        '401':
+          description: Unauthorized
+        '500':
+          description: InternalServerError
+      summary: Update the monitoring configuration
+      tags:
+      - Certificate Auto-renewal Monitoring
+  /v1/autorenewal/trigger:
+    post:
+      description: The certificate renewal check is normally scheduled to run daily. This operation attempts to start the process for the current tenant now.
+      operationId: post-v1-run-autorenewal
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+          description: Success. The auto-renewal check process was triggered.
+      summary: Attempt to initiate the certificate renewal
+      tags:
+      - Certificate Auto-renewal Monitoring
+  /v1/autorenewal/status:
+    get:
+      description: Get details about the status of the certificate auto-renewal monitoring process.
+      operationId: get-v1-status
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+          description: Success
+        '401':
+          description: Unauthorized
+        '500':
+          description: InternalServerError
+      summary: Get the current certificate auto-renewal monitorin
+      tags:
+      - Certificate Auto-renewal Monitoring
+components:
+  schemas:
+    TenantRenewalConfiguration:
+      properties:
+        defaultIssuingTemplateId:
+          format: UUID
+          type: string
+        id:
+          description: The object ID
+          example: 12a05220-4352-11ee-ac28-c1379e5decf9
+          format: UUID
+          type: string
+        renewalActions:
+          description: A set of options that can be used to specify the actions that should be taken when the auto-renewal process runs.
+          example:
+            provision: false
+            renew: true
+          properties:
+            provision:
+              description: If true, the system with attempt to provision any certificates associated with this application after a successful auto-renewal.
+              type: boolean
+            renew:
+              description: If true, the system will attempt to renew any certificates associated with this application that are expected to expire within the configured number of days.
+              type: boolean
+          required:
+          - renew
+          - provision
+          type: object
+        renewalWindow:
+          description: A set of options to control the time window in which auto-renewal of certificates should be attempted.
+          example:
+            days: 30
+          properties:
+            days:
+              description: Any certificates associated with this object that are expected to expire within the specified number of days will be acted on.
+              format: int64
+              minimum: 1
+              type: integer
+          required:
+          - days
+          type: object
+      required:
+      - id
+      - renewalWindow
+      type: object
+    StatusResponseItem:
+      description: Details about the upcoming certificate auto-renewal run.
+      example:
+        applications: 13
+        certificates:
+          eligible: 47
+          renewal:
+            failed: 1
+            successful: 9
+            triggered: 3
+        state: running
+        timestamp: '2023-08-25T20:59:36.688019837Z'
+      properties:
+        applications:
+          description: The number of applications that have auto-renewal enabled.
+          example: 13
+          format: int64
+          type: integer
+        certificates:
+          description: A set of statistics related to the certificates that were included in the auto-renewal process.
+          example:
+            eligible: 47
+            renewal:
+              failed: 1
+              successful: 9
+              triggered: 3
+          properties:
+            eligible:
+              description: The number of certificates that belong to an application that has auto-renewal enabled.
+              format: int64
+              type: integer
+            renewal:
+              properties:
+                failed:
+                  description: The number of certificates for which renewal failed
+                  format: int64
+                  type: integer
+                successful:
+                  description: The number of certificates for which renewal completed successfully
+                  format: int64
+                  type: integer
+                triggered:
+                  description: The number of certificates for which the renewal has been started
+                  format: int64
+                  type: integer
+              required:
+              - triggered
+              - successful
+              - failed
+              type: object
+          required:
+          - eligible
+          - renewal
+          type: object
+        state:
+          description: A string representing the status of a specific run of the auto-renewal process.
+          enum:
+          - pending
+          - triggered
+          - running
+          - complete
+          - awaiting results
+          - no enabled apps
+          - no automated keypair service active
+          - failure
+          example: running
+          type: string
+        timestamp:
+          description: The date and time when certificate auto-renewal is estimated to begin.
+          example: '2023-08-25T20:59:36.688019837Z'
+          format: date-time
+          type: string
+      required:
+      - timestamp
+      - state
+      - applications
+      - certificates
+      type: object
+    StatusResponse:
+      description: Details about the current in-progress certificate auto-renewal process, and the most recently completed process.
+      properties:
+        current:
+          $ref: '#/components/schemas/StatusResponseItem'
+        previous:
+          $ref: '#/components/schemas/StatusResponseItem'
+      required:
+      - current
+      type: object
+  securitySchemes:
+    scmOAuth:
+      type: oauth2
+      description: 'Strata Cloud Manager APIs authenticate client requests using the OAuth 2.0 Client Credentials flow. Please use the `client_id`, `client_secret` values associated with an IAM service account along with a scope value of `tsg_id:XXXXXXXXXX`, where `XXXXXXXXXX` is the Tenant Service Group (TSG) ID. The resulting JWT access token should be attached to all API calls as a `Bearer` token in the `Authorization` header (ex. `Authorization: Bearer tokenstring`).'
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
+          scopes: {}
+    scmToken:
+      type: http
+      description: 'Strata Cloud Manager APIs authenticate client requests using the OAuth 2.0 Client Credentials flow. Please use the `client_id`, `client_secret` values associated with an IAM service account along with a scope value of `tsg_id:XXXXXXXXXX`, where `XXXXXXXXXX` is the Tenant Service Group (TSG) ID. The resulting JWT access token should be attached to all API calls as a `Bearer` token in the `Authorization` header (ex. `Authorization: Bearer tokenstring`).'
+      scheme: bearer
+      bearerFormat: JWT

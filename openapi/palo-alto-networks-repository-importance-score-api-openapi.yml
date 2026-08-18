@@ -1,0 +1,159 @@
+openapi: 3.2.0
+info:
+  title: TSOA Repository Importance Score API
+  version: 1.0.0
+  description: Build swagger-compliant REST APIs using TypeScript and Node
+  license:
+    name: MIT
+  contact:
+    name: unknown
+servers:
+- url: https://api.prismacloud.io
+tags:
+- name: Repository Importance Score
+  description: "The Repository Importance Score indicates the relative criticality of a repository, allowing  you to focus on the most critical repositories, thereby enabling you to make informed decisions about security vulnerabilities and safeguard the integrity of business-critical functionalities. \n\n Application Security assigns an importance score to a repository based on factors including maintenance frequency, usage, characteristics, path to production and more. The importance score ranges between 1-4 (Low), 5-7 (Medium) and 8-10 (High). \n\n Instead of the system-calculated importance score, you can assign a custom importance score to a repository to indicate its criticality relative to other repositories. This allows you to incorporate additional context beyond the calculated metrics, reflecting your organization's specific evaluation of the repository's importance. Once set, the system uses the custom repository importance score. \n\n The following endpoints allow you to retrieve and set the calculated repository importance scores. \n\n* **Retrieve Calculated Scores:** You can retrieve the pre-calculated importance scores for repositories. The score reflects the relative criticality of each repository for security purposes based on the amount of commits and other factors such as business impact.\n\n* **Set Custom Scores (Optional):** Additionally, you can set a custom score for a repository. This allows you to incorporate additional context beyond the calculated metrics, reflecting your organization's evaluation of the repository's importance. When set, custom scores override system scores."
+paths:
+  /api/v1/vcs-repository/repositories/importance-score:
+    post:
+      operationId: getRepositoriesImportanceScore
+      responses:
+        '200':
+          description: Repository importance score data for the requested repositories.
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/GetRepoImportanceScore'
+                type: array
+              examples:
+                Example 1:
+                  value:
+                  - repositoryId: XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
+                    repositoryScore: 5
+                    customRepositoryScore: 1
+                    customComment: custom repo score description
+                    customReporter: test@domain.com
+                    customUpdatedAt: 1719320604269
+                  - repositoryId: XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
+                    repositoryScore: 10
+                    customRepositoryScore: null
+                    customComment: null
+                    customReporter: null
+                    customUpdatedAt: null
+        '400':
+          description: Maximum 5000 repositories can be updated within a single request
+        '401':
+          description: Unauthorized repositoryIds
+      description: Retrieve the calculated importance score for each repository (string array), reflecting the repository’s relative security criticality.
+      summary: Get repositories importance score
+      tags:
+      - Repository Importance Score
+      security:
+      - CustomAuthorizer: []
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              properties:
+                repositoryIds:
+                  items:
+                    type: string
+                  type: array
+              required:
+              - repositoryIds
+              type: object
+      x-bc-lambda-name: vcs-repository-api
+      x-bc-permitted-roles: owner,admin,member,developer,auditor
+      x-bc-docs-scope: prisma
+  /api/v1/vcs-repository/repositories/importance-score/set:
+    post:
+      operationId: setRepositoryImportanceScore
+      responses:
+        '204':
+          description: ''
+        '400':
+          description: Maximum 5000 repositories can be updated within a single request
+        '401':
+          description: Unauthorized repositoryIds
+      description: 'Set a custom importance score for a repository, reflecting the repository’s relative security criticality.
+
+        The HTTP status code 204 is returned to indicate that the repository score data for the requested repositories was updated successfully.'
+      summary: Set repository importance score
+      tags:
+      - Repository Importance Score
+      security:
+      - CustomAuthorizer: []
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetRepoImportanceRequestBodyPublicApi'
+      x-bc-lambda-name: vcs-repository-api
+      x-bc-permitted-roles: owner,admin,member,developer,auditor
+      x-bc-docs-scope: prisma
+components:
+  schemas:
+    SetRepoImportanceRequestBodyPublicApi:
+      properties:
+        repositoryId:
+          type: string
+        customRepositoryScore:
+          type:
+          - number
+          - 'null'
+          format: double
+          description: 'User-defined repository score.
+
+            Provide an integer from 1 (lowest importance) to 10 (highest importance) to indicate the relative importance of the repository as per your requirements.
+
+            This value overrides the system-calculated importance score.'
+        customComment:
+          type:
+          - string
+          - 'null'
+      required:
+      - repositoryId
+      - customRepositoryScore
+      type: object
+      additionalProperties: false
+    GetRepoImportanceScore:
+      properties:
+        repositoryId:
+          type: string
+        repositoryScore:
+          type: number
+          format: double
+          description: ' Relative importance of the repository as set by Prisma Cloud based on a data-driven approach. The score is a numerical value from 1 to 10.'
+        customRepositoryScore:
+          type:
+          - number
+          - 'null'
+          format: double
+        customComment:
+          type:
+          - string
+          - 'null'
+        customReporter:
+          description: Email address of the user who last set the customRepositoryScore.
+          type:
+          - string
+          - 'null'
+        customUpdatedAt:
+          description: 'customUpdatedAt: Date and time (in ms) when the customRepositoryScore was last set or modified.'
+          type:
+          - number
+          - 'null'
+          format: double
+      required:
+      - repositoryId
+      - repositoryScore
+      - customRepositoryScore
+      - customComment
+      - customReporter
+      - customUpdatedAt
+      type: object
+      additionalProperties: false

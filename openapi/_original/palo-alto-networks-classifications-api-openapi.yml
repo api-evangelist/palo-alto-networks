@@ -1,0 +1,216 @@
+openapi: 3.2.0
+info:
+  title: Palo Alto Networks AIOps for NGFW BPA 5G Deregistered Trend Classifications API
+  description: AIOps for NGFW Best Practice Assessment (BPA) API. Provides programmatic access to submit BPA requests for Palo Alto Networks next-generation firewalls, check request processing status, and retrieve completed assessment reports. BPA reports analyze firewall configurations against Palo Alto Networks best practices and security benchmarks, identifying gaps and providing remediation guidance to improve security posture. Part of the Strata Cloud Manager platform.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+security:
+- oauth2Bearer: []
+tags:
+- name: Classifications
+  description: Data classification results and taxonomy operations.
+paths:
+  /dspm/api/v1/classifications:
+    get:
+      operationId: listClassifications
+      summary: Palo Alto Networks List Data Classification Results
+      description: Returns the data classification taxonomy used by Prisma Cloud DSPM, including built-in and custom classification labels. Each classification includes the label name, description, detection patterns, associated regulatory frameworks, and the sensitivity level assigned to matching data.
+      tags:
+      - Classifications
+      parameters:
+      - name: offset
+        in: query
+        description: Number of records to skip for pagination.
+        schema:
+          type: integer
+          default: 0
+        example: 0
+      - name: limit
+        in: query
+        description: Maximum number of records to return.
+        schema:
+          type: integer
+          default: 25
+        example: 25
+      - name: category
+        in: query
+        description: Filter by classification category.
+        schema:
+          type: string
+          enum:
+          - PII
+          - PHI
+          - PCI
+          - Financial
+          - Credentials
+          - Intellectual Property
+          - Custom
+        example: Custom
+      - name: isBuiltIn
+        in: query
+        description: Filter by built-in vs custom classifications.
+        schema:
+          type: boolean
+        example: true
+      - name: search
+        in: query
+        description: Search term to filter by classification name.
+        schema:
+          type: string
+        example: example-search
+      responses:
+        '200':
+          description: Data classifications returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalCount:
+                    type: integer
+                    description: Total number of classifications.
+                  classifications:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Classification'
+              examples:
+                ListClassifications200Example:
+                  summary: Default listClassifications 200 response
+                  x-microcks-default: true
+                  value:
+                    totalCount: 213
+                    classifications:
+                    - id: example-id
+                      name: Staging Gateway 14
+                      description: Violation monitoring configured configured activity network.
+                      category: Intellectual Property
+                      sensitivityLevel: internal
+                      isBuiltIn: false
+                      regulatoryFrameworks:
+                      - GLBA
+                      - HIPAA
+                      dataStoreCount: 931
+                      dataAssetCount: 760
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+components:
+  schemas:
+    Classification:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique classification identifier.
+          example: example-id
+        name:
+          type: string
+          description: Classification label name.
+          example: Staging Gateway 14
+        description:
+          type: string
+          description: Detailed description of what the classification detects.
+          example: Violation monitoring configured configured activity network.
+        category:
+          type: string
+          enum:
+          - PII
+          - PHI
+          - PCI
+          - Financial
+          - Credentials
+          - Intellectual Property
+          - Custom
+          description: Broad category of the classification.
+          example: Intellectual Property
+        sensitivityLevel:
+          type: string
+          enum:
+          - public
+          - internal
+          - confidential
+          - restricted
+          description: Default sensitivity level for data matching this classification.
+          example: internal
+        isBuiltIn:
+          type: boolean
+          description: Whether this is a built-in or custom classification.
+          example: false
+        regulatoryFrameworks:
+          type: array
+          items:
+            type: string
+            enum:
+            - GDPR
+            - CCPA
+            - HIPAA
+            - PCI-DSS
+            - SOX
+            - GLBA
+            - FERPA
+          description: Regulatory frameworks referencing this data classification.
+          example:
+          - GLBA
+          - HIPAA
+        dataStoreCount:
+          type: integer
+          description: Number of data stores where matching data has been found.
+          example: 931
+        dataAssetCount:
+          type: integer
+          description: Number of data assets matching this classification.
+          example: 760
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          description: HTTP status code.
+          example: 177
+        message:
+          type: string
+          description: Human-readable error message.
+          example: Suspicious traffic configured monitoring malware endpoint applied.
+        error:
+          type: string
+          description: Error code.
+          example: example-error
+  responses:
+    Unauthorized:
+      description: Invalid or expired JWT token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  securitySchemes:
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.

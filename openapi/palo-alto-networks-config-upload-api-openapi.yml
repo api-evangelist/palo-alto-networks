@@ -1,0 +1,182 @@
+openapi: 3.2.0
+info:
+  title: Posture Management Config Upload API
+  description: 'This API provides comprehensive posture management capabilities including:
+
+    - Custom posture check management (create, update, delete, clone, batch operations)
+
+    - Config file upload for BPA (Best Practice Assessment) results
+
+    - Config cleanup for identifying unused or redundant configuration objects
+
+    - Compliance framework definition management (create, update, delete, release)
+
+    - Compliance analytics and reporting
+
+    - Benchmark monitoring and BPC (Best Practice Check) verdict tracking
+
+    '
+  version: 1.1.0
+  termsOfService: https://www.paloaltonetworks.com/content/dam/pan/en_US/assets/pdf/legal/palo-alto-networks-end-user-license-agreement-eula.pdf
+  contact:
+    email: support@paloaltonetworks.com
+    name: Palo Alto Networks Technical Support
+    url: https://support.paloaltonetworks.com
+  license:
+    name: MIT
+    url: https://opensource.org/license/mit
+servers:
+- url: https://api.strata.paloaltonetworks.com/posture
+  description: Current
+security:
+- BearerAuth: []
+tags:
+- name: Config Upload
+  description: Config file upload for BPA result.
+paths:
+  /checks/v1/reports/config-file-upload:
+    post:
+      tags:
+      - Config Upload
+      summary: Initiate a Config Upload
+      description: "Generates a tracking ID and a presigned GCS URL for file upload using device metadata.\n\n## Using the Signed URL\n\nAfter receiving the `upload_url` in the response, upload your config file using a PUT request:\n\n```bash\ncurl -X PUT \"<upload_url>\" \\\n  -H \"Content-Type: text/plain\" \\\n  -H \"Content-Encoding: gzip\" \\\n  --data-binary @/path/to/your/config.xml\n```\n\n**Required headers:**\n- `Content-Type: text/plain`\n- `Content-Encoding: gzip`\n"
+      operationId: InitiateConfigUpload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - delete_after_processing
+              properties:
+                delete_after_processing:
+                  type: boolean
+                  description: If true, the uploaded data will be deleted immediately after processing completes.
+                  default: false
+                  example: false
+      responses:
+        '201':
+          description: Successfully initiated config upload.
+          headers:
+            Location:
+              description: URI of the created task resource.
+              schema:
+                type: string
+                format: uri-reference
+                example: /checks/v1/reports/550e8400-e29b-41d4-a716-446655440000/bpa-result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task_id:
+                    type: string
+                    format: uuid
+                    example: 550e8400-e29b-41d4-a716-446655440000
+                  upload_url:
+                    type: string
+                    format: uri
+                    description: Presigned GCS URL.
+        '400':
+          description: Bad request - missing required header or invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many requests - maximum limit of 5 active jobs reached.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /checks/v1/reports/{id}/bpa-result:
+    get:
+      tags:
+      - Config Upload
+      summary: Get BPA Processing Status
+      description: Returns the status (QUEUED, IN_PROGRESS, COMPLETED, FAILED) and final result.
+      operationId: GetBpaResultByID
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+        description: The task ID provided during initiation.
+      responses:
+        '200':
+          description: Status retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - status
+                properties:
+                  status:
+                    type: string
+                    enum:
+                    - QUEUED
+                    - IN_PROGRESS
+                    - COMPLETED
+                    - FAILED
+                    example: IN_PROGRESS
+                  message:
+                    type: string
+                    example: Analyzing security rules...
+                  result:
+                    type: object
+                    description: Populated only when status is COMPLETED.
+                    properties:
+                      report_url:
+                        type: string
+                        format: uri
+        '404':
+          description: Task ID not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        _errors:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+                description: The error code representing a specific error condition.
+              message:
+                type: string
+                description: A brief description of the error condition.
+              details:
+                type: array
+                items:
+                  type: string
+                description: An explanation of the error condition.
+              help:
+                type: string
+                format: uri
+                description: A URL link to documentation describing the error condition.
+        _request_id:
+          type: string
+          format: uuid
+          description: The request ID for troubleshooting purposes.
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Bearer token authentication using JWT.

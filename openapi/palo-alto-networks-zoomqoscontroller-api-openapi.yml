@@ -1,0 +1,479 @@
+openapi: 3.2.0
+info:
+  title: ADEM data Zoom Qos Controller API
+  version: 2.1.1
+  description: "This API provides access to the Autonomous Digital Experience Management timeseries data.\nAll responses are aggregates over a period of time specified by the start, end, or timerange query parameters. \nThe aggregrate used for each field will depend on the field type. For simple numerical types, for example application score, \nthe aggregate will typically be an average (for example, scores or metrics). In some cases, it may be a maximum, minimum, or sum. \nFor string fields, it may be a comma separated concatenation of distinct values in the sample period. This spec was created on February 13, 2026. © 2026 Palo Alto Networks, Inc."
+servers:
+- url: https://api.sase.paloaltonetworks.com
+security:
+- jwt: []
+tags:
+- name: ZoomQosController
+paths:
+  /adem/telemetry/v2/measure/zoom/qos:
+    get:
+      x-controller-name: ZoomQosController
+      x-operation-name: getZoomQosMetric
+      tags:
+      - ZoomQosController
+      summary: Get Zoom QoS
+      responses:
+        '200':
+          description: Zoom QoS
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/ZoomQosMetricSummary'
+                - $ref: '#/components/schemas/ZoomQosMetricSeries'
+                - $ref: '#/components/schemas/ZoomQosMetricDistribution'
+                - $ref: '#/components/schemas/ZoomQosMetricSummaryCollection'
+                - $ref: '#/components/schemas/ZoomQosMetricSeriesCollection'
+                - $ref: '#/components/schemas/ZoomQosMetricDistributionCollection'
+        '400':
+          description: Invalid Request
+        '401':
+          description: Invalid Client
+        '500':
+          description: Server Error
+      parameters:
+      - name: start
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+          maximum: 2147483648
+          description: sample start time in seconds (unix epoch)
+      - name: end
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+          maximum: 2147483648
+          description: sample end time in seconds (unix epoch)
+      - name: timerange
+        in: query
+        required: false
+        schema:
+          type: string
+          description: A time range e.g 'last_3_hours', 'last_7_days'
+      - name: truncate-timerange
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: round timestamps to nearest sample period
+          default: true
+      - name: filter
+        in: query
+        required: false
+        schema:
+          type: string
+          description: filter results e.g. application==zoom-meeting or application==zoom-meeting, application==Gmail
+      - name: Prisma-Tenant
+        in: header
+        schema:
+          type: string
+          description: Tenant ( tenant_service_group or tenant_service_group:subtenant )
+        required: true
+      - name: Prisma-SubTenant
+        in: header
+        schema:
+          type: string
+          description: SubTenant
+        required: false
+      - name: response-type
+        in: query
+        required: true
+        schema:
+          type: string
+          enum:
+          - timeseries
+          - summary
+          - distribution
+          - grouped-summary
+          - grouped-timeseries
+          - grouped-distribution
+      - name: group
+        in: query
+        required: false
+        schema:
+          type: string
+          description: entity to group results by (e.g. Entity.user or Entity.user,Entity.endpoint)
+      - name: include
+        in: query
+        required: false
+        schema:
+          type: string
+          description: include entity counts e.g. EntityCounts.endpoint,EntityCounts.user
+      - name: result-filter
+        in: query
+        required: false
+        schema:
+          type: string
+          description: aggregate filter e.g. Score.application==poor,fair or MuAgent.selfServeUserEnabled==false
+      - name: pagination
+        in: query
+        required: false
+        schema:
+          type: string
+          description: paginate results (e.g. page==0;limit==10;sortBy==application;sortOrder==asc
+      operationId: ZoomQosController.getZoomQosMetric
+      description: Retrieve the qos details through this endpoint.
+components:
+  schemas:
+    ZoomQosMetricDistribution:
+      title: ZoomQosMetricDistribution
+      type: object
+      properties:
+        startTime:
+          type: number
+          description: sample start time (Unix timestamp)
+        endTime:
+          type: number
+          description: sample end time (Unix timestamp)
+        endpointType:
+          type: string
+          description: 'endpoint type : muAgent, muProbe, rnAgent, rnProbe'
+        tenantServiceGroup:
+          type: string
+          description: array of tenant service groups
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        rowCount:
+          type: number
+        id:
+          type: string
+        classifier:
+          type: string
+          description: score classifier e.g. poor:[0 - 30],fair:[30 - 70],good:[70 - 100]
+        entityCounts:
+          $ref: '#/components/schemas/ZoomQosEntityCounts'
+        distribution:
+          $ref: '#/components/schemas/Distribution'
+      additionalProperties: false
+    ZoomQosMetricDistributionCollection:
+      title: ZoomQosMetricDistributionCollection
+      type: object
+      properties:
+        startTime:
+          type: number
+          description: sample start time (Unix timestamp)
+        endTime:
+          type: number
+          description: sample end time (Unix timestamp)
+        endpointType:
+          type: string
+          description: 'endpoint type : muAgent, muProbe, rnAgent, rnProbe'
+        tenantServiceGroup:
+          type: string
+          description: array of tenant service groups
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        rowCount:
+          type: number
+        classifier:
+          type: string
+        entityCounts:
+          $ref: '#/components/schemas/ZoomQosEntityCounts'
+        collection:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZoomQosMetricDistribution'
+      additionalProperties: false
+    Pagination:
+      title: Pagination
+      type: object
+      properties:
+        page:
+          type: number
+          description: page number
+        limit:
+          type: number
+          description: page limit
+        sortBy:
+          type: string
+          description: sort by field
+        sortOrder:
+          type: string
+          description: 'sort order : asc, desc'
+        enabled:
+          type: boolean
+      additionalProperties: false
+    Distribution:
+      title: Distribution
+      type: object
+      properties:
+        sample:
+          type: number
+        score:
+          type: number
+          description: average of all scores in distribution
+        clients:
+          type: number
+          description: count of distribution entity e.g. application tests, endpoints
+        poor:
+          type: number
+          description: count of scores classified as poor
+        poorValues:
+          type: array
+          items:
+            type: string
+        fair:
+          type: number
+          description: count of scores classified as fair
+        fairValues:
+          type: array
+          items:
+            type: string
+        good:
+          type: number
+          description: count of scores classified as good
+        goodValues:
+          type: array
+          items:
+            type: string
+        unclassified:
+          type: number
+          description: count of unclassified scores
+      additionalProperties: false
+    ZoomQosMetricSeriesCollection:
+      title: ZoomQosMetricSeriesCollection
+      type: object
+      properties:
+        startTime:
+          type: number
+          description: sample start time (Unix timestamp)
+        endTime:
+          type: number
+          description: sample end time (Unix timestamp)
+        endpointType:
+          type: string
+          description: 'endpoint type : muAgent, muProbe, rnAgent, rnProbe'
+        tenantServiceGroup:
+          type: string
+          description: array of tenant service groups
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        rowCount:
+          type: number
+        collection:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZoomQosMetricSeries'
+        samplePeriod:
+          type: number
+          description: sample period in seconds
+      additionalProperties: false
+    ZoomQosMetricSummaryCollection:
+      title: ZoomQosMetricSummaryCollection
+      type: object
+      properties:
+        startTime:
+          type: number
+          description: sample start time (Unix timestamp)
+        endTime:
+          type: number
+          description: sample end time (Unix timestamp)
+        endpointType:
+          type: string
+          description: 'endpoint type : muAgent, muProbe, rnAgent, rnProbe'
+        tenantServiceGroup:
+          type: string
+          description: array of tenant service groups
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        rowCount:
+          type: number
+        collection:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZoomQosMetricSummary'
+      additionalProperties: false
+    ZoomQosMetricSummary:
+      title: ZoomQosMetricSummary
+      type: object
+      properties:
+        startTime:
+          type: number
+          description: sample start time (Unix timestamp)
+        endTime:
+          type: number
+          description: sample end time (Unix timestamp)
+        endpointType:
+          type: string
+          description: 'endpoint type : muAgent, muProbe, rnAgent, rnProbe'
+        tenantServiceGroup:
+          type: string
+          description: array of tenant service groups
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        rowCount:
+          type: number
+        id:
+          type: string
+        average:
+          $ref: '#/components/schemas/ZoomQosMetric'
+        entityCounts:
+          $ref: '#/components/schemas/ZoomQosEntityCounts'
+      required:
+      - id
+      additionalProperties: false
+    ZoomQosEntityCounts:
+      title: ZoomQosEntityCounts
+      type: object
+      properties:
+        meetingUuid:
+          type: number
+          description: count of distinct meeting UUID
+        userId:
+          type: number
+          description: count of distinct user ID
+        email:
+          type: number
+          description: count of distinct email
+        qosType:
+          type: number
+          description: count of distinct QOS type
+        qosClass:
+          type: number
+          description: count of distinct QOS class
+        qosEventTime:
+          type: number
+          description: count of distinct QOS event time (minutes)
+        city:
+          type: number
+          description: count of distinct city name
+        country:
+          type: number
+          description: count of distinct country name
+      additionalProperties: false
+    ZoomQosMetricSeries:
+      title: ZoomQosMetricSeries
+      type: object
+      properties:
+        startTime:
+          type: number
+          description: sample start time (Unix timestamp)
+        endTime:
+          type: number
+          description: sample end time (Unix timestamp)
+        endpointType:
+          type: string
+          description: 'endpoint type : muAgent, muProbe, rnAgent, rnProbe'
+        tenantServiceGroup:
+          type: string
+          description: array of tenant service groups
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        rowCount:
+          type: number
+        id:
+          type: string
+        samplePeriod:
+          type: number
+          description: sample period in seconds
+        series:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZoomQosMetric'
+        seriesEntityCount:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZoomQosEntityCounts'
+      required:
+      - id
+      additionalProperties: false
+    ZoomQosMetric:
+      title: ZoomQosMetric
+      type: object
+      properties:
+        sample:
+          type: number
+          description: sample time (Unix timestamp)
+        bitrateKbps:
+          type: number
+          description: bitrate, kbps
+        latency:
+          type: number
+          description: packet latency, milliseconds
+        avgLossPercentage:
+          type: number
+          description: average packet loss, percent
+        maxLossPercentage:
+          type: number
+          description: max packet loss, percent
+        jitter:
+          type: number
+          description: packet jitter (variation), milliseconds
+        resolution:
+          type: number
+          description: camera pixels
+        frameRateFps:
+          type: number
+          description: frame rate, frames per second
+        zoomMinCpuUsagePercentage:
+          type: number
+          description: minimum CPU usage
+        zoomAvgCpuUsagePercentage:
+          type: number
+          description: average CPU usage
+        zoomMaxCpuUsagePercentage:
+          type: number
+          description: maximum CPU usage
+        systemMaxCpuUsagePercentage:
+          type: number
+          description: system maximum CPU usage
+        score:
+          type: number
+          description: score, 0 - 100
+        rootCause1:
+          type: number
+          description: root cause 1 - high CPU usage
+        rootCause2:
+          type: number
+          description: root cause 2 - high RAM usage
+        rootCause3:
+          type: number
+          description: root cause 3 - poor wifi signal
+        rootCause4:
+          type: number
+          description: root cause 4 - high network latency
+        rootCause5:
+          type: number
+          description: root cause 5 - high network jitter
+        rootCause6:
+          type: number
+          description: root cause 6 - high network loss
+        rootCause7:
+          type: number
+        rootCause8:
+          type: number
+        rootCause9:
+          type: number
+        rootCause10:
+          type: number
+          description: root cause 10 - global protect disconnect/connect
+        rootCause11:
+          type: number
+          description: root cause 11 - high internet latency
+        rootCause12:
+          type: number
+          description: root cause 12 - high internet jitter
+        rootCause13:
+          type: number
+          description: root cause 13 - high internet loss
+        latitude:
+          type: number
+          description: computer latitude
+        longitude:
+          type: number
+          description: computer longitude
+      additionalProperties: false
+  securitySchemes:
+    jwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

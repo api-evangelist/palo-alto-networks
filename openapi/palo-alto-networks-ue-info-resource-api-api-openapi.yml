@@ -1,0 +1,273 @@
+openapi: 3.2.0
+info:
+  title: SASE 5G Manage Service UE Info Resource API API
+  version: '1.0'
+  description: "The SASE 5G Management Service provides the administrative framework required to provision, \nconfigure, and oversee 5G security infrastructure within the Strata Cloud Manager (SCM) ecosystem. \nArchitects and administrators utilize these APIs during the activation and lifecycle management \nphases to bridge enterprise 5G networks with Prisma Access security.\n\nBy leveraging these endpoints, organizations implement robust hardware-to-tenant mapping using \nIMSI and IMEI identifiers, ensuring precise traffic attribution and policy enforcement. \nThe service manages critical control plane components—including certificate handling and \nRadius server integration—directly through the SCM management plane. This centralized \napproach allows technical teams to scale 5G connectivity across global compute regions \nwhile maintaining granular visibility into subscriber groups and regional interconnect health. This spec was created on February 11, 2026. © 2026 Palo Alto Networks, Inc."
+servers:
+- url: https://stratacloudmanager.paloaltonetworks.com
+security:
+- JWT: []
+tags:
+- name: UE Info Resource API
+paths:
+  /mt/manage/5g/tenantUEInfo:
+    post:
+      tags:
+      - UE Info Resource API
+      summary: Map Tenant Identity
+      description: "Registers a unique mapping between a Tenant, IMSI, IMEI, and APN. Developers use \nthis to onboard User Equipment (UE) by associating hardware identifiers with \nspecific tenant accounts for precise traffic attribution and policy enforcement."
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantUEInfoRequest'
+            examples:
+              Add Tenant UE Info:
+                value:
+                  root_tsg_id: '123456891'
+                  tsg_id: '123456890'
+                  imei: '111111789012345'
+                  imsi: '123456789012345'
+                  apn: apn@panw.com
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              examples:
+                Add Tenant UE Info:
+                  value:
+                    data:
+                      id: 45a4ca95-9e8b-4a63-a482-70b7d3aa4fd8
+                      root_tsg_id: '1204544558'
+                      tsg_id: '1886576124'
+                      imei: '123456789012340'
+                      imsi: '123456789012345'
+                      apn: apn@panw.com
+                      create_time: 1738446903587
+                      update_time: 1738446903587
+        '400':
+          description: Bad Request
+        '404':
+          description: Data Not Found
+        '500':
+          description: Server Error
+      operationId: PostMtManage5gTenantueinfo
+  /mt/manage/5g/tenantUEInfo/delete:
+    post:
+      tags:
+      - UE Info Resource API
+      summary: Bulk Delete Identities
+      description: "Removes multiple Tenant-UE mappings from the management plane simultaneously. \nAdministrators execute this during hardware decommissioning or tenant offboarding \nto clear subscriber data efficiently using a batch of unique identity IDs."
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantUeInfoBulkDeleteRequest'
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Bad Request
+        '404':
+          description: Data Not Found
+        '500':
+          description: Server Error
+      operationId: PostMtManage5gTenantueinfoDelete
+  /mt/manage/5g/tenantUEInfo/list:
+    post:
+      tags:
+      - UE Info Resource API
+      summary: Search Tenant Identities
+      description: "Returns a paginated list of Tenant-UE mappings. Developers query this to audit \nsubscriber mappings or populate dashboards with IMSI and IMEI data associated with \na specific Tenant Service Group (TSG). Results support filtering and custom sorting."
+      parameters:
+      - name: filter
+        in: query
+        schema:
+          pattern: ^[a-z]+:\w+(?:,[a-z]+:\w+)*$
+          type: string
+      - name: order
+        in: query
+        schema:
+          pattern: ^[a-z]+:(asc|desc)*$
+          type: string
+      - name: page
+        in: query
+        schema:
+          format: int32
+          default: 0
+          type: integer
+      - name: size
+        in: query
+        schema:
+          format: int32
+          default: 50
+          type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantUEInfoListInput'
+            examples:
+              List Tenant UE Info:
+                value:
+                  tsg_id: '1886576124'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              examples:
+                List Tenant UE Info:
+                  value:
+                    totalItems: 2
+                    data:
+                    - identity_id: a5831ca0-5cf4-46a9-9409-6d55ea5e210a
+                      tsg_id: '1886576124'
+                      imei: '100411547312190'
+                      imsi: '264467605337818'
+                      apn: apn@panw.com
+        '204':
+          description: No Content
+        '400':
+          description: Bad Request
+        '404':
+          description: Data Not Found
+        '500':
+          description: Server Error
+      operationId: PostMtManage5gTenantueinfoList
+  /mt/manage/5g/tenantUEInfo/upload:
+    post:
+      tags:
+      - UE Info Resource API
+      summary: Bulk Upload Identities
+      description: "Ingests a file containing multiple User Equipment (UE) mappings via multipart \nform-data. Administrators use this during large-scale device rollouts to enable \n5G features for thousands of hardware identifiers at once across the management plane."
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  format: binary
+                  type: string
+                filename:
+                  type: string
+                tsgId:
+                  type: string
+                rootTsgId:
+                  type: string
+            encoding:
+              file:
+                contentType: application/octet-stream
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Bad Request
+        '404':
+          description: Data Not Found
+        '500':
+          description: Server Error
+      operationId: PostMtManage5gTenantueinfoUpload
+  /mt/manage/5g/tenantUEInfo/{identity_id}:
+    put:
+      tags:
+      - UE Info Resource API
+      summary: Update Identity Mapping
+      description: "Modifies an existing Tenant-UE mapping record. Administrators perform these \nupdates to correct IMSI/IMEI typos or adjust APN associations for registered \nsubscriber identities, ensuring traffic continues to route to the correct tenant."
+      parameters:
+      - name: identity_id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantUEInfoRequest'
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Bad Request
+        '404':
+          description: Data Not Found
+        '500':
+          description: Server Error
+      operationId: PutMtManage5gTenantueinfoBy_identity_id
+    delete:
+      tags:
+      - UE Info Resource API
+      summary: Remove Identity Mapping
+      description: "Deletes a specific Tenant-UE mapping record. Users call this when decommissioning \na single device or rotating hardware to maintain accurate subscriber records \nwithin the 5G management plane."
+      parameters:
+      - name: identity_id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Bad Request
+        '404':
+          description: Data Not Found
+        '500':
+          description: Server Error
+      operationId: DeleteMtManage5gTenantueinfoBy_identity_id
+  /mt/manage/5g/tenantUEInfo/{ueInfoId}:
+    get:
+      tags:
+      - UE Info Resource API
+      summary: Fetch Specific Identity
+      description: "Retrieves the complete identity record for a single subscriber based on its unique \nID. Support teams use this data within the management plane to troubleshoot \nconnectivity issues for specific User Equipment devices."
+      parameters:
+      - name: ueInfoId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: unknownUes
+        in: query
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Bad Request
+        '404':
+          description: Data Not Found
+        '500':
+          description: Server Error
+      operationId: GetMtManage5gTenantueinfoBy_ueinfoid
+components:
+  schemas:
+    TenantUeInfoBulkDeleteRequest:
+      type: object
+      properties:
+        identityIds:
+          type: array
+          items:
+            type: string
+    TenantUEInfoListInput:
+      type: object
+      properties:
+        tsg_id:
+          type: string
+    TenantUEInfoRequest:
+      type: object
+      properties:
+        tsg_id:
+          type: string
+        imei:
+          type: string
+        imsi:
+          type: string
+        apn:
+          type: string
+        root_tsg_id:
+          type: string

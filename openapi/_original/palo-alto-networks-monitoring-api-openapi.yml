@@ -1,0 +1,726 @@
+openapi: 3.2.0
+info:
+  title: Palo Alto Networks AIOps for NGFW BPA 5G Deregistered Trend Monitoring API
+  description: AIOps for NGFW Best Practice Assessment (BPA) API. Provides programmatic access to submit BPA requests for Palo Alto Networks next-generation firewalls, check request processing status, and retrieve completed assessment reports. BPA reports analyze firewall configurations against Palo Alto Networks best practices and security benchmarks, identifying gaps and providing remediation guidance to improve security posture. Part of the Strata Cloud Manager platform.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+security:
+- oauth2Bearer: []
+tags:
+- name: Monitoring
+  description: Site performance metrics, application usage data, and alarm monitoring.
+paths:
+  /sdwan/monitor/v1/sites/{site_id}/metrics:
+    get:
+      operationId: getSiteMetrics
+      summary: Palo Alto Networks Get Site Performance Metrics
+      description: Returns performance metrics for a specific SD-WAN site including WAN link utilization, latency, jitter, and packet loss data collected from the site's ION devices.
+      tags:
+      - Monitoring
+      parameters:
+      - name: site_id
+        in: path
+        required: true
+        description: Unique site identifier.
+        schema:
+          type: string
+        example: '222584'
+      - name: start_time
+        in: query
+        description: Start of the time range in ISO 8601 format.
+        schema:
+          type: string
+          format: date-time
+        example: '2025-02-14T19:41:54Z'
+      - name: end_time
+        in: query
+        description: End of the time range in ISO 8601 format.
+        schema:
+          type: string
+          format: date-time
+        example: '2026-02-21T15:57:03Z'
+      - name: metric_type
+        in: query
+        description: Type of metric to retrieve.
+        schema:
+          type: string
+          enum:
+          - bandwidth
+          - latency
+          - jitter
+          - packet_loss
+        example: packet_loss
+      - name: granularity
+        in: query
+        description: Time granularity for metric aggregation.
+        schema:
+          type: string
+          enum:
+          - 5m
+          - 15m
+          - 1h
+          - 1d
+          default: 1h
+        example: 1h
+      responses:
+        '200':
+          description: Site metrics returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  site_id:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SiteMetric'
+              examples:
+                GetSiteMetrics200Example:
+                  summary: Default getSiteMetrics 200 response
+                  x-microcks-default: true
+                  value:
+                    site_id: '662718'
+                    data:
+                    - timestamp: '2025-09-01T22:29:24Z'
+                      site_id: '161135'
+                      interface_name: Corporate Policy 17
+                      metric_type: packet_loss
+                      value: 78.22
+                      unit: example-unit
+                      direction: download
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+  /sdwan/monitor/v1/applications:
+    get:
+      operationId: getApplicationUsage
+      summary: Palo Alto Networks Get Application Usage
+      description: Returns application usage and performance data across all SD-WAN sites. Includes bandwidth consumption, session counts, and quality metrics per application.
+      tags:
+      - Monitoring
+      parameters:
+      - name: start_time
+        in: query
+        description: Start of the time range in ISO 8601 format.
+        schema:
+          type: string
+          format: date-time
+        example: '2026-03-04T16:23:46Z'
+      - name: end_time
+        in: query
+        description: End of the time range in ISO 8601 format.
+        schema:
+          type: string
+          format: date-time
+        example: '2025-01-10T18:24:30Z'
+      - name: site_id
+        in: query
+        description: Filter by specific site.
+        schema:
+          type: string
+        example: '614282'
+      - name: offset
+        in: query
+        schema:
+          type: integer
+          default: 0
+        example: 0
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 100
+        example: 100
+      responses:
+        '200':
+          description: Application usage returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ApplicationUsage'
+              examples:
+                GetApplicationUsage200Example:
+                  summary: Default getApplicationUsage 200 response
+                  x-microcks-default: true
+                  value:
+                    count: 185
+                    items:
+                    - application: web-browsing
+                      site_id: '410918'
+                      bytes_up: 73
+                      bytes_down: 230
+                      sessions: 208
+                      avg_latency_ms: 38.32
+                      timestamp: '2024-08-27T23:45:05Z'
+                    - application: web-browsing
+                      site_id: '410918'
+                      bytes_up: 73
+                      bytes_down: 230
+                      sessions: 208
+                      avg_latency_ms: 38.32
+                      timestamp: '2024-08-27T23:45:05Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+  /sdwan/monitor/v1/alarms:
+    get:
+      operationId: listAlarms
+      summary: Palo Alto Networks List Active Alarms
+      description: Returns a list of active SD-WAN alarms across all monitored sites. Alarms indicate conditions requiring attention such as WAN link failures, high latency, device disconnections, and tunnel state changes.
+      tags:
+      - Monitoring
+      parameters:
+      - name: site_id
+        in: query
+        description: Filter alarms by site.
+        schema:
+          type: string
+        example: '823482'
+      - name: severity
+        in: query
+        description: Filter alarms by severity level.
+        schema:
+          type: string
+          enum:
+          - critical
+          - major
+          - minor
+          - info
+        example: critical
+      - name: acknowledged
+        in: query
+        description: Filter by acknowledgement status.
+        schema:
+          type: boolean
+        example: false
+      - name: offset
+        in: query
+        schema:
+          type: integer
+          default: 0
+        example: 0
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 100
+        example: 100
+      responses:
+        '200':
+          description: Alarms returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Alarm'
+              examples:
+                ListAlarms200Example:
+                  summary: Default listAlarms 200 response
+                  x-microcks-default: true
+                  value:
+                    count: 704
+                    items:
+                    - id: example-id
+                      type: advanced
+                      severity: info
+                      site_id: '409586'
+                      site_name: Staging Sensor 34
+                      element_id: '467131'
+                      message: Monitoring network monitoring configured endpoint policy on traffic.
+                      acknowledged: true
+                      acknowledged_by: example-acknowledged_by
+                      acknowledged_at: '2026-06-22T16:54:17Z'
+                      raised_at: '2026-05-16T13:49:38Z'
+                      cleared_at: '2024-10-17T10:24:44Z'
+                    - id: example-id
+                      type: advanced
+                      severity: info
+                      site_id: '409586'
+                      site_name: Staging Sensor 34
+                      element_id: '467131'
+                      message: Monitoring network monitoring configured endpoint policy on traffic.
+                      acknowledged: true
+                      acknowledged_by: example-acknowledged_by
+                      acknowledged_at: '2026-06-22T16:54:17Z'
+                      raised_at: '2026-05-16T13:49:38Z'
+                      cleared_at: '2024-10-17T10:24:44Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+  /monitoring/metrics:
+    get:
+      operationId: get5GSecurityMetrics
+      summary: Palo Alto Networks Get 5G Security Metrics
+      description: Returns security metrics for 5G network traffic including threat detection counts, policy enforcement statistics, subscriber counts, and traffic volumes per network slice.
+      tags:
+      - Monitoring
+      parameters:
+      - name: slice_id
+        in: query
+        description: Filter metrics by network slice.
+        schema:
+          type: string
+        example: '136401'
+      - name: start_time
+        in: query
+        description: Start of the metrics period (ISO 8601).
+        schema:
+          type: string
+          format: date-time
+        example: '2025-06-23T12:29:25Z'
+      - name: end_time
+        in: query
+        description: End of the metrics period (ISO 8601).
+        schema:
+          type: string
+          format: date-time
+        example: '2025-04-09T18:20:46Z'
+      - name: interval
+        in: query
+        description: Metrics aggregation interval.
+        schema:
+          type: string
+          enum:
+          - 5m
+          - 15m
+          - 1h
+          - 6h
+          - 1d
+          default: 1h
+        example: 1h
+      responses:
+        '200':
+          description: 5G security metrics returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityMetrics5G'
+              examples:
+                Get5GsecurityMetrics200Example:
+                  summary: Default get5GSecurityMetrics 200 response
+                  x-microcks-default: true
+                  value:
+                    period:
+                      start: '2024-06-05T09:27:12Z'
+                      end: '2025-01-11T19:58:17Z'
+                    total_sessions: 869
+                    threats_detected: 523
+                    threats_blocked: 380
+                    bytes_inspected: 198
+                    active_subscribers: 772
+                    per_slice_metrics:
+                    - slice_id: '752730'
+                      slice_name: Corporate Firewall 44
+                      sessions: 302
+                      threats_detected: 418
+                      bytes_inspected: 544
+                    - slice_id: '903199'
+                      slice_name: Primary Policy 27
+                      sessions: 329
+                      threats_detected: 975
+                      bytes_inspected: 105
+                    time_series:
+                    - timestamp: '2026-12-16T05:11:44Z'
+                      sessions: 780
+                      threats: 295
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_2'
+              examples:
+                Get5GsecurityMetrics400Example:
+                  summary: Default get5GSecurityMetrics 400 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Applied blocked incident traffic network applied threat traffic incident alert traffic network.
+                    request_id: b8969609-ec40-4367-a0fc-c65a6696edee
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_2'
+              examples:
+                Get5GsecurityMetrics401Example:
+                  summary: Default get5GSecurityMetrics 401 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Applied blocked incident traffic network applied threat traffic incident alert traffic network.
+                    request_id: b8969609-ec40-4367-a0fc-c65a6696edee
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_2'
+              examples:
+                Get5GsecurityMetrics403Example:
+                  summary: Default get5GSecurityMetrics 403 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Applied blocked incident traffic network applied threat traffic incident alert traffic network.
+                    request_id: b8969609-ec40-4367-a0fc-c65a6696edee
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_2'
+              examples:
+                Get5GsecurityMetrics500Example:
+                  summary: Default get5GSecurityMetrics 500 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Applied blocked incident traffic network applied threat traffic incident alert traffic network.
+                    request_id: b8969609-ec40-4367-a0fc-c65a6696edee
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+components:
+  responses:
+    Unauthorized:
+      description: Missing or invalid OAuth2 access token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Invalid request parameters or body.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    Alarm:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique alarm identifier.
+          example: example-id
+        type:
+          type: string
+          description: Alarm type identifier.
+          example: advanced
+        severity:
+          type: string
+          enum:
+          - critical
+          - major
+          - minor
+          - info
+          description: Alarm severity level.
+          example: info
+        site_id:
+          type: string
+          description: Site where the alarm was generated.
+          example: '409586'
+        site_name:
+          type: string
+          description: Name of the site where the alarm was generated.
+          example: Staging Sensor 34
+        element_id:
+          type: string
+          description: ION element identifier that generated the alarm.
+          example: '467131'
+        message:
+          type: string
+          description: Human-readable alarm description.
+          example: Monitoring network monitoring configured endpoint policy on traffic.
+        acknowledged:
+          type: boolean
+          description: Whether the alarm has been acknowledged.
+          example: true
+        acknowledged_by:
+          type: string
+          description: User who acknowledged the alarm.
+          example: example-acknowledged_by
+        acknowledged_at:
+          type: string
+          format: date-time
+          description: Timestamp when the alarm was acknowledged.
+          example: '2026-06-22T16:54:17Z'
+        raised_at:
+          type: string
+          format: date-time
+          description: Timestamp when the alarm was raised.
+          example: '2026-05-16T13:49:38Z'
+        cleared_at:
+          type: string
+          format: date-time
+          description: Timestamp when the alarm was cleared. Null if still active.
+          example: '2024-10-17T10:24:44Z'
+    ApplicationUsage:
+      type: object
+      properties:
+        application:
+          type: string
+          description: Application name.
+          example: web-browsing
+        site_id:
+          type: string
+          description: Site where the application traffic was observed.
+          example: '410918'
+        bytes_up:
+          type: integer
+          format: int64
+          description: Uploaded bytes for the application.
+          example: 73
+        bytes_down:
+          type: integer
+          format: int64
+          description: Downloaded bytes for the application.
+          example: 230
+        sessions:
+          type: integer
+          description: Number of application sessions.
+          example: 208
+        avg_latency_ms:
+          type: number
+          description: Average latency for application traffic.
+          example: 38.32
+        timestamp:
+          type: string
+          format: date-time
+          description: Time bucket for the usage data.
+          example: '2024-08-27T23:45:05Z'
+    ErrorResponse:
+      type: object
+      properties:
+        _error:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+                example: example-code
+              message:
+                type: string
+                example: Investigation firewall on investigation blocked malware on on activity traffic.
+          example:
+          - code: example-code
+            message: Traffic activity blocked incident activity alert rule alert firewall incident.
+          - code: example-code
+            message: Traffic policy on violation blocked Security investigation blocked rule on malware network.
+    ErrorResponse_2:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code identifying the error type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable description of the error.
+          example: Applied blocked incident traffic network applied threat traffic incident alert traffic network.
+        request_id:
+          type: string
+          description: Request identifier for support correlation.
+          example: b8969609-ec40-4367-a0fc-c65a6696edee
+    SecurityMetrics5G:
+      type: object
+      properties:
+        period:
+          type: object
+          properties:
+            start:
+              type: string
+              format: date-time
+              example: '2025-07-23T02:21:44Z'
+            end:
+              type: string
+              format: date-time
+              example: '2024-05-24T08:55:26Z'
+          example:
+            start: '2024-06-05T09:27:12Z'
+            end: '2025-01-11T19:58:17Z'
+        total_sessions:
+          type: integer
+          description: Total 5G sessions inspected during the period.
+          example: 869
+        threats_detected:
+          type: integer
+          description: Number of threats detected in 5G traffic.
+          example: 523
+        threats_blocked:
+          type: integer
+          description: Number of threats blocked.
+          example: 380
+        bytes_inspected:
+          type: integer
+          description: Total bytes of 5G traffic inspected.
+          example: 198
+        active_subscribers:
+          type: integer
+          description: Number of active 5G subscribers.
+          example: 772
+        per_slice_metrics:
+          type: array
+          description: Metrics broken down by network slice.
+          items:
+            type: object
+            properties:
+              slice_id:
+                type: string
+                example: '877779'
+              slice_name:
+                type: string
+                example: Primary Sensor 69
+              sessions:
+                type: integer
+                example: 257
+              threats_detected:
+                type: integer
+                example: 380
+              bytes_inspected:
+                type: integer
+                example: 50
+          example:
+          - slice_id: '752730'
+            slice_name: Corporate Firewall 44
+            sessions: 302
+            threats_detected: 418
+            bytes_inspected: 544
+          - slice_id: '903199'
+            slice_name: Primary Policy 27
+            sessions: 329
+            threats_detected: 975
+            bytes_inspected: 105
+        time_series:
+          type: array
+          description: Time-series data points for the metrics period.
+          items:
+            type: object
+            properties:
+              timestamp:
+                type: string
+                format: date-time
+                example: '2025-09-21T07:06:03Z'
+              sessions:
+                type: integer
+                example: 842
+              threats:
+                type: integer
+                example: 159
+          example:
+          - timestamp: '2026-12-16T05:11:44Z'
+            sessions: 780
+            threats: 295
+    SiteMetric:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Time bucket for the aggregated metric.
+          example: '2025-09-01T22:29:24Z'
+        site_id:
+          type: string
+          description: Site identifier.
+          example: '161135'
+        interface_name:
+          type: string
+          description: WAN interface name.
+          example: Corporate Policy 17
+        metric_type:
+          type: string
+          enum:
+          - bandwidth
+          - latency
+          - jitter
+          - packet_loss
+          description: Type of metric.
+          example: packet_loss
+        value:
+          type: number
+          description: Metric value.
+          example: 78.22
+        unit:
+          type: string
+          description: Unit of measurement (e.g., Mbps, ms, pct).
+          example: example-unit
+        direction:
+          type: string
+          enum:
+          - upload
+          - download
+          description: Traffic direction for bandwidth metrics.
+          example: download
+  securitySchemes:
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.

@@ -1,0 +1,530 @@
+openapi: 3.2.0
+info:
+  title: Prisma AIRS API Management service AI Sec Profile API
+  description: OpenAPI Specification for Prisma AIRS AI Runtime API Management Service
+  version: 0.0.0
+  contact:
+    name: Palo Alto Networks
+    url: https://www.paloaltonetworks.com
+    email: support@paloaltonetworks.com
+servers:
+- url: https://api.sase.paloaltonetworks.com/aisec
+  description: Prisma AIRS API service URL
+tags:
+- name: AI Sec Profile
+  description: Operations related to AI security profile management
+paths:
+  /v1/mgmt/profile:
+    post:
+      summary: Create A New AI Security Profile
+      description: Post a new AI Sec Profile
+      tags:
+      - AI Sec Profile
+      security:
+      - Auth: []
+      operationId: CreateNewAIProfile
+      requestBody:
+        description: AI Sec Profile creation request object
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AIProfileObject'
+      responses:
+        '200':
+          description: Successfully created a new AI Sec Profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIProfileObject'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: error occurred
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v1/mgmt/profile/{profile_id}:
+    delete:
+      summary: Delete An AI Security Profile
+      description: Delete a given AI Sec Profile
+      tags:
+      - AI Sec Profile
+      security:
+      - Auth: []
+      operationId: DeleteAIProfile
+      parameters:
+      - name: profile_id
+        in: path
+        description: AI Sec ProfileId to delete
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successfully deleted a given AI Sec Profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '409':
+          description: conflict occurred
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteAIProfileResponse'
+        default:
+          description: error occurred
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v1/mgmt/profile/uuid/{profile_id}:
+    put:
+      summary: Modify AI Security Profile Details
+      description: Update metadata for a given AI Sec Profile Id.
+      tags:
+      - AI Sec Profile
+      security:
+      - Auth: []
+      operationId: UpdateProfileByProfileId
+      parameters:
+      - name: profile_id
+        in: path
+        description: encoded AI Sec Profile Id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        description: AI SEC profile object
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AIProfileObject'
+      responses:
+        '200':
+          description: Successfully updated metadata for a given AI Sec Profile Id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIProfileObject'
+        '404':
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: error occurred
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v1/mgmt/profiles:
+    get:
+      summary: Get All AI Profiles
+      description: Get all AI Sec Profiles and their metadata for for the auth token's TSG
+      tags:
+      - AI Sec Profile
+      operationId: GetAllAIProfilesForTsgId
+      parameters:
+      - name: offset
+        in: query
+        description: The offset at which to start fetching more records
+        required: false
+        schema:
+          type: integer
+          format: int32
+      - name: limit
+        in: query
+        description: The number of records to return.
+        required: false
+        schema:
+          type: integer
+          format: int32
+      - name: latest
+        in: query
+        description: Get only the latest AI Sec Profiles for a given TSG ID
+        required: false
+        schema:
+          type: boolean
+      responses:
+        200:
+          description: Successfully returned metadata for all AI Sec Profiles for a given CspId and TsgId.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAIProfileObject'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: error occurred
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v1/mgmt/profile/{profile_id}/force:
+    delete:
+      summary: Force Delete AI Profile
+      description: Force delete a given AI Sec Profile, bypassing any safety checks
+      tags:
+      - AI Sec Profile
+      operationId: ForceDeleteAIProfile
+      parameters:
+      - name: profile_id
+        in: path
+        description: ProfileId to force delete
+        required: true
+        schema:
+          type: string
+      - name: updated_by
+        in: query
+        description: User performing the force deletion
+        required: true
+        schema:
+          type: string
+      responses:
+        200:
+          description: Successfully force deleted the AI Sec Profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '404':
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: error occurred
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    ModelProtectionObject:
+      type: array
+      items:
+        type: object
+        description: Model protection configuration details
+        properties:
+          name:
+            type: string
+            description: Name of the model protection configuration
+          action:
+            type: string
+            description: Action to be taken for model protection
+          toxic-category-list:
+            type: array
+            description: List of per-category configurations for toxic content
+            items:
+              $ref: '#/components/schemas/ToxicCategoryConfig'
+          topic-list:
+            type: array
+            description: List of topics for model protection configuration
+          items:
+            $ref: '#/components/schemas/TopicArray'
+      required:
+      - name
+      - action
+    AppProtectionObject:
+      type: object
+      properties:
+        alert-url-category:
+          type: object
+          description: URL categories for raising alerts
+          properties:
+            member:
+              type: array
+              items:
+                type: string
+        block-url-category:
+          type: object
+          description: URL categories to be blocked
+          properties:
+            member:
+              type: array
+              items:
+                type: string
+        allow-url-category:
+          type: object
+          description: URL categories to be allowed
+          properties:
+            member:
+              type: array
+              items:
+                type: string
+    PaginatedAIProfileObject:
+      type: object
+      properties:
+        ai_profiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/AIProfileObject'
+        next_offset:
+          type: integer
+          format: int32
+    TopicArray:
+      type: object
+      description: Topic Array for Topic Guardrail
+      properties:
+        action:
+          type: string
+          description: Action to be taken for topic guardrails configuration
+        topic:
+          type: array
+          description: Custom Topic array
+          items:
+            $ref: '#/components/schemas/TopicObject'
+      required:
+      - action
+      - topic
+    AiSecurityProfileObject:
+      type: object
+      properties:
+        model-type:
+          type: string
+          description: AI LLM model type
+        content-type:
+          type: string
+          description: Content for AI profile
+        model-configuration:
+          type: object
+          description: AI LLM model configuration
+          properties:
+            mask-data-in-storage:
+              type: boolean
+              description: Boolean flag to determine whether data is masked in storage
+            latency:
+              $ref: '#/components/schemas/LatencyObject'
+              description: Latency configuration for AI profile
+            data-protection:
+              $ref: '#/components/schemas/DataProtectionObject'
+              description: Data protection configuration for AI profile
+            app-protection:
+              $ref: '#/components/schemas/AppProtectionObject'
+              description: App protection configuration for AI profile
+            model-protection:
+              $ref: '#/components/schemas/ModelProtectionObject'
+              description: Model protection configuration for AI profile
+            agent-protection:
+              $ref: '#/components/schemas/AgentProtectionObject'
+              description: Agent protection configuration for AI profile
+    TopicObject:
+      type: object
+      properties:
+        topic_name:
+          type: string
+          description: Name of the topic for topic guardrail configuration
+        topic_id:
+          type: string
+          description: Unique identifier for the topic
+        revision:
+          type: integer
+          format: int64
+          description: Revision number for the topic
+      required:
+      - topic_name
+      - topic_id
+      - revision
+    PolicyPayload:
+      type: object
+      properties:
+        policy_id:
+          type: string
+        policy_name:
+          type: string
+        priority:
+          type: integer
+          format: int64
+    AgentProtectionObject:
+      type: array
+      items:
+        type: object
+        properties:
+          name:
+            type: string
+            description: Name of agent protection configuration
+          action:
+            type: string
+            description: Action to be taken for agent protection configuration
+        required:
+        - name
+        - action
+    DeleteAIProfileResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        payload:
+          type: array
+          items:
+            $ref: '#/components/schemas/PolicyPayload'
+          minItems: 0
+    DataProtectionObject:
+      type: object
+      properties:
+        data-leak-detection:
+          type: object
+          properties:
+            member:
+              type: array
+              items:
+                type: object
+                properties:
+                  text:
+                    type: string
+                  id:
+                    type: string
+                  version:
+                    type: string
+                required:
+                - text
+            action:
+              type: string
+              description: Action to be taken for data leak detection
+            mask-data-inline:
+              type: boolean
+              description: Boolean flag to determine whether data is masked inline
+          required:
+          - member
+          - action
+    Error:
+      type: object
+      properties:
+        status_code:
+          type: integer
+          format: int32
+        error_message:
+          type: string
+      required:
+      - status_code
+      - error_message
+    ToxicCategoryConfig:
+      type: object
+      description: Per-category configuration for toxic content
+      properties:
+        category:
+          type: string
+          description: Toxic content category name (e.g., hate, sexual-content, cybercrime)
+        action:
+          type: string
+          description: Action configuration for this category (e.g., "high:block,moderate:allow")
+      required:
+      - category
+      - action
+    DLPDataProfileObject:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the DLP data profile
+        uuid:
+          type: string
+          description: Unique identifier for the DLP data profile
+        id:
+          type: string
+          description: DLP data profile id
+        version:
+          type: string
+          description: DLP version
+        rule1:
+          type: object
+          description: First DLP data profile rule configuration
+          properties:
+            action:
+              type: string
+              description: Action to be taken for the first DLP data profile rule
+        rule2:
+          type: object
+          description: Second DLP data profile rule configuration
+          properties:
+            action:
+              type: string
+              description: Action to be taken for the second DLP data profile rule
+        log-severity:
+          type: string
+          description: Severity level for data leak detection logging
+        non-file-based:
+          type: string
+          description: Non-file based data leak detection configuration
+        file-based:
+          type: string
+          description: File-based data leak detection configuration
+      required:
+      - name
+      - uuid
+    AIProfileObject:
+      type: object
+      properties:
+        profile_id:
+          type: string
+          description: Unique identifier for the profile.
+        profile_name:
+          type: string
+          description: Name of the profile.
+        revision:
+          type: integer
+          format: int32
+          description: AI Profile Revision
+        active:
+          type: boolean
+          description: Indicates if AI profile is active
+        policy:
+          type: object
+          properties:
+            dlp-data-profiles:
+              type: array
+              items:
+                $ref: '#/components/schemas/DLPDataProfileObject'
+            ai-security-profiles:
+              type: array
+              items:
+                $ref: '#/components/schemas/AiSecurityProfileObject'
+        created_by:
+          type: string
+          description: Email of the user who created the Profile
+        updated_by:
+          type: string
+          description: Email of the user who updated the Profile
+        last_modified_ts:
+          type: string
+          format: date-time
+          description: Profile Last Modified Time Stamp
+      required:
+      - profile_name
+      - revision
+      - policy
+    LatencyObject:
+      type: object
+      properties:
+        inline-timeout-action:
+          type: string
+          description: Action to be taken when inline timeout occurs
+        max-inline-latency:
+          type: integer
+          format: int32
+          description: Maximum allowed inline latency in seconds
+  securitySchemes:
+    Auth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

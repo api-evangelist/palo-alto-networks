@@ -1,0 +1,727 @@
+openapi: 3.2.0
+info:
+  title: Posture Management Checks API
+  description: 'This API provides comprehensive posture management capabilities including:
+
+    - Custom posture check management (create, update, delete, clone, batch operations)
+
+    - Config file upload for BPA (Best Practice Assessment) results
+
+    - Config cleanup for identifying unused or redundant configuration objects
+
+    - Compliance framework definition management (create, update, delete, release)
+
+    - Compliance analytics and reporting
+
+    - Benchmark monitoring and BPC (Best Practice Check) verdict tracking
+
+    '
+  version: 1.1.0
+  termsOfService: https://www.paloaltonetworks.com/content/dam/pan/en_US/assets/pdf/legal/palo-alto-networks-end-user-license-agreement-eula.pdf
+  contact:
+    email: support@paloaltonetworks.com
+    name: Palo Alto Networks Technical Support
+    url: https://support.paloaltonetworks.com
+  license:
+    name: MIT
+    url: https://opensource.org/license/mit
+servers:
+- url: https://api.strata.paloaltonetworks.com/posture
+  description: Current
+security:
+- BearerAuth: []
+tags:
+- name: Checks
+  description: Operations for managing custom posture checks including CRUD and batch operations.
+paths:
+  /checks/v1:
+    get:
+      tags:
+      - Checks
+      summary: List Checks
+      description: Returns a paginated list of posture checks (both custom and predefined).
+      operationId: ListPostureChecks
+      parameters:
+      - in: query
+        name: type
+        schema:
+          type: string
+          enum:
+          - custom
+          - predefined
+        description: Filter by check type.
+      - in: query
+        name: object_type
+        schema:
+          type: string
+        description: Filter by configuration object type (e.g., "security_rule", "address").
+      - in: query
+        name: severity
+        schema:
+          type: string
+          enum:
+          - Critical
+          - High
+          - Warning
+          - Informational
+        description: Filter by severity level.
+      - in: query
+        name: management_type
+        schema:
+          type: string
+          enum:
+          - cloud
+          - panorama
+        description: Filter by management platform.
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 100
+        description: Maximum number of results to return.
+      - in: query
+        name: offset
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+        description: Number of results to skip for pagination.
+      responses:
+        '200':
+          description: List of posture checks.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostureCheckListResponse'
+        '400':
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+      - Checks
+      summary: Create Posture Check
+      description: Creates a new custom posture check. Requires SCM Pro license.
+      operationId: CreatePostureCheck
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostureCheckCreateRequest'
+      responses:
+        '201':
+          description: Posture check created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostureCheck'
+        '400':
+          description: Bad request - validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - SCM Pro license required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /checks/v1/{id}:
+    get:
+      tags:
+      - Checks
+      summary: Get Posture Check
+      description: Returns a specific posture check by ID.
+      operationId: GetPostureCheckByID
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+        description: The posture check ID.
+      responses:
+        '200':
+          description: Posture check details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostureCheck'
+        '404':
+          description: Posture check not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+      - Checks
+      summary: Update Posture Check
+      description: Updates an existing custom posture check. Requires SCM Pro license.
+      operationId: UpdatePostureCheckByID
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+        description: The posture check ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostureCheckUpdateRequest'
+      responses:
+        '200':
+          description: Posture check updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostureCheck'
+        '400':
+          description: Bad request - validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - SCM Pro license required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Posture check not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+      - Checks
+      summary: Delete Posture Check
+      description: Deletes a custom posture check. Requires SCM Pro license.
+      operationId: DeletePostureCheckByID
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+        description: The posture check ID.
+      responses:
+        '204':
+          description: Posture check deleted successfully.
+        '403':
+          description: Forbidden - SCM Pro license required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Posture check not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /checks/v1/{id}:clone:
+    post:
+      tags:
+      - Checks
+      summary: Clone Posture Check
+      description: Creates a copy of an existing posture check with a new ID. Requires SCM Pro license.
+      operationId: ClonePostureCheckByID
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+        description: The posture check ID to clone.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostureCheckCloneRequest'
+      responses:
+        '201':
+          description: Posture check cloned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostureCheck'
+        '400':
+          description: Bad request - validation error (e.g., duplicate name).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - SCM Pro license required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Posture check not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /checks/v1/batch-upsert:
+    post:
+      tags:
+      - Checks
+      summary: Batch Upsert Checks
+      description: Creates or updates multiple posture checks in a single call. Objects with an existing ID will be updated, new objects will be created. Requires SCM Pro license.
+      operationId: BatchUpsertPostureChecks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostureCheckBatchUpsertRequest'
+      responses:
+        '200':
+          description: Batch upsert completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostureCheckBatchUpsertResponse'
+        '400':
+          description: Bad request - validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - SCM Pro license required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /checks/v1/batch-delete:
+    post:
+      tags:
+      - Checks
+      summary: Batch Delete Checks
+      description: Deletes multiple posture checks in a single call. Requires SCM Pro license.
+      operationId: BatchDeletePostureChecks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostureCheckBatchDeleteRequest'
+      responses:
+        '200':
+          description: Batch delete completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostureCheckBatchDeleteResponse'
+        '400':
+          description: Bad request - validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - SCM Pro license required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    PostureCheck:
+      type: object
+      required:
+      - id
+      - name
+      - object_type
+      - type
+      - severity
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the posture check.
+        name:
+          type: string
+          description: Human-readable name of the posture check.
+        description:
+          type: string
+          description: Detailed description of what the check validates.
+        rationale:
+          type: string
+          description: Explanation of why this check is important.
+        object_type:
+          type: string
+          description: The configuration object type this check applies to.
+        type:
+          type: string
+          enum:
+          - custom
+          - predefined
+          description: Whether this is a custom or predefined check.
+        severity:
+          type: string
+          enum:
+          - Critical
+          - High
+          - Warning
+          - Informational
+          description: Severity level of the check.
+        management_type:
+          type: string
+          enum:
+          - cloud
+          - panorama
+          description: Management platform this check applies to.
+        sub_type:
+          type: string
+          description: Sub-category of the check.
+        action:
+          type: string
+          enum:
+          - alert
+          - failCommit
+          description: Action to take when check fails.
+        data:
+          type: object
+          additionalProperties: true
+          description: Check rule definition/expression (custom checks only).
+        fields_affected:
+          type: array
+          items:
+            type: string
+          description: List of config fields this check evaluates.
+        recommendation:
+          type: string
+          description: Recommended action for this check.
+        impact:
+          type: string
+          description: Impact description if the check fails.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the check was created.
+        updated_at:
+          type: string
+          format: date-time
+          description: Timestamp when the check was last updated.
+    PostureCheckCreateRequest:
+      type: object
+      required:
+      - name
+      - object_type
+      - data
+      - severity
+      properties:
+        name:
+          type: string
+          description: Human-readable name of the posture check.
+        description:
+          type: string
+        rationale:
+          type: string
+        object_type:
+          type: string
+          description: The configuration object type this check applies to.
+        sub_type:
+          type: string
+          description: Sub-category of the check.
+        severity:
+          type: string
+          enum:
+          - Critical
+          - High
+          - Warning
+          - Informational
+        management_type:
+          type: string
+          enum:
+          - cloud
+          - panorama
+          default: cloud
+        action:
+          type: string
+          enum:
+          - alert
+          - failCommit
+          default: alert
+        data:
+          type: object
+          additionalProperties: true
+          description: Check rule definition/expression.
+        sub_feature:
+          type: object
+          additionalProperties: true
+          description: Sub-feature configuration for rule-specific checks.
+    PostureCheckCloneRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Optional new name for the cloned check.
+          maxLength: 256
+    PostureCheckBatchUpsertResponse:
+      type: object
+      properties:
+        created:
+          type: array
+          items:
+            $ref: '#/components/schemas/PostureCheck'
+          description: List of newly created posture checks.
+        updated:
+          type: array
+          items:
+            $ref: '#/components/schemas/PostureCheck'
+          description: List of updated posture checks.
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/BatchOperationError'
+          description: List of errors for checks that failed.
+    PostureCheckListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PostureCheck'
+        total:
+          type: integer
+          description: Total number of posture checks matching the query.
+        limit:
+          type: integer
+          description: Maximum number of results returned.
+        offset:
+          type: integer
+          description: Number of results skipped.
+    PostureCheckBatchUpsertRequest:
+      type: object
+      required:
+      - checks
+      properties:
+        checks:
+          type: array
+          items:
+            $ref: '#/components/schemas/PostureCheckUpsertItem'
+          minItems: 1
+          maxItems: 100
+          description: Array of posture checks to create or update.
+    PostureCheckUpsertItem:
+      type: object
+      required:
+      - name
+      - object_type
+      - data
+      - severity
+      properties:
+        id:
+          type: string
+          description: If provided, the check will be updated.
+        name:
+          type: string
+        description:
+          type: string
+        rationale:
+          type: string
+        object_type:
+          type: string
+        sub_type:
+          type: string
+        severity:
+          type: string
+          enum:
+          - Critical
+          - High
+          - Warning
+          - Informational
+        management_type:
+          type: string
+          enum:
+          - cloud
+          - panorama
+          default: cloud
+        action:
+          type: string
+          enum:
+          - alert
+          - failCommit
+          default: alert
+        data:
+          type: object
+          additionalProperties: true
+        fields_affected:
+          type: array
+          items:
+            type: string
+        sub_feature:
+          type: object
+          additionalProperties: true
+    PostureCheckBatchDeleteResponse:
+      type: object
+      properties:
+        deleted:
+          type: array
+          items:
+            type: string
+          description: List of successfully deleted posture check IDs.
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/BatchOperationError'
+          description: List of errors for checks that failed to delete.
+    BatchOperationError:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The ID or index of the item that failed.
+        message:
+          type: string
+          description: Error message describing why the operation failed.
+    Error:
+      type: object
+      properties:
+        _errors:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+                description: The error code representing a specific error condition.
+              message:
+                type: string
+                description: A brief description of the error condition.
+              details:
+                type: array
+                items:
+                  type: string
+                description: An explanation of the error condition.
+              help:
+                type: string
+                format: uri
+                description: A URL link to documentation describing the error condition.
+        _request_id:
+          type: string
+          format: uuid
+          description: The request ID for troubleshooting purposes.
+    PostureCheckBatchDeleteRequest:
+      type: object
+      required:
+      - ids
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+          minItems: 1
+          maxItems: 100
+          description: Array of posture check IDs to delete.
+    PostureCheckUpdateRequest:
+      type: object
+      required:
+      - name
+      - object_type
+      - data
+      - severity
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        rationale:
+          type: string
+        object_type:
+          type: string
+        sub_type:
+          type: string
+        severity:
+          type: string
+          enum:
+          - Critical
+          - High
+          - Warning
+          - Informational
+        management_type:
+          type: string
+          enum:
+          - cloud
+          - panorama
+        action:
+          type: string
+          enum:
+          - alert
+          - failCommit
+        data:
+          type: object
+          additionalProperties: true
+        sub_feature:
+          type: object
+          additionalProperties: true
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Bearer token authentication using JWT.

@@ -1,0 +1,355 @@
+openapi: 3.2.0
+info:
+  title: Prisma AIRS API Management service API key API
+  description: OpenAPI Specification for Prisma AIRS AI Runtime API Management Service
+  version: 0.0.0
+  contact:
+    name: Palo Alto Networks
+    url: https://www.paloaltonetworks.com
+    email: support@paloaltonetworks.com
+servers:
+- url: https://api.sase.paloaltonetworks.com/aisec
+  description: Prisma AIRS API service URL
+tags:
+- name: API key
+  description: Operations related to API key management
+paths:
+  /v1/mgmt/apikey:
+    post:
+      summary: Create New API Key
+      description: Post a new API key
+      tags:
+      - API key
+      security:
+      - Auth: []
+      operationId: CreateNewAPIKey
+      requestBody:
+        description: API key creation request object
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/APIKeyCreationObject'
+      responses:
+        '200':
+          description: Successfully created a new API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKeyObject'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: error occurred
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v1/mgmt/apikeys:
+    get:
+      summary: Get All API Keys
+      description: Get all API keys and their metadata for the auth token's TSG
+      tags:
+      - API key
+      operationId: GetAllAPIKeysForTsgId
+      parameters:
+      - name: offset
+        in: query
+        description: The offset at which to start fetching more records
+        required: false
+        schema:
+          type: integer
+          format: int32
+      - name: limit
+        in: query
+        description: The number of records to return.
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        200:
+          description: Successfully returned metadata for a given API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAPIKeyObject'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: error occurred
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v1/mgmt/apikey/delete/{api_key_name}:
+    delete:
+      summary: Delete an API Key
+      description: Delete a given API key and its associated customer app
+      tags:
+      - API key
+      security:
+      - Auth: []
+      operationId: DeleteAPIKey
+      parameters:
+      - name: api_key_name
+        in: path
+        description: API key Name to delete
+        required: true
+        schema:
+          type: string
+      - name: updated_by
+        in: query
+        description: The email address of the person who performed the deletion
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successfully deleted a given API key and associated customer app
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '404':
+          description: API key not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: error occurred
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v1/mgmt/apikey/regenerate/{api_key_id}:
+    post:
+      summary: Regenerate an API Key
+      description: Regenerate an API key with the given uuid of apikey
+      tags:
+      - API key
+      security:
+      - Auth: []
+      operationId: RegenerateAPIKeyById
+      requestBody:
+        description: Request to regenerate an API key with the given uuid and optional rotation time interval and unit
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rotation_time_interval:
+                  type: integer
+                  format: int32
+                rotation_time_unit:
+                  type: string
+                updated_by:
+                  type: string
+              required:
+              - rotation_time_interval
+              - rotation_time_unit
+      parameters:
+      - name: api_key_id
+        in: path
+        description: API key uuid to regenerate
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successfully regenerated API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKeyObject'
+        '404':
+          description: API key not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: error occurred
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    PaginatedAPIKeyObject:
+      type: object
+      properties:
+        api_keys:
+          type: array
+          items:
+            $ref: '#/components/schemas/APIKeyObject'
+            description: Type of object in the array.
+        next_offset:
+          type: integer
+          format: int32
+          description: Next offset from which to fetch the records
+    APIKeyObject:
+      type: object
+      description: API Key Object Structure
+      properties:
+        api_key_id:
+          type: string
+          description: API Key Id Value
+        api_key_last8:
+          type: string
+          description: Last eight Characters of api key
+        api_key_name:
+          type: string
+          description: API Key Name
+        auth_code:
+          type: string
+          description: Auth Code Associated with deployment profile
+        csp_id:
+          type: string
+          description: Customer Service Portal ID
+        tsg_id:
+          type: string
+          description: Tenant Service group ID
+        expiration:
+          type: string
+          format: date-time
+          description: Api Key Expiration Time Stamp
+        revoked:
+          type: boolean
+          description: Indicates if the API Key has been revoked
+        revoke_reason:
+          type: string
+          description: If API Key is Revoked, captures the reason for revocation
+        cust_app:
+          type: string
+          description: Customer app associated with the API Key
+        cust_env:
+          type: string
+          description: Environment refers to customer app environment like production, staging, etc
+        cust_ai_agent_framework:
+          type: string
+          description: Customer App AI Agent Framework
+        cust_cloud_provider:
+          type: string
+          description: Cloud provide refers to the customer's APPs LLM model cloud provider
+        created_by:
+          type: string
+          description: Email of the user that created the API Key
+        updated_by:
+          type: string
+          description: Email of the user that updated the API Key
+        last_modified_ts:
+          type: string
+          format: date-time
+          description: Api key last modified Time Stamp
+        rotation_time_interval:
+          type: integer
+          format: int32
+          description: Api Key Rotation time interval
+        rotation_time_unit:
+          type: string
+          description: Api Key Rotation time unit
+        dp_name:
+          type: string
+          description: Deployment Profile Name
+        status:
+          type: string
+          description: Api key status
+        api_key:
+          type: string
+          description: Api key Value
+        lic_expiration:
+          type: string
+          format: date-time
+          description: License Expiration Time stamp
+        avg_text_records:
+          type: integer
+          format: int32
+          description: Text Records
+        creation_ts:
+          type: string
+          format: date-time
+          description: API Key creation timestamp
+        customer_appId:
+          type: string
+          description: Customer appId associated with the key
+      required:
+      - api_key_id
+      - api_key_last8
+      - auth_code
+      - expiration
+      - revoked
+    Error:
+      type: object
+      properties:
+        status_code:
+          type: integer
+          format: int32
+        error_message:
+          type: string
+      required:
+      - status_code
+      - error_message
+    APIKeyCreationObject:
+      type: object
+      properties:
+        dp_name:
+          type: string
+          description: Deployment Profile Name
+        auth_code:
+          type: string
+          description: Auth Code Associated with deployment profile
+        cust_app:
+          type: string
+          description: Customer app under deployment profile
+        cust_env:
+          type: string
+          description: Environment refers to customer app environment like production, staging, etc
+        cust_cloud_provider:
+          type: string
+          description: Cloud provide refers to the customer's APPs LLM model cloud provider
+        cust_ai_agent_framework:
+          type: string
+          description: Customer App AI Agent Framework
+        revoked:
+          type: boolean
+          description: Revoke the current API key
+        created_by:
+          type: string
+          description: Api Key Created Time Stamp
+        api_key_name:
+          type: string
+          description: Api Key Name
+        rotation_time_interval:
+          type: integer
+          format: int32
+          description: Api Key Rotation time interval
+        rotation_time_unit:
+          type: string
+          description: Api Key Rotation time unit
+      required:
+      - auth_code
+      - revoked
+      - cust_app
+      - created_by
+      - api_key_name
+      - rotation_time_interval
+      - rotation_time_unit
+  securitySchemes:
+    Auth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

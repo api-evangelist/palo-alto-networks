@@ -1,0 +1,295 @@
+openapi: 3.2.0
+info:
+  title: Palo Alto Networks AIOps for NGFW BPA 5G Deregistered Trend Scripts API
+  description: AIOps for NGFW Best Practice Assessment (BPA) API. Provides programmatic access to submit BPA requests for Palo Alto Networks next-generation firewalls, check request processing status, and retrieve completed assessment reports. BPA reports analyze firewall configurations against Palo Alto Networks best practices and security benchmarks, identifying gaps and providing remediation guidance to improve security posture. Part of the Strata Cloud Manager platform.
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+servers:
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+security:
+- oauth2Bearer: []
+tags:
+- name: Scripts
+  description: Script execution and results retrieval.
+paths:
+  /scripts/run_script:
+    post:
+      operationId: runScript
+      summary: Palo Alto Networks Execute Script on Endpoints
+      description: Executes a script from the script library on one or more endpoints. Scripts can perform remediation actions, collect forensic data, or run custom commands. Returns an action ID for polling execution status.
+      tags:
+      - Scripts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - request_data
+              properties:
+                request_data:
+                  type: object
+                  required:
+                  - script_uid
+                  properties:
+                    script_uid:
+                      type: string
+                      description: Unique identifier of the script from the script library.
+                    endpoint_ids:
+                      type: array
+                      items:
+                        type: string
+                    filters:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Filter'
+                    parameters_values:
+                      type: object
+                      description: Script parameter key-value pairs.
+                      additionalProperties: true
+                    timeout:
+                      type: integer
+                      description: Script execution timeout in seconds.
+                      default: 600
+            examples:
+              RunScriptRequestExample:
+                summary: Default runScript request
+                x-microcks-default: true
+                value:
+                  request_data:
+                    script_uid: '595817'
+                    endpoint_ids:
+                    - '221362'
+                    - '707960'
+                    filters:
+                    - field: example-field
+                      operator: lte
+                      value: example-value
+                    - field: example-field
+                      operator: lte
+                      value: example-value
+                    parameters_values: {}
+                    timeout: 600
+      responses:
+        '200':
+          description: Script execution initiated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      action_id:
+                        type: string
+                        description: Action ID to poll for script execution results.
+              examples:
+                RunScript200Example:
+                  summary: Default runScript 200 response
+                  x-microcks-default: true
+                  value:
+                    reply:
+                      action_id: '583622'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+  /scripts/get_script_execution_results:
+    post:
+      operationId: getScriptExecutionResults
+      summary: Palo Alto Networks Get Script Execution Results
+      description: Retrieves the execution results and output for a previously initiated script run identified by the action ID.
+      tags:
+      - Scripts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - request_data
+              properties:
+                request_data:
+                  type: object
+                  required:
+                  - action_id
+                  properties:
+                    action_id:
+                      type: string
+                      description: Action ID returned by the run_script endpoint.
+            examples:
+              GetScriptExecutionResultsRequestExample:
+                summary: Default getScriptExecutionResults request
+                x-microcks-default: true
+                value:
+                  request_data:
+                    action_id: '766787'
+      responses:
+        '200':
+          description: Script execution results returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      action_id:
+                        type: string
+                      status:
+                        type: string
+                        enum:
+                        - PENDING
+                        - IN_PROGRESS
+                        - COMPLETED_SUCCESSFULLY
+                        - FAILED
+                        - TIMEOUT
+                        - CANCELED
+                      results:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            endpoint_id:
+                              type: string
+                            endpoint_name:
+                              type: string
+                            endpoint_status:
+                              type: string
+                            domain:
+                              type: string
+                            ip_address:
+                              type: string
+                            is_isolated:
+                              type: string
+                            standard_output:
+                              type: string
+                            standard_error:
+                              type: string
+                            retrieved_files:
+                              type: integer
+                            return_value:
+                              type: integer
+              examples:
+                GetScriptExecutionResults200Example:
+                  summary: Default getScriptExecutionResults 200 response
+                  x-microcks-default: true
+                  value:
+                    reply:
+                      action_id: '941630'
+                      status: TIMEOUT
+                      results:
+                      - endpoint_id: '625820'
+                        endpoint_name: Branch Sensor 63
+                        endpoint_status: running
+                        domain: portal.test-corp.net
+                        ip_address: 10.32.174.246
+                        is_isolated: example-is_isolated
+                        standard_output: example-standard_output
+                        standard_error: example-standard_error
+                        retrieved_files: 667
+                        return_value: 543
+                      - endpoint_id: '670746'
+                        endpoint_name: Production Gateway 55
+                        endpoint_status: running
+                        domain: mail.acme-systems.org
+                        ip_address: 10.171.214.174
+                        is_isolated: example-is_isolated
+                        standard_output: example-standard_output
+                        standard_error: example-standard_error
+                        retrieved_files: 653
+                        return_value: 89
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+components:
+  responses:
+    Unauthorized:
+      description: Missing or invalid authentication headers.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Malformed request body or invalid parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    Filter:
+      type: object
+      description: A filter criterion for querying XDR resources.
+      required:
+      - field
+      - operator
+      - value
+      properties:
+        field:
+          type: string
+          description: Field name to filter on (e.g., incident_id, status, severity).
+          example: example-field
+        operator:
+          type: string
+          enum:
+          - in
+          - contains
+          - gte
+          - lte
+          - eq
+          - neq
+          description: Comparison operator.
+          example: lte
+        value:
+          description: Filter value. Use an array for the "in" operator, a string or integer for others.
+          oneOf:
+          - type: string
+          - type: integer
+          - type: array
+            items:
+              oneOf:
+              - type: string
+              - type: integer
+          example: example-value
+    ErrorResponse:
+      type: object
+      properties:
+        reply:
+          type: object
+          properties:
+            err_code:
+              type: integer
+              example: 782
+            err_msg:
+              type: string
+              example: example-err_msg
+            err_extra:
+              type: string
+              example: example-err_extra
+          example:
+            err_code: 270
+            err_msg: example-err_msg
+            err_extra: example-err_extra
+  securitySchemes:
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
