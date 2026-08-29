@@ -1,17 +1,16 @@
 openapi: 3.2.0
 info:
-  contact: {}
-  description: 'Manages IPSec tunnel configurations, which allow you to authenticate and/or encrypt the
-
-    data (IP packets) as they traverse across the tunnel.
-
-    '
-  title: IPSec Tunnel Management IP Sec Tunnels API
+  title: Palo Alto Networks IP Sec Tunnels API
   version: '1.0'
-  x-logo:
-    url: pan-logo.png
+  x-refined-note:
+  - x-logo differs across the merged source definitions and was not carried
+  description: 'Operations tagged IPSecTunnels across 3 of this provider''s published API definitions: palo-alto-access-prisma-access-config-ipsectunnels-openapi.yaml, palo-alto-networks-ipsectunnels-api-openapi.yml, palo-alto-prisma-access-api-openapi-original.yml. Each path carries the servers of the definition it was published in.'
 servers:
 - url: https://api.sase.paloaltonetworks.com
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+- url: https://api.sase.paloaltonetworks.com/sse/config/v1
+  description: Prisma Access SASE configuration API server.
 tags:
 - name: IPSecTunnels
 paths:
@@ -89,6 +88,8 @@ paths:
       summary: Create IPSec tunnels
       tags:
       - IPSecTunnels
+    servers:
+    - url: https://api.sase.paloaltonetworks.com
   /sse/config/v1/ipsec-tunnels/{id}:
     delete:
       description: 'Delete a ipsec tunnel.
@@ -181,47 +182,331 @@ paths:
       summary: Edit a ipsec tunnel.
       tags:
       - IPSecTunnels
+    servers:
+    - url: https://api.sase.paloaltonetworks.com
+  /ipsec-tunnels:
+    get:
+      operationId: listIPSecTunnels
+      summary: Palo Alto Networks List IPSec Tunnels
+      description: Returns a list of IPSec tunnel configurations. IPSec tunnels use the IKE gateways to establish encrypted VPN connectivity between branch sites or data centers and Prisma Access.
+      tags:
+      - IPSecTunnels
+      parameters:
+      - name: folder
+        in: query
+        description: Filter by folder.
+        schema:
+          type: string
+        example: example-folder
+      - name: offset
+        in: query
+        schema:
+          type: integer
+          default: 0
+        example: 0
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 200
+        example: 200
+      responses:
+        '200':
+          description: IPSec tunnels returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/IPSecTunnel'
+                  offset:
+                    type: integer
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+              examples:
+                ListIpsecTunnels200Example:
+                  summary: Default listIPSecTunnels 200 response
+                  x-microcks-default: true
+                  value:
+                    data:
+                    - id: example-id
+                      name: Staging Firewall 42
+                      auto_key:
+                        ike_gateway:
+                        - name: Corporate Firewall 77
+                        ipsec_crypto_profile: HVAC Controller
+                      tunnel_monitor:
+                        enable: false
+                        destination_ip: 10.26.144.251
+                        proxy_id: '408309'
+                      anti_replay: true
+                      folder: example-folder
+                    offset: 212
+                    total: 309
+                    limit: 181
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    post:
+      operationId: createIPSecTunnel
+      summary: Palo Alto Networks Create an IPSec Tunnel
+      description: Creates a new IPSec tunnel in the candidate configuration.
+      tags:
+      - IPSecTunnels
+      parameters:
+      - name: folder
+        in: query
+        required: true
+        description: Target folder for the IPSec tunnel.
+        schema:
+          type: string
+        example: example-folder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IPSecTunnel'
+            examples:
+              CreateIpsecTunnelRequestExample:
+                summary: Default createIPSecTunnel request
+                x-microcks-default: true
+                value:
+                  id: example-id
+                  name: Staging Firewall 42
+                  auto_key:
+                    ike_gateway:
+                    - name: Corporate Firewall 77
+                    ipsec_crypto_profile: HVAC Controller
+                  tunnel_monitor:
+                    enable: false
+                    destination_ip: 10.26.144.251
+                    proxy_id: '408309'
+                  anti_replay: true
+                  folder: example-folder
+      responses:
+        '201':
+          description: IPSec tunnel created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IPSecTunnel'
+              examples:
+                CreateIpsecTunnel201Example:
+                  summary: Default createIPSecTunnel 201 response
+                  x-microcks-default: true
+                  value:
+                    id: example-id
+                    name: Staging Firewall 42
+                    auto_key:
+                      ike_gateway:
+                      - name: Corporate Firewall 77
+                      ipsec_crypto_profile: HVAC Controller
+                    tunnel_monitor:
+                      enable: false
+                      destination_ip: 10.26.144.251
+                      proxy_id: '408309'
+                    anti_replay: true
+                    folder: example-folder
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
+  /ipsec-tunnels/{id}:
+    get:
+      operationId: getIPSecTunnel
+      summary: Palo Alto Networks Get an IPSec Tunnel
+      description: Returns the configuration of a specific IPSec tunnel.
+      tags:
+      - IPSecTunnels
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Unique IPSec tunnel identifier.
+        schema:
+          type: string
+        example: example-id
+      responses:
+        '200':
+          description: IPSec tunnel returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IPSecTunnel'
+              examples:
+                GetIpsecTunnel200Example:
+                  summary: Default getIPSecTunnel 200 response
+                  x-microcks-default: true
+                  value:
+                    id: example-id
+                    name: Staging Firewall 42
+                    auto_key:
+                      ike_gateway:
+                      - name: Corporate Firewall 77
+                      ipsec_crypto_profile: HVAC Controller
+                    tunnel_monitor:
+                      enable: false
+                      destination_ip: 10.26.144.251
+                      proxy_id: '408309'
+                    anti_replay: true
+                    folder: example-folder
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    put:
+      operationId: updateIPSecTunnel
+      summary: Palo Alto Networks Update an IPSec Tunnel
+      description: Updates an existing IPSec tunnel in the candidate configuration.
+      tags:
+      - IPSecTunnels
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Unique IPSec tunnel identifier.
+        schema:
+          type: string
+        example: example-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IPSecTunnel'
+            examples:
+              UpdateIpsecTunnelRequestExample:
+                summary: Default updateIPSecTunnel request
+                x-microcks-default: true
+                value:
+                  id: example-id
+                  name: Staging Firewall 42
+                  auto_key:
+                    ike_gateway:
+                    - name: Corporate Firewall 77
+                    ipsec_crypto_profile: HVAC Controller
+                  tunnel_monitor:
+                    enable: false
+                    destination_ip: 10.26.144.251
+                    proxy_id: '408309'
+                  anti_replay: true
+                  folder: example-folder
+      responses:
+        '200':
+          description: IPSec tunnel updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IPSecTunnel'
+              examples:
+                UpdateIpsecTunnel200Example:
+                  summary: Default updateIPSecTunnel 200 response
+                  x-microcks-default: true
+                  value:
+                    id: example-id
+                    name: Staging Firewall 42
+                    auto_key:
+                      ike_gateway:
+                      - name: Corporate Firewall 77
+                      ipsec_crypto_profile: HVAC Controller
+                    tunnel_monitor:
+                      enable: false
+                      destination_ip: 10.26.144.251
+                      proxy_id: '408309'
+                    anti_replay: true
+                    folder: example-folder
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    delete:
+      operationId: deleteIPSecTunnel
+      summary: Palo Alto Networks Delete an IPSec Tunnel
+      description: Deletes an IPSec tunnel from the candidate configuration.
+      tags:
+      - IPSecTunnels
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Unique IPSec tunnel identifier.
+        schema:
+          type: string
+        example: example-id
+      responses:
+        '200':
+          description: IPSec tunnel deleted successfully.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
 components:
   examples:
-    json_401_panui_auth_key_expired:
-      summary: Key Expired
-      value:
-        _errors:
-        - code: E016
-          details: {}
-          message: Key Expired
-        _request_id: abcd-1234
-    json_501_panui_restapi_method_not_supported:
-      summary: Method Not Supported
-      value:
-        _errors:
-        - code: E012
-          details: {}
-          message: Method Not Supported
-        _request_id: abcd-1234
-    json_400_panui_restapi_input_format_mismatch:
-      summary: Input Format Mismatch
+    json_400_panui_mgmt_invalid_object:
+      summary: Invalid Object
       value:
         _errors:
         - code: E003
           details: {}
-          message: 'Input Format Mismatch: input-format=json'
-        _request_id: abcd-1234
-    json_501_panui_restapi_version_not_supported:
-      summary: Version Not Supported
-      value:
-        _errors:
-        - code: E012
-          details: {}
-          message: Version Not Supported
-        _request_id: abcd-1234
-    json_409_panui_mgmt_name_not_unique:
-      summary: Name Not Unique
-      value:
-        _errors:
-        - code: E006
-          details: {}
-          message: Name Not Unique
+          message: Invalid Object
         _request_id: abcd-1234
     json_409_panui_mgmt_object_not_unique:
       summary: Object Not Unique
@@ -231,77 +516,13 @@ components:
           details: {}
           message: Object Not Unique
         _request_id: abcd-1234
-    json_404_panui_mgmt_object_not_present:
-      summary: Object Not Present
-      value:
-        _errors:
-        - code: E005
-          details: {}
-          message: Object Not Present
-        _request_id: abcd-1234
-    json_400_panui_restapi_missing_body:
-      summary: Missing Body
+    json_400_panui_restapi_input_format_mismatch:
+      summary: Input Format Mismatch
       value:
         _errors:
         - code: E003
           details: {}
-          message: Missing Body
-        _request_id: abcd-1234
-    json_409_panui_mgmt_reference_not_zero:
-      summary: Reference Not Zero
-      value:
-        _errors:
-        - code: E009
-          details: {}
-          message: Reference Not Zero
-        _request_id: abcd-1234
-    json_400_panui_mgmt_invalid_command:
-      summary: Invalid Command
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: Invalid Command
-        _request_id: abcd-1234
-    json_400_panui_restapi_output_format_mismatch:
-      summary: Output Format Mismatch
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: 'Output Format Mismatch: output-format=json Accept=xml'
-        _request_id: abcd-1234
-    json_401_panui_auth_not_authenticated:
-      summary: Not Authenticated
-      value:
-        _errors:
-        - code: E016
-          details: {}
-          message: Not Authenticated
-        _request_id: abcd-1234
-    json_401_panui_auth_invalid_credential:
-      summary: Invalid Credential
-      value:
-        _errors:
-        - code: E016
-          details: {}
-          message: Invalid Credential
-        _request_id: abcd-1234
-    json_403_panui_auth_unauthorized:
-      summary: Unauthorized
-      value:
-        _errors:
-        - code: E007
-          details: {}
-          message: Unauthorized
-        _request_id: abcd-1234
-    json_400_panui_restapi_missing_query_parameter:
-      summary: Missing Query Parameter
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: 'Missing Query Parameter: name'
+          message: 'Input Format Mismatch: input-format=json'
         _request_id: abcd-1234
     json_405_panui_restapi_action_not_supported:
       summary: Action Not Supported
@@ -311,53 +532,13 @@ components:
           details: {}
           message: 'Action Not Supported: move'
         _request_id: abcd-1234
-    json_400_panui_restapi_invalid_query_parameter:
-      summary: Invalid Query Parameter
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: 'Invalid Query Parameter: location=invalid'
-        _request_id: abcd-1234
-    json_401_panui_auth_key_too_long:
-      summary: Key Too Long
+    json_401_panui_auth_key_expired:
+      summary: Key Expired
       value:
         _errors:
         - code: E016
           details: {}
-          message: Key Too Long
-        _request_id: abcd-1234
-    json_400_panui_mgmt_invalid_object:
-      summary: Invalid Object
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: Invalid Object
-        _request_id: abcd-1234
-    json_400_panui_mgmt_malformed_command:
-      summary: Malformed Command
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: Malformed Command
-        _request_id: abcd-1234
-    json_504_panui_mgmt_session_timeout:
-      summary: Session Timeout
-      value:
-        _errors:
-        - code: 4
-          details: {}
-          message: Session Timeout
-        _request_id: abcd-1234
-    json_401_panui_auth_need_password_change:
-      summary: Need Password Change
-      value:
-        _errors:
-        - code: E016
-          details: {}
-          message: The password needs to be changed.
+          message: Key Expired
         _request_id: abcd-1234
     json_400_panui_mgmt_bad_xpath:
       summary: Bad XPath
@@ -367,9 +548,152 @@ components:
           details: {}
           message: Bad XPath
         _request_id: abcd-1234
+    json_400_panui_restapi_missing_body:
+      summary: Missing Body
+      value:
+        _errors:
+        - code: E003
+          details: {}
+          message: Missing Body
+        _request_id: abcd-1234
+    json_403_panui_auth_unauthorized:
+      summary: Unauthorized
+      value:
+        _errors:
+        - code: E007
+          details: {}
+          message: Unauthorized
+        _request_id: abcd-1234
+    json_401_panui_auth_invalid_credential:
+      summary: Invalid Credential
+      value:
+        _errors:
+        - code: E016
+          details: {}
+          message: Invalid Credential
+        _request_id: abcd-1234
+    json_504_panui_mgmt_session_timeout:
+      summary: Session Timeout
+      value:
+        _errors:
+        - code: 4
+          details: {}
+          message: Session Timeout
+        _request_id: abcd-1234
+    json_401_panui_auth_not_authenticated:
+      summary: Not Authenticated
+      value:
+        _errors:
+        - code: E016
+          details: {}
+          message: Not Authenticated
+        _request_id: abcd-1234
+    json_400_panui_mgmt_invalid_command:
+      summary: Invalid Command
+      value:
+        _errors:
+        - code: E003
+          details: {}
+          message: Invalid Command
+        _request_id: abcd-1234
+    json_401_panui_auth_key_too_long:
+      summary: Key Too Long
+      value:
+        _errors:
+        - code: E016
+          details: {}
+          message: Key Too Long
+        _request_id: abcd-1234
+    json_409_panui_mgmt_name_not_unique:
+      summary: Name Not Unique
+      value:
+        _errors:
+        - code: E006
+          details: {}
+          message: Name Not Unique
+        _request_id: abcd-1234
+    json_401_panui_auth_need_password_change:
+      summary: Need Password Change
+      value:
+        _errors:
+        - code: E016
+          details: {}
+          message: The password needs to be changed.
+        _request_id: abcd-1234
+    json_501_panui_restapi_method_not_supported:
+      summary: Method Not Supported
+      value:
+        _errors:
+        - code: E012
+          details: {}
+          message: Method Not Supported
+        _request_id: abcd-1234
+    json_400_panui_mgmt_malformed_command:
+      summary: Malformed Command
+      value:
+        _errors:
+        - code: E003
+          details: {}
+          message: Malformed Command
+        _request_id: abcd-1234
+    json_409_panui_mgmt_reference_not_zero:
+      summary: Reference Not Zero
+      value:
+        _errors:
+        - code: E009
+          details: {}
+          message: Reference Not Zero
+        _request_id: abcd-1234
+    json_400_panui_restapi_invalid_query_parameter:
+      summary: Invalid Query Parameter
+      value:
+        _errors:
+        - code: E003
+          details: {}
+          message: 'Invalid Query Parameter: location=invalid'
+        _request_id: abcd-1234
+    json_501_panui_restapi_version_not_supported:
+      summary: Version Not Supported
+      value:
+        _errors:
+        - code: E012
+          details: {}
+          message: Version Not Supported
+        _request_id: abcd-1234
+    json_400_panui_restapi_missing_query_parameter:
+      summary: Missing Query Parameter
+      value:
+        _errors:
+        - code: E003
+          details: {}
+          message: 'Missing Query Parameter: name'
+        _request_id: abcd-1234
+    json_400_panui_restapi_output_format_mismatch:
+      summary: Output Format Mismatch
+      value:
+        _errors:
+        - code: E003
+          details: {}
+          message: 'Output Format Mismatch: output-format=json Accept=xml'
+        _request_id: abcd-1234
+    json_404_panui_mgmt_object_not_present:
+      summary: Object Not Present
+      value:
+        _errors:
+        - code: E005
+          details: {}
+          message: Object Not Present
+        _request_id: abcd-1234
   responses:
-    http_ok:
-      description: Ok
+    access_errors:
+      content:
+        application/json:
+          examples:
+            auth_unauthorized:
+              $ref: '#/components/examples/json_403_panui_auth_unauthorized'
+          schema:
+            $ref: '#/components/schemas/generic_error'
+      description: Forbidden
     not_found:
       content:
         application/json:
@@ -379,6 +703,36 @@ components:
           schema:
             $ref: '#/components/schemas/generic_error'
       description: Not Found
+    conflict_errors:
+      content:
+        application/json:
+          examples:
+            name_not_unique:
+              $ref: '#/components/examples/json_409_panui_mgmt_name_not_unique'
+            object_not_unique:
+              $ref: '#/components/examples/json_409_panui_mgmt_object_not_unique'
+            reference_not_zero:
+              $ref: '#/components/examples/json_409_panui_mgmt_reference_not_zero'
+          schema:
+            $ref: '#/components/schemas/generic_error'
+      description: Conflict
+    http_created:
+      description: Created
+    bad_request_errors_basic:
+      content:
+        application/json:
+          examples:
+            input_format_mismatch:
+              $ref: '#/components/examples/json_400_panui_restapi_input_format_mismatch'
+            invalid_query_parameter:
+              $ref: '#/components/examples/json_400_panui_restapi_invalid_query_parameter'
+            missing_query_parameter:
+              $ref: '#/components/examples/json_400_panui_restapi_missing_query_parameter'
+            output_format_mismatch:
+              $ref: '#/components/examples/json_400_panui_restapi_output_format_mismatch'
+          schema:
+            $ref: '#/components/schemas/generic_error'
+      description: Bad Request
     default_errors:
       content:
         application/json:
@@ -400,6 +754,23 @@ components:
           schema:
             $ref: '#/components/schemas/generic_error'
       description: General Errors
+    auth_errors:
+      content:
+        application/json:
+          examples:
+            auth_not_authenticated:
+              $ref: '#/components/examples/json_401_panui_auth_not_authenticated'
+            invalid_credential:
+              $ref: '#/components/examples/json_401_panui_auth_invalid_credential'
+            key_expired:
+              $ref: '#/components/examples/json_401_panui_auth_key_expired'
+            key_too_long:
+              $ref: '#/components/examples/json_401_panui_auth_key_too_long'
+            need_password_change:
+              $ref: '#/components/examples/json_401_panui_auth_need_password_change'
+          schema:
+            $ref: '#/components/schemas/generic_error'
+      description: Unauthorized
     bad_request_errors_basic_with_body:
       content:
         application/json:
@@ -419,78 +790,54 @@ components:
           schema:
             $ref: '#/components/schemas/generic_error'
       description: Bad Request
-    bad_request_errors_basic:
+    http_ok:
+      description: Ok
+    Forbidden:
+      description: Insufficient permissions for this operation.
       content:
         application/json:
-          examples:
-            input_format_mismatch:
-              $ref: '#/components/examples/json_400_panui_restapi_input_format_mismatch'
-            invalid_query_parameter:
-              $ref: '#/components/examples/json_400_panui_restapi_invalid_query_parameter'
-            missing_query_parameter:
-              $ref: '#/components/examples/json_400_panui_restapi_missing_query_parameter'
-            output_format_mismatch:
-              $ref: '#/components/examples/json_400_panui_restapi_output_format_mismatch'
           schema:
-            $ref: '#/components/schemas/generic_error'
-      description: Bad Request
-    auth_errors:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error.
       content:
         application/json:
-          examples:
-            auth_not_authenticated:
-              $ref: '#/components/examples/json_401_panui_auth_not_authenticated'
-            invalid_credential:
-              $ref: '#/components/examples/json_401_panui_auth_invalid_credential'
-            key_expired:
-              $ref: '#/components/examples/json_401_panui_auth_key_expired'
-            key_too_long:
-              $ref: '#/components/examples/json_401_panui_auth_key_too_long'
-            need_password_change:
-              $ref: '#/components/examples/json_401_panui_auth_need_password_change'
           schema:
-            $ref: '#/components/schemas/generic_error'
-      description: Unauthorized
-    http_created:
-      description: Created
-    conflict_errors:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Invalid request parameters or body.
       content:
         application/json:
-          examples:
-            name_not_unique:
-              $ref: '#/components/examples/json_409_panui_mgmt_name_not_unique'
-            object_not_unique:
-              $ref: '#/components/examples/json_409_panui_mgmt_object_not_unique'
-            reference_not_zero:
-              $ref: '#/components/examples/json_409_panui_mgmt_reference_not_zero'
           schema:
-            $ref: '#/components/schemas/generic_error'
-      description: Conflict
-    access_errors:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid OAuth2 access token.
       content:
         application/json:
-          examples:
-            auth_unauthorized:
-              $ref: '#/components/examples/json_403_panui_auth_unauthorized'
           schema:
-            $ref: '#/components/schemas/generic_error'
-      description: Forbidden
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   parameters:
-    uuid-required:
-      description: 'The resource''s unique identifier.
-
-        '
-      in: path
-      name: id
-      required: true
-      schema:
-        type: string
     offset-optional:
       description: 'The offset of the result entry.
 
         '
       in: query
       name: offset
+      required: false
+      schema:
+        type: number
+    limit-optional:
+      description: 'The maximum number of result objects to return per page.
+
+        '
+      in: query
+      name: limit
       required: false
       schema:
         type: number
@@ -511,15 +858,15 @@ components:
         - Mobile Users Explicit Proxy
         pattern: ^[0-9a-zA-Z._-\s]{1,}$
         type: string
-    limit-optional:
-      description: 'The maximum number of result objects to return per page.
+    uuid-required:
+      description: 'The resource''s unique identifier.
 
         '
-      in: query
-      name: limit
-      required: false
+      in: path
+      name: id
+      required: true
       schema:
-        type: number
+        type: string
     name-optional:
       description: 'The name of the entry.
 
@@ -537,22 +884,6 @@ components:
         _request_id:
           type: string
       type: object
-    error_detail_cause_info:
-      properties:
-        code:
-          type: string
-        details:
-          type: object
-        help:
-          type: string
-        message:
-          type: string
-      title: Cause Info
-      type: object
-    error_detail_cause_infos:
-      items:
-        $ref: '#/components/schemas/error_detail_cause_info'
-      type: array
     ipsec-tunnels:
       properties:
         anti_replay:
@@ -723,7 +1054,131 @@ components:
       - name
       - auto_key
       type: object
+    error_detail_cause_infos:
+      items:
+        $ref: '#/components/schemas/error_detail_cause_info'
+      type: array
+    error_detail_cause_info:
+      properties:
+        code:
+          type: string
+        details:
+          type: object
+        help:
+          type: string
+        message:
+          type: string
+      title: Cause Info
+      type: object
+    ErrorResponse:
+      type: object
+      properties:
+        _errors:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+                example: example-code
+              message:
+                type: string
+                example: Alert malware configured threat rule network malware configured on.
+              details:
+                type: object
+                example: {}
+          example:
+          - code: example-code
+            message: Threat configured alert firewall violation monitoring traffic activity.
+            details: {}
+          - code: example-code
+            message: Blocked threat Security traffic firewall monitoring malware endpoint suspicious network.
+            details: {}
+        _request_id:
+          type: string
+          example: '980164'
+    IPSecTunnel:
+      type: object
+      required:
+      - name
+      - auto_key
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the IPSec tunnel.
+          readOnly: true
+          example: example-id
+        name:
+          type: string
+          description: Name of the IPSec tunnel.
+          example: Staging Firewall 42
+        auto_key:
+          type: object
+          description: Auto-key IKE configuration for the tunnel.
+          properties:
+            ike_gateway:
+              type: array
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    description: Name of the IKE gateway to use.
+                    example: Production Agent 99
+              example:
+              - name: Branch Agent 66
+              - name: Primary Agent 16
+            ipsec_crypto_profile:
+              type: string
+              description: IPSec crypto profile name.
+              example: IP Camera
+          example:
+            ike_gateway:
+            - name: Corporate Firewall 77
+            ipsec_crypto_profile: HVAC Controller
+        tunnel_monitor:
+          type: object
+          properties:
+            enable:
+              type: boolean
+              example: false
+            destination_ip:
+              type: string
+              format: ipv4
+              example: 10.93.88.181
+            proxy_id:
+              type: string
+              example: '109061'
+          example:
+            enable: false
+            destination_ip: 10.26.144.251
+            proxy_id: '408309'
+        anti_replay:
+          type: boolean
+          default: true
+          description: Whether anti-replay protection is enabled.
+          example: true
+        folder:
+          type: string
+          readOnly: true
+          example: example-folder
   securitySchemes:
     Bearer:
       scheme: bearer
       type: http
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
+    oauth2:
+      type: oauth2
+      description: OAuth 2.0 client credentials flow for obtaining an access token. Requires a client ID and client secret from the Palo Alto Networks SASE identity provider.
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
+          scopes: {}
+x-refined-from:
+- palo-alto-access-prisma-access-config-ipsectunnels-openapi.yaml
+- palo-alto-networks-ipsectunnels-api-openapi.yml
+- palo-alto-prisma-access-api-openapi-original.yml

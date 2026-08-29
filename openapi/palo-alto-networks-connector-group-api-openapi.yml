@@ -372,27 +372,22 @@ paths:
       - Connector-Group
       operationId: get.connector_group.scheduled_upgrade_status.v2
 components:
-  examples:
-    filter-empty:
-      summary: when no filter value is available
-      value: []
-    filter:
-      summary: common scenario
-      value:
-      - value 1
-      - value 2
   schemas:
-    pagination.total:
-      type: integer
-      title: The total number of objects
-    wildcard.list:
+    entity_meta:
+      type: object
+      properties:
+        created_time:
+          type: string
+        updated_time:
+          type: string
+    subnet_rule.list:
       type: object
       properties:
         data:
           type: array
           items:
             allOf:
-            - $ref: '#/components/schemas/wildcard-existing'
+            - $ref: '#/components/schemas/subnet_rule-existing'
             - $ref: '#/components/schemas/entity_meta'
         total:
           $ref: '#/components/schemas/pagination.total'
@@ -405,37 +400,288 @@ components:
       - total
       - offset
       - limit
-    pagination.limit:
-      type: integer
-      title: The manimum number of objects to return
-    connector_group.status:
+    connector_group.scheduled_upgrade:
       type: object
       properties:
-        token_active:
+        image_id:
           type: string
-        token_secret:
+          description: The connector image version ID to upgrade to.
+        scheduled_download:
           type: string
-        counts:
-          type: object
-          properties:
-            applications:
-              type: integer
-            connectors:
-              type: integer
-            wildcards:
-              type: integer
-            ipsubnets:
-              type: integer
-        pa_region:
+          format: date-time
+          description: 'The scheduled download time in RFC3339 format (UTC).
+
+
+            If omitted, defaults to current UTC time.'
+        scheduled_upgrade:
           type: string
-        anycast_ip:
+          format: date-time
+          description: 'The scheduled upgrade time in RFC3339 format (UTC).
+
+
+            Must be after the scheduled_download time. If omitted, defaults to current UTC time.'
+        rolling_upgrade:
+          type: boolean
+          description: 'Whether to perform a rolling upgrade.
+
+
+            If omitted, defaults to false. Requires SaasAgent version 6.1.0 or later.'
+        drain_timeout:
+          type: integer
+          description: 'Drain timeout in seconds for rolling upgrades.
+
+
+            If omitted, defaults to 0.'
+      required:
+      - image_id
+    error_detail:
+      type: object
+      description: Error detail information following Google Cloud API CauseInfo format
+      properties:
+        '@type':
           type: string
-        sw_version:
+          description: Type identifier for the detail object
+          example: google-cloud-api/CauseInfo
+        message:
           type: string
-        user_id_ip:
+          description: Detailed error message
+        causes:
+          type: array
+          description: Array of cause information objects
+          items:
+            type: object
+            properties:
+              message:
+                type: string
+                description: Cause message
+              module:
+                type: string
+                description: Module where the cause originated
+    connector_group-existing:
+      type: object
+      properties:
+        oid:
+          description: Connector Group ID
           type: string
-        user_id_port:
+          readOnly: true
+        name:
           type: string
+          description: 'Name of the connector group.
+
+
+            It can only be 64 characters long
+
+            and contain unicode text, space, dash, or underscore, or period.'
+          maxLength: 64
+          minLength: 1
+          pattern: ^[\p{L}\p{N}\p{P}\s,.:_-]*$
+          readOnly: true
+        description:
+          type: string
+          description: Description of the connector group.
+          maxLength: 64
+          pattern: ^[\p{L}\p{N}\p{P}\s,.:_-]*$
+        is_autoscale:
+          type: boolean
+          description: 'Whether the connector group is autoscaled.
+
+
+            If omitted, defaults to false.'
+          readOnly: true
+        preserve_user_id:
+          type: boolean
+          description: 'Whether to preserve user ID for this connector group.
+
+
+            If omitted, defaults to false.'
+          readOnly: true
+        is_ngfw:
+          type: boolean
+          description: 'Connector group type.
+
+
+            If false (default), the group is a ZTNA Connector group.
+
+            If true, the group is an NGFW Connector group.
+
+
+            If omitted, defaults to false.'
+          readOnly: true
+        pba_project_name:
+          type: string
+          description: 'DPA project name that this connector group will serve.
+
+
+            This field must be provided when the tenant is DPA-enabled,
+
+            and must not be provided when the tenant is not DPA-enabled.'
+      required:
+      - oid
+    subnet_rule-existing:
+      type: object
+      properties:
+        oid:
+          description: Id of the entry.
+          type: string
+          readOnly: true
+        name:
+          type: string
+          description: 'Name of the IP Subnet rule.
+
+
+            It can only be 64 characters long
+
+            and contain unicode text, space, dash, or underscore, or period.'
+          maxLength: 64
+          minLength: 1
+          pattern: ^[\p{L}\p{N}\p{P}\s,.:_-]*$
+        description:
+          type: string
+          maxLength: 64
+          pattern: ^[\p{L}\p{N}\p{P}\s,.:_-]*$
+        group:
+          type: string
+          description: A comma separated list of [connector group id](#tag/connector-group/operation/list.connector_group.v2)
+        ip_subnets:
+          type: string
+          description: IPv4 subnet in CIDR notation (x.x.x.x/y)
+        app_enabled:
+          type: boolean
+          description: 'Whether the IP subnet rule is enabled.
+
+
+            If omitted, defaults to false.'
+        icmp_allowed:
+          type: boolean
+          description: 'Whether ICMP is allowed for this IP subnet rule.
+
+
+            If omitted, defaults to true.'
+      required:
+      - oid
+      - name
+      - group
+      - ip_subnets
+    connector_group.upgrade_status:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Connector group name
+        oid:
+          type: string
+          description: Connector group ID
+        rolling_upgrade:
+          type: boolean
+          description: Whether rolling upgrade is enabled for this connector group
+        upgrade_status:
+          type: string
+          description: Overall upgrade status for the connector group
+        data:
+          type: array
+          description: List of connector upgrade statuses within this group
+          items:
+            type: object
+            properties:
+              connector_name:
+                type: string
+                description: Connector name
+              connector_oid:
+                type: string
+                description: Connector ID
+              upgrade_status:
+                type: string
+                description: Current upgrade status of the connector
+              current_sw_version:
+                type: string
+                description: Current software version running on the connector
+              upgrade_sw_version:
+                type: string
+                description: Target software version for the upgrade
+              upgrade_time:
+                type: string
+                description: Scheduled upgrade time
+              sessions_count:
+                type: integer
+                description: Number of active sessions (present when connector is draining)
+              drain_time:
+                type: integer
+                description: Time remaining until drain completes in seconds (present when connector is draining)
+              failure_reason:
+                type: string
+                description: Reason for upgrade failure (if upgrade failed)
+    error_response:
+      type: object
+      description: Error response payload
+      properties:
+        error:
+          $ref: '#/components/schemas/error_object'
+      required:
+      - error
+    connector_group.fqdn_rules:
+      type: object
+      properties:
+        group:
+          $ref: '#/components/schemas/connector_group-existing'
+        applications:
+          $ref: '#/components/schemas/fqdn_rule.list'
+    connector-existing:
+      type: object
+      properties:
+        oid:
+          type: string
+          description: Id of the entry.
+          readOnly: true
+        name:
+          type: string
+          description: 'Name of the connector.
+
+
+            It can only be 64 characters long
+
+            and contain unicode text, space, dash, or underscore, or period.'
+          maxLength: 64
+          minLength: 1
+          pattern: ^[\p{L}\p{N}\p{P}\s,.:_-]*$
+          readOnly: true
+        description:
+          type: string
+          description: Description of the connector.
+          maxLength: 64
+          pattern: ^[\p{L}\p{N}\p{P}\s,.:_-]*$
+        group:
+          type: string
+          description: The [connector group id](#tag/connector-group/operation/list.connector_group.v2)
+          readOnly: true
+      required:
+      - oid
+      - name
+      - group
+    connector.list:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            allOf:
+            - $ref: '#/components/schemas/connector-existing'
+            - $ref: '#/components/schemas/connector.status'
+            - $ref: '#/components/schemas/entity_meta'
+        total:
+          $ref: '#/components/schemas/pagination.total'
+        limit:
+          $ref: '#/components/schemas/pagination.limit'
+        offset:
+          $ref: '#/components/schemas/pagination.offset'
+      required:
+      - data
+      - total
+      - offset
+      - limit
+    filters:
+      type: array
+      items:
+        type: string
     connector_group-new:
       type: object
       properties:
@@ -488,6 +734,70 @@ components:
             and must not be provided when the tenant is not DPA-enabled.'
       required:
       - name
+    pagination.offset:
+      type: integer
+      title: The offset into the total number of objects
+    pagination.limit:
+      type: integer
+      title: The manimum number of objects to return
+    wildcard.list:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            allOf:
+            - $ref: '#/components/schemas/wildcard-existing'
+            - $ref: '#/components/schemas/entity_meta'
+        total:
+          $ref: '#/components/schemas/pagination.total'
+        limit:
+          $ref: '#/components/schemas/pagination.limit'
+        offset:
+          $ref: '#/components/schemas/pagination.offset'
+      required:
+      - data
+      - total
+      - offset
+      - limit
+    connector_group.wildcards:
+      type: object
+      properties:
+        group:
+          $ref: '#/components/schemas/connector_group-existing'
+        wildcards:
+          $ref: '#/components/schemas/wildcard.list'
+    connector_group.status:
+      type: object
+      properties:
+        token_active:
+          type: string
+        token_secret:
+          type: string
+        counts:
+          type: object
+          properties:
+            applications:
+              type: integer
+            connectors:
+              type: integer
+            wildcards:
+              type: integer
+            ipsubnets:
+              type: integer
+        pa_region:
+          type: string
+        anycast_ip:
+          type: string
+        sw_version:
+          type: string
+        user_id_ip:
+          type: string
+        user_id_port:
+          type: string
+    pagination.total:
+      type: integer
+      title: The total number of objects
     connector.status:
       type: object
       properties:
@@ -569,172 +879,23 @@ components:
           type: number
         cgnx_upgrade_status_last_updated:
           type: string
-    connector-existing:
+    error_object:
       type: object
+      description: Error object following Google Cloud API error format
       properties:
-        oid:
+        code:
           type: string
-          description: Id of the entry.
-          readOnly: true
-        name:
-          type: string
-          description: 'Name of the connector.
-
-
-            It can only be 64 characters long
-
-            and contain unicode text, space, dash, or underscore, or period.'
-          maxLength: 64
-          minLength: 1
-          pattern: ^[\p{L}\p{N}\p{P}\s,.:_-]*$
-          readOnly: true
-        description:
-          type: string
-          description: Description of the connector.
-          maxLength: 64
-          pattern: ^[\p{L}\p{N}\p{P}\s,.:_-]*$
-        group:
-          type: string
-          description: The [connector group id](#tag/connector-group/operation/list.connector_group.v2)
-          readOnly: true
-      required:
-      - oid
-      - name
-      - group
-    connector_group.list:
-      type: object
-      description: 'Connector Group summary containing information needed to show connector groups in a tabular format.
-
-        '
-      properties:
-        data:
-          type: array
-          items:
-            allOf:
-            - $ref: '#/components/schemas/connector_group-existing'
-            - $ref: '#/components/schemas/connector_group.status'
-            - $ref: '#/components/schemas/entity_meta'
-        total:
-          $ref: '#/components/schemas/pagination.total'
-        limit:
-          $ref: '#/components/schemas/pagination.limit'
-        offset:
-          $ref: '#/components/schemas/pagination.offset'
-      required:
-      - data
-      - total
-      - offset
-      - limit
-    connector_group.connectors:
-      type: object
-      properties:
-        group:
-          $ref: '#/components/schemas/connector_group-existing'
-        connectors:
-          $ref: '#/components/schemas/connector.list'
-    subnet_rule.list:
-      type: object
-      properties:
-        data:
-          type: array
-          items:
-            allOf:
-            - $ref: '#/components/schemas/subnet_rule-existing'
-            - $ref: '#/components/schemas/entity_meta'
-        total:
-          $ref: '#/components/schemas/pagination.total'
-        limit:
-          $ref: '#/components/schemas/pagination.limit'
-        offset:
-          $ref: '#/components/schemas/pagination.offset'
-      required:
-      - data
-      - total
-      - offset
-      - limit
-    connector_group-existing:
-      type: object
-      properties:
-        oid:
-          description: Connector Group ID
-          type: string
-          readOnly: true
-        name:
-          type: string
-          description: 'Name of the connector group.
-
-
-            It can only be 64 characters long
-
-            and contain unicode text, space, dash, or underscore, or period.'
-          maxLength: 64
-          minLength: 1
-          pattern: ^[\p{L}\p{N}\p{P}\s,.:_-]*$
-          readOnly: true
-        description:
-          type: string
-          description: Description of the connector group.
-          maxLength: 64
-          pattern: ^[\p{L}\p{N}\p{P}\s,.:_-]*$
-        is_autoscale:
-          type: boolean
-          description: 'Whether the connector group is autoscaled.
-
-
-            If omitted, defaults to false.'
-          readOnly: true
-        preserve_user_id:
-          type: boolean
-          description: 'Whether to preserve user ID for this connector group.
-
-
-            If omitted, defaults to false.'
-          readOnly: true
-        is_ngfw:
-          type: boolean
-          description: 'Connector group type.
-
-
-            If false (default), the group is a ZTNA Connector group.
-
-            If true, the group is an NGFW Connector group.
-
-
-            If omitted, defaults to false.'
-          readOnly: true
-        pba_project_name:
-          type: string
-          description: 'DPA project name that this connector group will serve.
-
-
-            This field must be provided when the tenant is DPA-enabled,
-
-            and must not be provided when the tenant is not DPA-enabled.'
-      required:
-      - oid
-    error_detail:
-      type: object
-      description: Error detail information following Google Cloud API CauseInfo format
-      properties:
-        '@type':
-          type: string
-          description: Type identifier for the detail object
-          example: google-cloud-api/CauseInfo
+          description: Error code
+          example: INVALID_ARGUMENT
         message:
           type: string
-          description: Detailed error message
-        causes:
+          description: Human-readable error message
+          example: Unable to find tenantID from TSG mapping or request
+        details:
           type: array
-          description: Array of cause information objects
+          description: Additional error details
           items:
-            type: object
-            properties:
-              message:
-                type: string
-                description: Cause message
-              module:
-                type: string
-                description: Module where the cause originated
+            $ref: '#/components/schemas/error_detail'
     fqdn_rule-existing:
       type: object
       properties:
@@ -832,75 +993,13 @@ components:
       - oid
       - name
       - group
-    pagination.offset:
-      type: integer
-      title: The offset into the total number of objects
-    connector_group.wildcards:
+    connector_group.subnet_rules:
       type: object
       properties:
         group:
           $ref: '#/components/schemas/connector_group-existing'
-        wildcards:
-          $ref: '#/components/schemas/wildcard.list'
-    filters:
-      type: array
-      items:
-        type: string
-    connector_group.upgrade_status:
-      type: object
-      properties:
-        name:
-          type: string
-          description: Connector group name
-        oid:
-          type: string
-          description: Connector group ID
-        rolling_upgrade:
-          type: boolean
-          description: Whether rolling upgrade is enabled for this connector group
-        upgrade_status:
-          type: string
-          description: Overall upgrade status for the connector group
-        data:
-          type: array
-          description: List of connector upgrade statuses within this group
-          items:
-            type: object
-            properties:
-              connector_name:
-                type: string
-                description: Connector name
-              connector_oid:
-                type: string
-                description: Connector ID
-              upgrade_status:
-                type: string
-                description: Current upgrade status of the connector
-              current_sw_version:
-                type: string
-                description: Current software version running on the connector
-              upgrade_sw_version:
-                type: string
-                description: Target software version for the upgrade
-              upgrade_time:
-                type: string
-                description: Scheduled upgrade time
-              sessions_count:
-                type: integer
-                description: Number of active sessions (present when connector is draining)
-              drain_time:
-                type: integer
-                description: Time remaining until drain completes in seconds (present when connector is draining)
-              failure_reason:
-                type: string
-                description: Reason for upgrade failure (if upgrade failed)
-    entity_meta:
-      type: object
-      properties:
-        created_time:
-          type: string
-        updated_time:
-          type: string
+        subnets:
+          $ref: '#/components/schemas/subnet_rule.list'
     fqdn_rule.list:
       type: object
       properties:
@@ -921,21 +1020,37 @@ components:
       - total
       - offset
       - limit
-    connector_group.fqdn_rules:
+    connector_group.connectors:
       type: object
       properties:
         group:
           $ref: '#/components/schemas/connector_group-existing'
-        applications:
-          $ref: '#/components/schemas/fqdn_rule.list'
-    error_response:
+        connectors:
+          $ref: '#/components/schemas/connector.list'
+    connector_group.list:
       type: object
-      description: Error response payload
+      description: 'Connector Group summary containing information needed to show connector groups in a tabular format.
+
+        '
       properties:
-        error:
-          $ref: '#/components/schemas/error_object'
+        data:
+          type: array
+          items:
+            allOf:
+            - $ref: '#/components/schemas/connector_group-existing'
+            - $ref: '#/components/schemas/connector_group.status'
+            - $ref: '#/components/schemas/entity_meta'
+        total:
+          $ref: '#/components/schemas/pagination.total'
+        limit:
+          $ref: '#/components/schemas/pagination.limit'
+        offset:
+          $ref: '#/components/schemas/pagination.offset'
       required:
-      - error
+      - data
+      - total
+      - offset
+      - limit
     wildcard-existing:
       type: object
       properties:
@@ -1034,133 +1149,42 @@ components:
       - name
       - group
       - fqdn
-    connector_group.subnet_rules:
-      type: object
-      properties:
-        group:
-          $ref: '#/components/schemas/connector_group-existing'
-        subnets:
-          $ref: '#/components/schemas/subnet_rule.list'
-    connector_group.scheduled_upgrade:
-      type: object
-      properties:
-        image_id:
-          type: string
-          description: The connector image version ID to upgrade to.
-        scheduled_download:
-          type: string
-          format: date-time
-          description: 'The scheduled download time in RFC3339 format (UTC).
-
-
-            If omitted, defaults to current UTC time.'
-        scheduled_upgrade:
-          type: string
-          format: date-time
-          description: 'The scheduled upgrade time in RFC3339 format (UTC).
-
-
-            Must be after the scheduled_download time. If omitted, defaults to current UTC time.'
-        rolling_upgrade:
-          type: boolean
-          description: 'Whether to perform a rolling upgrade.
-
-
-            If omitted, defaults to false. Requires SaasAgent version 6.1.0 or later.'
-        drain_timeout:
-          type: integer
-          description: 'Drain timeout in seconds for rolling upgrades.
-
-
-            If omitted, defaults to 0.'
-      required:
-      - image_id
-    subnet_rule-existing:
-      type: object
-      properties:
-        oid:
-          description: Id of the entry.
-          type: string
-          readOnly: true
-        name:
-          type: string
-          description: 'Name of the IP Subnet rule.
-
-
-            It can only be 64 characters long
-
-            and contain unicode text, space, dash, or underscore, or period.'
-          maxLength: 64
-          minLength: 1
-          pattern: ^[\p{L}\p{N}\p{P}\s,.:_-]*$
-        description:
-          type: string
-          maxLength: 64
-          pattern: ^[\p{L}\p{N}\p{P}\s,.:_-]*$
-        group:
-          type: string
-          description: A comma separated list of [connector group id](#tag/connector-group/operation/list.connector_group.v2)
-        ip_subnets:
-          type: string
-          description: IPv4 subnet in CIDR notation (x.x.x.x/y)
-        app_enabled:
-          type: boolean
-          description: 'Whether the IP subnet rule is enabled.
-
-
-            If omitted, defaults to false.'
-        icmp_allowed:
-          type: boolean
-          description: 'Whether ICMP is allowed for this IP subnet rule.
-
-
-            If omitted, defaults to true.'
-      required:
-      - oid
-      - name
-      - group
-      - ip_subnets
-    connector.list:
-      type: object
-      properties:
-        data:
-          type: array
-          items:
-            allOf:
-            - $ref: '#/components/schemas/connector-existing'
-            - $ref: '#/components/schemas/connector.status'
-            - $ref: '#/components/schemas/entity_meta'
-        total:
-          $ref: '#/components/schemas/pagination.total'
-        limit:
-          $ref: '#/components/schemas/pagination.limit'
-        offset:
-          $ref: '#/components/schemas/pagination.offset'
-      required:
-      - data
-      - total
-      - offset
-      - limit
-    error_object:
-      type: object
-      description: Error object following Google Cloud API error format
-      properties:
-        code:
-          type: string
-          description: Error code
-          example: INVALID_ARGUMENT
-        message:
-          type: string
-          description: Human-readable error message
-          example: Unable to find tenantID from TSG mapping or request
-        details:
-          type: array
-          description: Additional error details
-          items:
-            $ref: '#/components/schemas/error_detail'
   responses:
+    error-403:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/error_response'
+    http.200_ok:
+      x-summary: OK
+      description: '[200 OK](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/200)
+
+        '
+    error-409:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/error_response'
     error-404:
       description: Not Found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/error_response'
+    http.201_created:
+      x-summary: Created
+      description: '[201 Created](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/201)
+
+        '
+    http.202_accepted:
+      x-summary: Accepted
+      description: '[202 Accepted](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202)
+
+        '
+    error-401:
+      description: Unauthorized
       content:
         application/json:
           schema:
@@ -1171,40 +1195,24 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/error_response'
-    error-403:
-      description: Forbidden
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/error_response'
-    http.201_created:
-      x-summary: Created
-      description: '[201 Created](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/201)
-
-        '
-    http.200_ok:
-      x-summary: OK
-      description: '[200 OK](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/200)
-
-        '
-    error-401:
-      description: Unauthorized
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/error_response'
-    error-409:
-      description: Conflict
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/error_response'
-    http.202_accepted:
-      x-summary: Accepted
-      description: '[202 Accepted](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202)
-
-        '
   parameters:
+    path.oid:
+      name: oid
+      in: path
+      description: Object ID
+      required: true
+      schema:
+        type: string
+    query.sort:
+      name: sort
+      description: List of fields from item response to sort by.
+      in: query
+      schema:
+        type: string
+      examples:
+        threeItems:
+          value: A[asc],B[desc],C
+          summary: An example sort list that sorts first by A in ascending order, then B in descending order, and finally C in ascending order.
     pagination.limit:
       name: limit
       in: query
@@ -1220,55 +1228,6 @@ components:
       schema:
         type: string
         example: connector1
-    query.sort:
-      name: sort
-      description: List of fields from item response to sort by.
-      in: query
-      schema:
-        type: string
-      examples:
-        threeItems:
-          value: A[asc],B[desc],C
-          summary: An example sort list that sorts first by A in ascending order, then B in descending order, and finally C in ascending order.
-    pagination.offset:
-      name: offset
-      description: 'A 0-based offset into the collection.
-
-        It is the index of the starting entry of the page
-
-        '
-      in: query
-      required: false
-      schema:
-        type: integer
-        minimum: 0
-    query.field:
-      name: field
-      description: String that represents a static filter field. Call any of the /filters endpoints without specifying a field to get a list of all available fields.
-      in: query
-      schema:
-        type: string
-        example: connector_group
-    path.oid:
-      name: oid
-      in: path
-      description: Object ID
-      required: true
-      schema:
-        type: string
-    query.filters:
-      name: filters
-      description: String to filter list results by searching one specified field of an object. Multiple filters can be specified.
-      in: query
-      schema:
-        type: string
-      examples:
-        freeFormFilter:
-          value: '{"field":"name","search":"abc"}'
-          summary: A free form filter on the field name searching for a substring match of abc.
-        staticFilter:
-          value: '{"field":"connector_group","filter":"abc"}'
-          summary: A static filter on the field connector_group searching for an exact match of abc.
     x-panw-region:
       name: x-panw-region
       description: The region of the tenant
@@ -1300,6 +1259,47 @@ components:
         - tw
         - uk
         - za
+    query.field:
+      name: field
+      description: String that represents a static filter field. Call any of the /filters endpoints without specifying a field to get a list of all available fields.
+      in: query
+      schema:
+        type: string
+        example: connector_group
+    pagination.offset:
+      name: offset
+      description: 'A 0-based offset into the collection.
+
+        It is the index of the starting entry of the page
+
+        '
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+    query.filters:
+      name: filters
+      description: String to filter list results by searching one specified field of an object. Multiple filters can be specified.
+      in: query
+      schema:
+        type: string
+      examples:
+        freeFormFilter:
+          value: '{"field":"name","search":"abc"}'
+          summary: A free form filter on the field name searching for a substring match of abc.
+        staticFilter:
+          value: '{"field":"connector_group","filter":"abc"}'
+          summary: A static filter on the field connector_group searching for an exact match of abc.
+  examples:
+    filter:
+      summary: common scenario
+      value:
+      - value 1
+      - value 2
+    filter-empty:
+      summary: when no filter value is available
+      value: []
   securitySchemes:
     bearerAuth:
       type: http

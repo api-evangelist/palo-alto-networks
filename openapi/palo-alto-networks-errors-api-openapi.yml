@@ -1,12 +1,23 @@
 openapi: 3.2.0
 info:
-  contact: {}
-  description: 'The Errors endpoints are listed below.
-
-    '
-  title: Prisma Cloud Code API Overview Errors API
-  version: Latest
-servers: null
+  title: Palo Alto Networks Errors API
+  version: '1.0'
+  description: 'Operations tagged Errors across 3 of this provider''s published API definitions: palo-alto-code-errors-openapi.json, palo-alto-networks-errors-api-openapi.yml, palo-alto-prisma-cloud-code-security-api-openapi-original.yml. Each path carries the servers of the definition it was published in.'
+servers:
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+- url: https://api.prismacloud.io/code/api/v1
+  description: Prisma Cloud Code Security API (US region 1).
+- url: https://api2.prismacloud.io/code/api/v1
+  description: Prisma Cloud Code Security API (US region 2).
+- url: https://api.eu.prismacloud.io/code/api/v1
+  description: Prisma Cloud Code Security API (EU).
+- url: https://api.anz.prismacloud.io/code/api/v1
+  description: Prisma Cloud Code Security API (ANZ).
+- url: https://api.sg.prismacloud.io/code/api/v1
+  description: Prisma Cloud Code Security API (Singapore).
+- url: https://api.ca.prismacloud.io/code/api/v1
+  description: Prisma Cloud Code Security API (Canada).
 tags:
 - name: Errors
 paths:
@@ -562,19 +573,225 @@ paths:
         source: "import requests\n\nurl = \"http://undefinedundefined/api/v2/git/blameAuthors\"\n\nquerystring = {\"search\":\"SOME_STRING_VALUE\",\"page\":\"SOME_NUMBER_VALUE\",\"pageSize\":\"SOME_NUMBER_VALUE\"}\n\npayload = {\"repositories\": [\"string\"]}\nheaders = {\n    \"content-type\": \"application/json\",\n    \"authorization\": \"REPLACE_KEY_VALUE\"\n}\n\nresponse = requests.request(\"POST\", url, json=payload, headers=headers, params=querystring)\n\nprint(response.text)"
       - lang: Shell + Curl
         source: "curl --request POST \\\n  --url 'http://undefinedundefined/api/v2/git/blameAuthors?search=SOME_STRING_VALUE&page=SOME_NUMBER_VALUE&pageSize=SOME_NUMBER_VALUE' \\\n  --header 'authorization: REPLACE_KEY_VALUE' \\\n  --header 'content-type: application/json' \\\n  --data '{\"repositories\":[\"string\"]}'"
+  /errors/branch:
+    get:
+      operationId: getErrorsByBranch
+      summary: Palo Alto Networks Get Errors by Branch
+      description: Returns code security errors (policy violations, misconfigurations, and vulnerabilities) for a specific repository branch. Each error includes the Checkov policy ID, severity, resource name, and the file location where the issue was detected.
+      tags:
+      - Errors
+      parameters:
+      - name: repositoryId
+        in: query
+        required: true
+        description: Repository identifier to retrieve errors for.
+        schema:
+          type: string
+        example: '319189'
+      - name: branch
+        in: query
+        description: Branch name to retrieve errors for. Defaults to the default branch.
+        schema:
+          type: string
+        example: example-branch
+      - name: severity
+        in: query
+        description: Filter errors by severity level.
+        schema:
+          type: string
+          enum:
+          - CRITICAL
+          - HIGH
+          - MEDIUM
+          - LOW
+          - INFO
+        example: CRITICAL
+      - name: errorType
+        in: query
+        description: Filter by error category.
+        schema:
+          type: string
+          enum:
+          - iac
+          - sca
+          - secrets
+          - cicd
+        example: sca
+      - name: status
+        in: query
+        description: Filter by error status.
+        schema:
+          type: string
+          enum:
+          - OPEN
+          - SUPPRESSED
+          - FIXED
+        example: SUPPRESSED
+      - name: offset
+        in: query
+        description: Number of records to skip for pagination.
+        schema:
+          type: integer
+          default: 0
+        example: 0
+      - name: limit
+        in: query
+        description: Maximum number of records to return.
+        schema:
+          type: integer
+          default: 25
+        example: 25
+      responses:
+        '200':
+          description: Code errors returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalCount:
+                    type: integer
+                    description: Total number of errors matching the filter criteria.
+                  errors:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CodeError'
+              examples:
+                GetErrorsByBranch200Example:
+                  summary: Default getErrorsByBranch 200 response
+                  x-microcks-default: true
+                  value:
+                    totalCount: 352
+                    errors:
+                    - errorId: '770500'
+                      policyId: '731580'
+                      policyName: Staging Firewall 29
+                      severity: HIGH
+                      category: CICD
+                      status: OPEN
+                      resourceName: Corporate Agent 51
+                      resourceType: custom
+                      filePath: /api/v1/4ec64a
+                      fileLineRange:
+                      - 280
+                      - 370
+                      repositoryId: '404787'
+                      branch: example-branch
+                      guideline: example-guideline
+                      firstDetected: '2026-10-23T03:12:18Z'
+                      lastDetected: '2024-04-11T14:31:52Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
 components:
   schemas:
-    ImageLabelsValue:
-      enum:
-      - Dockerfile Image
-      - Image Referencer
-      type: string
-    IacLabels:
-      enum:
-      - CustomPolicy
-      - HasFix
-      type: string
-    ResourceViolationToSuppress:
+    CICDCve:
+      additionalProperties: false
+      properties:
+        CICDRunId:
+          format: double
+          type: number
+        bulkSuppression:
+          type: boolean
+        id:
+          type: string
+        justification:
+          $ref: '#/components/schemas/Justification'
+        repository:
+          type: string
+        resourceId:
+          type: string
+        violationId:
+          type: string
+      required:
+      - id
+      - violationId
+      - resourceId
+      - CICDRunId
+      - repository
+      type: object
+    CICDLicenseToSuppress:
+      additionalProperties: false
+      properties:
+        bulkSuppression:
+          type: boolean
+        causePackageId:
+          type: string
+        fileId:
+          type: string
+        justification:
+          $ref: '#/components/schemas/Justification'
+        license:
+          type: string
+        repository:
+          type: string
+        rootPackageId:
+          type: string
+        run:
+          format: double
+          type: number
+        violationId:
+          type: string
+      required:
+      - violationId
+      - justification
+      - causePackageId
+      - rootPackageId
+      - license
+      - run
+      - bulkSuppression
+      - repository
+      - fileId
+      type: object
+    FileMetadataWithErrors:
+      additionalProperties: false
+      properties:
+        commitId:
+          type: string
+        creationDate:
+          type: string
+        errorsCount:
+          format: double
+          type: number
+        id:
+          type: string
+        name:
+          type: string
+        path:
+          type: string
+        prId:
+          type: string
+        repositoryId:
+          type: string
+        type:
+          $ref: '#/components/schemas/FileTypeEnum'
+        updatedDate:
+          type: string
+      required:
+      - id
+      - name
+      - type
+      - commitId
+      - prId
+      - path
+      - repositoryId
+      - creationDate
+      - updatedDate
+      type: object
+    LicenseTypeSuppress:
       additionalProperties: false
       properties:
         comment:
@@ -582,9 +799,9 @@ components:
         expirationTime:
           format: double
           type: number
-        resources:
+        licenseTypes:
           items:
-            $ref: '#/components/schemas/ResourceToSuppress'
+            type: string
           type: array
         suppressionType:
           type: string
@@ -594,7 +811,530 @@ components:
       - violationId
       - suppressionType
       - comment
-      - resources
+      - licenseTypes
+      type: object
+    SubmitActionsRequest:
+      additionalProperties: false
+      properties:
+        cvesToSuppress:
+          items:
+            $ref: '#/components/schemas/CICDCve'
+          type: array
+        metadata:
+          $ref: '#/components/schemas/SubmitActionsMetadata'
+        sourceType:
+          type: string
+        type:
+          $ref: '#/components/schemas/SubmitActionsType'
+        violationsToFix:
+          items:
+            anyOf:
+            - $ref: '#/components/schemas/CICDViolation'
+            - $ref: '#/components/schemas/DefaultBranchViolationToFix'
+            - $ref: '#/components/schemas/VulnerabilityToFix'
+          type: array
+        violationsToSuppress:
+          items:
+            anyOf:
+            - $ref: '#/components/schemas/CICDViolation'
+            - $ref: '#/components/schemas/CvesAccountsViolationToSuppress'
+            - $ref: '#/components/schemas/ResourceViolationToSuppress'
+            - $ref: '#/components/schemas/TagsViolationToSuppress'
+            - $ref: '#/components/schemas/SourcesViolationToSuppress'
+            - $ref: '#/components/schemas/BaseViolationToSuppress'
+            - $ref: '#/components/schemas/CvesViolationToSuppress'
+            - $ref: '#/components/schemas/LicenseTypeSuppress'
+            - $ref: '#/components/schemas/PackageLicenseSuppress'
+            - $ref: '#/components/schemas/CICDLicenseToSuppress'
+            - $ref: '#/components/schemas/OrganizationAndPolicyToSuppress'
+          type: array
+      required:
+      - type
+      - violationsToFix
+      - violationsToSuppress
+      type: object
+    SupplyChainFixRequest:
+      additionalProperties: false
+      properties:
+        packagesToFix:
+          items:
+            type: string
+          type: array
+        repositoryId:
+          type: string
+        resourcesToFix:
+          items:
+            type: string
+          type: array
+      required:
+      - repositoryId
+      - resourcesToFix
+      - packagesToFix
+      type: object
+    SearchControllerParams:
+      properties:
+        scopes:
+          items:
+            $ref: '#/components/schemas/ProjectsV2CodeCategory'
+          type: array
+        term:
+          type: string
+      required:
+      - term
+      type: object
+    ErrorType:
+      enum:
+      - violation
+      - dockerCve
+      - packageCve
+      - organization
+      type: string
+    ModuleError:
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+        fixedCode:
+          type: string
+        moduleFile:
+          type: string
+        moduleReferences:
+          items:
+            $ref: '#/components/schemas/moduleReferences'
+          type: array
+      required:
+      - moduleReferences
+      - moduleFile
+      - fixedCode
+      - code
+      type: object
+    EnumValues_IacLabels_:
+      enum:
+      - CustomPolicy
+      - HasFix
+      type: string
+    SourcesViolationToSuppress:
+      additionalProperties: false
+      properties:
+        accountIds:
+          items:
+            type: string
+          type: array
+        comment:
+          type: string
+        expirationTime:
+          format: double
+          type: number
+        suppressionType:
+          type: string
+        violationId:
+          type: string
+      required:
+      - violationId
+      - suppressionType
+      - comment
+      - accountIds
+      type: object
+    CvesViolationToSuppress:
+      additionalProperties: false
+      properties:
+        accountIds:
+          items:
+            type: string
+          type: array
+        comment:
+          type: string
+        cves:
+          items:
+            properties:
+              cve:
+                type: string
+              id:
+                type: string
+              uuid:
+                type: string
+            required:
+            - uuid
+            - id
+            - cve
+            type: object
+          type: array
+        expirationTime:
+          format: double
+          type: number
+        suppressionType:
+          type: string
+        violationId:
+          type: string
+      required:
+      - violationId
+      - suppressionType
+      - comment
+      - cves
+      type: object
+    ErrorsInFileWithPaginationResponse:
+      additionalProperties: false
+      properties:
+        data:
+          items:
+            $ref: '#/components/schemas/ViolationError'
+          type: array
+        hasNext:
+          type: boolean
+      required:
+      - data
+      - hasNext
+      type: object
+    CheckStatus:
+      enum:
+      - Error
+      - Passed
+      - Suppressed
+      - FixPending
+      type: string
+    ProjectsV2CodeCategory:
+      enum:
+      - IacMisconfiguration
+      - IacExternalModule
+      - ImageReferencerVul
+      - ImageReferencerLicenses
+      - Vulnerabilities
+      - Licenses
+      - Secrets
+      - Weaknesses
+      type: string
+    BasePolicyResponse:
+      additionalProperties: false
+      properties:
+        firstDetected:
+          format: date-time
+          type: string
+        policy:
+          type: string
+        repository:
+          type: string
+        severity:
+          $ref: '#/components/schemas/Severity'
+        violationId:
+          type: string
+      required:
+      - policy
+      - severity
+      - firstDetected
+      type: object
+    IncidentCategory:
+      enum:
+      - IAM
+      - Logging
+      - Monitoring
+      - Networking
+      - Kubernetes
+      - General
+      - Serverless
+      - Elasticsearch
+      - Storage
+      - Secrets
+      - Public
+      - Vulnerabilities
+      - Compute
+      - VCS
+      - BuildIntegrity
+      - Licenses
+      - Drift
+      - Policy3D
+      - Sast
+      - Artifact Integrity Validation
+      - Cider Kill Chain
+      - Credential Hygiene
+      - Data Protection
+      - Dependency Chain Abuse
+      - Dependency Chains
+      - Flow Control Mechanisms
+      - Input Validation
+      - Patches & Updates
+      - Pipeline-Based Access Controls (PBAC)
+      - Pipeline Flow Control
+      - Poisoned Pipeline Execution (PPE)
+      - System Configuration
+      - Supply Chain
+      type: string
+    SastLabelValue:
+      enum:
+      - CustomPolicy
+      - CWE top 25
+      - OWASP top 10
+      type: string
+    ImageLabelsValue:
+      enum:
+      - Dockerfile Image
+      - Image Referencer
+      type: string
+    FileTypeEnum:
+      enum:
+      - build.gradle
+      - gradle.properties
+      - build.gradle.kts
+      - pom.xml
+      - requirements.txt
+      - package-lock.json
+      - package.json
+      - bower.json
+      - go.sum
+      - go.mod
+      - tf
+      - json
+      - yml
+      - yaml
+      - template
+      - .checkov.baseline
+      - hcl
+      - Dockerfile
+      - gradle-wrapper.properties
+      - METADATA
+      - bicep
+      - Pipfile.lock
+      - Pipfile
+      - yarn.lock
+      - Gemfile
+      - Gemfile.lock
+      - gemspec
+      - env
+      - settings.py
+      - main.py
+      - application.py
+      - config.py
+      - app.js
+      - config.js
+      - dev.js
+      - db.properties
+      - application.properties
+      - private.pem
+      - privatekey.pem
+      - index.php
+      - config.php
+      - config.xml
+      - strings.xml
+      - app.module.ts
+      - environment.ts
+      - tpl
+      - tfvars
+      - unknown
+      - csproj
+      - packages.config
+      - Directory.Packages.props
+      - paket.dependencies
+      - paket.references
+      - paket.lock
+      - sln
+      - config
+      - composer.json
+      - composer.lock
+      type: string
+    ScanStatuses:
+      enum:
+      - HARD_FAIL
+      - SOFT_FAIL
+      - PASS
+      - UNKNOWN
+      type: string
+    VariableRendering:
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+        lines:
+          items:
+            format: double
+            type: number
+          type: array
+        path:
+          type: string
+      required:
+      - path
+      - lines
+      - code
+      type: object
+    CICDViolation:
+      additionalProperties: false
+      properties:
+        CICDRunId:
+          format: double
+          type: number
+        bulkSuppression:
+          type: boolean
+        commentIds:
+          items:
+            type: string
+          type: array
+        creationDate:
+          type: string
+        errorLines:
+          items:
+            format: double
+            type: number
+          type: array
+        frameworkType:
+          type: string
+        justification:
+          $ref: '#/components/schemas/Justification'
+        justificationId:
+          type:
+          - string
+          - 'null'
+        metadataChecksMetadataPath:
+          type: string
+        metadataLines:
+          items:
+            format: double
+            type: number
+          type: array
+        repository:
+          type: string
+        resourceId:
+          type: string
+        runtimeId:
+          type:
+          - string
+          - 'null'
+        runtimeSourceId:
+          type:
+          - string
+          - 'null'
+        s3FilePath:
+          type: string
+        s3FixFilePath:
+          type:
+          - string
+          - 'null'
+        severity:
+          type: string
+        status:
+          type: string
+        updatedDate:
+          type: string
+        vcsCommentLine:
+          type:
+          - string
+          - 'null'
+        violationId:
+          type: string
+      required:
+      - metadataChecksMetadataPath
+      - metadataLines
+      - violationId
+      - resourceId
+      - frameworkType
+      - s3FilePath
+      - CICDRunId
+      - justificationId
+      - status
+      - repository
+      - s3FixFilePath
+      - creationDate
+      - updatedDate
+      - commentIds
+      - vcsCommentLine
+      - errorLines
+      - severity
+      type: object
+    VulnerabilityToFix:
+      additionalProperties: false
+      properties:
+        frameworkType:
+          type: string
+        id:
+          type: string
+        owner:
+          type: string
+        packageName:
+          type: string
+        packageVersion:
+          type: string
+        repoName:
+          type: string
+        resourceId:
+          type: string
+        s3FilePath:
+          type: string
+        violationId:
+          type: string
+      required:
+      - violationId
+      - resourceId
+      - frameworkType
+      - s3FilePath
+      - owner
+      - repoName
+      - packageName
+      - packageVersion
+      type: object
+    CVE:
+      additionalProperties: false
+      properties:
+        causePackageId:
+          type: string
+        causePackageName:
+          type: string
+        causePackageVersion:
+          type: string
+        cveId:
+          type: string
+        cveStatus:
+          type: string
+        cvss:
+          format: double
+          type: number
+        description:
+          type: string
+        errorLines:
+          items:
+            format: double
+            type: number
+          type: array
+        fixVersion:
+          type: string
+        imageName:
+          type: string
+        link:
+          type: string
+        packageName:
+          type: string
+        packageVersion:
+          type: string
+        publishedDate:
+          format: date-time
+          type: string
+        riskFactors:
+          type: string
+        severity:
+          type: string
+        status:
+          type: string
+        uuid:
+          type: string
+        vector:
+          type: string
+        violationId:
+          type: string
+      required:
+      - cveId
+      - status
+      - cvss
+      - vector
+      - description
+      - severity
+      - packageName
+      - packageVersion
+      - riskFactors
+      - link
+      - publishedDate
+      - causePackageId
+      - causePackageName
+      - causePackageVersion
+      - fixVersion
+      - uuid
+      - cveStatus
+      - violationId
       type: object
     PackageLicenseSuppress:
       additionalProperties: false
@@ -621,121 +1361,26 @@ components:
       - packages
       - suppressByRoot
       type: object
-    TagsViolationToSuppress:
-      additionalProperties: false
-      properties:
-        comment:
-          type: string
-        expirationTime:
-          format: double
-          type: number
-        suppressionType:
-          type: string
-        tags:
-          items:
-            properties:
-              key:
-                type: string
-              value:
-                type: string
-            required:
-            - value
-            - key
-            type: object
-          type: array
-        violationId:
-          type: string
-      required:
-      - violationId
-      - suppressionType
-      - comment
-      - tags
-      type: object
-    PacakgeLabelsValue:
+    EnumValues_BenchmarkEnum_:
       enum:
-      - Indirect Package
-      type: string
-    GetFileMetadataResponse:
-      additionalProperties: false
-      properties:
-        data:
-          $ref: '#/components/schemas/FileMetadataWithErrors'
-      required:
-      - data
-      type: object
-    SourceType:
-      enum:
-      - Github
-      - Bitbucket
-      - Gitlab
-      - AzureRepos
-      - cli
-      - AWS
-      - Azure
-      - GCP
-      - Docker
-      - githubEnterprise
-      - gitlabEnterprise
-      - bitbucketEnterprise
-      - terraformCloud
-      - githubActions
-      - circleci
-      - codebuild
-      - jenkins
-      - tfcRunTasks
-      - tfeRunTasks
-      - admissionController
-      - terraformEnterprise
-      type: string
-    CICDCve:
-      additionalProperties: false
-      properties:
-        CICDRunId:
-          format: double
-          type: number
-        bulkSuppression:
-          type: boolean
-        id:
-          type: string
-        justification:
-          $ref: '#/components/schemas/Justification'
-        repository:
-          type: string
-        resourceId:
-          type: string
-        violationId:
-          type: string
-      required:
-      - id
-      - violationId
-      - resourceId
-      - CICDRunId
-      - repository
-      type: object
-    SupplyChainFixRequest:
-      additionalProperties: false
-      properties:
-        packagesToFix:
-          items:
-            type: string
-          type: array
-        repositoryId:
-          type: string
-        resourcesToFix:
-          items:
-            type: string
-          type: array
-      required:
-      - repositoryId
-      - resourcesToFix
-      - packagesToFix
-      type: object
-    ErrorType:
-      enum:
-      - violation
-      - dockerCve
-      - packageCve
-      - organization
+      - CIS KUBERNETES V1.5
+      - CIS AWS V1.2
+      - CIS AZURE V1.1
+      - PCI-DSS V3.2
+      - NIST-800-53
+      - ISO27001
+      - SOC2
+      - CIS GCP V1.1
+      - HIPAA
+      - FEDRAMP (MODERATE)
+      - PCI-DSS V3.2.1
+      - CIS AWS V1.3
+      - CIS AZURE V1.3
+      - CIS DOCKER V1.2
+      - CIS EKS V1.1
+      - CIS GKE V1.1
+      - CIS KUBERNETES V1.6
+      - SLSA
       type: string
     ErrorsPoliciesGroupedByResource:
       additionalProperties: false
@@ -750,33 +1395,84 @@ components:
       - data
       - hasNext
       type: object
-    CvesAccountsViolationToSuppress:
+    GetErrorsInFileWithFilters:
       additionalProperties: false
       properties:
-        accountIds:
-          items:
-            type: string
-          type: array
-        comment:
-          type: string
-        cves:
-          items:
-            type: string
-          type: array
-        expirationTime:
+        CICDRunId:
           format: double
           type: number
-        suppressionType:
+        authors:
+          items:
+            type: string
+          type: array
+        branch:
+          type:
+          - string
+          - 'null'
+        categories:
+          items:
+            $ref: '#/components/schemas/Category'
+          type: array
+        codeStatus:
+          items:
+            $ref: '#/components/schemas/CodeStatus'
+          type: array
+        excludeCategories:
+          items:
+            $ref: '#/components/schemas/Category'
+          type: array
+        filePath:
           type: string
-        violationId:
+        fileTypes:
+          items:
+            $ref: '#/components/schemas/ProjectFileType'
+          type: array
+        repository:
           type: string
+        repositoryId:
+          type: string
+        search:
+          $ref: '#/components/schemas/Search'
+        severities:
+          items:
+            $ref: '#/components/schemas/Severity'
+          type: array
+        sourceTypes:
+          items:
+            $ref: '#/components/schemas/SourceType'
+          type: array
+        tags:
+          items:
+            properties:
+              key:
+                type: string
+              value:
+                type: string
+            required:
+            - value
+            - key
+            type: object
+          type: array
+        types:
+          items:
+            $ref: '#/components/schemas/Type'
+          type: array
       required:
-      - violationId
-      - suppressionType
-      - comment
-      - accountIds
-      - cves
+      - repository
+      - sourceTypes
+      - filePath
       type: object
+    SecretsRiskFactor:
+      enum:
+      - PublicRepository
+      - PrivateRepository
+      - User
+      - Privileged
+      - Valid
+      - Invalid
+      - Unknown
+      - FoundInHistory
+      type: string
     ErrorInFile:
       additionalProperties: false
       properties:
@@ -870,228 +1566,186 @@ components:
       - category
       - secretValidationStatus
       type: object
-    OpenSearchPaginationRequest:
+    GetFileMetadataResponse:
+      additionalProperties: false
       properties:
-        limit:
-          format: double
-          type: number
-        offset:
-          format: double
-          type: number
-        searchAfter:
+        data:
+          $ref: '#/components/schemas/FileMetadataWithErrors'
+      required:
+      - data
+      type: object
+    CicdRunsFilters:
+      additionalProperties: false
+      properties:
+        benchmarks:
+          items:
+            $ref: '#/components/schemas/EnumValues_BenchmarkEnum_'
+          type: array
+        checkStatus:
+          $ref: '#/components/schemas/CheckStatus'
+        codeCategories:
+          items:
+            $ref: '#/components/schemas/ProjectsV2CodeCategory'
+          type: array
+        cwes:
           items:
             type: string
           type: array
-        useSearchAfterPagination:
+        enforcementLevel:
+          items:
+            $ref: '#/components/schemas/ScanStatuses'
+          type: array
+        fileTypes:
+          items:
+            $ref: '#/components/schemas/EnumValues_FileMetadata-at-type_'
+          type: array
+        fixableOnly:
           type: boolean
-      type: object
-    SourcesViolationToSuppress:
-      additionalProperties: false
-      properties:
-        accountIds:
+        gitUsers:
           items:
             type: string
           type: array
-        comment:
-          type: string
-        expirationTime:
-          format: double
-          type: number
-        suppressionType:
-          type: string
-        violationId:
-          type: string
-      required:
-      - violationId
-      - suppressionType
-      - comment
-      - accountIds
-      type: object
-    FileTypeEnum:
-      enum:
-      - build.gradle
-      - gradle.properties
-      - build.gradle.kts
-      - pom.xml
-      - requirements.txt
-      - package-lock.json
-      - package.json
-      - bower.json
-      - go.sum
-      - go.mod
-      - tf
-      - json
-      - yml
-      - yaml
-      - template
-      - .checkov.baseline
-      - hcl
-      - Dockerfile
-      - gradle-wrapper.properties
-      - METADATA
-      - bicep
-      - Pipfile.lock
-      - Pipfile
-      - yarn.lock
-      - Gemfile
-      - Gemfile.lock
-      - gemspec
-      - env
-      - settings.py
-      - main.py
-      - application.py
-      - config.py
-      - app.js
-      - config.js
-      - dev.js
-      - db.properties
-      - application.properties
-      - private.pem
-      - privatekey.pem
-      - index.php
-      - config.php
-      - config.xml
-      - strings.xml
-      - app.module.ts
-      - environment.ts
-      - tpl
-      - tfvars
-      - unknown
-      - csproj
-      - packages.config
-      - Directory.Packages.props
-      - paket.dependencies
-      - paket.references
-      - paket.lock
-      - sln
-      - config
-      - composer.json
-      - composer.lock
-      type: string
-    SubmitResponse:
-      additionalProperties: false
-      properties:
-        message:
-          type: string
-        remediationsResponse:
+        iacCategories:
+          items:
+            $ref: '#/components/schemas/EnumValues_IncidentConfiguration-at-category_'
+          type: array
+        iacLabels:
+          items:
+            $ref: '#/components/schemas/EnumValues_IacLabels_'
+          type: array
+        iacTags:
           items:
             type: string
           type: array
-      required:
-      - message
-      type: object
-    ProjectFileType:
-      enum:
-      - build.gradle
-      - gradle.properties
-      - build.gradle.kts
-      - pom.xml
-      - requirements.txt
-      - package-lock.json
-      - package.json
-      - bower.json
-      - go.sum
-      - go.mod
-      type: string
-    SubmitActionsMetadata:
-      additionalProperties: false
-      properties:
-        owner:
-          type: string
-        pr:
-          type: string
-        repoName:
-          type: string
-        runNumber:
+        licenseType:
+          items:
+            $ref: '#/components/schemas/LicenseEnum'
+          type: array
+        owasp:
+          items:
+            type: string
+          type: array
+        repositories:
+          items:
+            type: string
+          maxItems: 1
+          minItems: 1
+          type: array
+        runId:
           format: double
           type: number
-        sourceBranchName:
-          type: string
-      required:
-      - owner
-      - repoName
-      - runNumber
-      type: object
-    moduleReferences:
-      additionalProperties: false
-      properties:
-        code:
-          type: string
-        displayPath:
-          type: string
-        lines:
+        sastLabels:
           items:
-            format: double
-            type: number
+            $ref: '#/components/schemas/SastLabelValue'
           type: array
-        name:
-          type: string
-        path:
-          type: string
-      required:
-      - name
-      - path
-      - displayPath
-      - lines
-      - code
-      type: object
-    PaginationRequest:
-      properties:
-        limit:
-          format: double
-          type: number
-        offset:
-          format: double
-          type: number
-      type: object
-    VariableRendering:
-      additionalProperties: false
-      properties:
-        code:
-          type: string
-        lines:
+        secretsRiskFactors:
           items:
-            format: double
-            type: number
+            $ref: '#/components/schemas/SecretsRiskFactor'
           type: array
-        path:
-          type: string
-      required:
-      - path
-      - lines
-      - code
-      type: object
-    module:
-      additionalProperties: false
-      properties:
-        moduleFile:
-          type: string
-        moduleReferences:
+        severities:
           items:
-            $ref: '#/components/schemas/moduleReferences'
+            $ref: '#/components/schemas/Severity'
+          type: array
+        vulnerabilityRiskFactors:
+          items:
+            $ref: '#/components/schemas/VulnerabilityRiskFactor'
           type: array
       required:
-      - moduleReferences
-      - moduleFile
+      - runId
       type: object
-    BasePolicyResponse:
+    BranchScanScanAllReposFilters:
       additionalProperties: false
       properties:
-        firstDetected:
-          format: date-time
+        benchmarks:
+          items:
+            $ref: '#/components/schemas/EnumValues_BenchmarkEnum_'
+          type: array
+        branch:
           type: string
-        policy:
+        checkStatus:
+          $ref: '#/components/schemas/CheckStatus'
+        codeCategories:
+          items:
+            $ref: '#/components/schemas/ProjectsV2CodeCategory'
+          type: array
+        cwes:
+          items:
+            type: string
+          type: array
+        fileTypes:
+          items:
+            $ref: '#/components/schemas/EnumValues_FileMetadata-at-type_'
+          type: array
+        fixableOnly:
+          type: boolean
+        gitUsers:
+          items:
+            type: string
+          type: array
+        iacCategories:
+          items:
+            $ref: '#/components/schemas/EnumValues_IncidentConfiguration-at-category_'
+          type: array
+        iacLabels:
+          items:
+            $ref: '#/components/schemas/EnumValues_IacLabels_'
+          type: array
+        iacTags:
+          items:
+            type: string
+          type: array
+        licenseType:
+          items:
+            $ref: '#/components/schemas/LicenseEnum'
+          type: array
+        owasp:
+          items:
+            type: string
+          type: array
+        repositories:
+          items:
+            type: string
+          maxItems: 0
+          minItems: 0
+          type: array
+        sastLabels:
+          items:
+            $ref: '#/components/schemas/SastLabelValue'
+          type: array
+        secretsRiskFactors:
+          items:
+            $ref: '#/components/schemas/SecretsRiskFactor'
+          type: array
+        severities:
+          items:
+            $ref: '#/components/schemas/Severity'
+          type: array
+        vulnerabilityRiskFactors:
+          items:
+            $ref: '#/components/schemas/VulnerabilityRiskFactor'
+          type: array
+      type: object
+    Search:
+      additionalProperties: false
+      properties:
+        options:
+          items:
+            enum:
+            - path
+            - code
+            type: string
+          type: array
+        text:
           type: string
-        repository:
-          type: string
-        severity:
-          $ref: '#/components/schemas/Severity'
-        violationId:
+        title:
+          enum:
+          - title
+          - constructive_title
+          - descriptive_title
           type: string
       required:
-      - policy
-      - severity
-      - firstDetected
+      - text
+      - options
       type: object
     LicenseEnum:
       enum:
@@ -1592,222 +2246,191 @@ components:
       - OLDAP-2.5
       - BSD-2-Clause-Views
       type: string
-    Type:
-      enum:
-      - Errors
-      - Suppressed
-      - Passed
-      - Fixed
-      - Awaiting Remediation
-      type: string
-    VulnerabilityRiskFactor:
-      enum:
-      - AttackComplexity
-      - AttackVector
-      - DoS
-      - HasFix
-      - RemoteExecution
-      - ExploitInTheWild
-      - ExploitPOC
-      - IsUsed
-      - ReachableFunction
-      - ManifestInRuntime
-      - RepositoryInRuntime
-      - PackageInRuntime
-      type: string
-    SecretsRiskFactor:
-      enum:
-      - PublicRepository
-      - PrivateRepository
-      - User
-      - Privileged
-      - Valid
-      - Invalid
-      - Unknown
-      - FoundInHistory
-      type: string
-    SmartFix:
+    BaseViolationToSuppress:
       additionalProperties: false
       properties:
-        code:
+        comment:
           type: string
-        fixedCode:
-          type: string
-        id:
-          type: string
-        inspectedKey:
-          type: string
-        percent:
+        expirationTime:
           format: double
           type: number
-        recommenderType:
+        suppressionType:
           type: string
-        times:
-          format: double
-          type: number
+        violationId:
+          type: string
       required:
-      - id
-      - times
-      - percent
-      - inspectedKey
-      - recommenderType
+      - violationId
+      - suppressionType
+      - comment
       type: object
-    BranchScanSingleRepoFilters:
+    TagsViolationToSuppress:
       additionalProperties: false
       properties:
-        benchmarks:
-          items:
-            $ref: '#/components/schemas/EnumValues_BenchmarkEnum_'
-          type: array
-        branch:
+        comment:
           type: string
-        checkStatus:
-          $ref: '#/components/schemas/CheckStatus'
-        codeCategories:
+        expirationTime:
+          format: double
+          type: number
+        suppressionType:
+          type: string
+        tags:
           items:
-            $ref: '#/components/schemas/ProjectsV2CodeCategory'
+            properties:
+              key:
+                type: string
+              value:
+                type: string
+            required:
+            - value
+            - key
+            type: object
           type: array
-        cwes:
-          items:
-            type: string
-          type: array
-        fileTypes:
-          items:
-            $ref: '#/components/schemas/EnumValues_FileMetadata-at-type_'
-          type: array
-        fixableOnly:
-          type: boolean
-        gitUsers:
-          items:
-            type: string
-          type: array
-        iacCategories:
-          items:
-            $ref: '#/components/schemas/EnumValues_IncidentConfiguration-at-category_'
-          type: array
-        iacLabels:
-          items:
-            $ref: '#/components/schemas/EnumValues_IacLabels_'
-          type: array
-        iacTags:
-          items:
-            type: string
-          type: array
-        licenseType:
-          items:
-            $ref: '#/components/schemas/LicenseEnum'
-          type: array
-        owasp:
-          items:
-            type: string
-          type: array
-        repositories:
-          items:
-            type: string
-          maxItems: 1
-          minItems: 1
-          type: array
-        sastLabels:
-          items:
-            $ref: '#/components/schemas/SastLabelValue'
-          type: array
-        secretsRiskFactors:
-          items:
-            $ref: '#/components/schemas/SecretsRiskFactor'
-          type: array
-        severities:
-          items:
-            $ref: '#/components/schemas/Severity'
-          type: array
-        vulnerabilityRiskFactors:
-          items:
-            $ref: '#/components/schemas/VulnerabilityRiskFactor'
-          type: array
+        violationId:
+          type: string
+      required:
+      - violationId
+      - suppressionType
+      - comment
+      - tags
       type: object
-    VariableRenderingError:
+    module:
+      additionalProperties: false
+      properties:
+        moduleFile:
+          type: string
+        moduleReferences:
+          items:
+            $ref: '#/components/schemas/moduleReferences'
+          type: array
+      required:
+      - moduleReferences
+      - moduleFile
+      type: object
+    PoliciesByResourceAndTypeResponse:
+      anyOf:
+      - $ref: '#/components/schemas/IacPolicyResponse'
+      - $ref: '#/components/schemas/BasePolicyResponse'
+      - $ref: '#/components/schemas/VulnerabilitiesResponse'
+      - $ref: '#/components/schemas/LicensesGroupedByResourceResponse'
+    SubmitResponse:
+      additionalProperties: false
+      properties:
+        message:
+          type: string
+        remediationsResponse:
+          items:
+            type: string
+          type: array
+      required:
+      - message
+      type: object
+    PaginationRequest:
+      properties:
+        limit:
+          format: double
+          type: number
+        offset:
+          format: double
+          type: number
+      type: object
+    GitBlameAuthorsResponse:
+      additionalProperties: false
+      properties:
+        data:
+          items:
+            type: string
+          type: array
+        hasNext:
+          type: boolean
+      required:
+      - data
+      - hasNext
+      type: object
+    Severity:
+      enum:
+      - CRITICAL
+      - HIGH
+      - MEDIUM
+      - LOW
+      - INFO
+      type: string
+    VulnerabilitiesResponse:
+      additionalProperties: false
+      properties:
+        causePackageId:
+          type: string
+        causePackageName:
+          type: string
+        cveUuid:
+          type: string
+        cvss:
+          format: double
+          type: number
+        firstDetected:
+          format: date-time
+          type: string
+        fixVersion:
+          type: string
+        labels:
+          items:
+            $ref: '#/components/schemas/VulLabels'
+          type: array
+        policy:
+          type: string
+        pr:
+          type: string
+        repository:
+          type: string
+        resourceId:
+          type: string
+        riskFactors:
+          items:
+            type: string
+          type: array
+        severity:
+          $ref: '#/components/schemas/Severity'
+        violationId:
+          type: string
+      required:
+      - policy
+      - severity
+      - firstDetected
+      - fixVersion
+      - causePackageName
+      - causePackageId
+      - riskFactors
+      - cveUuid
+      - resourceId
+      - cvss
+      - labels
+      type: object
+    moduleReferences:
       additionalProperties: false
       properties:
         code:
           type: string
-        fixedCode:
+        displayPath:
           type: string
         lines:
           items:
             format: double
             type: number
           type: array
+        name:
+          type: string
         path:
           type: string
       required:
+      - name
       - path
+      - displayPath
       - lines
       - code
-      - fixedCode
       type: object
-    SecretValidationStatus:
+    PacakgeLabelsValue:
       enum:
-      - Privileged
-      - Valid
-      - Invalid
-      - Unknown
-      - Unavailable
+      - Indirect Package
       type: string
-    GitBlameAuthorsRequestBody:
-      additionalProperties: false
-      properties:
-        repositories:
-          items:
-            type: string
-          type: array
-      type: object
-    GetErrorsFilesResponseBody:
-      additionalProperties: false
-      properties:
-        data:
-          items:
-            $ref: '#/components/schemas/ErrorsInFileCount'
-          type: array
-      required:
-      - data
-      type: object
-    VulLabelsValue:
-      enum:
-      - Breaking Change Fix
-      - Public Fix
-      type: string
-    CICDLicenseToSuppress:
-      additionalProperties: false
-      properties:
-        bulkSuppression:
-          type: boolean
-        causePackageId:
-          type: string
-        fileId:
-          type: string
-        justification:
-          $ref: '#/components/schemas/Justification'
-        license:
-          type: string
-        repository:
-          type: string
-        rootPackageId:
-          type: string
-        run:
-          format: double
-          type: number
-        violationId:
-          type: string
-      required:
-      - violationId
-      - justification
-      - causePackageId
-      - rootPackageId
-      - license
-      - run
-      - bulkSuppression
-      - repository
-      - fileId
-      type: object
     License:
       additionalProperties: false
       properties:
@@ -1833,6 +2456,124 @@ components:
       - packageId
       - packageName
       - packageVersion
+      type: object
+    CodeStatus:
+      enum:
+      - hasFix
+      type: string
+    GetErrorsFilters:
+      additionalProperties: false
+      properties:
+        CICDRunId:
+          format: double
+          type: number
+        authors:
+          items:
+            type: string
+          type: array
+        branch:
+          type:
+          - string
+          - 'null'
+        categories:
+          items:
+            $ref: '#/components/schemas/Category'
+          type: array
+        codeStatus:
+          items:
+            $ref: '#/components/schemas/CodeStatus'
+          type: array
+        excludeCategories:
+          items:
+            $ref: '#/components/schemas/Category'
+          type: array
+        fileTypes:
+          items:
+            $ref: '#/components/schemas/ProjectFileType'
+          type: array
+        repository:
+          type: string
+        repositoryId:
+          type: string
+        search:
+          $ref: '#/components/schemas/Search'
+        severities:
+          items:
+            $ref: '#/components/schemas/Severity'
+          type: array
+        sourceTypes:
+          items:
+            $ref: '#/components/schemas/SourceType'
+          type: array
+        tags:
+          items:
+            properties:
+              key:
+                type: string
+              value:
+                type: string
+            required:
+            - value
+            - key
+            type: object
+          type: array
+        types:
+          items:
+            $ref: '#/components/schemas/Type'
+          type: array
+      required:
+      - repository
+      - sourceTypes
+      type: object
+    VulLabelsValue:
+      enum:
+      - Breaking Change Fix
+      - Public Fix
+      type: string
+    VulnerabilityRiskFactor:
+      enum:
+      - AttackComplexity
+      - AttackVector
+      - DoS
+      - HasFix
+      - RemoteExecution
+      - ExploitInTheWild
+      - ExploitPOC
+      - IsUsed
+      - ReachableFunction
+      - ManifestInRuntime
+      - RepositoryInRuntime
+      - PackageInRuntime
+      type: string
+    SubmitActionsResponse:
+      additionalProperties: false
+      properties:
+        data:
+          $ref: '#/components/schemas/SubmitResponse'
+      required:
+      - data
+      type: object
+    ResourceViolationToSuppress:
+      additionalProperties: false
+      properties:
+        comment:
+          type: string
+        expirationTime:
+          format: double
+          type: number
+        resources:
+          items:
+            $ref: '#/components/schemas/ResourceToSuppress'
+          type: array
+        suppressionType:
+          type: string
+        violationId:
+          type: string
+      required:
+      - violationId
+      - suppressionType
+      - comment
+      - resources
       type: object
     ViolationError:
       additionalProperties: false
@@ -1944,1015 +2685,6 @@ components:
       - category
       - secretValidationStatus
       type: object
-    GetErrorsFilters:
-      additionalProperties: false
-      properties:
-        CICDRunId:
-          format: double
-          type: number
-        authors:
-          items:
-            type: string
-          type: array
-        branch:
-          type:
-          - string
-          - 'null'
-        categories:
-          items:
-            $ref: '#/components/schemas/Category'
-          type: array
-        codeStatus:
-          items:
-            $ref: '#/components/schemas/CodeStatus'
-          type: array
-        excludeCategories:
-          items:
-            $ref: '#/components/schemas/Category'
-          type: array
-        fileTypes:
-          items:
-            $ref: '#/components/schemas/ProjectFileType'
-          type: array
-        repository:
-          type: string
-        repositoryId:
-          type: string
-        search:
-          $ref: '#/components/schemas/Search'
-        severities:
-          items:
-            $ref: '#/components/schemas/Severity'
-          type: array
-        sourceTypes:
-          items:
-            $ref: '#/components/schemas/SourceType'
-          type: array
-        tags:
-          items:
-            properties:
-              key:
-                type: string
-              value:
-                type: string
-            required:
-            - value
-            - key
-            type: object
-          type: array
-        types:
-          items:
-            $ref: '#/components/schemas/Type'
-          type: array
-      required:
-      - repository
-      - sourceTypes
-      type: object
-    SastLabelValue:
-      enum:
-      - CustomPolicy
-      - CWE top 25
-      - OWASP top 10
-      type: string
-    LicLabel:
-      properties:
-        label:
-          anyOf:
-          - $ref: '#/components/schemas/ImageLabelsValue'
-          - $ref: '#/components/schemas/PacakgeLabelsValue'
-        metadata:
-          properties:
-            imageName:
-              type: string
-          type: object
-      required:
-      - label
-      type: object
-    GitBlameAuthorsResponse:
-      additionalProperties: false
-      properties:
-        data:
-          items:
-            type: string
-          type: array
-        hasNext:
-          type: boolean
-      required:
-      - data
-      - hasNext
-      type: object
-    IacPolicyResponse:
-      additionalProperties: false
-      properties:
-        firstDetected:
-          format: date-time
-          type: string
-        labels:
-          items:
-            $ref: '#/components/schemas/IacLabels'
-          type: array
-        policy:
-          type: string
-        repository:
-          type: string
-        resourceName:
-          type: string
-        resourceScanType:
-          $ref: '#/components/schemas/ResourceScanType'
-        resourceUuid:
-          type: string
-        severity:
-          $ref: '#/components/schemas/Severity'
-        violationId:
-          type: string
-      required:
-      - policy
-      - severity
-      - firstDetected
-      - labels
-      type: object
-    Category:
-      enum:
-      - IAM
-      - Compute
-      - Monitoring
-      - Networking
-      - Kubernetes
-      - General
-      - Storage
-      - Secrets
-      - Public
-      - Vulnerabilities
-      - Drift
-      - Licenses
-      type: string
-    CodeStatus:
-      enum:
-      - hasFix
-      type: string
-    VulnerabilitiesResponse:
-      additionalProperties: false
-      properties:
-        causePackageId:
-          type: string
-        causePackageName:
-          type: string
-        cveUuid:
-          type: string
-        cvss:
-          format: double
-          type: number
-        firstDetected:
-          format: date-time
-          type: string
-        fixVersion:
-          type: string
-        labels:
-          items:
-            $ref: '#/components/schemas/VulLabels'
-          type: array
-        policy:
-          type: string
-        pr:
-          type: string
-        repository:
-          type: string
-        resourceId:
-          type: string
-        riskFactors:
-          items:
-            type: string
-          type: array
-        severity:
-          $ref: '#/components/schemas/Severity'
-        violationId:
-          type: string
-      required:
-      - policy
-      - severity
-      - firstDetected
-      - fixVersion
-      - causePackageName
-      - causePackageId
-      - riskFactors
-      - cveUuid
-      - resourceId
-      - cvss
-      - labels
-      type: object
-    SubmitActionsRequest:
-      additionalProperties: false
-      properties:
-        cvesToSuppress:
-          items:
-            $ref: '#/components/schemas/CICDCve'
-          type: array
-        metadata:
-          $ref: '#/components/schemas/SubmitActionsMetadata'
-        sourceType:
-          type: string
-        type:
-          $ref: '#/components/schemas/SubmitActionsType'
-        violationsToFix:
-          items:
-            anyOf:
-            - $ref: '#/components/schemas/CICDViolation'
-            - $ref: '#/components/schemas/DefaultBranchViolationToFix'
-            - $ref: '#/components/schemas/VulnerabilityToFix'
-          type: array
-        violationsToSuppress:
-          items:
-            anyOf:
-            - $ref: '#/components/schemas/CICDViolation'
-            - $ref: '#/components/schemas/CvesAccountsViolationToSuppress'
-            - $ref: '#/components/schemas/ResourceViolationToSuppress'
-            - $ref: '#/components/schemas/TagsViolationToSuppress'
-            - $ref: '#/components/schemas/SourcesViolationToSuppress'
-            - $ref: '#/components/schemas/BaseViolationToSuppress'
-            - $ref: '#/components/schemas/CvesViolationToSuppress'
-            - $ref: '#/components/schemas/LicenseTypeSuppress'
-            - $ref: '#/components/schemas/PackageLicenseSuppress'
-            - $ref: '#/components/schemas/CICDLicenseToSuppress'
-            - $ref: '#/components/schemas/OrganizationAndPolicyToSuppress'
-          type: array
-      required:
-      - type
-      - violationsToFix
-      - violationsToSuppress
-      type: object
-    ProjectsV2CodeCategory:
-      enum:
-      - IacMisconfiguration
-      - IacExternalModule
-      - ImageReferencerVul
-      - ImageReferencerLicenses
-      - Vulnerabilities
-      - Licenses
-      - Secrets
-      - Weaknesses
-      type: string
-    IncidentCategory:
-      enum:
-      - IAM
-      - Logging
-      - Monitoring
-      - Networking
-      - Kubernetes
-      - General
-      - Serverless
-      - Elasticsearch
-      - Storage
-      - Secrets
-      - Public
-      - Vulnerabilities
-      - Compute
-      - VCS
-      - BuildIntegrity
-      - Licenses
-      - Drift
-      - Policy3D
-      - Sast
-      - Artifact Integrity Validation
-      - Cider Kill Chain
-      - Credential Hygiene
-      - Data Protection
-      - Dependency Chain Abuse
-      - Dependency Chains
-      - Flow Control Mechanisms
-      - Input Validation
-      - Patches & Updates
-      - Pipeline-Based Access Controls (PBAC)
-      - Pipeline Flow Control
-      - Poisoned Pipeline Execution (PPE)
-      - System Configuration
-      - Supply Chain
-      type: string
-    Severity:
-      enum:
-      - CRITICAL
-      - HIGH
-      - MEDIUM
-      - LOW
-      - INFO
-      type: string
-    CicdRunsFilters:
-      additionalProperties: false
-      properties:
-        benchmarks:
-          items:
-            $ref: '#/components/schemas/EnumValues_BenchmarkEnum_'
-          type: array
-        checkStatus:
-          $ref: '#/components/schemas/CheckStatus'
-        codeCategories:
-          items:
-            $ref: '#/components/schemas/ProjectsV2CodeCategory'
-          type: array
-        cwes:
-          items:
-            type: string
-          type: array
-        enforcementLevel:
-          items:
-            $ref: '#/components/schemas/ScanStatuses'
-          type: array
-        fileTypes:
-          items:
-            $ref: '#/components/schemas/EnumValues_FileMetadata-at-type_'
-          type: array
-        fixableOnly:
-          type: boolean
-        gitUsers:
-          items:
-            type: string
-          type: array
-        iacCategories:
-          items:
-            $ref: '#/components/schemas/EnumValues_IncidentConfiguration-at-category_'
-          type: array
-        iacLabels:
-          items:
-            $ref: '#/components/schemas/EnumValues_IacLabels_'
-          type: array
-        iacTags:
-          items:
-            type: string
-          type: array
-        licenseType:
-          items:
-            $ref: '#/components/schemas/LicenseEnum'
-          type: array
-        owasp:
-          items:
-            type: string
-          type: array
-        repositories:
-          items:
-            type: string
-          maxItems: 1
-          minItems: 1
-          type: array
-        runId:
-          format: double
-          type: number
-        sastLabels:
-          items:
-            $ref: '#/components/schemas/SastLabelValue'
-          type: array
-        secretsRiskFactors:
-          items:
-            $ref: '#/components/schemas/SecretsRiskFactor'
-          type: array
-        severities:
-          items:
-            $ref: '#/components/schemas/Severity'
-          type: array
-        vulnerabilityRiskFactors:
-          items:
-            $ref: '#/components/schemas/VulnerabilityRiskFactor'
-          type: array
-      required:
-      - runId
-      type: object
-    VulLabels:
-      properties:
-        label:
-          anyOf:
-          - $ref: '#/components/schemas/VulLabelsValue'
-          - $ref: '#/components/schemas/ImageLabelsValue'
-          - $ref: '#/components/schemas/PacakgeLabelsValue'
-        metadata:
-          properties:
-            imageName:
-              type: string
-          type: object
-      required:
-      - label
-      type: object
-    OrganizationAndPolicyToSuppress:
-      additionalProperties: false
-      properties:
-        comment:
-          type: string
-        expirationTime:
-          format: double
-          type: number
-        organizationId:
-          type: string
-        suppressionType:
-          type: string
-        violationId:
-          type: string
-      required:
-      - violationId
-      - suppressionType
-      - comment
-      - organizationId
-      type: object
-    ScanStatuses:
-      enum:
-      - HARD_FAIL
-      - SOFT_FAIL
-      - PASS
-      - UNKNOWN
-      type: string
-    LicenseTypeSuppress:
-      additionalProperties: false
-      properties:
-        comment:
-          type: string
-        expirationTime:
-          format: double
-          type: number
-        licenseTypes:
-          items:
-            type: string
-          type: array
-        suppressionType:
-          type: string
-        violationId:
-          type: string
-      required:
-      - violationId
-      - suppressionType
-      - comment
-      - licenseTypes
-      type: object
-    Justification:
-      additionalProperties: false
-      properties:
-        comment:
-          type: string
-        createdBy:
-          type: string
-        expirationTime:
-          format: double
-          type: number
-      required:
-      - comment
-      - createdBy
-      type: object
-    FileMetadataWithErrors:
-      additionalProperties: false
-      properties:
-        commitId:
-          type: string
-        creationDate:
-          type: string
-        errorsCount:
-          format: double
-          type: number
-        id:
-          type: string
-        name:
-          type: string
-        path:
-          type: string
-        prId:
-          type: string
-        repositoryId:
-          type: string
-        type:
-          $ref: '#/components/schemas/FileTypeEnum'
-        updatedDate:
-          type: string
-      required:
-      - id
-      - name
-      - type
-      - commitId
-      - prId
-      - path
-      - repositoryId
-      - creationDate
-      - updatedDate
-      type: object
-    SearchControllerParams:
-      properties:
-        scopes:
-          items:
-            $ref: '#/components/schemas/ProjectsV2CodeCategory'
-          type: array
-        term:
-          type: string
-      required:
-      - term
-      type: object
-    EnumValues_IacLabels_:
-      enum:
-      - CustomPolicy
-      - HasFix
-      type: string
-    LicensesGroupedByResourceResponse:
-      additionalProperties: false
-      properties:
-        causePackageId:
-          type: string
-        causePackageName:
-          type: string
-        firstDetected:
-          format: date-time
-          type: string
-        isIndirectPackage:
-          type: boolean
-        labels:
-          items:
-            $ref: '#/components/schemas/LicLabel'
-          type: array
-        policy:
-          type: string
-        repository:
-          type: string
-        severity:
-          $ref: '#/components/schemas/Severity'
-        violationId:
-          type: string
-      required:
-      - policy
-      - severity
-      - firstDetected
-      - isIndirectPackage
-      - causePackageName
-      - labels
-      type: object
-    ErrorsInFileCount:
-      additionalProperties: false
-      properties:
-        awaitingRemediationCount:
-          format: double
-          type: number
-        errorsCount:
-          format: double
-          type: number
-        filePath:
-          type: string
-        fixedCount:
-          format: double
-          type: number
-        openErrorsCount:
-          format: double
-          type: number
-        passedCount:
-          format: double
-          type: number
-        suppressedErrorsCount:
-          format: double
-          type: number
-        type:
-          $ref: '#/components/schemas/ErrorType'
-      required:
-      - filePath
-      - errorsCount
-      - openErrorsCount
-      - suppressedErrorsCount
-      - passedCount
-      - fixedCount
-      - awaitingRemediationCount
-      - type
-      type: object
-    BaseViolationToSuppress:
-      additionalProperties: false
-      properties:
-        comment:
-          type: string
-        expirationTime:
-          format: double
-          type: number
-        suppressionType:
-          type: string
-        violationId:
-          type: string
-      required:
-      - violationId
-      - suppressionType
-      - comment
-      type: object
-    ModuleError:
-      additionalProperties: false
-      properties:
-        code:
-          type: string
-        fixedCode:
-          type: string
-        moduleFile:
-          type: string
-        moduleReferences:
-          items:
-            $ref: '#/components/schemas/moduleReferences'
-          type: array
-      required:
-      - moduleReferences
-      - moduleFile
-      - fixedCode
-      - code
-      type: object
-    CVE:
-      additionalProperties: false
-      properties:
-        causePackageId:
-          type: string
-        causePackageName:
-          type: string
-        causePackageVersion:
-          type: string
-        cveId:
-          type: string
-        cveStatus:
-          type: string
-        cvss:
-          format: double
-          type: number
-        description:
-          type: string
-        errorLines:
-          items:
-            format: double
-            type: number
-          type: array
-        fixVersion:
-          type: string
-        imageName:
-          type: string
-        link:
-          type: string
-        packageName:
-          type: string
-        packageVersion:
-          type: string
-        publishedDate:
-          format: date-time
-          type: string
-        riskFactors:
-          type: string
-        severity:
-          type: string
-        status:
-          type: string
-        uuid:
-          type: string
-        vector:
-          type: string
-        violationId:
-          type: string
-      required:
-      - cveId
-      - status
-      - cvss
-      - vector
-      - description
-      - severity
-      - packageName
-      - packageVersion
-      - riskFactors
-      - link
-      - publishedDate
-      - causePackageId
-      - causePackageName
-      - causePackageVersion
-      - fixVersion
-      - uuid
-      - cveStatus
-      - violationId
-      type: object
-    EnumValues_FileMetadata-at-type_:
-      enum:
-      - build.gradle
-      - gradle.properties
-      - build.gradle.kts
-      - pom.xml
-      - requirements.txt
-      - package-lock.json
-      - package.json
-      - bower.json
-      - go.sum
-      - go.mod
-      - tf
-      - json
-      - yml
-      - yaml
-      - template
-      - .checkov.baseline
-      - hcl
-      - Dockerfile
-      - gradle-wrapper.properties
-      - METADATA
-      - bicep
-      - Pipfile.lock
-      - Pipfile
-      - yarn.lock
-      - Gemfile
-      - Gemfile.lock
-      - gemspec
-      - env
-      - settings.py
-      - main.py
-      - application.py
-      - config.py
-      - app.js
-      - config.js
-      - dev.js
-      - db.properties
-      - application.properties
-      - private.pem
-      - privatekey.pem
-      - index.php
-      - config.php
-      - config.xml
-      - strings.xml
-      - app.module.ts
-      - environment.ts
-      - tpl
-      - tfvars
-      - unknown
-      - csproj
-      - packages.config
-      - Directory.Packages.props
-      - paket.dependencies
-      - paket.references
-      - paket.lock
-      - sln
-      - config
-      - composer.json
-      - composer.lock
-      type: string
-    PoliciesByResourceAndTypeResponse:
-      anyOf:
-      - $ref: '#/components/schemas/IacPolicyResponse'
-      - $ref: '#/components/schemas/BasePolicyResponse'
-      - $ref: '#/components/schemas/VulnerabilitiesResponse'
-      - $ref: '#/components/schemas/LicensesGroupedByResourceResponse'
-    SubmitActionsResponse:
-      additionalProperties: false
-      properties:
-        data:
-          $ref: '#/components/schemas/SubmitResponse'
-      required:
-      - data
-      type: object
-    SubmitActionsType:
-      enum:
-      - default
-      - pr
-      type: string
-    GetErrorsInFileWithFilters:
-      additionalProperties: false
-      properties:
-        CICDRunId:
-          format: double
-          type: number
-        authors:
-          items:
-            type: string
-          type: array
-        branch:
-          type:
-          - string
-          - 'null'
-        categories:
-          items:
-            $ref: '#/components/schemas/Category'
-          type: array
-        codeStatus:
-          items:
-            $ref: '#/components/schemas/CodeStatus'
-          type: array
-        excludeCategories:
-          items:
-            $ref: '#/components/schemas/Category'
-          type: array
-        filePath:
-          type: string
-        fileTypes:
-          items:
-            $ref: '#/components/schemas/ProjectFileType'
-          type: array
-        repository:
-          type: string
-        repositoryId:
-          type: string
-        search:
-          $ref: '#/components/schemas/Search'
-        severities:
-          items:
-            $ref: '#/components/schemas/Severity'
-          type: array
-        sourceTypes:
-          items:
-            $ref: '#/components/schemas/SourceType'
-          type: array
-        tags:
-          items:
-            properties:
-              key:
-                type: string
-              value:
-                type: string
-            required:
-            - value
-            - key
-            type: object
-          type: array
-        types:
-          items:
-            $ref: '#/components/schemas/Type'
-          type: array
-      required:
-      - repository
-      - sourceTypes
-      - filePath
-      type: object
-    EnumValues_IncidentConfiguration-at-category_:
-      enum:
-      - IAM
-      - Compute
-      - Monitoring
-      - Networking
-      - Kubernetes
-      - General
-      - Storage
-      - Secrets
-      - Public
-      - Vulnerabilities
-      - Drift
-      - BuildIntegrity
-      - Licenses
-      - Logging
-      - Serverless
-      - Elasticsearch
-      - VCS
-      - Policy3D
-      - Sast
-      - Artifact Integrity Validation
-      - Cider Kill Chain
-      - Credential Hygiene
-      - Data Protection
-      - Dependency Chain Abuse
-      - Dependency Chains
-      - Flow Control Mechanisms
-      - Input Validation
-      - Patches & Updates
-      - Pipeline-Based Access Controls (PBAC)
-      - Pipeline Flow Control
-      - Poisoned Pipeline Execution (PPE)
-      - System Configuration
-      - Supply Chain
-      type: string
-    DefaultBranchViolationToFix:
-      additionalProperties: false
-      properties:
-        errorLines:
-          items:
-            format: double
-            type: number
-          type: array
-        fixPath:
-          type:
-          - string
-          - 'null'
-        fixedCode:
-          type:
-          - string
-          - 'null'
-        fixes:
-          items:
-            $ref: '#/components/schemas/SmartFix'
-          type: array
-        frameworkType:
-          type: string
-        fullId:
-          type: string
-        inspectedKey:
-          type:
-          - string
-          - 'null'
-        metadataChecksMetadataPath:
-          type: string
-        metadataLines:
-          items:
-            format: double
-            type: number
-          type: array
-        owner:
-          type: string
-        repoName:
-          type: string
-        resourceCode:
-          type:
-          - string
-          - 'null'
-        resourceId:
-          type: string
-        runtimeId:
-          type:
-          - string
-          - 'null'
-        runtimeSourceId:
-          type:
-          - string
-          - 'null'
-        s3FilePath:
-          type: string
-        selectedFix:
-          type:
-          - string
-          - 'null'
-        violationId:
-          type: string
-      required:
-      - metadataChecksMetadataPath
-      - metadataLines
-      - violationId
-      - resourceId
-      - frameworkType
-      - s3FilePath
-      - owner
-      - repoName
-      - fullId
-      type: object
-    BranchScanScanAllReposFilters:
-      additionalProperties: false
-      properties:
-        benchmarks:
-          items:
-            $ref: '#/components/schemas/EnumValues_BenchmarkEnum_'
-          type: array
-        branch:
-          type: string
-        checkStatus:
-          $ref: '#/components/schemas/CheckStatus'
-        codeCategories:
-          items:
-            $ref: '#/components/schemas/ProjectsV2CodeCategory'
-          type: array
-        cwes:
-          items:
-            type: string
-          type: array
-        fileTypes:
-          items:
-            $ref: '#/components/schemas/EnumValues_FileMetadata-at-type_'
-          type: array
-        fixableOnly:
-          type: boolean
-        gitUsers:
-          items:
-            type: string
-          type: array
-        iacCategories:
-          items:
-            $ref: '#/components/schemas/EnumValues_IncidentConfiguration-at-category_'
-          type: array
-        iacLabels:
-          items:
-            $ref: '#/components/schemas/EnumValues_IacLabels_'
-          type: array
-        iacTags:
-          items:
-            type: string
-          type: array
-        licenseType:
-          items:
-            $ref: '#/components/schemas/LicenseEnum'
-          type: array
-        owasp:
-          items:
-            type: string
-          type: array
-        repositories:
-          items:
-            type: string
-          maxItems: 0
-          minItems: 0
-          type: array
-        sastLabels:
-          items:
-            $ref: '#/components/schemas/SastLabelValue'
-          type: array
-        secretsRiskFactors:
-          items:
-            $ref: '#/components/schemas/SecretsRiskFactor'
-          type: array
-        severities:
-          items:
-            $ref: '#/components/schemas/Severity'
-          type: array
-        vulnerabilityRiskFactors:
-          items:
-            $ref: '#/components/schemas/VulnerabilityRiskFactor'
-          type: array
-      type: object
-    CheckStatus:
-      enum:
-      - Error
-      - Passed
-      - Suppressed
-      - FixPending
-      type: string
-    BranchScanFilters:
-      anyOf:
-      - $ref: '#/components/schemas/BranchScanScanAllReposFilters'
-      - $ref: '#/components/schemas/BranchScanMoreThanOneRepoFilters'
-      - $ref: '#/components/schemas/BranchScanSingleRepoFilters'
     BranchScanMoreThanOneRepoFilters:
       additionalProperties: false
       properties:
@@ -3026,38 +2758,353 @@ components:
       required:
       - repositories
       type: object
-    VulnerabilityToFix:
+    GetErrorsFilesResponseBody:
       additionalProperties: false
       properties:
-        frameworkType:
+        data:
+          items:
+            $ref: '#/components/schemas/ErrorsInFileCount'
+          type: array
+      required:
+      - data
+      type: object
+    OpenSearchPaginationRequest:
+      properties:
+        limit:
+          format: double
+          type: number
+        offset:
+          format: double
+          type: number
+        searchAfter:
+          items:
+            type: string
+          type: array
+        useSearchAfterPagination:
+          type: boolean
+      type: object
+    IacPolicyResponse:
+      additionalProperties: false
+      properties:
+        firstDetected:
+          format: date-time
           type: string
-        id:
+        labels:
+          items:
+            $ref: '#/components/schemas/IacLabels'
+          type: array
+        policy:
           type: string
-        owner:
+        repository:
           type: string
-        packageName:
+        resourceName:
           type: string
-        packageVersion:
+        resourceScanType:
+          $ref: '#/components/schemas/ResourceScanType'
+        resourceUuid:
           type: string
-        repoName:
-          type: string
-        resourceId:
-          type: string
-        s3FilePath:
-          type: string
+        severity:
+          $ref: '#/components/schemas/Severity'
         violationId:
           type: string
       required:
-      - violationId
-      - resourceId
-      - frameworkType
-      - s3FilePath
+      - policy
+      - severity
+      - firstDetected
+      - labels
+      type: object
+    IacLabels:
+      enum:
+      - CustomPolicy
+      - HasFix
+      type: string
+    ProjectFileType:
+      enum:
+      - build.gradle
+      - gradle.properties
+      - build.gradle.kts
+      - pom.xml
+      - requirements.txt
+      - package-lock.json
+      - package.json
+      - bower.json
+      - go.sum
+      - go.mod
+      type: string
+    BranchScanSingleRepoFilters:
+      additionalProperties: false
+      properties:
+        benchmarks:
+          items:
+            $ref: '#/components/schemas/EnumValues_BenchmarkEnum_'
+          type: array
+        branch:
+          type: string
+        checkStatus:
+          $ref: '#/components/schemas/CheckStatus'
+        codeCategories:
+          items:
+            $ref: '#/components/schemas/ProjectsV2CodeCategory'
+          type: array
+        cwes:
+          items:
+            type: string
+          type: array
+        fileTypes:
+          items:
+            $ref: '#/components/schemas/EnumValues_FileMetadata-at-type_'
+          type: array
+        fixableOnly:
+          type: boolean
+        gitUsers:
+          items:
+            type: string
+          type: array
+        iacCategories:
+          items:
+            $ref: '#/components/schemas/EnumValues_IncidentConfiguration-at-category_'
+          type: array
+        iacLabels:
+          items:
+            $ref: '#/components/schemas/EnumValues_IacLabels_'
+          type: array
+        iacTags:
+          items:
+            type: string
+          type: array
+        licenseType:
+          items:
+            $ref: '#/components/schemas/LicenseEnum'
+          type: array
+        owasp:
+          items:
+            type: string
+          type: array
+        repositories:
+          items:
+            type: string
+          maxItems: 1
+          minItems: 1
+          type: array
+        sastLabels:
+          items:
+            $ref: '#/components/schemas/SastLabelValue'
+          type: array
+        secretsRiskFactors:
+          items:
+            $ref: '#/components/schemas/SecretsRiskFactor'
+          type: array
+        severities:
+          items:
+            $ref: '#/components/schemas/Severity'
+          type: array
+        vulnerabilityRiskFactors:
+          items:
+            $ref: '#/components/schemas/VulnerabilityRiskFactor'
+          type: array
+      type: object
+    ResourceScanType:
+      enum:
+      - Runtime
+      - Buildtime
+      type: string
+    SourceType:
+      enum:
+      - Github
+      - Bitbucket
+      - Gitlab
+      - AzureRepos
+      - cli
+      - AWS
+      - Azure
+      - GCP
+      - Docker
+      - githubEnterprise
+      - gitlabEnterprise
+      - bitbucketEnterprise
+      - terraformCloud
+      - githubActions
+      - circleci
+      - codebuild
+      - jenkins
+      - tfcRunTasks
+      - tfeRunTasks
+      - admissionController
+      - terraformEnterprise
+      type: string
+    SubmitActionsMetadata:
+      additionalProperties: false
+      properties:
+        owner:
+          type: string
+        pr:
+          type: string
+        repoName:
+          type: string
+        runNumber:
+          format: double
+          type: number
+        sourceBranchName:
+          type: string
+      required:
       - owner
       - repoName
-      - packageName
-      - packageVersion
+      - runNumber
       type: object
-    CvesViolationToSuppress:
+    ErrorsInFileCount:
+      additionalProperties: false
+      properties:
+        awaitingRemediationCount:
+          format: double
+          type: number
+        errorsCount:
+          format: double
+          type: number
+        filePath:
+          type: string
+        fixedCount:
+          format: double
+          type: number
+        openErrorsCount:
+          format: double
+          type: number
+        passedCount:
+          format: double
+          type: number
+        suppressedErrorsCount:
+          format: double
+          type: number
+        type:
+          $ref: '#/components/schemas/ErrorType'
+      required:
+      - filePath
+      - errorsCount
+      - openErrorsCount
+      - suppressedErrorsCount
+      - passedCount
+      - fixedCount
+      - awaitingRemediationCount
+      - type
+      type: object
+    VulLabels:
+      properties:
+        label:
+          anyOf:
+          - $ref: '#/components/schemas/VulLabelsValue'
+          - $ref: '#/components/schemas/ImageLabelsValue'
+          - $ref: '#/components/schemas/PacakgeLabelsValue'
+        metadata:
+          properties:
+            imageName:
+              type: string
+          type: object
+      required:
+      - label
+      type: object
+    Type:
+      enum:
+      - Errors
+      - Suppressed
+      - Passed
+      - Fixed
+      - Awaiting Remediation
+      type: string
+    EnumValues_FileMetadata-at-type_:
+      enum:
+      - build.gradle
+      - gradle.properties
+      - build.gradle.kts
+      - pom.xml
+      - requirements.txt
+      - package-lock.json
+      - package.json
+      - bower.json
+      - go.sum
+      - go.mod
+      - tf
+      - json
+      - yml
+      - yaml
+      - template
+      - .checkov.baseline
+      - hcl
+      - Dockerfile
+      - gradle-wrapper.properties
+      - METADATA
+      - bicep
+      - Pipfile.lock
+      - Pipfile
+      - yarn.lock
+      - Gemfile
+      - Gemfile.lock
+      - gemspec
+      - env
+      - settings.py
+      - main.py
+      - application.py
+      - config.py
+      - app.js
+      - config.js
+      - dev.js
+      - db.properties
+      - application.properties
+      - private.pem
+      - privatekey.pem
+      - index.php
+      - config.php
+      - config.xml
+      - strings.xml
+      - app.module.ts
+      - environment.ts
+      - tpl
+      - tfvars
+      - unknown
+      - csproj
+      - packages.config
+      - Directory.Packages.props
+      - paket.dependencies
+      - paket.references
+      - paket.lock
+      - sln
+      - config
+      - composer.json
+      - composer.lock
+      type: string
+    VariableRenderingError:
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+        fixedCode:
+          type: string
+        lines:
+          items:
+            format: double
+            type: number
+          type: array
+        path:
+          type: string
+      required:
+      - path
+      - lines
+      - code
+      - fixedCode
+      type: object
+    Justification:
+      additionalProperties: false
+      properties:
+        comment:
+          type: string
+        createdBy:
+          type: string
+        expirationTime:
+          format: double
+          type: number
+      required:
+      - comment
+      - createdBy
+      type: object
+    CvesAccountsViolationToSuppress:
       additionalProperties: false
       properties:
         accountIds:
@@ -3068,18 +3115,7 @@ components:
           type: string
         cves:
           items:
-            properties:
-              cve:
-                type: string
-              id:
-                type: string
-              uuid:
-                type: string
-            required:
-            - uuid
-            - id
-            - cve
-            type: object
+            type: string
           type: array
         expirationTime:
           format: double
@@ -3092,29 +3128,46 @@ components:
       - violationId
       - suppressionType
       - comment
+      - accountIds
       - cves
       type: object
-    EnumValues_BenchmarkEnum_:
-      enum:
-      - CIS KUBERNETES V1.5
-      - CIS AWS V1.2
-      - CIS AZURE V1.1
-      - PCI-DSS V3.2
-      - NIST-800-53
-      - ISO27001
-      - SOC2
-      - CIS GCP V1.1
-      - HIPAA
-      - FEDRAMP (MODERATE)
-      - PCI-DSS V3.2.1
-      - CIS AWS V1.3
-      - CIS AZURE V1.3
-      - CIS DOCKER V1.2
-      - CIS EKS V1.1
-      - CIS GKE V1.1
-      - CIS KUBERNETES V1.6
-      - SLSA
-      type: string
+    BranchScanFilters:
+      anyOf:
+      - $ref: '#/components/schemas/BranchScanScanAllReposFilters'
+      - $ref: '#/components/schemas/BranchScanMoreThanOneRepoFilters'
+      - $ref: '#/components/schemas/BranchScanSingleRepoFilters'
+    LicensesGroupedByResourceResponse:
+      additionalProperties: false
+      properties:
+        causePackageId:
+          type: string
+        causePackageName:
+          type: string
+        firstDetected:
+          format: date-time
+          type: string
+        isIndirectPackage:
+          type: boolean
+        labels:
+          items:
+            $ref: '#/components/schemas/LicLabel'
+          type: array
+        policy:
+          type: string
+        repository:
+          type: string
+        severity:
+          $ref: '#/components/schemas/Severity'
+        violationId:
+          type: string
+      required:
+      - policy
+      - severity
+      - firstDetected
+      - isIndirectPackage
+      - causePackageName
+      - labels
+      type: object
     ResourceToSuppress:
       additionalProperties: false
       properties:
@@ -3126,43 +3179,31 @@ components:
       - id
       - accountId
       type: object
-    ErrorsInFileWithPaginationResponse:
+    DefaultBranchViolationToFix:
       additionalProperties: false
       properties:
-        data:
-          items:
-            $ref: '#/components/schemas/ViolationError'
-          type: array
-        hasNext:
-          type: boolean
-      required:
-      - data
-      - hasNext
-      type: object
-    CICDViolation:
-      additionalProperties: false
-      properties:
-        CICDRunId:
-          format: double
-          type: number
-        bulkSuppression:
-          type: boolean
-        commentIds:
-          items:
-            type: string
-          type: array
-        creationDate:
-          type: string
         errorLines:
           items:
             format: double
             type: number
           type: array
+        fixPath:
+          type:
+          - string
+          - 'null'
+        fixedCode:
+          type:
+          - string
+          - 'null'
+        fixes:
+          items:
+            $ref: '#/components/schemas/SmartFix'
+          type: array
         frameworkType:
           type: string
-        justification:
-          $ref: '#/components/schemas/Justification'
-        justificationId:
+        fullId:
+          type: string
+        inspectedKey:
           type:
           - string
           - 'null'
@@ -3173,8 +3214,14 @@ components:
             format: double
             type: number
           type: array
-        repository:
+        owner:
           type: string
+        repoName:
+          type: string
+        resourceCode:
+          type:
+          - string
+          - 'null'
         resourceId:
           type: string
         runtimeId:
@@ -3187,17 +3234,7 @@ components:
           - 'null'
         s3FilePath:
           type: string
-        s3FixFilePath:
-          type:
-          - string
-          - 'null'
-        severity:
-          type: string
-        status:
-          type: string
-        updatedDate:
-          type: string
-        vcsCommentLine:
+        selectedFix:
           type:
           - string
           - 'null'
@@ -3210,45 +3247,268 @@ components:
       - resourceId
       - frameworkType
       - s3FilePath
-      - CICDRunId
-      - justificationId
-      - status
-      - repository
-      - s3FixFilePath
-      - creationDate
-      - updatedDate
-      - commentIds
-      - vcsCommentLine
-      - errorLines
-      - severity
+      - owner
+      - repoName
+      - fullId
       type: object
-    Search:
+    OrganizationAndPolicyToSuppress:
       additionalProperties: false
       properties:
-        options:
-          items:
-            enum:
-            - path
-            - code
-            type: string
-          type: array
-        text:
+        comment:
           type: string
-        title:
-          enum:
-          - title
-          - constructive_title
-          - descriptive_title
+        expirationTime:
+          format: double
+          type: number
+        organizationId:
+          type: string
+        suppressionType:
+          type: string
+        violationId:
           type: string
       required:
-      - text
-      - options
+      - violationId
+      - suppressionType
+      - comment
+      - organizationId
       type: object
-    ResourceScanType:
+    SecretValidationStatus:
       enum:
-      - Runtime
-      - Buildtime
+      - Privileged
+      - Valid
+      - Invalid
+      - Unknown
+      - Unavailable
       type: string
+    LicLabel:
+      properties:
+        label:
+          anyOf:
+          - $ref: '#/components/schemas/ImageLabelsValue'
+          - $ref: '#/components/schemas/PacakgeLabelsValue'
+        metadata:
+          properties:
+            imageName:
+              type: string
+          type: object
+      required:
+      - label
+      type: object
+    EnumValues_IncidentConfiguration-at-category_:
+      enum:
+      - IAM
+      - Compute
+      - Monitoring
+      - Networking
+      - Kubernetes
+      - General
+      - Storage
+      - Secrets
+      - Public
+      - Vulnerabilities
+      - Drift
+      - BuildIntegrity
+      - Licenses
+      - Logging
+      - Serverless
+      - Elasticsearch
+      - VCS
+      - Policy3D
+      - Sast
+      - Artifact Integrity Validation
+      - Cider Kill Chain
+      - Credential Hygiene
+      - Data Protection
+      - Dependency Chain Abuse
+      - Dependency Chains
+      - Flow Control Mechanisms
+      - Input Validation
+      - Patches & Updates
+      - Pipeline-Based Access Controls (PBAC)
+      - Pipeline Flow Control
+      - Poisoned Pipeline Execution (PPE)
+      - System Configuration
+      - Supply Chain
+      type: string
+    SmartFix:
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+        fixedCode:
+          type: string
+        id:
+          type: string
+        inspectedKey:
+          type: string
+        percent:
+          format: double
+          type: number
+        recommenderType:
+          type: string
+        times:
+          format: double
+          type: number
+      required:
+      - id
+      - times
+      - percent
+      - inspectedKey
+      - recommenderType
+      type: object
+    Category:
+      enum:
+      - IAM
+      - Compute
+      - Monitoring
+      - Networking
+      - Kubernetes
+      - General
+      - Storage
+      - Secrets
+      - Public
+      - Vulnerabilities
+      - Drift
+      - Licenses
+      type: string
+    SubmitActionsType:
+      enum:
+      - default
+      - pr
+      type: string
+    GitBlameAuthorsRequestBody:
+      additionalProperties: false
+      properties:
+        repositories:
+          items:
+            type: string
+          type: array
+      type: object
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          description: HTTP status code.
+          example: 602
+        message:
+          type: string
+          description: Human-readable error message.
+          example: Traffic activity investigation malware violation policy Security monitoring.
+        error:
+          type: string
+          description: Error code.
+          example: example-error
+    CodeError:
+      type: object
+      properties:
+        errorId:
+          type: string
+          description: Unique error identifier.
+          example: '770500'
+        policyId:
+          type: string
+          description: Checkov policy ID that triggered the error (e.g., CKV_AWS_18).
+          example: '731580'
+        policyName:
+          type: string
+          description: Human-readable name of the violated policy.
+          example: Staging Firewall 29
+        severity:
+          type: string
+          enum:
+          - CRITICAL
+          - HIGH
+          - MEDIUM
+          - LOW
+          - INFO
+          description: Error severity level.
+          example: HIGH
+        category:
+          type: string
+          enum:
+          - IAC
+          - SCA
+          - SECRETS
+          - CICD
+          description: Error category based on the type of scan that detected it.
+          example: CICD
+        status:
+          type: string
+          enum:
+          - OPEN
+          - SUPPRESSED
+          - FIXED
+          description: Current status of the error.
+          example: OPEN
+        resourceName:
+          type: string
+          description: Name of the IaC resource where the error was detected.
+          example: Corporate Agent 51
+        resourceType:
+          type: string
+          description: Type of the IaC resource.
+          example: custom
+        filePath:
+          type: string
+          description: Relative path to the file containing the error.
+          example: /api/v1/4ec64a
+        fileLineRange:
+          type: array
+          items:
+            type: integer
+          minItems: 2
+          maxItems: 2
+          description: Start and end line numbers of the affected code block.
+          example:
+          - 280
+          - 370
+        repositoryId:
+          type: string
+          description: Repository where the error was found.
+          example: '404787'
+        branch:
+          type: string
+          description: Branch where the error was detected.
+          example: example-branch
+        guideline:
+          type: string
+          description: URL to documentation explaining the policy and remediation steps.
+          example: example-guideline
+        firstDetected:
+          type: string
+          format: date-time
+          description: Timestamp when the error was first detected.
+          example: '2026-10-23T03:12:18Z'
+        lastDetected:
+          type: string
+          format: date-time
+          description: Timestamp of the most recent scan where the error was found.
+          example: '2024-04-11T14:31:52Z'
+  responses:
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Invalid request parameters or body.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Invalid or expired authentication token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   securitySchemes:
     CustomAuthorizer:
       in: header
@@ -3260,3 +3520,17 @@ components:
         identitySource: method.request.header.authorization
         type: request
       x-amazon-apigateway-authtype: custom
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
+    redlockAuth:
+      type: apiKey
+      in: header
+      name: x-redlock-auth
+      description: JWT token obtained from the Prisma Cloud /login endpoint. Pass the token value in the x-redlock-auth header. Tokens are valid for 10 minutes.
+x-refined-from:
+- palo-alto-code-errors-openapi.json
+- palo-alto-networks-errors-api-openapi.yml
+- palo-alto-prisma-cloud-code-security-api-openapi-original.yml

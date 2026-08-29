@@ -1,10 +1,16 @@
 openapi: 3.2.0
 info:
   title: Palo Alto Networks Profiles API
+  x-refined-note:
+  - x-description-source differs across the merged source definitions and was not carried
   version: '1.0'
-  description: 'Operations tagged Profiles across 5 of this provider''s published API definitions: palo-alto-compute-34-03-openapi-34-03-138-sh-openapi.json, palo-alto-compute-openapi-34-04-145-sh-openapi.json, palo-alto-cwpp-34-03-openapi-34-03-138-saas-openapi.json, palo-alto-cwpp-openapi-34-04-145-saas-openapi.json, palo-alto-scm-config-adnsr-adnsr-apis-openapi.yaml. Each path carries the servers of the definition it was published in.'
+  description: 'Operations tagged Profiles across 7 of this provider''s published API definitions: palo-alto-compute-34-03-openapi-34-03-138-sh-openapi.json, palo-alto-compute-openapi-34-04-145-sh-openapi.json, palo-alto-cwpp-34-03-openapi-34-03-138-saas-openapi.json, palo-alto-cwpp-openapi-34-04-145-saas-openapi.json, palo-alto-networks-profiles-api-openapi.yml, palo-alto-prisma-airs-api-openapi-original.yml, palo-alto-scm-config-adnsr-adnsr-apis-openapi.yaml. Each path carries the servers of the definition it was published in.'
 servers:
 - url: PATH_TO_CONSOLE
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+- url: https://security.api.aisecurity.paloaltonetworks.com
+  description: Prisma AIRS production server.
 - description: Prod
   url: https://api.strata.paloaltonetworks.com
 tags:
@@ -1650,6 +1656,242 @@ paths:
       operationId: get-profiles-host-download
       summary: Download Runtime Host Profiles
       x-description-source: desc/profiles/host_download_get.md
+  /v1/profile:
+    get:
+      operationId: listAIProfiles
+      summary: Palo Alto Networks List AI Security Profiles
+      description: Returns all AI security profiles configured for the tenant. Security profiles define which detection categories are active, their sensitivity levels, and the enforcement action to take when a threat is detected. Every scan request references a profile by name to determine evaluation behavior.
+      tags:
+      - Profiles
+      parameters:
+      - name: offset
+        in: query
+        description: Pagination offset for the result set.
+        schema:
+          type: integer
+          default: 0
+        example: 0
+      - name: limit
+        in: query
+        description: Maximum number of profiles to return per page.
+        schema:
+          type: integer
+          default: 50
+          maximum: 200
+        example: 50
+      responses:
+        '200':
+          description: List of AI security profiles returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of profiles available for the tenant.
+                  offset:
+                    type: integer
+                    description: Current pagination offset.
+                  limit:
+                    type: integer
+                    description: Number of results per page.
+                  profiles:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AIProfile'
+              examples:
+                ListAiprofiles200Example:
+                  summary: Default listAIProfiles 200 response
+                  x-microcks-default: true
+                  value:
+                    total: 305
+                    offset: 518
+                    limit: 600
+                    profiles:
+                    - profile_id: '701673'
+                      profile_name: Corporate Agent 92
+                      description: Rule on network suspicious configured activity firewall monitoring Security rule.
+                      detection_categories:
+                      - category: pii_exposure
+                        enabled: true
+                        sensitivity: high
+                        action: log
+                      - category: toxic_content
+                        enabled: false
+                        sensitivity: low
+                        action: alert
+                      created_at: '2024-07-23T00:36:00Z'
+                      updated_at: '2025-08-22T07:28:11Z'
+                    - profile_id: '701673'
+                      profile_name: Corporate Agent 92
+                      description: Rule on network suspicious configured activity firewall monitoring Security rule.
+                      detection_categories:
+                      - category: pii_exposure
+                        enabled: true
+                        sensitivity: high
+                        action: log
+                      - category: toxic_content
+                        enabled: false
+                        sensitivity: low
+                        action: alert
+                      created_at: '2024-07-23T00:36:00Z'
+                      updated_at: '2025-08-22T07:28:11Z'
+        '401':
+          description: Invalid or missing x-pan-token API key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                ListAiprofiles401Example:
+                  summary: Default listAIProfiles 401 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Activity firewall applied traffic incident endpoint.
+                    request_id: eb74a8d9-395b-4b9e-a68b-b66eb903b650
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                ListAiprofiles403Example:
+                  summary: Default listAIProfiles 403 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Activity firewall applied traffic incident endpoint.
+                    request_id: eb74a8d9-395b-4b9e-a68b-b66eb903b650
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                ListAiprofiles500Example:
+                  summary: Default listAIProfiles 500 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Activity firewall applied traffic incident endpoint.
+                    request_id: eb74a8d9-395b-4b9e-a68b-b66eb903b650
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
+  /v1/profile/{profile_name}:
+    get:
+      operationId: getAIProfile
+      summary: Palo Alto Networks Get AI Security Profile Details
+      description: Returns the full configuration details for a named AI security profile including all detection categories, their enabled state, sensitivity thresholds, and configured enforcement actions. Use this endpoint to inspect the exact policy that will be applied when a scan references this profile name.
+      tags:
+      - Profiles
+      parameters:
+      - name: profile_name
+        in: path
+        required: true
+        description: Name of the AI security profile to retrieve.
+        schema:
+          type: string
+        example: Staging Firewall 95
+      responses:
+        '200':
+          description: AI security profile details returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIProfile'
+              examples:
+                GetAiprofile200Example:
+                  summary: Default getAIProfile 200 response
+                  x-microcks-default: true
+                  value:
+                    profile_id: '701673'
+                    profile_name: Corporate Agent 92
+                    description: Rule on network suspicious configured activity firewall monitoring Security rule.
+                    detection_categories:
+                    - category: pii_exposure
+                      enabled: true
+                      sensitivity: high
+                      action: log
+                    - category: toxic_content
+                      enabled: false
+                      sensitivity: low
+                      action: alert
+                    created_at: '2024-07-23T00:36:00Z'
+                    updated_at: '2025-08-22T07:28:11Z'
+        '401':
+          description: Invalid or missing x-pan-token API key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                GetAiprofile401Example:
+                  summary: Default getAIProfile 401 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Activity firewall applied traffic incident endpoint.
+                    request_id: eb74a8d9-395b-4b9e-a68b-b66eb903b650
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                GetAiprofile403Example:
+                  summary: Default getAIProfile 403 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Activity firewall applied traffic incident endpoint.
+                    request_id: eb74a8d9-395b-4b9e-a68b-b66eb903b650
+        '404':
+          description: Profile with the specified name not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                GetAiprofile404Example:
+                  summary: Default getAIProfile 404 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Activity firewall applied traffic incident endpoint.
+                    request_id: eb74a8d9-395b-4b9e-a68b-b66eb903b650
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                GetAiprofile500Example:
+                  summary: Default getAIProfile 500 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Activity firewall applied traffic incident endpoint.
+                    request_id: eb74a8d9-395b-4b9e-a68b-b66eb903b650
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
   /adns-resolver/v1/profiles:
     get:
       description: Retrieve all DNS profiles.
@@ -2253,617 +2495,6 @@ paths:
       url: https://api.strata.paloaltonetworks.com
 components:
   schemas:
-    shared.ContainerHistoryEvent:
-      description: ContainerHistoryEvent is a container process event created by interactive user
-      properties:
-        _id:
-          description: 'ID is the history event entity.
-
-            '
-          type: string
-        command:
-          description: 'Command is the process that was executed.
-
-            '
-          type: string
-        hostname:
-          description: 'Hostname is the hostname on which the command was invoked.
-
-            '
-          type: string
-        time:
-          description: 'Time is the time of the event.
-
-            '
-          format: date-time
-          type: string
-      type: object
-    runtime.HostProfile:
-      description: HostProfile represents a host runtime profile
-      properties:
-        _id:
-          description: 'ID is the profile ID (hostname).
-
-            '
-          type: string
-        accountID:
-          description: 'AccountID is the cloud account ID associated with the profile.
-
-            '
-          type: string
-        apps:
-          description: 'Apps are the host''s apps metadata.
-
-            '
-          items:
-            $ref: '#/components/schemas/runtime.App'
-          type: array
-        collections:
-          description: 'Collections is a list of collections to which this profile applies.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        created:
-          description: 'Created is the profile creation time.
-
-            '
-          format: date-time
-          type: string
-        geoip:
-          $ref: '#/components/schemas/runtime.ProfileNetworkGeoIP'
-        hash:
-          $ref: '#/components/schemas/common.ProfileHash'
-        labels:
-          description: 'Labels are the labels associated with the profile.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        sshEvents:
-          description: 'SSHEvents represents a list SSH events occurred on the host.
-
-            '
-          items:
-            $ref: '#/components/schemas/runtime.SSHEvent'
-          type: array
-        time:
-          description: 'Time is the last time when this profile was modified.
-
-            '
-          format: date-time
-          type: string
-      type: object
-    runtime.ProfileProcesses:
-      description: ProfileProcesses represents the process data that is learned for a specific image
-      properties:
-        behavioral:
-          description: 'Behavioral are process details learned from behavioral analysis.
-
-            '
-          items:
-            $ref: '#/components/schemas/runtime.ProfileProcess'
-          type: array
-        static:
-          description: 'Static are process details learned from static analysis.
-
-            '
-          items:
-            $ref: '#/components/schemas/runtime.ProfileProcess'
-          type: array
-      type: object
-    common.CloudMetadata:
-      description: CloudMetadata is the metadata for a cloud provider managed asset (e.g., as part of AWS/GCP/Azure/OCI)
-      properties:
-        accountID:
-          description: 'Cloud account ID.
-
-            '
-          type: string
-        awsExecutionEnv:
-          description: 'AWS execution environment (e.g. EC2/Fargate).
-
-            '
-          type: string
-        azure:
-          $ref: '#/components/schemas/common.AzureMetadata'
-        gcp:
-          $ref: '#/components/schemas/common.GCPCloudMetadata'
-        image:
-          description: 'The name of the image the cloud managed host or container is based on.
-
-            '
-          type: string
-        labels:
-          description: 'Cloud provider metadata labels.
-
-            '
-          items:
-            $ref: '#/components/schemas/common.ExternalLabel'
-          type: array
-        name:
-          description: 'Resource name.
-
-            '
-          type: string
-        ociTenantID:
-          description: 'OCI Tenant ID.
-
-            '
-          type: string
-        provider:
-          $ref: '#/components/schemas/common.CloudProvider'
-        region:
-          description: 'Resource''s region.
-
-            '
-          type: string
-        resourceID:
-          description: 'Unique ID of the resource.
-
-            '
-          type: string
-        resourceURL:
-          description: 'Server-defined URL for the resource.
-
-            '
-          type: string
-        type:
-          description: 'Instance type.
-
-            '
-          type: string
-        vmID:
-          description: 'Azure unique vm ID.
-
-            '
-          type: string
-        vmImageID:
-          description: 'VMImageID holds the VM instance''s image ID.
-
-            '
-          type: string
-      type: object
-    shared.ProfileKubernetesData:
-      description: ProfileKubernetesData holds Kubernetes data
-      properties:
-        clusterRoles:
-          description: 'ClusterRoles are the cluster roles of the associated service account.
-
-            '
-          items:
-            $ref: '#/components/schemas/shared.KubeClusterRole'
-          type: array
-        roles:
-          description: 'Roles are the roles of the associated service account.
-
-            '
-          items:
-            $ref: '#/components/schemas/shared.KubeRole'
-          type: array
-        serviceAccount:
-          description: 'ServiceAccount is the service account used to access Kubernetes apiserver
-
-            This field will be empty if the container is not running inside of a Pod.
-
-            '
-          type: string
-      type: object
-    common.ProfilePortData:
-      description: ProfilePortData represents a runtime profile ports data
-      properties:
-        all:
-          description: 'All indicates that this port data represents any arbitrary ports.
-
-            '
-          type: boolean
-        ports:
-          description: 'Ports is the list of profile runtime ports.
-
-            '
-          items:
-            $ref: '#/components/schemas/common.ProfilePort'
-          type: array
-      type: object
-    common.ACIMetadata:
-      properties:
-        containerGroup:
-          description: '.
-
-            '
-          type: string
-      type: object
-    runtime.ProfileFilesystemPath:
-      description: ProfileFilesystemPath represents the filesystem static data
-      properties:
-        mount:
-          description: 'Mount indicates whether the given folder is a mount.
-
-            '
-          type: boolean
-        path:
-          description: 'Path is the file path.
-
-            '
-          type: string
-        process:
-          description: 'Process is the process that accessed the file.
-
-            '
-          type: string
-        time:
-          description: 'Time is the time in which the file was added.
-
-            '
-          format: date-time
-          type: string
-      type: object
-    common.CloudRunMetadata:
-      properties:
-        revision:
-          description: '.
-
-            '
-          type: string
-        service:
-          description: '.
-
-            '
-          type: string
-      type: object
-    -_runtime.HostProfile:
-      items:
-        $ref: '#/components/schemas/runtime.HostProfile'
-      type: array
-    runtime.ProfileNetworkGeoIP:
-      description: ProfileNetworkGeoIP represents a cache of last ip-country pairs attached to each profile
-      properties:
-        countries:
-          description: 'Countries is a list of ip addresses with their corresponding country codes.
-
-            '
-          items:
-            $ref: '#/components/schemas/runtime.GeoIP'
-          type: array
-        modified:
-          description: 'Modified is the last modified time of the cache.
-
-            '
-          format: date-time
-          type: string
-      type: object
-    common.CloudProvider:
-      description: CloudProvider specifies the cloud provider name
-      enum:
-      - - aws
-        - azure
-        - gcp
-        - alibaba
-        - oci
-        - others
-      type: string
-    common.GCPCloudMetadata:
-      properties:
-        cloudRun:
-          $ref: '#/components/schemas/common.CloudRunMetadata'
-      type: object
-    common.ExternalLabel:
-      description: ExternalLabel holds an external label with a source and timestamp
-      properties:
-        key:
-          description: 'Label key.
-
-            '
-          type: string
-        sourceName:
-          description: 'Source name (e.g., for a namespace, the source name can be ''twistlock'').
-
-            '
-          type: string
-        sourceType:
-          $ref: '#/components/schemas/common.ExternalLabelSourceType'
-        timestamp:
-          description: 'Time when the label was fetched.
-
-            '
-          format: date-time
-          type: string
-        value:
-          description: 'Value of the label.
-
-            '
-          type: string
-      type: object
-    string:
-      type: string
-    shared.AppEmbeddedRuntimeProfile:
-      description: AppEmbeddedRuntimeProfile represents the app embedded runtime profile
-      properties:
-        _id:
-          description: 'ID is the profile ID.
-
-            '
-          type: string
-        appID:
-          description: 'AppID is the app embedded defender name.
-
-            '
-          type: string
-        cloudMetadata:
-          $ref: '#/components/schemas/common.CloudMetadata'
-        cluster:
-          description: 'Cluster is the ECS Fargate cluster name.
-
-            '
-          type: string
-        clusterType:
-          $ref: '#/components/schemas/common.ClusterType'
-        collections:
-          description: 'Collections are collections to which this profile applies.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        container:
-          description: 'Container is the app embedded container name.
-
-            '
-          type: string
-        image:
-          description: 'Image is the image name.
-
-            '
-          type: string
-        imageID:
-          description: 'ImageID is the image ID.
-
-            '
-          type: string
-        startTime:
-          description: 'StartTime is the time when the defender starts.
-
-            '
-          format: date-time
-          type: string
-      type: object
-    runtime.ProfileNetwork:
-      description: ProfileNetwork represents networking data that is learned
-      properties:
-        behavioral:
-          $ref: '#/components/schemas/runtime.ProfileNetworkBehavioral'
-        geoip:
-          $ref: '#/components/schemas/runtime.ProfileNetworkGeoIP'
-        static:
-          $ref: '#/components/schemas/runtime.ProfileNetworkStatic'
-      type: object
-    runtime.App:
-      description: App represents the applications runtime data
-      properties:
-        listeningPorts:
-          description: 'ListeningPorts represents the applications listening ports.
-
-            '
-          items:
-            $ref: '#/components/schemas/runtime.HostProfileListeningPort'
-          type: array
-        name:
-          description: 'Name is the app name.
-
-            '
-          type: string
-        outgoingPorts:
-          description: 'OutgoingPorts represents the applications outgoing ports.
-
-            '
-          items:
-            $ref: '#/components/schemas/runtime.HostProfileOutgoingPort'
-          type: array
-        processes:
-          description: 'Processes is a list of the app''s descendant processes.
-
-            '
-          items:
-            $ref: '#/components/schemas/runtime.ProfileProcess'
-          type: array
-        startupProcess:
-          $ref: '#/components/schemas/runtime.ProfileProcess'
-      type: object
-    shared.KubeLabel:
-      description: 'KubeLabel represents a label
-
-        These are stored as an array to allow special characters in key names,
-
-        see https://docs.mongodb.com/manual/reference/limits/#Restrictions-on-Field-Names
-
-        For example: kubernetes.io/bootstrapping'
-      properties:
-        key:
-          description: 'Key is the key of the label.
-
-            '
-          type: string
-        value:
-          description: 'Value is the value of the label.
-
-            '
-          type: string
-      type: object
-    -_shared.ContainerRuntimeProfile:
-      items:
-        $ref: '#/components/schemas/shared.ContainerRuntimeProfile'
-      type: array
-    common.ExternalLabelSourceType:
-      description: ExternalLabelSourceType indicates the source of the labels
-      enum:
-      - - namespace
-        - deployment
-        - pod
-        - aws
-        - azure
-        - gcp
-        - oci
-      type: string
-    common.ClusterType:
-      description: ClusterType is the cluster type
-      enum:
-      - - AKS
-        - ECS
-        - EKS
-        - GKE
-        - Kubernetes
-      type: string
-    runtime.HostProfileListeningPort:
-      description: HostProfileListeningPort holds a metadata on listening port stored in host runtime profile
-      properties:
-        command:
-          description: 'Command represents the command that triggered the connection.
-
-            '
-          type: string
-        modified:
-          description: 'Modified is a timestamp of when the event occurred.
-
-            '
-          format: date-time
-          type: string
-        port:
-          description: 'Port is the port number.
-
-            '
-          type: integer
-        processPath:
-          description: 'ProcessPath represents the path to the process that uses the port.
-
-            '
-          type: string
-      type: object
-    runtime.DNSQuery:
-      description: DNSQuery is the data of a DNS query
-      properties:
-        domainName:
-          description: 'DomainName is the queried domain name.
-
-            '
-          type: string
-        domainType:
-          description: 'DomainType is the queried domain type.
-
-            '
-          type: string
-      type: object
-    runtime.ProfileProcess:
-      description: ProfileProcess represents a single process data
-      properties:
-        command:
-          description: 'Command is the executed command.
-
-            '
-          type: string
-        interactive:
-          description: 'Interactive indicates whether the process belongs to an interactive session.
-
-            '
-          type: boolean
-        md5:
-          description: 'MD5 is the process binary MD5 sum.
-
-            '
-          type: string
-        modified:
-          description: 'Modified indicates the process binary was modified after the container has started.
-
-            '
-          type: boolean
-        path:
-          description: 'Path is the process binary path.
-
-            '
-          type: string
-        ppath:
-          description: 'PPath is the parent process path.
-
-            '
-          type: string
-        time:
-          description: 'Time is the time in which the process was added. If the process was modified, Time is the modification time.
-
-            '
-          format: date-time
-          type: string
-        user:
-          description: 'User represents the username that started the process.
-
-            '
-          type: string
-      type: object
-    common.ProfilePort:
-      description: ProfilePort represents a networking profile port
-      properties:
-        port:
-          description: 'Port is the port number.
-
-            '
-          type: integer
-        time:
-          description: 'Time is the learning timestamp of this port.
-
-            '
-          format: date-time
-          type: string
-      type: object
-    common.ProfileHash:
-      description: 'ProfileHash represents the profile hash
-
-        It is allowed to contain up to uint32 numbers, and represented by int64 since mongodb does not support unsigned data types'
-      format: int64
-      type: integer
-    -_shared.AppEmbeddedRuntimeProfile:
-      items:
-        $ref: '#/components/schemas/shared.AppEmbeddedRuntimeProfile'
-      type: array
-    shared.KubeRole:
-      description: 'KubeRole is a compact version of Kubernetes Role
-
-        See https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#role-v1-rbac-authorization-k8s-io'
-      properties:
-        labels:
-          description: 'Labels are the labels associated with the role.
-
-            '
-          items:
-            $ref: '#/components/schemas/shared.KubeLabel'
-          type: array
-        name:
-          description: 'Name is the role name.
-
-            '
-          type: string
-        namespace:
-          description: 'Namespace is the namespace associated with the role.
-
-            '
-          type: string
-        roleBinding:
-          description: 'RoleBinding is the name of the role binding used for display.
-
-            '
-          type: string
-        rules:
-          description: 'Rules are the list of rules associated with the cluster role.
-
-            '
-          items:
-            $ref: '#/components/schemas/shared.KubePolicyRule'
-          type: array
-        version:
-          description: 'Version is the resource version of the role object maintained by Kubernetes.
-
-            '
-          type: string
-      type: object
     runtime.ContainerCapabilities:
       description: ContainerCapabilities are a set of static capabilities for a given container
       properties:
@@ -2922,163 +2553,6 @@ components:
 
             '
           type: boolean
-      type: object
-    runtime.HostProfileOutgoingPort:
-      description: HostProfileOutgoingPort holds a metadata on outgoing port stored in host runtime profile
-      properties:
-        command:
-          description: 'Command represents the command that triggered the connection.
-
-            '
-          type: string
-        country:
-          description: 'Country is the country ISO code for the given IP address.
-
-            '
-          type: string
-        ip:
-          description: 'IP is the IP address captured over this port.
-
-            '
-          type: string
-        modified:
-          description: 'Modified is a timestamp of when the event occurred.
-
-            '
-          format: date-time
-          type: string
-        port:
-          description: 'Port is the port number.
-
-            '
-          type: integer
-        processPath:
-          description: 'ProcessPath represents the path to the process that uses the port.
-
-            '
-          type: string
-      type: object
-    runtime.GeoIP:
-      description: GeoIP represents an ip address with it's origin country code
-      properties:
-        code:
-          description: 'Code is the country iso code.
-
-            '
-          type: string
-        ip:
-          description: 'IP is the ip address.
-
-            '
-          type: string
-        modified:
-          description: 'Modified is the last modified time of this entry.
-
-            '
-          format: date-time
-          type: string
-      type: object
-    runtime.ProfileNetworkBehavioral:
-      description: ProfileNetworkBehavioral represents the behavioral data learned for networking
-      properties:
-        dnsQueries:
-          description: 'DNSQueries is the learned DNS queries.
-
-            '
-          items:
-            $ref: '#/components/schemas/runtime.DNSQuery'
-          type: array
-        listeningPorts:
-          description: 'Listening is the learned listening ports.
-
-            '
-          items:
-            $ref: '#/components/schemas/runtime.AppListeningPorts'
-          type: array
-        outboundPorts:
-          $ref: '#/components/schemas/common.ProfilePortData'
-      type: object
-    runtime.SSHEvent:
-      description: SSHEvent represents an SSH event data
-      properties:
-        command:
-          description: 'Command is the executed command.
-
-            '
-          type: string
-        country:
-          description: 'Country represents the SSH client''s origin country.
-
-            '
-          type: string
-        interactive:
-          description: 'Interactive indicates whether the process belongs to an interactive session.
-
-            '
-          type: boolean
-        ip:
-          description: 'IP address represents the connection client IP address.
-
-            '
-          type: integer
-        loginTime:
-          description: 'LoginTime represents the SSH login time.
-
-            '
-          format: int64
-          type: integer
-        md5:
-          description: 'MD5 is the process binary MD5 sum.
-
-            '
-          type: string
-        modified:
-          description: 'Modified indicates the process binary was modified after the container has started.
-
-            '
-          type: boolean
-        path:
-          description: 'Path is the process binary path.
-
-            '
-          type: string
-        ppath:
-          description: 'PPath is the parent process path.
-
-            '
-          type: string
-        time:
-          description: 'Time is the time in which the process was added. If the process was modified, Time is the modification time.
-
-            '
-          format: date-time
-          type: string
-        user:
-          description: 'User represents the username that started the process.
-
-            '
-          type: string
-      type: object
-    shared.RuntimeProfileState:
-      description: RuntimeProfileState represents the state of an image profile
-      enum:
-      - - learning
-        - dryRun
-        - learningExtended
-        - manualLearning
-        - manualRelearning
-        - active
-        - manualActive
-      type: string
-    common.AzureMetadata:
-      properties:
-        aci:
-          $ref: '#/components/schemas/common.ACIMetadata'
-        resourceGroup:
-          description: '.
-
-            '
-          type: string
       type: object
     shared.ContainerRuntimeProfile:
       description: ContainerRuntimeProfile represents the image runtime profile
@@ -3214,6 +2688,112 @@ components:
         state:
           $ref: '#/components/schemas/shared.RuntimeProfileState'
       type: object
+    common.ProfilePort:
+      description: ProfilePort represents a networking profile port
+      properties:
+        port:
+          description: 'Port is the port number.
+
+            '
+          type: integer
+        time:
+          description: 'Time is the learning timestamp of this port.
+
+            '
+          format: date-time
+          type: string
+      type: object
+    common.ExternalLabelSourceType:
+      description: ExternalLabelSourceType indicates the source of the labels
+      enum:
+      - - namespace
+        - deployment
+        - pod
+        - aws
+        - azure
+        - gcp
+        - oci
+      type: string
+    -_runtime.HostProfile:
+      items:
+        $ref: '#/components/schemas/runtime.HostProfile'
+      type: array
+    shared.ContainerHistoryEvent:
+      description: ContainerHistoryEvent is a container process event created by interactive user
+      properties:
+        _id:
+          description: 'ID is the history event entity.
+
+            '
+          type: string
+        command:
+          description: 'Command is the process that was executed.
+
+            '
+          type: string
+        hostname:
+          description: 'Hostname is the hostname on which the command was invoked.
+
+            '
+          type: string
+        time:
+          description: 'Time is the time of the event.
+
+            '
+          format: date-time
+          type: string
+      type: object
+    shared.KubeRole:
+      description: 'KubeRole is a compact version of Kubernetes Role
+
+        See https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#role-v1-rbac-authorization-k8s-io'
+      properties:
+        labels:
+          description: 'Labels are the labels associated with the role.
+
+            '
+          items:
+            $ref: '#/components/schemas/shared.KubeLabel'
+          type: array
+        name:
+          description: 'Name is the role name.
+
+            '
+          type: string
+        namespace:
+          description: 'Namespace is the namespace associated with the role.
+
+            '
+          type: string
+        roleBinding:
+          description: 'RoleBinding is the name of the role binding used for display.
+
+            '
+          type: string
+        rules:
+          description: 'Rules are the list of rules associated with the cluster role.
+
+            '
+          items:
+            $ref: '#/components/schemas/shared.KubePolicyRule'
+          type: array
+        version:
+          description: 'Version is the resource version of the role object maintained by Kubernetes.
+
+            '
+          type: string
+      type: object
+    runtime.ProfileNetworkStatic:
+      description: ProfileNetworkStatic represent the static section of the networking profile
+      properties:
+        listeningPorts:
+          description: 'Listening are the listening ports learned by static analysis.
+
+            '
+          items:
+            $ref: '#/components/schemas/runtime.AppListeningPorts'
+          type: array
+      type: object
     runtime.AppListeningPorts:
       description: AppListeningPorts is an association of an app and list of listening ports
       properties:
@@ -3224,6 +2804,124 @@ components:
           type: string
         portsData:
           $ref: '#/components/schemas/common.ProfilePortData'
+      type: object
+    runtime.ProfileNetwork:
+      description: ProfileNetwork represents networking data that is learned
+      properties:
+        behavioral:
+          $ref: '#/components/schemas/runtime.ProfileNetworkBehavioral'
+        geoip:
+          $ref: '#/components/schemas/runtime.ProfileNetworkGeoIP'
+        static:
+          $ref: '#/components/schemas/runtime.ProfileNetworkStatic'
+      type: object
+    common.ProfileHash:
+      description: 'ProfileHash represents the profile hash
+
+        It is allowed to contain up to uint32 numbers, and represented by int64 since mongodb does not support unsigned data types'
+      format: int64
+      type: integer
+    runtime.ProfileProcesses:
+      description: ProfileProcesses represents the process data that is learned for a specific image
+      properties:
+        behavioral:
+          description: 'Behavioral are process details learned from behavioral analysis.
+
+            '
+          items:
+            $ref: '#/components/schemas/runtime.ProfileProcess'
+          type: array
+        static:
+          description: 'Static are process details learned from static analysis.
+
+            '
+          items:
+            $ref: '#/components/schemas/runtime.ProfileProcess'
+          type: array
+      type: object
+    runtime.HostProfileOutgoingPort:
+      description: HostProfileOutgoingPort holds a metadata on outgoing port stored in host runtime profile
+      properties:
+        command:
+          description: 'Command represents the command that triggered the connection.
+
+            '
+          type: string
+        country:
+          description: 'Country is the country ISO code for the given IP address.
+
+            '
+          type: string
+        ip:
+          description: 'IP is the IP address captured over this port.
+
+            '
+          type: string
+        modified:
+          description: 'Modified is a timestamp of when the event occurred.
+
+            '
+          format: date-time
+          type: string
+        port:
+          description: 'Port is the port number.
+
+            '
+          type: integer
+        processPath:
+          description: 'ProcessPath represents the path to the process that uses the port.
+
+            '
+          type: string
+      type: object
+    runtime.DNSQuery:
+      description: DNSQuery is the data of a DNS query
+      properties:
+        domainName:
+          description: 'DomainName is the queried domain name.
+
+            '
+          type: string
+        domainType:
+          description: 'DomainType is the queried domain type.
+
+            '
+          type: string
+      type: object
+    common.CloudProvider:
+      description: CloudProvider specifies the cloud provider name
+      enum:
+      - - aws
+        - azure
+        - gcp
+        - alibaba
+        - oci
+        - others
+      type: string
+    shared.ProfileKubernetesData:
+      description: ProfileKubernetesData holds Kubernetes data
+      properties:
+        clusterRoles:
+          description: 'ClusterRoles are the cluster roles of the associated service account.
+
+            '
+          items:
+            $ref: '#/components/schemas/shared.KubeClusterRole'
+          type: array
+        roles:
+          description: 'Roles are the roles of the associated service account.
+
+            '
+          items:
+            $ref: '#/components/schemas/shared.KubeRole'
+          type: array
+        serviceAccount:
+          description: 'ServiceAccount is the service account used to access Kubernetes apiserver
+
+            This field will be empty if the container is not running inside of a Pod.
+
+            '
+          type: string
       type: object
     shared.KubeClusterRole:
       description: 'KubeClusterRole is a compact version of Kubernetes ClusterRole
@@ -3260,23 +2958,139 @@ components:
             '
           type: string
       type: object
-    runtime.ProfileFilesystem:
-      description: ProfileFilesystem defines the filesystem features profile
+    runtime.ProfileFilesystemPath:
+      description: ProfileFilesystemPath represents the filesystem static data
       properties:
-        behavioral:
-          description: 'Behavioral is filesystem data learned from behavioral analysis.
+        mount:
+          description: 'Mount indicates whether the given folder is a mount.
+
+            '
+          type: boolean
+        path:
+          description: 'Path is the file path.
+
+            '
+          type: string
+        process:
+          description: 'Process is the process that accessed the file.
+
+            '
+          type: string
+        time:
+          description: 'Time is the time in which the file was added.
+
+            '
+          format: date-time
+          type: string
+      type: object
+    runtime.HostProfileListeningPort:
+      description: HostProfileListeningPort holds a metadata on listening port stored in host runtime profile
+      properties:
+        command:
+          description: 'Command represents the command that triggered the connection.
+
+            '
+          type: string
+        modified:
+          description: 'Modified is a timestamp of when the event occurred.
+
+            '
+          format: date-time
+          type: string
+        port:
+          description: 'Port is the port number.
+
+            '
+          type: integer
+        processPath:
+          description: 'ProcessPath represents the path to the process that uses the port.
+
+            '
+          type: string
+      type: object
+    shared.AppEmbeddedRuntimeProfile:
+      description: AppEmbeddedRuntimeProfile represents the app embedded runtime profile
+      properties:
+        _id:
+          description: 'ID is the profile ID.
+
+            '
+          type: string
+        appID:
+          description: 'AppID is the app embedded defender name.
+
+            '
+          type: string
+        cloudMetadata:
+          $ref: '#/components/schemas/common.CloudMetadata'
+        cluster:
+          description: 'Cluster is the ECS Fargate cluster name.
+
+            '
+          type: string
+        clusterType:
+          $ref: '#/components/schemas/common.ClusterType'
+        collections:
+          description: 'Collections are collections to which this profile applies.
 
             '
           items:
-            $ref: '#/components/schemas/runtime.ProfileFilesystemPath'
+            $ref: '#/components/schemas/string'
           type: array
-        static:
-          description: 'Static is filesystem data learned from static analysis.
+        container:
+          description: 'Container is the app embedded container name.
+
+            '
+          type: string
+        image:
+          description: 'Image is the image name.
+
+            '
+          type: string
+        imageID:
+          description: 'ImageID is the image ID.
+
+            '
+          type: string
+        startTime:
+          description: 'StartTime is the time when the defender starts.
+
+            '
+          format: date-time
+          type: string
+      type: object
+    common.ProfilePortData:
+      description: ProfilePortData represents a runtime profile ports data
+      properties:
+        all:
+          description: 'All indicates that this port data represents any arbitrary ports.
+
+            '
+          type: boolean
+        ports:
+          description: 'Ports is the list of profile runtime ports.
 
             '
           items:
-            $ref: '#/components/schemas/runtime.ProfileFilesystemPath'
+            $ref: '#/components/schemas/common.ProfilePort'
           type: array
+      type: object
+    runtime.ProfileNetworkGeoIP:
+      description: ProfileNetworkGeoIP represents a cache of last ip-country pairs attached to each profile
+      properties:
+        countries:
+          description: 'Countries is a list of ip addresses with their corresponding country codes.
+
+            '
+          items:
+            $ref: '#/components/schemas/runtime.GeoIP'
+          type: array
+        modified:
+          description: 'Modified is the last modified time of the cache.
+
+            '
+          format: date-time
+          type: string
       type: object
     shared.KubePolicyRule:
       description: 'KubePolicyRule is a compact version of Kubernetes PolicyRule
@@ -3319,17 +3133,531 @@ components:
             $ref: '#/components/schemas/string'
           type: array
       type: object
-    runtime.ProfileNetworkStatic:
-      description: ProfileNetworkStatic represent the static section of the networking profile
+    runtime.HostProfile:
+      description: HostProfile represents a host runtime profile
+      properties:
+        _id:
+          description: 'ID is the profile ID (hostname).
+
+            '
+          type: string
+        accountID:
+          description: 'AccountID is the cloud account ID associated with the profile.
+
+            '
+          type: string
+        apps:
+          description: 'Apps are the host''s apps metadata.
+
+            '
+          items:
+            $ref: '#/components/schemas/runtime.App'
+          type: array
+        collections:
+          description: 'Collections is a list of collections to which this profile applies.
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        created:
+          description: 'Created is the profile creation time.
+
+            '
+          format: date-time
+          type: string
+        geoip:
+          $ref: '#/components/schemas/runtime.ProfileNetworkGeoIP'
+        hash:
+          $ref: '#/components/schemas/common.ProfileHash'
+        labels:
+          description: 'Labels are the labels associated with the profile.
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        sshEvents:
+          description: 'SSHEvents represents a list SSH events occurred on the host.
+
+            '
+          items:
+            $ref: '#/components/schemas/runtime.SSHEvent'
+          type: array
+        time:
+          description: 'Time is the last time when this profile was modified.
+
+            '
+          format: date-time
+          type: string
+      type: object
+    common.ExternalLabel:
+      description: ExternalLabel holds an external label with a source and timestamp
+      properties:
+        key:
+          description: 'Label key.
+
+            '
+          type: string
+        sourceName:
+          description: 'Source name (e.g., for a namespace, the source name can be ''twistlock'').
+
+            '
+          type: string
+        sourceType:
+          $ref: '#/components/schemas/common.ExternalLabelSourceType'
+        timestamp:
+          description: 'Time when the label was fetched.
+
+            '
+          format: date-time
+          type: string
+        value:
+          description: 'Value of the label.
+
+            '
+          type: string
+      type: object
+    common.CloudRunMetadata:
+      properties:
+        revision:
+          description: '.
+
+            '
+          type: string
+        service:
+          description: '.
+
+            '
+          type: string
+      type: object
+    common.AzureMetadata:
+      properties:
+        aci:
+          $ref: '#/components/schemas/common.ACIMetadata'
+        resourceGroup:
+          description: '.
+
+            '
+          type: string
+      type: object
+    common.ClusterType:
+      description: ClusterType is the cluster type
+      enum:
+      - - AKS
+        - ECS
+        - EKS
+        - GKE
+        - Kubernetes
+      type: string
+    runtime.SSHEvent:
+      description: SSHEvent represents an SSH event data
+      properties:
+        command:
+          description: 'Command is the executed command.
+
+            '
+          type: string
+        country:
+          description: 'Country represents the SSH client''s origin country.
+
+            '
+          type: string
+        interactive:
+          description: 'Interactive indicates whether the process belongs to an interactive session.
+
+            '
+          type: boolean
+        ip:
+          description: 'IP address represents the connection client IP address.
+
+            '
+          type: integer
+        loginTime:
+          description: 'LoginTime represents the SSH login time.
+
+            '
+          format: int64
+          type: integer
+        md5:
+          description: 'MD5 is the process binary MD5 sum.
+
+            '
+          type: string
+        modified:
+          description: 'Modified indicates the process binary was modified after the container has started.
+
+            '
+          type: boolean
+        path:
+          description: 'Path is the process binary path.
+
+            '
+          type: string
+        ppath:
+          description: 'PPath is the parent process path.
+
+            '
+          type: string
+        time:
+          description: 'Time is the time in which the process was added. If the process was modified, Time is the modification time.
+
+            '
+          format: date-time
+          type: string
+        user:
+          description: 'User represents the username that started the process.
+
+            '
+          type: string
+      type: object
+    common.CloudMetadata:
+      description: CloudMetadata is the metadata for a cloud provider managed asset (e.g., as part of AWS/GCP/Azure/OCI)
+      properties:
+        accountID:
+          description: 'Cloud account ID.
+
+            '
+          type: string
+        awsExecutionEnv:
+          description: 'AWS execution environment (e.g. EC2/Fargate).
+
+            '
+          type: string
+        azure:
+          $ref: '#/components/schemas/common.AzureMetadata'
+        gcp:
+          $ref: '#/components/schemas/common.GCPCloudMetadata'
+        image:
+          description: 'The name of the image the cloud managed host or container is based on.
+
+            '
+          type: string
+        labels:
+          description: 'Cloud provider metadata labels.
+
+            '
+          items:
+            $ref: '#/components/schemas/common.ExternalLabel'
+          type: array
+        name:
+          description: 'Resource name.
+
+            '
+          type: string
+        ociTenantID:
+          description: 'OCI Tenant ID.
+
+            '
+          type: string
+        provider:
+          $ref: '#/components/schemas/common.CloudProvider'
+        region:
+          description: 'Resource''s region.
+
+            '
+          type: string
+        resourceID:
+          description: 'Unique ID of the resource.
+
+            '
+          type: string
+        resourceURL:
+          description: 'Server-defined URL for the resource.
+
+            '
+          type: string
+        type:
+          description: 'Instance type.
+
+            '
+          type: string
+        vmID:
+          description: 'Azure unique vm ID.
+
+            '
+          type: string
+        vmImageID:
+          description: 'VMImageID holds the VM instance''s image ID.
+
+            '
+          type: string
+      type: object
+    -_shared.AppEmbeddedRuntimeProfile:
+      items:
+        $ref: '#/components/schemas/shared.AppEmbeddedRuntimeProfile'
+      type: array
+    shared.KubeLabel:
+      description: 'KubeLabel represents a label
+
+        These are stored as an array to allow special characters in key names,
+
+        see https://docs.mongodb.com/manual/reference/limits/#Restrictions-on-Field-Names
+
+        For example: kubernetes.io/bootstrapping'
+      properties:
+        key:
+          description: 'Key is the key of the label.
+
+            '
+          type: string
+        value:
+          description: 'Value is the value of the label.
+
+            '
+          type: string
+      type: object
+    shared.RuntimeProfileState:
+      description: RuntimeProfileState represents the state of an image profile
+      enum:
+      - - learning
+        - dryRun
+        - learningExtended
+        - manualLearning
+        - manualRelearning
+        - active
+        - manualActive
+      type: string
+    runtime.ProfileFilesystem:
+      description: ProfileFilesystem defines the filesystem features profile
+      properties:
+        behavioral:
+          description: 'Behavioral is filesystem data learned from behavioral analysis.
+
+            '
+          items:
+            $ref: '#/components/schemas/runtime.ProfileFilesystemPath'
+          type: array
+        static:
+          description: 'Static is filesystem data learned from static analysis.
+
+            '
+          items:
+            $ref: '#/components/schemas/runtime.ProfileFilesystemPath'
+          type: array
+      type: object
+    common.GCPCloudMetadata:
+      properties:
+        cloudRun:
+          $ref: '#/components/schemas/common.CloudRunMetadata'
+      type: object
+    common.ACIMetadata:
+      properties:
+        containerGroup:
+          description: '.
+
+            '
+          type: string
+      type: object
+    runtime.GeoIP:
+      description: GeoIP represents an ip address with it's origin country code
+      properties:
+        code:
+          description: 'Code is the country iso code.
+
+            '
+          type: string
+        ip:
+          description: 'IP is the ip address.
+
+            '
+          type: string
+        modified:
+          description: 'Modified is the last modified time of this entry.
+
+            '
+          format: date-time
+          type: string
+      type: object
+    -_shared.ContainerRuntimeProfile:
+      items:
+        $ref: '#/components/schemas/shared.ContainerRuntimeProfile'
+      type: array
+    runtime.ProfileProcess:
+      description: ProfileProcess represents a single process data
+      properties:
+        command:
+          description: 'Command is the executed command.
+
+            '
+          type: string
+        interactive:
+          description: 'Interactive indicates whether the process belongs to an interactive session.
+
+            '
+          type: boolean
+        md5:
+          description: 'MD5 is the process binary MD5 sum.
+
+            '
+          type: string
+        modified:
+          description: 'Modified indicates the process binary was modified after the container has started.
+
+            '
+          type: boolean
+        path:
+          description: 'Path is the process binary path.
+
+            '
+          type: string
+        ppath:
+          description: 'PPath is the parent process path.
+
+            '
+          type: string
+        time:
+          description: 'Time is the time in which the process was added. If the process was modified, Time is the modification time.
+
+            '
+          format: date-time
+          type: string
+        user:
+          description: 'User represents the username that started the process.
+
+            '
+          type: string
+      type: object
+    string:
+      type: string
+    runtime.App:
+      description: App represents the applications runtime data
       properties:
         listeningPorts:
-          description: 'Listening are the listening ports learned by static analysis.
+          description: 'ListeningPorts represents the applications listening ports.
+
+            '
+          items:
+            $ref: '#/components/schemas/runtime.HostProfileListeningPort'
+          type: array
+        name:
+          description: 'Name is the app name.
+
+            '
+          type: string
+        outgoingPorts:
+          description: 'OutgoingPorts represents the applications outgoing ports.
+
+            '
+          items:
+            $ref: '#/components/schemas/runtime.HostProfileOutgoingPort'
+          type: array
+        processes:
+          description: 'Processes is a list of the app''s descendant processes.
+
+            '
+          items:
+            $ref: '#/components/schemas/runtime.ProfileProcess'
+          type: array
+        startupProcess:
+          $ref: '#/components/schemas/runtime.ProfileProcess'
+      type: object
+    runtime.ProfileNetworkBehavioral:
+      description: ProfileNetworkBehavioral represents the behavioral data learned for networking
+      properties:
+        dnsQueries:
+          description: 'DNSQueries is the learned DNS queries.
+
+            '
+          items:
+            $ref: '#/components/schemas/runtime.DNSQuery'
+          type: array
+        listeningPorts:
+          description: 'Listening is the learned listening ports.
 
             '
           items:
             $ref: '#/components/schemas/runtime.AppListeningPorts'
           type: array
+        outboundPorts:
+          $ref: '#/components/schemas/common.ProfilePortData'
       type: object
+    AIProfile:
+      type: object
+      properties:
+        profile_id:
+          type: string
+          description: Unique identifier of the profile.
+          example: '701673'
+        profile_name:
+          type: string
+          description: Profile name used to reference this profile in scan requests.
+          example: Corporate Agent 92
+        description:
+          type: string
+          description: Human-readable description of the profile purpose and use case.
+          example: Rule on network suspicious configured activity firewall monitoring Security rule.
+        detection_categories:
+          type: array
+          description: Detection categories configured in this profile.
+          items:
+            type: object
+            properties:
+              category:
+                type: string
+                enum:
+                - prompt_injection
+                - jailbreak
+                - data_leakage
+                - toxic_content
+                - malicious_url
+                - pii_exposure
+                - model_abuse
+                example: malicious_url
+              enabled:
+                type: boolean
+                description: Whether this detection category is active.
+                example: true
+              sensitivity:
+                type: string
+                enum:
+                - low
+                - medium
+                - high
+                description: Detection sensitivity threshold.
+                example: medium
+              action:
+                type: string
+                enum:
+                - alert
+                - block
+                - log
+                description: Enforcement action when this category triggers.
+                example: block
+          example:
+          - category: pii_exposure
+            enabled: true
+            sensitivity: high
+            action: log
+          - category: toxic_content
+            enabled: false
+            sensitivity: low
+            action: alert
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the profile was created.
+          example: '2024-07-23T00:36:00Z'
+        updated_at:
+          type: string
+          format: date-time
+          description: Timestamp of the most recent profile modification.
+          example: '2025-08-22T07:28:11Z'
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code identifying the error type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable description of the error.
+          example: Activity firewall applied traffic incident endpoint.
+        request_id:
+          type: string
+          description: Request identifier for support correlation.
+          example: eb74a8d9-395b-4b9e-a68b-b66eb903b650
     category:
       additionalProperties: false
       properties:
@@ -3368,6 +3696,61 @@ components:
       - name
       - group_name
       - default_action
+      type: object
+    custom-fqdn-override-input:
+      additionalProperties: false
+      properties:
+        action:
+          description: Action to take (allow, block, sinkhole, alert)
+          enum:
+          - allow
+          - block
+          - sinkhole
+          - alert
+          examples:
+          - block
+          type: string
+        custom_sinkhole_id:
+          description: Custom sinkhole identifier
+          examples:
+          - sink-123
+          type: string
+        id:
+          description: Unique identifier for the custom FQDN override
+          examples:
+          - override-123
+          type: string
+        is_custom_sinkhole:
+          description: Whether a custom sinkhole is used
+          examples:
+          - true
+          type: boolean
+      required:
+      - id
+      - action
+      type: object
+    error-detail:
+      additionalProperties: false
+      properties:
+        code:
+          $ref: '#/components/schemas/error-code'
+          description: Error code identifier
+        details:
+          description: Additional error details
+          items:
+            type: string
+          type:
+          - array
+          - 'null'
+        help:
+          description: URL to error documentation
+          type: string
+        message:
+          description: Human-readable error message
+          type: string
+      required:
+      - code
+      - message
       type: object
     profile-input:
       additionalProperties: false
@@ -3421,6 +3804,215 @@ components:
           type: string
       required:
       - name
+      type: object
+    category-override:
+      additionalProperties: false
+      properties:
+        action:
+          description: Action to take (allow, block, sinkhole, alert)
+          enum:
+          - allow
+          - block
+          - sinkhole
+          - alert
+          examples:
+          - block
+          type: string
+        category_id:
+          description: Category identifier
+          examples:
+          - '1'
+          type: string
+        custom_sinkhole_id:
+          description: Custom sinkhole identifier
+          examples:
+          - sink-123
+          type: string
+        is_custom_sinkhole:
+          description: Whether a custom sinkhole is used
+          examples:
+          - true
+          type: boolean
+      required:
+      - category_id
+      - action
+      type: object
+    profile-item:
+      additionalProperties: false
+      properties:
+        item:
+          $ref: '#/components/schemas/profile'
+      required:
+      - item
+      type: object
+    profiles:
+      additionalProperties: false
+      properties:
+        data:
+          items:
+            $ref: '#/components/schemas/profile'
+          type:
+          - array
+          - 'null'
+        limit:
+          default: 200
+          description: Maximum number of items returned
+          format: int32
+          maximum: 1000
+          minimum: 1
+          type: integer
+        offset:
+          default: 0
+          description: Number of items skipped
+          format: int32
+          minimum: 0
+          type: integer
+        total:
+          description: Total number of profile resources
+          format: int32
+          minimum: 0
+          type: integer
+      required:
+      - data
+      - offset
+      - total
+      - limit
+      type: object
+    edl-override:
+      additionalProperties: false
+      properties:
+        action:
+          description: Action to take (allow, block, sinkhole, alert)
+          enum:
+          - allow
+          - block
+          - sinkhole
+          - alert
+          examples:
+          - block
+          type: string
+        custom_sinkhole_id:
+          description: Custom sinkhole identifier
+          examples:
+          - sink-123
+          type: string
+        id:
+          description: Unique identifier for the EDL override
+          examples:
+          - edl-123
+          type: string
+        is_custom_sinkhole:
+          description: Whether a custom sinkhole is used
+          examples:
+          - true
+          type: boolean
+        name:
+          description: Name of EDL Override
+          examples:
+          - EDL Override1
+          type: string
+      required:
+      - name
+      - id
+      - action
+      type: object
+    categories:
+      additionalProperties: false
+      properties:
+        data:
+          items:
+            $ref: '#/components/schemas/category'
+          type:
+          - array
+          - 'null'
+      required:
+      - data
+      type: object
+    custom-fqdn-override:
+      additionalProperties: false
+      properties:
+        action:
+          description: Action to take (allow, block, sinkhole, alert)
+          enum:
+          - allow
+          - block
+          - sinkhole
+          - alert
+          examples:
+          - block
+          type: string
+        custom_sinkhole_id:
+          description: Custom sinkhole identifier
+          examples:
+          - sink-123
+          type: string
+        id:
+          description: Unique identifier for the custom FQDN override
+          examples:
+          - override-123
+          type: string
+        is_custom_sinkhole:
+          description: Whether a custom sinkhole is used
+          examples:
+          - true
+          type: boolean
+        name:
+          description: Name of Custom FQDN Group
+          examples:
+          - Custom FQDN Group1
+          type: string
+      required:
+      - name
+      - id
+      - action
+      type: object
+    edl-override-input:
+      additionalProperties: false
+      properties:
+        action:
+          description: Action to take (allow, block, sinkhole, alert)
+          enum:
+          - allow
+          - block
+          - sinkhole
+          - alert
+          examples:
+          - block
+          type: string
+        custom_sinkhole_id:
+          description: Custom sinkhole identifier
+          examples:
+          - sink-123
+          type: string
+        id:
+          description: Unique identifier for the EDL override
+          examples:
+          - edl-123
+          type: string
+        is_custom_sinkhole:
+          description: Whether a custom sinkhole is used
+          examples:
+          - true
+          type: boolean
+      required:
+      - id
+      - action
+      type: object
+    error:
+      additionalProperties: false
+      properties:
+        _errors:
+          description: Array of error objects
+          items:
+            $ref: '#/components/schemas/error-detail'
+          type:
+          - array
+          - 'null'
+        _request_id:
+          description: Request identifier for tracking
+          type: string
+      required:
+      - _errors
       type: object
     error-code:
       oneOf:
@@ -3518,205 +4110,6 @@ components:
         type: integer
       title: error-code
       type: integer
-    custom-fqdn-override:
-      additionalProperties: false
-      properties:
-        action:
-          description: Action to take (allow, block, sinkhole, alert)
-          enum:
-          - allow
-          - block
-          - sinkhole
-          - alert
-          examples:
-          - block
-          type: string
-        custom_sinkhole_id:
-          description: Custom sinkhole identifier
-          examples:
-          - sink-123
-          type: string
-        id:
-          description: Unique identifier for the custom FQDN override
-          examples:
-          - override-123
-          type: string
-        is_custom_sinkhole:
-          description: Whether a custom sinkhole is used
-          examples:
-          - true
-          type: boolean
-        name:
-          description: Name of Custom FQDN Group
-          examples:
-          - Custom FQDN Group1
-          type: string
-      required:
-      - name
-      - id
-      - action
-      type: object
-    category-override:
-      additionalProperties: false
-      properties:
-        action:
-          description: Action to take (allow, block, sinkhole, alert)
-          enum:
-          - allow
-          - block
-          - sinkhole
-          - alert
-          examples:
-          - block
-          type: string
-        category_id:
-          description: Category identifier
-          examples:
-          - '1'
-          type: string
-        custom_sinkhole_id:
-          description: Custom sinkhole identifier
-          examples:
-          - sink-123
-          type: string
-        is_custom_sinkhole:
-          description: Whether a custom sinkhole is used
-          examples:
-          - true
-          type: boolean
-      required:
-      - category_id
-      - action
-      type: object
-    error-detail:
-      additionalProperties: false
-      properties:
-        code:
-          $ref: '#/components/schemas/error-code'
-          description: Error code identifier
-        details:
-          description: Additional error details
-          items:
-            type: string
-          type:
-          - array
-          - 'null'
-        help:
-          description: URL to error documentation
-          type: string
-        message:
-          description: Human-readable error message
-          type: string
-      required:
-      - code
-      - message
-      type: object
-    profile-item:
-      additionalProperties: false
-      properties:
-        item:
-          $ref: '#/components/schemas/profile'
-      required:
-      - item
-      type: object
-    error:
-      additionalProperties: false
-      properties:
-        _errors:
-          description: Array of error objects
-          items:
-            $ref: '#/components/schemas/error-detail'
-          type:
-          - array
-          - 'null'
-        _request_id:
-          description: Request identifier for tracking
-          type: string
-      required:
-      - _errors
-      type: object
-    edl-override:
-      additionalProperties: false
-      properties:
-        action:
-          description: Action to take (allow, block, sinkhole, alert)
-          enum:
-          - allow
-          - block
-          - sinkhole
-          - alert
-          examples:
-          - block
-          type: string
-        custom_sinkhole_id:
-          description: Custom sinkhole identifier
-          examples:
-          - sink-123
-          type: string
-        id:
-          description: Unique identifier for the EDL override
-          examples:
-          - edl-123
-          type: string
-        is_custom_sinkhole:
-          description: Whether a custom sinkhole is used
-          examples:
-          - true
-          type: boolean
-        name:
-          description: Name of EDL Override
-          examples:
-          - EDL Override1
-          type: string
-      required:
-      - name
-      - id
-      - action
-      type: object
-    custom-fqdn-override-input:
-      additionalProperties: false
-      properties:
-        action:
-          description: Action to take (allow, block, sinkhole, alert)
-          enum:
-          - allow
-          - block
-          - sinkhole
-          - alert
-          examples:
-          - block
-          type: string
-        custom_sinkhole_id:
-          description: Custom sinkhole identifier
-          examples:
-          - sink-123
-          type: string
-        id:
-          description: Unique identifier for the custom FQDN override
-          examples:
-          - override-123
-          type: string
-        is_custom_sinkhole:
-          description: Whether a custom sinkhole is used
-          examples:
-          - true
-          type: boolean
-      required:
-      - id
-      - action
-      type: object
-    categories:
-      additionalProperties: false
-      properties:
-        data:
-          items:
-            $ref: '#/components/schemas/category'
-          type:
-          - array
-          - 'null'
-      required:
-      - data
-      type: object
     profile:
       additionalProperties: false
       properties:
@@ -3801,72 +4194,17 @@ components:
       - created_at
       - last_updated_at
       type: object
-    profiles:
-      additionalProperties: false
-      properties:
-        data:
-          items:
-            $ref: '#/components/schemas/profile'
-          type:
-          - array
-          - 'null'
-        limit:
-          default: 200
-          description: Maximum number of items returned
-          format: int32
-          maximum: 1000
-          minimum: 1
-          type: integer
-        offset:
-          default: 0
-          description: Number of items skipped
-          format: int32
-          minimum: 0
-          type: integer
-        total:
-          description: Total number of profile resources
-          format: int32
-          minimum: 0
-          type: integer
-      required:
-      - data
-      - offset
-      - total
-      - limit
-      type: object
-    edl-override-input:
-      additionalProperties: false
-      properties:
-        action:
-          description: Action to take (allow, block, sinkhole, alert)
-          enum:
-          - allow
-          - block
-          - sinkhole
-          - alert
-          examples:
-          - block
-          type: string
-        custom_sinkhole_id:
-          description: Custom sinkhole identifier
-          examples:
-          - sink-123
-          type: string
-        id:
-          description: Unique identifier for the EDL override
-          examples:
-          - edl-123
-          type: string
-        is_custom_sinkhole:
-          description: Whether a custom sinkhole is used
-          examples:
-          - true
-          type: boolean
-      required:
-      - id
-      - action
-      type: object
   securitySchemes:
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-pan-token
+      description: API key for authenticating requests to the Prisma AIRS API. Generate keys in the Palo Alto Networks AI Runtime Security console under Settings > API Keys.
     scmToken:
       bearerFormat: JWT
       description: "Advanced DNS Security Resolver APIs authenticate client requests using the \nOAuth 2.0 Client Credentials flow.  Please use the `client_id`, \n`client_secret` values associated with an IAM service account along \nwith a scope value of `tsg_id:XXXXXXXXXX`, where `XXXXXXXXXX` is the \nTenant Service Group (TSG) ID.  The resulting JWT access token should \nbe attached to all API calls as a `Bearer` token in the `Authorization` \nheader (ex. `Authorization: Bearer tokenstring`).\n"
@@ -3877,4 +4215,6 @@ x-refined-from:
 - palo-alto-compute-openapi-34-04-145-sh-openapi.json
 - palo-alto-cwpp-34-03-openapi-34-03-138-saas-openapi.json
 - palo-alto-cwpp-openapi-34-04-145-saas-openapi.json
+- palo-alto-networks-profiles-api-openapi.yml
+- palo-alto-prisma-airs-api-openapi-original.yml
 - palo-alto-scm-config-adnsr-adnsr-apis-openapi.yaml

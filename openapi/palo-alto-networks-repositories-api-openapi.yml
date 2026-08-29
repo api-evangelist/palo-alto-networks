@@ -2,9 +2,23 @@ openapi: 3.2.0
 info:
   title: Palo Alto Networks Repositories API
   version: '1.0'
-  description: 'Operations tagged Repositories across 2 of this provider''s published API definitions: palo-alto-code-repositories-openapi.json, palo-alto-code-repositoryimportancescore-openapi.json. Each path carries the servers of the definition it was published in.'
+  description: 'Operations tagged Repositories across 4 of this provider''s published API definitions: palo-alto-code-repositories-openapi.json, palo-alto-code-repositoryimportancescore-openapi.json, palo-alto-networks-repositories-api-openapi.yml, palo-alto-prisma-cloud-code-security-api-openapi-original.yml. Each path carries the servers of the definition it was published in.'
 servers:
 - url: https://api.prismacloud.io
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+- url: https://api.prismacloud.io/code/api/v1
+  description: Prisma Cloud Code Security API (US region 1).
+- url: https://api2.prismacloud.io/code/api/v1
+  description: Prisma Cloud Code Security API (US region 2).
+- url: https://api.eu.prismacloud.io/code/api/v1
+  description: Prisma Cloud Code Security API (EU).
+- url: https://api.anz.prismacloud.io/code/api/v1
+  description: Prisma Cloud Code Security API (ANZ).
+- url: https://api.sg.prismacloud.io/code/api/v1
+  description: Prisma Cloud Code Security API (Singapore).
+- url: https://api.ca.prismacloud.io/code/api/v1
+  description: Prisma Cloud Code Security API (Canada).
 tags:
 - name: Repositories
 paths:
@@ -513,8 +527,397 @@ paths:
       x-bc-docs-scope: standalone,prisma
     servers:
     - url: https://api.prismacloud.io
+  /repositories:
+    get:
+      operationId: listRepositories
+      summary: Palo Alto Networks List Connected Repositories
+      description: Returns a list of all repositories that have been connected to Prisma Cloud Code Security. Includes repository metadata such as the source VCS provider, default branch, last scan time, and counts of open security errors.
+      tags:
+      - Repositories
+      parameters:
+      - name: offset
+        in: query
+        description: Number of records to skip for pagination.
+        schema:
+          type: integer
+          default: 0
+        example: 0
+      - name: limit
+        in: query
+        description: Maximum number of records to return.
+        schema:
+          type: integer
+          default: 25
+        example: 25
+      - name: search
+        in: query
+        description: Search term to filter repositories by name or owner.
+        schema:
+          type: string
+        example: example-search
+      - name: sourceType
+        in: query
+        description: Filter by VCS provider type.
+        schema:
+          type: string
+          enum:
+          - Github
+          - Gitlab
+          - Bitbucket
+          - AzureRepos
+          - githubEnterprise
+          - gitlabEnterprise
+          - bitbucketEnterprise
+        example: Github
+      responses:
+        '200':
+          description: Repositories returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalCount:
+                    type: integer
+                    description: Total number of connected repositories.
+                  repositories:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Repository_2'
+              examples:
+                ListRepositories200Example:
+                  summary: Default listRepositories 200 response
+                  x-microcks-default: true
+                  value:
+                    totalCount: 937
+                    repositories:
+                    - id: example-id
+                      name: Production Agent 31
+                      owner: example-owner
+                      fullName: Branch Sensor 57
+                      sourceType: githubEnterprise
+                      defaultBranch: example-defaultBranch
+                      url: https://vpn.test-corp.net/02d758
+                      isPublic: true
+                      lastScanDate: '2026-08-07T04:21:38Z'
+                      lastScanStatus: pending
+                      errorCounts:
+                        critical: 381
+                        high: 403
+                        medium: 984
+                        low: 743
+                        info: 996
+                      createdAt: '2024-04-02T14:25:56Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    post:
+      operationId: addRepository
+      summary: Palo Alto Networks Add a Repository
+      description: Connects a new VCS repository to Prisma Cloud Code Security for automated scanning. Triggers an initial scan of the default branch after onboarding.
+      tags:
+      - Repositories
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - id
+              - sourceType
+              - owner
+              - name
+              properties:
+                id:
+                  type: string
+                  description: Repository identifier in the VCS provider.
+                sourceType:
+                  type: string
+                  enum:
+                  - Github
+                  - Gitlab
+                  - Bitbucket
+                  - AzureRepos
+                  - githubEnterprise
+                  - gitlabEnterprise
+                  - bitbucketEnterprise
+                  description: VCS provider type.
+                owner:
+                  type: string
+                  description: Repository owner or organization name.
+                name:
+                  type: string
+                  description: Repository name.
+                defaultBranch:
+                  type: string
+                  description: Default branch to scan. Defaults to the VCS default branch.
+            examples:
+              AddRepositoryRequestExample:
+                summary: Default addRepository request
+                x-microcks-default: true
+                value:
+                  id: example-id
+                  sourceType: githubEnterprise
+                  owner: example-owner
+                  name: Branch Policy 04
+                  defaultBranch: example-defaultBranch
+      responses:
+        '200':
+          description: Repository added successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Repository_2'
+              examples:
+                AddRepository200Example:
+                  summary: Default addRepository 200 response
+                  x-microcks-default: true
+                  value:
+                    id: example-id
+                    name: Production Agent 31
+                    owner: example-owner
+                    fullName: Branch Sensor 57
+                    sourceType: githubEnterprise
+                    defaultBranch: example-defaultBranch
+                    url: https://vpn.test-corp.net/02d758
+                    isPublic: true
+                    lastScanDate: '2026-08-07T04:21:38Z'
+                    lastScanStatus: pending
+                    errorCounts:
+                      critical: 381
+                      high: 403
+                      medium: 984
+                      low: 743
+                      info: 996
+                    createdAt: '2024-04-02T14:25:56Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    delete:
+      operationId: removeRepository
+      summary: Palo Alto Networks Remove a Repository
+      description: Disconnects a repository from Prisma Cloud Code Security. Scan history and error records are retained for audit purposes.
+      tags:
+      - Repositories
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - id
+              properties:
+                id:
+                  type: string
+                  description: Repository identifier to remove.
+                sourceType:
+                  type: string
+                  description: VCS provider type.
+            examples:
+              RemoveRepositoryRequestExample:
+                summary: Default removeRepository request
+                x-microcks-default: true
+                value:
+                  id: example-id
+                  sourceType: standard
+      responses:
+        '200':
+          description: Repository removed successfully.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
 components:
   schemas:
+    RepoRequestBody:
+      properties:
+        filters:
+          $ref: '#/components/schemas/RepoRequestFilters'
+        orderBy:
+          $ref: '#/components/schemas/OrderBy'
+        pageConfig:
+          $ref: '#/components/schemas/Pagination'
+      type: object
+    PipelineInfo:
+      properties:
+        instance:
+          type: string
+        pipeline:
+          type: string
+        system:
+          type: string
+      required:
+      - pipeline
+      - system
+      - instance
+      type: object
+    Technologies:
+      properties:
+        CICD:
+          $ref: '#/components/schemas/Technology'
+        Configuration:
+          $ref: '#/components/schemas/Technology'
+        Data:
+          $ref: '#/components/schemas/Technology'
+        Devops:
+          $ref: '#/components/schemas/Technology'
+        Documentation:
+          $ref: '#/components/schemas/Technology'
+        License:
+          $ref: '#/components/schemas/Technology'
+        Markup:
+          $ref: '#/components/schemas/Technology'
+        PackageManager:
+          $ref: '#/components/schemas/Technology'
+        Programming:
+          $ref: '#/components/schemas/Technology'
+        Prose:
+          $ref: '#/components/schemas/Technology'
+        Unknown:
+          $ref: '#/components/schemas/Technology'
+      type: object
+    RepoInfo:
+      allOf:
+      - $ref: '#/components/schemas/IVCSRepository'
+      - properties:
+          categorizedTechnologies:
+            $ref: '#/components/schemas/Technologies'
+          ciInstances:
+            additionalProperties:
+              $ref: '#/components/schemas/ICiInstanceInfo'
+            properties: {}
+            type: object
+          contributors:
+            items:
+              $ref: '#/components/schemas/Contributor'
+            type: array
+          contributorsCount:
+            format: double
+            type: number
+          dockerImages:
+            items:
+              $ref: '#/components/schemas/DockerImage'
+            type: array
+          issues:
+            $ref: '#/components/schemas/Issues'
+          weeklyCommitOnPrs:
+            items:
+              $ref: '#/components/schemas/WeeklyCommitOnPR'
+            type: array
+        required:
+        - weeklyCommitOnPrs
+        - issues
+        type: object
+    RepositoryProvider:
+      type: string
+    Issues:
+      allOf:
+      - $ref: '#/components/schemas/SeverityIssues'
+      - properties:
+          moduleName:
+            $ref: '#/components/schemas/SecurityModule'
+        type: object
+    WeeklyCommitOnPR:
+      properties:
+        branchName:
+          type: string
+        currWeeklyCommits:
+          format: double
+          type: number
+        prevWeeklyCommits:
+          format: double
+          type: number
+      required:
+      - prevWeeklyCommits
+      - currWeeklyCommits
+      - branchName
+      type: object
+    Branch:
+      additionalProperties: false
+      properties:
+        creationDate:
+          type:
+          - string
+          - 'null'
+        defaultBranch:
+          type: boolean
+        name:
+          type: string
+      required:
+      - name
+      - creationDate
+      - defaultBranch
+      type: object
+    DockerImage:
+      properties:
+        imageName:
+          type: string
+        repoName:
+          type: string
+      required:
+      - repoName
+      - imageName
+      type: object
+    updateRepoResponse:
+      additionalProperties: false
+      properties:
+        integrations:
+          items:
+            $ref: '#/components/schemas/integrationResponse'
+          type: array
+        message:
+          type: string
+        success:
+          type: boolean
+      type: object
+    integrationResponse:
+      additionalProperties: false
+      properties:
+        created:
+          type: string
+        id:
+          type: string
+        updatedBy:
+          type: string
+      required:
+      - id
+      - created
+      - updatedBy
+      type: object
     SeverityIssues:
       properties:
         CRITICAL:
@@ -543,27 +946,126 @@ components:
             type: number
           - $ref: '#/components/schemas/SecurityModule'
       type: object
-    Contributor:
+    RiskFactors:
       properties:
-        contributionsCounts:
-          description: Number of contributions
-          format: double
-          type: number
-        id:
+        isInternetExpose:
+          type: boolean
+        isRepositoryDeployed:
+          type: boolean
+      type: object
+    OrderBy:
+      properties:
+        fieldName:
           type: string
-        lastPush:
-          format: double
-          type: number
-        name:
-          description: Contributor name
-          type: string
-        permission:
-          description: Contributor permission
+        isAsc:
+          type: boolean
+        type:
           type: string
       required:
-      - contributionsCounts
-      - name
-      - id
+      - isAsc
+      - type
+      - fieldName
+      type: object
+    SourceTypes:
+      enum:
+      - admissionController
+      - AlibabaCloud
+      - AWS
+      - Azure
+      - AzureOnPrem
+      - AzureRepos
+      - Bitbucket
+      - bitbucketEnterprise
+      - circleci
+      - cli
+      - codebuild
+      - GCP
+      - Github
+      - githubActions
+      - githubEnterprise
+      - Gitlab
+      - gitlabEnterprise
+      - jenkins
+      - Kubernetes
+      - kubernetesWorkloads
+      - terraformCloud
+      - terraformEnterprise
+      - tfcRunTasks
+      - tfeRunTasks
+      - Transporter
+      - OnPrem
+      type: string
+    integrationType:
+      enum:
+      - github
+      - githubEnterprise
+      - gitlab
+      - gitlabEnterprise
+      - bitbucket
+      - bitbucketEnterprise
+      - azureRepos
+      type: string
+    SecurityModule:
+      enum:
+      - IAC
+      - SCA
+      - SECRETS
+      - CICD
+      type: string
+    ModuleIssues:
+      properties:
+        CICD:
+          allOf:
+          - $ref: '#/components/schemas/SeverityIssues'
+          - properties:
+              TOTAL:
+                format: double
+                type: number
+            required:
+            - TOTAL
+            type: object
+        IAC:
+          allOf:
+          - $ref: '#/components/schemas/SeverityIssues'
+          - properties:
+              TOTAL:
+                format: double
+                type: number
+            required:
+            - TOTAL
+            type: object
+        SCA:
+          allOf:
+          - $ref: '#/components/schemas/SeverityIssues'
+          - properties:
+              TOTAL:
+                format: double
+                type: number
+            required:
+            - TOTAL
+            type: object
+        SECRETS:
+          allOf:
+          - $ref: '#/components/schemas/SeverityIssues'
+          - properties:
+              TOTAL:
+                format: double
+                type: number
+            required:
+            - TOTAL
+            type: object
+      type: object
+    Pagination:
+      properties:
+        page:
+          format: double
+          type: number
+        pageSize:
+          format: double
+          type: number
+      required:
+      - pageSize
+      - page
       type: object
     IVCSRepository:
       additionalProperties: false
@@ -670,178 +1172,19 @@ components:
       - url
       - casId
       type: object
-    QueryRepositoriesRequest:
-      additionalProperties: false
-      properties:
-        repositoriesIds:
-          items:
+    Technology:
+      additionalProperties:
+        properties:
+          detectedDate:
+            format: date-time
             type: string
-          type: array
-      required:
-      - repositoriesIds
-      type: object
-    RepoInfo:
-      allOf:
-      - $ref: '#/components/schemas/IVCSRepository'
-      - properties:
-          categorizedTechnologies:
-            $ref: '#/components/schemas/Technologies'
-          ciInstances:
-            additionalProperties:
-              $ref: '#/components/schemas/ICiInstanceInfo'
-            properties: {}
-            type: object
-          contributors:
-            items:
-              $ref: '#/components/schemas/Contributor'
-            type: array
-          contributorsCount:
+          percentage:
             format: double
             type: number
-          dockerImages:
-            items:
-              $ref: '#/components/schemas/DockerImage'
-            type: array
-          issues:
-            $ref: '#/components/schemas/Issues'
-          weeklyCommitOnPrs:
-            items:
-              $ref: '#/components/schemas/WeeklyCommitOnPR'
-            type: array
         required:
-        - weeklyCommitOnPrs
-        - issues
+        - detectedDate
         type: object
-    BranchesResponse:
-      additionalProperties: false
-      properties:
-        branches:
-          items:
-            $ref: '#/components/schemas/Branch'
-          type: array
-        source:
-          type: string
-      required:
-      - source
-      - branches
-      type: object
-    Technologies:
-      properties:
-        CICD:
-          $ref: '#/components/schemas/Technology'
-        Configuration:
-          $ref: '#/components/schemas/Technology'
-        Data:
-          $ref: '#/components/schemas/Technology'
-        Devops:
-          $ref: '#/components/schemas/Technology'
-        Documentation:
-          $ref: '#/components/schemas/Technology'
-        License:
-          $ref: '#/components/schemas/Technology'
-        Markup:
-          $ref: '#/components/schemas/Technology'
-        PackageManager:
-          $ref: '#/components/schemas/Technology'
-        Programming:
-          $ref: '#/components/schemas/Technology'
-        Prose:
-          $ref: '#/components/schemas/Technology'
-        Unknown:
-          $ref: '#/components/schemas/Technology'
-      type: object
-    integrationResponse:
-      additionalProperties: false
-      properties:
-        created:
-          type: string
-        id:
-          type: string
-        updatedBy:
-          type: string
-      required:
-      - id
-      - created
-      - updatedBy
-      type: object
-    Branch:
-      additionalProperties: false
-      properties:
-        creationDate:
-          type:
-          - string
-          - 'null'
-        defaultBranch:
-          type: boolean
-        name:
-          type: string
-      required:
-      - name
-      - creationDate
-      - defaultBranch
-      type: object
-    WeeklyCommitOnPrs:
-      properties:
-        branchName:
-          type: string
-        currWeeklyCommits:
-          format: double
-          type: number
-        prevWeeklyCommits:
-          format: double
-          type: number
-      required:
-      - prevWeeklyCommits
-      - currWeeklyCommits
-      - branchName
-      type: object
-    RepositoryPrivacyLabel:
-      enum:
-      - public
-      - private
-      - internal
-      type:
-      - string
-      - 'null'
-    Issues:
-      allOf:
-      - $ref: '#/components/schemas/SeverityIssues'
-      - properties:
-          moduleName:
-            $ref: '#/components/schemas/SecurityModule'
-        type: object
-    Repository:
-      additionalProperties: false
-      properties:
-        creationDate:
-          type: string
-        customerName:
-          type: string
-        defaultBranch:
-          type: string
-        id:
-          type: string
-        isPublic:
-          type: boolean
-        lastScanDate:
-          type: string
-        owner:
-          type: string
-        repository:
-          type: string
-        selected:
-          type: boolean
-        source:
-          type: string
-        url:
-          type: string
-      required:
-      - id
-      - repository
-      - source
-      - customerName
-      - owner
-      - selected
+      properties: {}
       type: object
     ICiInstanceInfo:
       additionalProperties: false
@@ -868,81 +1211,25 @@ components:
       - name
       - pipelines
       type: object
-    Pagination:
+    BranchesResponse:
+      additionalProperties: false
       properties:
-        page:
-          format: double
-          type: number
-        pageSize:
-          format: double
-          type: number
+        branches:
+          items:
+            $ref: '#/components/schemas/Branch'
+          type: array
+        source:
+          type: string
       required:
-      - pageSize
-      - page
-      type: object
-    ModuleIssues:
-      properties:
-        CICD:
-          allOf:
-          - $ref: '#/components/schemas/SeverityIssues'
-          - properties:
-              TOTAL:
-                format: double
-                type: number
-            required:
-            - TOTAL
-            type: object
-        IAC:
-          allOf:
-          - $ref: '#/components/schemas/SeverityIssues'
-          - properties:
-              TOTAL:
-                format: double
-                type: number
-            required:
-            - TOTAL
-            type: object
-        SCA:
-          allOf:
-          - $ref: '#/components/schemas/SeverityIssues'
-          - properties:
-              TOTAL:
-                format: double
-                type: number
-            required:
-            - TOTAL
-            type: object
-        SECRETS:
-          allOf:
-          - $ref: '#/components/schemas/SeverityIssues'
-          - properties:
-              TOTAL:
-                format: double
-                type: number
-            required:
-            - TOTAL
-            type: object
-      type: object
-    RepoRequestBody:
-      properties:
-        filters:
-          $ref: '#/components/schemas/RepoRequestFilters'
-        orderBy:
-          $ref: '#/components/schemas/OrderBy'
-        pageConfig:
-          $ref: '#/components/schemas/Pagination'
-      type: object
-    CiInstancesHash:
-      additionalProperties:
-        $ref: '#/components/schemas/ICiInstanceInfo'
-      properties: {}
+      - source
+      - branches
       type: object
     RiskFactorsType:
       enum:
       - isInternetExpose
       - isRepositoryDeployed
       type: string
-    WeeklyCommitOnPR:
+    WeeklyCommitOnPrs:
       properties:
         branchName:
           type: string
@@ -957,97 +1244,29 @@ components:
       - currWeeklyCommits
       - branchName
       type: object
-    RepoRequestFilters:
+    GetRepositorySearchResponse:
+      additionalProperties: false
       properties:
-        archived:
-          description: An array with length of 1 containing either ‘true’ or ‘false’, filter between archived and not archived repositories
+        data:
           items:
-            type: string
+            $ref: '#/components/schemas/Repository'
           type: array
-        casIds:
-          items:
-            type: string
-          type: array
-        ciFiles:
-          description: CI files path
-          items:
-            type: string
-          type: array
-        customerName:
-          type: string
-        ids:
-          description: VCS repository IDs
-          items:
-            type: string
-          type: array
-        images:
-          items:
-            type: string
-          type: array
-        issues:
-          description: 'Issues enum: [`IAC`, `SCA`, `SECRETS`, `CICD`, `SAST`]
-
-            Filter repositories containing issues of the requested type'
-          items:
-            type: string
-          type: array
-        lastUpdated:
-          format: date-time
-          type: string
-        name:
-          description: Search repositories by free text
-          type: string
-        pipelines:
-          description: Get all repositories linked to the specified pipelines
-          items:
-            type: string
-          type: array
-        privacyLevels:
-          items:
-            $ref: '#/components/schemas/RepositoryPrivacyLabel'
-          type: array
-        providers:
-          items:
-            $ref: '#/components/schemas/RepositoryProvider'
-          type: array
-        riskFactors:
-          items:
-            $ref: '#/components/schemas/RiskFactorsType'
-          type: array
-        technologies:
-          description: Get repositories that make use of the specified technologies
-          items:
-            type: string
-          type: array
-        workspaceIds:
-          description: Array of repository owners, filter all repositories owned by specified owners
-          items:
-            type: string
-          type: array
-      type: object
-    PipelineInfo:
-      properties:
-        instance:
-          type: string
-        pipeline:
-          type: string
-        system:
-          type: string
+        hasNext:
+          type: boolean
       required:
-      - pipeline
-      - system
-      - instance
+      - data
+      - hasNext
       type: object
-    integrationType:
-      enum:
-      - github
-      - githubEnterprise
-      - gitlab
-      - gitlabEnterprise
-      - bitbucket
-      - bitbucketEnterprise
-      - azureRepos
-      type: string
+    QueryRepositoriesRequest:
+      additionalProperties: false
+      properties:
+        repositoriesIds:
+          items:
+            type: string
+          type: array
+      required:
+      - repositoriesIds
+      type: object
     RdsRepoInfo:
       properties:
         casId:
@@ -1155,65 +1374,166 @@ components:
       - casId
       - id
       type: object
-    Technology:
-      additionalProperties:
-        properties:
-          detectedDate:
-            format: date-time
-            type: string
-          percentage:
-            format: double
-            type: number
-        required:
-        - detectedDate
-        type: object
-      properties: {}
-      type: object
-    CIType:
-      enum:
-      - githubActions
-      - circleci
-      - codebuild
-      - jenkins
-      type: string
-    SecurityModule:
-      enum:
-      - IAC
-      - SCA
-      - SECRETS
-      - CICD
-      type: string
-    OrderBy:
-      properties:
-        fieldName:
-          type: string
-        isAsc:
-          type: boolean
-        type:
-          type: string
-      required:
-      - isAsc
-      - type
-      - fieldName
-      type: object
-    updateRepoResponse:
+    updateRepositoriesBody:
       additionalProperties: false
       properties:
-        integrations:
+        data:
           items:
-            $ref: '#/components/schemas/integrationResponse'
+            type: string
           type: array
-        message:
+        id:
           type: string
-        success:
-          type: boolean
+        type:
+          $ref: '#/components/schemas/integrationType'
+      required:
+      - data
       type: object
-    RiskFactors:
+    RepositoryPrivacyLabel:
+      enum:
+      - public
+      - private
+      - internal
+      type:
+      - string
+      - 'null'
+    RepoIdToRepoName:
+      additionalProperties: false
       properties:
-        isInternetExpose:
+        id:
+          type: string
+        repository:
+          type: string
+      required:
+      - id
+      - repository
+      type: object
+    Contributor:
+      properties:
+        contributionsCounts:
+          description: Number of contributions
+          format: double
+          type: number
+        id:
+          type: string
+        lastPush:
+          format: double
+          type: number
+        name:
+          description: Contributor name
+          type: string
+        permission:
+          description: Contributor permission
+          type: string
+      required:
+      - contributionsCounts
+      - name
+      - id
+      type: object
+    RepoRequestFilters:
+      properties:
+        archived:
+          description: An array with length of 1 containing either ‘true’ or ‘false’, filter between archived and not archived repositories
+          items:
+            type: string
+          type: array
+        casIds:
+          items:
+            type: string
+          type: array
+        ciFiles:
+          description: CI files path
+          items:
+            type: string
+          type: array
+        customerName:
+          type: string
+        ids:
+          description: VCS repository IDs
+          items:
+            type: string
+          type: array
+        images:
+          items:
+            type: string
+          type: array
+        issues:
+          description: 'Issues enum: [`IAC`, `SCA`, `SECRETS`, `CICD`, `SAST`]
+
+            Filter repositories containing issues of the requested type'
+          items:
+            type: string
+          type: array
+        lastUpdated:
+          format: date-time
+          type: string
+        name:
+          description: Search repositories by free text
+          type: string
+        pipelines:
+          description: Get all repositories linked to the specified pipelines
+          items:
+            type: string
+          type: array
+        privacyLevels:
+          items:
+            $ref: '#/components/schemas/RepositoryPrivacyLabel'
+          type: array
+        providers:
+          items:
+            $ref: '#/components/schemas/RepositoryProvider'
+          type: array
+        riskFactors:
+          items:
+            $ref: '#/components/schemas/RiskFactorsType'
+          type: array
+        technologies:
+          description: Get repositories that make use of the specified technologies
+          items:
+            type: string
+          type: array
+        workspaceIds:
+          description: Array of repository owners, filter all repositories owned by specified owners
+          items:
+            type: string
+          type: array
+      type: object
+    Repository:
+      additionalProperties: false
+      properties:
+        creationDate:
+          type: string
+        customerName:
+          type: string
+        defaultBranch:
+          type: string
+        id:
+          type: string
+        isPublic:
           type: boolean
-        isRepositoryDeployed:
+        lastScanDate:
+          type: string
+        owner:
+          type: string
+        repository:
+          type: string
+        selected:
           type: boolean
+        source:
+          type: string
+        url:
+          type: string
+      required:
+      - id
+      - repository
+      - source
+      - customerName
+      - owner
+      - selected
+      type: object
+    CiInstancesHash:
+      additionalProperties:
+        $ref: '#/components/schemas/ICiInstanceInfo'
+      properties: {}
       type: object
     RepositoriesResponse:
       additionalProperties: false
@@ -1251,84 +1571,27 @@ components:
       - owner
       - runs
       type: object
-    RepoIdToRepoName:
-      additionalProperties: false
-      properties:
-        id:
-          type: string
-        repository:
-          type: string
-      required:
-      - id
-      - repository
-      type: object
-    GetRepositorySearchResponse:
-      additionalProperties: false
-      properties:
-        data:
-          items:
-            $ref: '#/components/schemas/Repository'
-          type: array
-        hasNext:
-          type: boolean
-      required:
-      - data
-      - hasNext
-      type: object
-    SourceTypes:
+    CIType:
       enum:
-      - admissionController
-      - AlibabaCloud
-      - AWS
-      - Azure
-      - AzureOnPrem
-      - AzureRepos
-      - Bitbucket
-      - bitbucketEnterprise
-      - circleci
-      - cli
-      - codebuild
-      - GCP
-      - Github
       - githubActions
-      - githubEnterprise
-      - Gitlab
-      - gitlabEnterprise
+      - circleci
+      - codebuild
       - jenkins
-      - Kubernetes
-      - kubernetesWorkloads
-      - terraformCloud
-      - terraformEnterprise
-      - tfcRunTasks
-      - tfeRunTasks
-      - Transporter
-      - OnPrem
       type: string
-    updateRepositoriesBody:
-      additionalProperties: false
+    RepoRequestBody_2:
       properties:
-        data:
-          items:
-            type: string
-          type: array
-        id:
-          type: string
-        type:
-          $ref: '#/components/schemas/integrationType'
-      required:
-      - data
+        orderBy:
+          $ref: '#/components/schemas/OrderBy'
+        pageConfig:
+          $ref: '#/components/schemas/Pagination'
+        filters:
+          $ref: '#/components/schemas/VCSRepositoriesExternalFilters'
       type: object
-    DockerImage:
-      properties:
-        imageName:
-          type: string
-        repoName:
-          type: string
-      required:
-      - repoName
-      - imageName
-      type: object
-    RepositoryProvider:
+    RepoImportanceScore:
+      enum:
+      - HIGH
+      - MEDIUM
+      - LOW
       type: string
     VCSRepositoriesExternalFilters:
       properties:
@@ -1399,15 +1662,6 @@ components:
         name:
           type: string
           description: Search repositories by free text
-      type: object
-    RepoRequestBody_2:
-      properties:
-        orderBy:
-          $ref: '#/components/schemas/OrderBy'
-        pageConfig:
-          $ref: '#/components/schemas/Pagination'
-        filters:
-          $ref: '#/components/schemas/VCSRepositoriesExternalFilters'
       type: object
     RdsRepoInfo_2:
       properties:
@@ -1608,12 +1862,226 @@ components:
       - name
       - id
       type: object
-    RepoImportanceScore:
-      enum:
-      - HIGH
-      - MEDIUM
-      - LOW
-      type: string
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          description: HTTP status code.
+          example: 602
+        message:
+          type: string
+          description: Human-readable error message.
+          example: Traffic activity investigation malware violation policy Security monitoring.
+        error:
+          type: string
+          description: Error code.
+          example: example-error
+    Repository_2:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique repository identifier in Prisma Cloud.
+          example: example-id
+        name:
+          type: string
+          description: Repository name.
+          example: Production Agent 31
+        owner:
+          type: string
+          description: Repository owner or organization name.
+          example: example-owner
+        fullName:
+          type: string
+          description: Full repository name in owner/repo format.
+          example: Branch Sensor 57
+        sourceType:
+          type: string
+          enum:
+          - Github
+          - Gitlab
+          - Bitbucket
+          - AzureRepos
+          - githubEnterprise
+          - gitlabEnterprise
+          - bitbucketEnterprise
+          description: VCS provider type.
+          example: githubEnterprise
+        defaultBranch:
+          type: string
+          description: Default branch of the repository.
+          example: example-defaultBranch
+        url:
+          type: string
+          description: URL to the repository in the VCS provider.
+          example: https://vpn.test-corp.net/02d758
+        isPublic:
+          type: boolean
+          description: Whether the repository is publicly accessible.
+          example: true
+        lastScanDate:
+          type: string
+          format: date-time
+          description: Timestamp of the most recent scan.
+          example: '2026-08-07T04:21:38Z'
+        lastScanStatus:
+          type: string
+          enum:
+          - completed
+          - running
+          - failed
+          - pending
+          description: Status of the most recent scan.
+          example: pending
+        errorCounts:
+          type: object
+          description: Count of open errors by severity.
+          properties:
+            critical:
+              type: integer
+              example: 956
+            high:
+              type: integer
+              example: 723
+            medium:
+              type: integer
+              example: 176
+            low:
+              type: integer
+              example: 486
+            info:
+              type: integer
+              example: 135
+          example:
+            critical: 381
+            high: 403
+            medium: 984
+            low: 743
+            info: 996
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when the repository was connected.
+          example: '2024-04-02T14:25:56Z'
+    Repository_3:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique repository identifier in Prisma Cloud.
+          example: example-id
+        name:
+          type: string
+          description: Repository name.
+          example: Production Agent 31
+        owner:
+          type: string
+          description: Repository owner or organization name.
+          example: example-owner
+        fullName:
+          type: string
+          description: Full repository name in owner/repo format.
+          example: Branch Sensor 57
+        sourceType:
+          type: string
+          enum:
+          - Github
+          - Gitlab
+          - Bitbucket
+          - AzureRepos
+          - githubEnterprise
+          - gitlabEnterprise
+          - bitbucketEnterprise
+          description: VCS provider type.
+          example: githubEnterprise
+        defaultBranch:
+          type: string
+          description: Default branch of the repository.
+          example: example-defaultBranch
+        url:
+          type: string
+          description: URL to the repository in the VCS provider.
+          example: https://vpn.test-corp.net/02d758
+        isPublic:
+          type: boolean
+          description: Whether the repository is publicly accessible.
+          example: true
+        lastScanDate:
+          type: string
+          format: date-time
+          description: Timestamp of the most recent scan.
+          example: '2026-08-07T04:21:38Z'
+        lastScanStatus:
+          type: string
+          enum:
+          - completed
+          - running
+          - failed
+          - pending
+          description: Status of the most recent scan.
+          example: pending
+        errorCounts:
+          type: object
+          description: Count of open errors by severity.
+          properties:
+            critical:
+              type: integer
+              example: 956
+            high:
+              type: integer
+              example: 723
+            medium:
+              type: integer
+              example: 176
+            low:
+              type: integer
+              example: 486
+            info:
+              type: integer
+              example: 135
+          example:
+            critical: 381
+            high: 403
+            medium: 984
+            low: 743
+            info: 996
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when the repository was connected.
+          example: '2024-04-02T14:25:56Z'
+  responses:
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Invalid request parameters or body.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Invalid or expired authentication token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   securitySchemes:
     CustomAuthorizer:
       in: header
@@ -1625,6 +2093,18 @@ components:
         identitySource: method.request.header.authorization
         type: request
       x-amazon-apigateway-authtype: custom
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
+    redlockAuth:
+      type: apiKey
+      in: header
+      name: x-redlock-auth
+      description: JWT token obtained from the Prisma Cloud /login endpoint. Pass the token value in the x-redlock-auth header. Tokens are valid for 10 minutes.
 x-refined-from:
 - palo-alto-code-repositories-openapi.json
 - palo-alto-code-repositoryimportancescore-openapi.json
+- palo-alto-networks-repositories-api-openapi.yml
+- palo-alto-prisma-cloud-code-security-api-openapi-original.yml

@@ -247,30 +247,15 @@ paths:
       - Built-In Accounts
 components:
   schemas:
-    ScopeDetails:
-      description: The service account authorization scopes detailed
-      example:
-        authenticationType: rsaKey
-        id: distributed-issuance
-        readableName: Distributed Issuance
-      properties:
-        authenticationType:
-          description: Type of authentication used in the scope
-          type: string
-        id:
-          description: ID for the given scope
-          type: string
-        readableName:
-          description: User friendly name for the scope
-          type: string
-      required:
-      - id
-      - readableName
-      type: object
-    ServiceAccountDetails:
+    ServiceAccountPatchBaseObject:
       allOf:
-      - $ref: '#/components/schemas/ServiceAccountBaseObject'
-      - $ref: '#/components/schemas/Details'
+      - $ref: '#/components/schemas/ServiceAccountBasePatchObjectNoKey'
+      - properties:
+          publicKey:
+            description: The client generated public key
+            maxLength: 2000
+            type: string
+        type: object
     Application:
       description: Application ID to associate with the service account
       format: UUID
@@ -278,6 +263,165 @@ components:
       x-go-type: uuid.UUID
       x-go-type-import:
         path: github.com/google/uuid
+    PutServiceAccountByClientIDCredentialsResponseBody:
+      properties:
+        credentialExpiresIn:
+          description: Expiration in hours for service account credentials
+          format: float
+          type: number
+          x-go-type: float64
+      type: object
+    Details:
+      properties:
+        credentialsExpiringOn:
+          description: The exact date on which the credentials will expire
+          format: date-time
+          type: string
+        enabled:
+          description: Indicates if the given service account must be enabled or disabled where disable means that the credentials cannot be used for
+          type: boolean
+        id:
+          description: The ID for this service account
+          format: UUID
+          type: string
+          x-go-type: uuid.UUID
+          x-go-type-import:
+            path: github.com/google/uuid
+        lastUsedOn:
+          description: The last time the account credentials were used to authenticate a machine
+          format: date-time
+          type: string
+        updatedBy:
+          description: The UUID of the latest user that modified the account
+          format: UUID
+          type: string
+          x-go-type: uuid.UUID
+          x-go-type-import:
+            path: github.com/google/uuid
+        updatedOn:
+          description: The last time the account details were updated
+          format: date-time
+          type: string
+      type: object
+    CreateServiceAccountResponseBody:
+      example:
+        id: 933507dd-0286-11ef-bc25-8a00a468403f
+        privateKey: '-----BEGIN PRIVATE KEY-----
+
+          ⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆
+
+          -----END PRIVATE KEY-----
+
+          '
+        publicKey: '-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAzRCyRWzXlyhFp3RcUrum1Q6j7YR8jyL0L1fWnh7zgt4=\n-----END PUBLIC KEY-----'
+      properties:
+        id:
+          description: The ID for this service account
+          format: UUID
+          type: string
+          x-go-type: uuid.UUID
+          x-go-type-import:
+            path: github.com/google/uuid
+        ociAccountName:
+          description: The OCI account name generated for a robot in case of the registry scope
+          type: string
+        ociRegistryToken:
+          description: The OCI registry token generated for a robot in case of the registry scope
+          type: string
+        privateKey:
+          description: The generated private key for the service account when not providing a public key on the create payload
+          type: string
+        publicKey:
+          description: The generated public key for the service account when not providing a public key on the create payload
+          type: string
+      type: object
+    PutServiceAccountByClientIDCredentialsRequestBody:
+      example:
+        extendCredentialLifetime: true
+      properties:
+        extendCredentialLifetime:
+          description: Extend the credential lifetime
+          type: boolean
+      required:
+      - extendCredentialLifetime
+      type: object
+    ServiceAccountBasePatchObjectNoKey:
+      properties:
+        applications:
+          description: The list of applications for which the account is authorized
+          example:
+          - dc96438b-7a80-464b-a09b-9e5ec746c3e3
+          - 5bce5ff4-a69b-4e78-9b7e-6d4029995000
+          items:
+            $ref: '#/components/schemas/Application'
+          type: array
+          uniqueItems: true
+        audience:
+          description: The intended audience or recipients of the entity
+          example: Audience
+          maxLength: 250
+          minLength: 1
+          type: string
+        credentialLifetime:
+          description: The number of days for which the credentials will be valid before expiring and requiring renewal
+          maximum: 365
+          minimum: 1
+          type: integer
+        issuerURL:
+          description: The URL of the entity issuer, providing the source or origin
+          example: https://accounts.google.com/
+          maxLength: 250
+          minLength: 1
+          type: string
+        jwksURI:
+          description: The URI pointing to the JSON Web Key Set (JWKS) for the entity, facilitating secure authentication
+          example: https://www.googleapis.com/oauth2/v3/certs
+          maxLength: 250
+          minLength: 1
+          type: string
+        name:
+          description: User friendly name for the given account
+          maxLength: 250
+          minLength: 1
+          type: string
+        owner:
+          description: The UUID of the owning team
+          format: UUID
+          type: string
+          x-go-type: uuid.UUID
+          x-go-type-import:
+            path: github.com/google/uuid
+        scopes:
+          description: The list of scopes for which the account is authorized
+          items:
+            $ref: '#/components/schemas/Scope'
+          minItems: 1
+          type: array
+          uniqueItems: true
+        subject:
+          description: The subject of the entity, representing the main topic or title.
+          example: Subject
+          maxLength: 250
+          minLength: 1
+          type: string
+      type: object
+    ServiceAccountDetailsNoKey:
+      allOf:
+      - $ref: '#/components/schemas/ServiceAccountBaseObjectNoKey'
+      - $ref: '#/components/schemas/Details'
+      example:
+        authenticationType: rsaKey
+        companyId: 145f12e0-fdbf-11ee-b275-2754a4f7e272
+        credentialLifetime: 365
+        credentialsExpiringOn: '2025-01-01T00:00:00.000000Z'
+        enabled: true
+        id: 933507dd-0286-11ef-bc25-8a00a468403f
+        name: Service Account I
+        owner: 2620f8e0-fdbf-11ee-b275-2754a4f7e272
+        scopes:
+        - distributed-issuance
+        updatedBy: 150760d0-fdbf-11ee-b275-2754a4f7e272
+        updatedOn: '2024-01-01T00:00:00.000000Z'
     ServiceAccountBaseObjectNoKey:
       properties:
         applications:
@@ -352,27 +496,24 @@ components:
           minLength: 1
           type: string
       type: object
-    Scope:
-      description: The service account authorization scopes
-      example: distributed-issuance
-      type: string
-    GetServiceAccountsByClientIDResponseBody:
-      $ref: '#/components/schemas/ServiceAccountDetails'
-    PutServiceAccountByClientIDOCITokenResponseBody:
-      properties:
-        ociRegistryToken:
-          description: The OCI registry token generated for a robot in case of the registry scope
-          type: string
-      type: object
-    ServiceAccountPatchBaseObject:
+    CreateServiceAccountRequestBody:
       allOf:
-      - $ref: '#/components/schemas/ServiceAccountBasePatchObjectNoKey'
-      - properties:
-          publicKey:
-            description: The client generated public key
-            maxLength: 2000
-            type: string
+      - $ref: '#/components/schemas/ServiceAccountBaseObject'
+      - required:
+        - name
+        - scopes
         type: object
+      example:
+        applications:
+        - dc96438b-7a80-464b-a09b-9e5ec746c3e3
+        - 5bce5ff4-a69b-4e78-9b7e-6d4029995000
+        authenticationType: rsaKey
+        credentialLifetime: 30
+        name: Firefly SA
+        owner: 2620f8e0-fdbf-11ee-b275-2754a4f7e272
+        publicKey: '-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAzRCyRWzXlyhFp3RcUrum1Q6j7YR8jyL0L1fWnh7zgt4=\n-----END PUBLIC KEY-----'
+        scopes:
+        - distributed-issuance
     GetServiceAccountScopesResponseBody:
       example:
       - authenticationType: rsaKey
@@ -381,38 +522,6 @@ components:
       items:
         $ref: '#/components/schemas/ScopeDetails'
       type: array
-    CreateServiceAccountResponseBody:
-      example:
-        id: 933507dd-0286-11ef-bc25-8a00a468403f
-        privateKey: '-----BEGIN PRIVATE KEY-----
-
-          ⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆⋆
-
-          -----END PRIVATE KEY-----
-
-          '
-        publicKey: '-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAzRCyRWzXlyhFp3RcUrum1Q6j7YR8jyL0L1fWnh7zgt4=\n-----END PUBLIC KEY-----'
-      properties:
-        id:
-          description: The ID for this service account
-          format: UUID
-          type: string
-          x-go-type: uuid.UUID
-          x-go-type-import:
-            path: github.com/google/uuid
-        ociAccountName:
-          description: The OCI account name generated for a robot in case of the registry scope
-          type: string
-        ociRegistryToken:
-          description: The OCI registry token generated for a robot in case of the registry scope
-          type: string
-        privateKey:
-          description: The generated private key for the service account when not providing a public key on the create payload
-          type: string
-        publicKey:
-          description: The generated public key for the service account when not providing a public key on the create payload
-          type: string
-      type: object
     PatchServiceAccountByClientIDRequestBody:
       allOf:
       - $ref: '#/components/schemas/ServiceAccountPatchBaseObject'
@@ -435,132 +544,32 @@ components:
           '
         scopes:
         - distributed-issuance
-    Details:
-      properties:
-        credentialsExpiringOn:
-          description: The exact date on which the credentials will expire
-          format: date-time
-          type: string
-        enabled:
-          description: Indicates if the given service account must be enabled or disabled where disable means that the credentials cannot be used for
-          type: boolean
-        id:
-          description: The ID for this service account
-          format: UUID
-          type: string
-          x-go-type: uuid.UUID
-          x-go-type-import:
-            path: github.com/google/uuid
-        lastUsedOn:
-          description: The last time the account credentials were used to authenticate a machine
-          format: date-time
-          type: string
-        updatedBy:
-          description: The UUID of the latest user that modified the account
-          format: UUID
-          type: string
-          x-go-type: uuid.UUID
-          x-go-type-import:
-            path: github.com/google/uuid
-        updatedOn:
-          description: The last time the account details were updated
-          format: date-time
-          type: string
-      type: object
-    ServiceAccountDetailsNoKey:
-      allOf:
-      - $ref: '#/components/schemas/ServiceAccountBaseObjectNoKey'
-      - $ref: '#/components/schemas/Details'
+    ScopeDetails:
+      description: The service account authorization scopes detailed
       example:
         authenticationType: rsaKey
-        companyId: 145f12e0-fdbf-11ee-b275-2754a4f7e272
-        credentialLifetime: 365
-        credentialsExpiringOn: '2025-01-01T00:00:00.000000Z'
-        enabled: true
-        id: 933507dd-0286-11ef-bc25-8a00a468403f
-        name: Service Account I
-        owner: 2620f8e0-fdbf-11ee-b275-2754a4f7e272
-        scopes:
-        - distributed-issuance
-        updatedBy: 150760d0-fdbf-11ee-b275-2754a4f7e272
-        updatedOn: '2024-01-01T00:00:00.000000Z'
-    ServiceAccountBasePatchObjectNoKey:
+        id: distributed-issuance
+        readableName: Distributed Issuance
       properties:
-        applications:
-          description: The list of applications for which the account is authorized
-          example:
-          - dc96438b-7a80-464b-a09b-9e5ec746c3e3
-          - 5bce5ff4-a69b-4e78-9b7e-6d4029995000
-          items:
-            $ref: '#/components/schemas/Application'
-          type: array
-          uniqueItems: true
-        audience:
-          description: The intended audience or recipients of the entity
-          example: Audience
-          maxLength: 250
-          minLength: 1
+        authenticationType:
+          description: Type of authentication used in the scope
           type: string
-        credentialLifetime:
-          description: The number of days for which the credentials will be valid before expiring and requiring renewal
-          maximum: 365
-          minimum: 1
-          type: integer
-        issuerURL:
-          description: The URL of the entity issuer, providing the source or origin
-          example: https://accounts.google.com/
-          maxLength: 250
-          minLength: 1
+        id:
+          description: ID for the given scope
           type: string
-        jwksURI:
-          description: The URI pointing to the JSON Web Key Set (JWKS) for the entity, facilitating secure authentication
-          example: https://www.googleapis.com/oauth2/v3/certs
-          maxLength: 250
-          minLength: 1
+        readableName:
+          description: User friendly name for the scope
           type: string
-        name:
-          description: User friendly name for the given account
-          maxLength: 250
-          minLength: 1
-          type: string
-        owner:
-          description: The UUID of the owning team
-          format: UUID
-          type: string
-          x-go-type: uuid.UUID
-          x-go-type-import:
-            path: github.com/google/uuid
-        scopes:
-          description: The list of scopes for which the account is authorized
-          items:
-            $ref: '#/components/schemas/Scope'
-          minItems: 1
-          type: array
-          uniqueItems: true
-        subject:
-          description: The subject of the entity, representing the main topic or title.
-          example: Subject
-          maxLength: 250
-          minLength: 1
-          type: string
+      required:
+      - id
+      - readableName
       type: object
-    PutServiceAccountByClientIDCredentialsResponseBody:
-      properties:
-        credentialExpiresIn:
-          description: Expiration in hours for service account credentials
-          format: float
-          type: number
-          x-go-type: float64
-      type: object
-    ServiceAccountBaseObject:
-      allOf:
-      - $ref: '#/components/schemas/ServiceAccountBaseObjectNoKey'
-      - properties:
-          publicKey:
-            description: The client generated public key
-            maxLength: 2000
-            type: string
-        type: object
+    GetServiceAccountsByClientIDResponseBody:
+      $ref: '#/components/schemas/ServiceAccountDetails'
+    Scope:
+      description: The service account authorization scopes
+      example: distributed-issuance
+      type: string
     GetServiceAccountsResponseBody:
       example:
       - authenticationType: rsaKey
@@ -590,34 +599,25 @@ components:
       items:
         $ref: '#/components/schemas/ServiceAccountDetailsNoKey'
       type: array
-    CreateServiceAccountRequestBody:
+    ServiceAccountBaseObject:
+      allOf:
+      - $ref: '#/components/schemas/ServiceAccountBaseObjectNoKey'
+      - properties:
+          publicKey:
+            description: The client generated public key
+            maxLength: 2000
+            type: string
+        type: object
+    PutServiceAccountByClientIDOCITokenResponseBody:
+      properties:
+        ociRegistryToken:
+          description: The OCI registry token generated for a robot in case of the registry scope
+          type: string
+      type: object
+    ServiceAccountDetails:
       allOf:
       - $ref: '#/components/schemas/ServiceAccountBaseObject'
-      - required:
-        - name
-        - scopes
-        type: object
-      example:
-        applications:
-        - dc96438b-7a80-464b-a09b-9e5ec746c3e3
-        - 5bce5ff4-a69b-4e78-9b7e-6d4029995000
-        authenticationType: rsaKey
-        credentialLifetime: 30
-        name: Firefly SA
-        owner: 2620f8e0-fdbf-11ee-b275-2754a4f7e272
-        publicKey: '-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAzRCyRWzXlyhFp3RcUrum1Q6j7YR8jyL0L1fWnh7zgt4=\n-----END PUBLIC KEY-----'
-        scopes:
-        - distributed-issuance
-    PutServiceAccountByClientIDCredentialsRequestBody:
-      example:
-        extendCredentialLifetime: true
-      properties:
-        extendCredentialLifetime:
-          description: Extend the credential lifetime
-          type: boolean
-      required:
-      - extendCredentialLifetime
-      type: object
+      - $ref: '#/components/schemas/Details'
   securitySchemes:
     scmOAuth:
       type: oauth2

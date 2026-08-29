@@ -465,39 +465,152 @@ paths:
     - url: https://api.fr.prismacloud.io
 components:
   schemas:
-    FilterSuggestionModel:
-      description: Model for Filter Suggestions
+    ResourceInfoPageOption:
       properties:
-        filterName:
-          description: Filter name
-          type: string
-        query:
-          description: Case-insensitive fuzzy search autocomplete filter. Includes only items that contain the query as a substring.
-          type: string
-      required:
-      - filterName
+        failedEventOffset:
+          type: boolean
+        lastRowIdx:
+          format: int64
+          type: integer
+        limit:
+          format: int64
+          type: integer
+        offset:
+          format: int64
+          type: integer
+        previousTotalMatchedCount:
+          format: int64
+          type: integer
+        timestamp:
+          format: int64
+          type: integer
       type: object
-    RelativeTimeRangeConfigModel:
+    AlertStatus:
+      properties:
+        critical:
+          format: int64
+          type: integer
+        high:
+          format: int64
+          type: integer
+        informational:
+          format: int64
+          type: integer
+        low:
+          format: int64
+          type: integer
+        medium:
+          format: int64
+          type: integer
+      type: object
+    NameValueIntegerString:
+      properties:
+        id:
+          format: int32
+          type: integer
+        name:
+          type: string
+      type: object
+    TimeModel:
+      description: Model for Time
+      properties:
+        endTime:
+          description: End timestamp
+          format: int64
+          type: integer
+        startTime:
+          description: Start timestamp
+          format: int64
+          type: integer
+      type: object
+    AbsoluteTimeRangeConfigModel:
       allOf:
       - $ref: '#/components/schemas/TimeRangeConfigModel'
-      - description: Model for RelativeTimeRangeConfig
+      - description: Model for AbsoluteTimeRangeConfig
         properties:
-          relativeTimeType:
-            description: Direction in which to count time. Default = BACKWARD
-            enum:
-            - BACKWARD
-            - FORWARD
-            type: string
           type:
-            example: relative
+            example: absolute
             type: string
           value:
             allOf:
-            - $ref: '#/components/schemas/RelativeTimeDurationModel'
+            - $ref: '#/components/schemas/TimeModel'
             - description: Time range object
         required:
         - value
         type: object
+    RelativeTimeDurationModel:
+      description: Model for RelativeTimeDuration
+      properties:
+        amount:
+          description: Number of time units
+          format: int32
+          type: integer
+        unit:
+          description: Time unit
+          enum:
+          - minute
+          - hour
+          - day
+          - week
+          - month
+          - year
+          type: string
+      type: object
+    VulnerabilityStatus:
+      properties:
+        critical:
+          format: int64
+          type: integer
+        high:
+          format: int64
+          type: integer
+        low:
+          format: int64
+          type: integer
+        medium:
+          format: int64
+          type: integer
+      type: object
+    BaseFilterModel:
+      description: Model for Filter
+      discriminator:
+        propertyName: type
+      properties:
+        detailed:
+          description: Detailed
+          type: boolean
+        fields:
+          description: Array of specific fields to return
+          items:
+            type: string
+          type: array
+        filters:
+          description: "Filtering parameters. \n\nFor filter names, refer to List Filters API. \n\nFor filter values, refer to List filter suggestions. \n\nThe only exception is **resource.tagv2** filter name, provide filter value for it in the following format: \"{\"key\":\"'CustomerTagKey'\",\"value\":\"'CustomerTagValue'\"}\""
+          items:
+            $ref: '#/components/schemas/UIFilterModel'
+          type: array
+        groupBy:
+          description: For asset or data inventory only. Group returned items by **cloud.type**, **cloud.service**, **cloud.region**, **cloud.account**, and/or **resource.type**
+          items:
+            type: string
+          type: array
+        limit:
+          description: Maximum number of items to return. When data is paginated, maximum number of items per page.The maximum cannot exceed 10,000. The default is 10,000.
+          type: number
+        offset:
+          description: The number of items to skip before selecting items to return. Default is zero
+          type: number
+        pageToken:
+          description: 'Setting this pagination Token to the **nextPageToken** from a response object returns the next page of data '
+          type: string
+        sortBy:
+          description: Array of sort properties. Append **:asc** or  **:desc** to the key to sort by ascending or descending order respectively. Example sort properties are **id:asc** and **timestamp:desc**
+          items:
+            type: string
+          type: array
+        type:
+          type: string
+      type: object
     ScannedPolicyInfo:
       properties:
         id:
@@ -537,60 +650,6 @@ components:
             - EPOCH
             - LOGIN
             type: string
-        type: object
-    TimeRangeConfigModel:
-      description: 'See the [Time Range Model](/prisma-cloud/api/cspm/api-time-range-model) for details.
-
-        '
-      discriminator:
-        mapping:
-          absolute: '#/components/schemas/AbsoluteTimeRangeConfigModel'
-          relative: '#/components/schemas/RelativeTimeRangeConfigModel'
-          to_now: '#/components/schemas/ToNowTimeRangeConfigModel'
-        propertyName: type
-      oneOf:
-      - $ref: '#/components/schemas/RelativeTimeRangeConfigModel'
-      - $ref: '#/components/schemas/AbsoluteTimeRangeConfigModel'
-      - $ref: '#/components/schemas/ToNowTimeRangeConfigModel'
-      properties:
-        type:
-          description: Time type
-          type: string
-      required:
-      - type
-      type: object
-    RelativeTimeDurationModel:
-      description: Model for RelativeTimeDuration
-      properties:
-        amount:
-          description: Number of time units
-          format: int32
-          type: integer
-        unit:
-          description: Time unit
-          enum:
-          - minute
-          - hour
-          - day
-          - week
-          - month
-          - year
-          type: string
-      type: object
-    AbsoluteTimeRangeConfigModel:
-      allOf:
-      - $ref: '#/components/schemas/TimeRangeConfigModel'
-      - description: Model for AbsoluteTimeRangeConfig
-        properties:
-          type:
-            example: absolute
-            type: string
-          value:
-            allOf:
-            - $ref: '#/components/schemas/TimeModel'
-            - description: Time range object
-        required:
-        - value
         type: object
     DecoratedResourceInfo:
       description: Model for resource info and status list
@@ -661,54 +720,6 @@ components:
           - $ref: '#/components/schemas/VulnerabilityStatus'
           - description: Count of vulnerabilities found by their severity
       type: object
-    FilterSuggestion:
-      description: Model for FilterSuggestion
-      properties:
-        nameValue:
-          description: Filter options
-          items:
-            $ref: '#/components/schemas/NameValueIntegerString'
-          type: array
-        options:
-          description: Filter options, which lists all the default options for static filters or all the recent options, if any, for non-static filters
-          items:
-            type: string
-          type: array
-          uniqueItems: true
-        staticFilter:
-          description: Filter is a static filter
-          type: boolean
-      type: object
-    ResourceInfoPageOption:
-      properties:
-        failedEventOffset:
-          type: boolean
-        lastRowIdx:
-          format: int64
-          type: integer
-        limit:
-          format: int64
-          type: integer
-        offset:
-          format: int64
-          type: integer
-        previousTotalMatchedCount:
-          format: int64
-          type: integer
-        timestamp:
-          format: int64
-          type: integer
-      type: object
-    FilterModel:
-      allOf:
-      - $ref: '#/components/schemas/BaseFilterModel'
-      - description: Model for Filter
-        properties:
-          timeRange:
-            allOf:
-            - $ref: '#/components/schemas/TimeRangeConfigModel'
-            - description: Time range
-        type: object
     UIFilterModel:
       description: Model for UIFilter
       properties:
@@ -723,22 +734,6 @@ components:
         value:
           description: Value
           type: string
-      type: object
-    InventoryFilterSuggestion:
-      description: Model for InventoryFilterSuggestion
-      properties:
-        account.group:
-          $ref: '#/components/schemas/FilterSuggestion'
-        cloud.account:
-          $ref: '#/components/schemas/FilterSuggestion'
-        cloud.region:
-          $ref: '#/components/schemas/FilterSuggestion'
-        cloud.service:
-          $ref: '#/components/schemas/FilterSuggestion'
-        cloud.type:
-          allOf:
-          - $ref: '#/components/schemas/FilterSuggestion'
-          - readOnly: true
       type: object
     DecoratedResourceInfoResult:
       description: Model for resource info and status list
@@ -765,20 +760,103 @@ components:
           format: int64
           type: integer
       type: object
-    VulnerabilityStatus:
+    FilterSuggestionModel:
+      description: Model for Filter Suggestions
       properties:
-        critical:
-          format: int64
-          type: integer
-        high:
-          format: int64
-          type: integer
-        low:
-          format: int64
-          type: integer
-        medium:
-          format: int64
-          type: integer
+        filterName:
+          description: Filter name
+          type: string
+        query:
+          description: Case-insensitive fuzzy search autocomplete filter. Includes only items that contain the query as a substring.
+          type: string
+      required:
+      - filterName
+      type: object
+    InventoryFilterSuggestion:
+      description: Model for InventoryFilterSuggestion
+      properties:
+        account.group:
+          $ref: '#/components/schemas/FilterSuggestion'
+        cloud.account:
+          $ref: '#/components/schemas/FilterSuggestion'
+        cloud.region:
+          $ref: '#/components/schemas/FilterSuggestion'
+        cloud.service:
+          $ref: '#/components/schemas/FilterSuggestion'
+        cloud.type:
+          allOf:
+          - $ref: '#/components/schemas/FilterSuggestion'
+          - readOnly: true
+      type: object
+    FilterModel:
+      allOf:
+      - $ref: '#/components/schemas/BaseFilterModel'
+      - description: Model for Filter
+        properties:
+          timeRange:
+            allOf:
+            - $ref: '#/components/schemas/TimeRangeConfigModel'
+            - description: Time range
+        type: object
+    RelativeTimeRangeConfigModel:
+      allOf:
+      - $ref: '#/components/schemas/TimeRangeConfigModel'
+      - description: Model for RelativeTimeRangeConfig
+        properties:
+          relativeTimeType:
+            description: Direction in which to count time. Default = BACKWARD
+            enum:
+            - BACKWARD
+            - FORWARD
+            type: string
+          type:
+            example: relative
+            type: string
+          value:
+            allOf:
+            - $ref: '#/components/schemas/RelativeTimeDurationModel'
+            - description: Time range object
+        required:
+        - value
+        type: object
+    TimeRangeConfigModel:
+      description: 'See the [Time Range Model](/prisma-cloud/api/cspm/api-time-range-model) for details.
+
+        '
+      discriminator:
+        mapping:
+          absolute: '#/components/schemas/AbsoluteTimeRangeConfigModel'
+          relative: '#/components/schemas/RelativeTimeRangeConfigModel'
+          to_now: '#/components/schemas/ToNowTimeRangeConfigModel'
+        propertyName: type
+      oneOf:
+      - $ref: '#/components/schemas/RelativeTimeRangeConfigModel'
+      - $ref: '#/components/schemas/AbsoluteTimeRangeConfigModel'
+      - $ref: '#/components/schemas/ToNowTimeRangeConfigModel'
+      properties:
+        type:
+          description: Time type
+          type: string
+      required:
+      - type
+      type: object
+    FilterSuggestion:
+      description: Model for FilterSuggestion
+      properties:
+        nameValue:
+          description: Filter options
+          items:
+            $ref: '#/components/schemas/NameValueIntegerString'
+          type: array
+        options:
+          description: Filter options, which lists all the default options for static filters or all the recent options, if any, for non-static filters
+          items:
+            type: string
+          type: array
+          uniqueItems: true
+        staticFilter:
+          description: Filter is a static filter
+          type: boolean
       type: object
     ParsedTableFilter:
       description: Model for parsed table filter
@@ -812,107 +890,31 @@ components:
           description: Query is valid
           type: boolean
       type: object
-    BaseFilterModel:
-      description: Model for Filter
-      discriminator:
-        propertyName: type
-      properties:
-        detailed:
-          description: Detailed
-          type: boolean
-        fields:
-          description: Array of specific fields to return
-          items:
-            type: string
-          type: array
-        filters:
-          description: "Filtering parameters. \n\nFor filter names, refer to List Filters API. \n\nFor filter values, refer to List filter suggestions. \n\nThe only exception is **resource.tagv2** filter name, provide filter value for it in the following format: \"{\"key\":\"'CustomerTagKey'\",\"value\":\"'CustomerTagValue'\"}\""
-          items:
-            $ref: '#/components/schemas/UIFilterModel'
-          type: array
-        groupBy:
-          description: For asset or data inventory only. Group returned items by **cloud.type**, **cloud.service**, **cloud.region**, **cloud.account**, and/or **resource.type**
-          items:
-            type: string
-          type: array
-        limit:
-          description: Maximum number of items to return. When data is paginated, maximum number of items per page.The maximum cannot exceed 10,000. The default is 10,000.
-          type: number
-        offset:
-          description: The number of items to skip before selecting items to return. Default is zero
-          type: number
-        pageToken:
-          description: 'Setting this pagination Token to the **nextPageToken** from a response object returns the next page of data '
-          type: string
-        sortBy:
-          description: Array of sort properties. Append **:asc** or  **:desc** to the key to sort by ascending or descending order respectively. Example sort properties are **id:asc** and **timestamp:desc**
-          items:
-            type: string
-          type: array
-        type:
-          type: string
+    CountBySeverity:
       type: object
-    AlertStatus:
       properties:
-        critical:
-          format: int64
+        severity:
+          type: string
+        count:
           type: integer
-        high:
-          format: int64
-          type: integer
-        informational:
-          format: int64
-          type: integer
-        low:
-          format: int64
-          type: integer
-        medium:
-          format: int64
-          type: integer
-      type: object
-    NameValueIntegerString:
-      properties:
-        id:
           format: int32
-          type: integer
-        name:
-          type: string
-      type: object
-    TimeModel:
-      description: Model for Time
-      properties:
-        endTime:
-          description: End timestamp
-          format: int64
-          type: integer
-        startTime:
-          description: Start timestamp
-          format: int64
-          type: integer
-      type: object
-    GraphQLError:
+    GraphQLErrorDebugInfo:
       required:
-      - locations
-      - message
-      - path
-      - pathAsString
+      - subquery
+      - variables
       type: object
       properties:
-        message:
+        subquery:
           type: string
-        path:
-          type: array
-          items:
+        variables:
+          type: object
+          additionalProperties:
             type: object
-        locations:
-          type: array
-          items:
+        additionalInformation:
+          type: object
+          additionalProperties:
             type: object
-        extensions:
-          $ref: '#/components/schemas/GraphQLErrorExtensions'
-        pathAsString:
-          type: string
-      description: Error Object.
+          writeOnly: true
     ExternalIntegrationAttribute:
       type: object
       properties:
@@ -939,268 +941,67 @@ components:
           type: array
           items:
             type: object
-    RenderAttribute:
+    AlertAttribute:
       required:
-      - alertsCount
-      - allowDrillDown
-      - findingTypes
-      - hasExtFindingRiskFactors
-      - hasExternalFinding
-      - hasExternalIntegration
-      - hasNetwork
-      - problem
+      - isHyperionPolicy
       type: object
       properties:
-        assetId:
-          type: string
-        appName:
-          type: array
-          items:
-            type: string
-        allowDrillDown:
-          type: boolean
-        hasNetwork:
-          type: boolean
-        hasExternalFinding:
-          type: boolean
-        hasExternalIntegration:
-          type: boolean
-        hasExtFindingRiskFactors:
-          type: boolean
-        alertsCount:
-          type: array
-          items:
-            $ref: '#/components/schemas/CountBySeverity'
-        findingTypes:
-          uniqueItems: true
-          type: array
-          items:
-            type: string
-        relatedImages:
-          type: object
-        assetCategory:
-          type: string
-        dataSecurityServiceProviderId:
-          type: string
         problem:
-          type: array
-          items:
-            $ref: '#/components/schemas/Problem'
-    AssetRequest:
-      required:
-      - assetId
-      - type
-      type: object
-      properties:
-        assetId:
-          type: string
-          description: Unified Asset Id or RRN (Restricted Resource Name)
-          example: rrn:xxx:xx:xx-xx-x:xxx:xxx:x-xxxx or unified-asset-id
-        type:
-          type: string
-          description: Asset Domain Service query type.
-          enum:
-          - external_finding
-          - asset
-          - asset_lite
-          - alerts
-          - alerts_counts
-          - alert_summary
-          - finding_summary
-          - attack_path
-          - attack_path_summary
-          - raw_config
-          - network
-          - timeline
-          - external_integration
-          - asset_data_indicators
-          - relationships
-          - findings
-          - vulnerabilities
-          - permissions
-          - package_info
-          - labels
-          - vulnerability_aggregates
-          - process_info
-          - vulnerabilities_group_by_type
-          - asset_cwp_vulns
-          - app_contexts
-          - attributes
-          - data_security
-          - data_security_summary
-        findingType:
-          type: array
-          description: External Finding Types
-          items:
-            $ref: '#/components/schemas/FindingType'
-        riskFactors:
-          type: array
-          description: External finding risk factors
-          items:
-            type: string
-            description: External finding risk factors
-            enum:
-            - CRITICAL_SEVERITY
-            - HIGH_SEVERITY
-            - MEDIUM_SEVERITY
-            - HAS_FIX
-            - REMOTE_EXECUTION
-            - DOS
-            - RECENT_VULNERABILITY
-            - EXPLOIT_EXISTS
-            - ATTACK_COMPLEXITY_LOW
-            - ATTACK_VECTOR_NETWORK
-            - REACHABLE_FROM_THE_INTERNET
-            - LISTENING_PORTS
-            - CONTAINER_IS_RUNNING_AS_ROOT
-            - NO_MANDATORY_SECURITY_PROFILE_APPLIED
-            - RUNNING_AS_PRIVILEGED_CONTAINER
-            - PACKAGE_IN_USE
-            - DOS_LOW
-            - DOS_HIGH
-            - EXPLOIT_EXISTS_IN_THE_WILD
-            - EXPLOIT_EXISTS_POC
-            - SENSITIVE_INFORMATION
-            - ROOT_MOUNT
-            - RUNTIME_SOCKET
-            - HOST_ACCESS
-        timelineItemId:
-          type: string
-          description: Timeline Item ID
-        alertIds:
-          type: array
-          description: List of Alert Ids
-          items:
-            type: string
-            description: List of Alert Ids
-        attackPathIds:
-          type: array
-          description: List of Attack Path Ids
-          items:
-            $ref: '#/components/schemas/AttackPathRequest'
-        limit:
-          type: integer
-          description: Limit number of records
-          format: int32
-        permissionType:
-          type: string
-          description: Permissions Type
-        pageToken:
-          type: string
-          description: Next Page Token
-        prismaCloudFindingsOnly:
-          type: boolean
-          description: Filter Hyperion Findings
-        vulnerabilityInfoTypeId:
-          type: string
-          description: CVE Id, or Package Id or Layer Id. The value needs to be fetched from one of the group by api calls
-        vulnerabilityInfoType:
-          type: string
-          description: 'Supported Vuln Info Types: Package, layer and CVE'
-          enum:
-          - CVE
-          - PACKAGE
-          - LAYER
-        filters:
-          $ref: '#/components/schemas/WorkLoadFilters'
-    AssetWrapper:
-      type: object
-      properties:
-        asset:
-          $ref: '#/components/schemas/UnifiedAsset'
-      description: Asset Domain Service Object type.
-    GraphQLErrorExtensions:
-      required:
-      - classification
-      - debugInfo
-      - origin
-      type: object
-      properties:
-        errorType:
-          type: string
-          enum:
-          - UNKNOWN
-          - INTERNAL
-          - NOT_FOUND
-          - UNAUTHENTICATED
-          - PERMISSION_DENIED
-          - BAD_REQUEST
-          - UNAVAILABLE
-          - FAILED_PRECONDITION
-        errorDetail:
-          type: string
-        origin:
-          type: string
-        debugInfo:
-          $ref: '#/components/schemas/GraphQLErrorDebugInfo'
-        classification:
-          type: object
-    AttackPathRequest:
-      type: object
-      properties:
+          $ref: '#/components/schemas/Problem'
         id:
           type: string
+        severity:
+          type: string
+        policyId:
+          type: string
+        isHyperionPolicy:
+          type: boolean
+        policyType:
+          type: string
+        policyName:
+          type: string
+        policyDescription:
+          type: string
+        alertTime:
+          type: integer
+          format: int64
+        hyperionPolicy:
+          type: boolean
+          writeOnly: true
+    WorkLoadFilters:
+      type: object
+      properties:
+        offset:
+          type: integer
+        nextPageToken:
+          type: string
+        limit:
+          type: integer
+        search:
+          type: string
+        sort:
+          type: string
+        reverse:
+          type: boolean
         type:
           type: string
-          enum:
-          - ALERT_ID
-      description: List of Attack Path Ids
-    StatusType:
-      type: object
-      properties:
-        statusCode:
-          type: integer
-          format: int32
-        reasonPhrase:
+        path:
           type: string
-    Relationships:
-      required:
-      - assetTypeId
-      - problem
-      - pseudoAsset
-      type: object
-      properties:
-        assetId:
+        riskFactors:
+          type: array
+          items:
+            type: string
+        funnelStage:
           type: string
-        relationshipType:
-          type: string
-        assetTypeId:
-          type: integer
-          format: int32
-        assetType:
-          type: string
-        assetName:
-          type: string
-        externalAssetId:
-          type: string
-        cloudId:
-          type: string
-        cloudName:
-          type: string
-        pseudoAsset:
+        patchable:
           type: boolean
-        region:
+        vulnerable:
+          type: boolean
+        severity:
           type: string
-        cloudAccountId:
-          type: string
-        assetClassId:
-          type: string
-        assetClass:
-          type: string
-        alertsCount:
-          type: array
-          items:
-            $ref: '#/components/schemas/CountBySeverity'
-        alertCountBySeverity:
-          type: array
-          items:
-            $ref: '#/components/schemas/CountBySeverity'
-        vulnerabilityCounts:
-          type: object
-        problem:
-          type: array
-          items:
-            $ref: '#/components/schemas/Problem'
+        packageInUse:
+          type: boolean
+      description: Filters applied to CWP Vulns
     AssetResponse:
       type: object
       properties:
@@ -1211,6 +1012,13 @@ components:
           items:
             $ref: '#/components/schemas/GraphQLError'
       description: Asset object
+    ResourceTimelineVulnerability:
+      type: object
+      properties:
+        id:
+          type: string
+        url:
+          type: string
     Finding:
       type: object
       properties:
@@ -1344,40 +1152,170 @@ components:
         updatedOn:
           type: integer
           format: int64
-    CountBySeverity:
+    AssetRequest:
+      required:
+      - assetId
+      - type
       type: object
       properties:
-        severity:
+        assetId:
           type: string
-        count:
-          type: integer
-          format: int32
-    Problem:
-      type: object
-      properties:
-        title:
-          type: string
-        status:
-          $ref: '#/components/schemas/StatusType'
-        detail:
-          type: string
-        instance:
-          type: string
-          format: uri
+          description: Unified Asset Id or RRN (Restricted Resource Name)
+          example: rrn:xxx:xx:xx-xx-x:xxx:xxx:x-xxxx or unified-asset-id
         type:
           type: string
-          format: uri
-        parameters:
-          type: object
-          additionalProperties:
-            type: object
-    ResourceTimelineVulnerability:
+          description: Asset Domain Service query type.
+          enum:
+          - external_finding
+          - asset
+          - asset_lite
+          - alerts
+          - alerts_counts
+          - alert_summary
+          - finding_summary
+          - attack_path
+          - attack_path_summary
+          - raw_config
+          - network
+          - timeline
+          - external_integration
+          - asset_data_indicators
+          - relationships
+          - findings
+          - vulnerabilities
+          - permissions
+          - package_info
+          - labels
+          - vulnerability_aggregates
+          - process_info
+          - vulnerabilities_group_by_type
+          - asset_cwp_vulns
+          - app_contexts
+          - attributes
+          - data_security
+          - data_security_summary
+        findingType:
+          type: array
+          description: External Finding Types
+          items:
+            $ref: '#/components/schemas/FindingType'
+        riskFactors:
+          type: array
+          description: External finding risk factors
+          items:
+            type: string
+            description: External finding risk factors
+            enum:
+            - CRITICAL_SEVERITY
+            - HIGH_SEVERITY
+            - MEDIUM_SEVERITY
+            - HAS_FIX
+            - REMOTE_EXECUTION
+            - DOS
+            - RECENT_VULNERABILITY
+            - EXPLOIT_EXISTS
+            - ATTACK_COMPLEXITY_LOW
+            - ATTACK_VECTOR_NETWORK
+            - REACHABLE_FROM_THE_INTERNET
+            - LISTENING_PORTS
+            - CONTAINER_IS_RUNNING_AS_ROOT
+            - NO_MANDATORY_SECURITY_PROFILE_APPLIED
+            - RUNNING_AS_PRIVILEGED_CONTAINER
+            - PACKAGE_IN_USE
+            - DOS_LOW
+            - DOS_HIGH
+            - EXPLOIT_EXISTS_IN_THE_WILD
+            - EXPLOIT_EXISTS_POC
+            - SENSITIVE_INFORMATION
+            - ROOT_MOUNT
+            - RUNTIME_SOCKET
+            - HOST_ACCESS
+        timelineItemId:
+          type: string
+          description: Timeline Item ID
+        alertIds:
+          type: array
+          description: List of Alert Ids
+          items:
+            type: string
+            description: List of Alert Ids
+        attackPathIds:
+          type: array
+          description: List of Attack Path Ids
+          items:
+            $ref: '#/components/schemas/AttackPathRequest'
+        limit:
+          type: integer
+          description: Limit number of records
+          format: int32
+        permissionType:
+          type: string
+          description: Permissions Type
+        pageToken:
+          type: string
+          description: Next Page Token
+        prismaCloudFindingsOnly:
+          type: boolean
+          description: Filter Hyperion Findings
+        vulnerabilityInfoTypeId:
+          type: string
+          description: CVE Id, or Package Id or Layer Id. The value needs to be fetched from one of the group by api calls
+        vulnerabilityInfoType:
+          type: string
+          description: 'Supported Vuln Info Types: Package, layer and CVE'
+          enum:
+          - CVE
+          - PACKAGE
+          - LAYER
+        filters:
+          $ref: '#/components/schemas/WorkLoadFilters'
+    RenderAttribute:
+      required:
+      - alertsCount
+      - allowDrillDown
+      - findingTypes
+      - hasExtFindingRiskFactors
+      - hasExternalFinding
+      - hasExternalIntegration
+      - hasNetwork
+      - problem
       type: object
       properties:
-        id:
+        assetId:
           type: string
-        url:
+        appName:
+          type: array
+          items:
+            type: string
+        allowDrillDown:
+          type: boolean
+        hasNetwork:
+          type: boolean
+        hasExternalFinding:
+          type: boolean
+        hasExternalIntegration:
+          type: boolean
+        hasExtFindingRiskFactors:
+          type: boolean
+        alertsCount:
+          type: array
+          items:
+            $ref: '#/components/schemas/CountBySeverity'
+        findingTypes:
+          uniqueItems: true
+          type: array
+          items:
+            type: string
+        relatedImages:
+          type: object
+        assetCategory:
           type: string
+        dataSecurityServiceProviderId:
+          type: string
+        problem:
+          type: array
+          items:
+            $ref: '#/components/schemas/Problem'
     UnifiedAsset:
       required:
       - deleted
@@ -1527,57 +1465,146 @@ components:
           additionalProperties:
             type: object
       description: Asset Domain Service Object type.
-    WorkLoadFilters:
+    StatusType:
       type: object
       properties:
-        offset:
+        statusCode:
           type: integer
-        nextPageToken:
+          format: int32
+        reasonPhrase:
           type: string
-        limit:
+    Relationships:
+      required:
+      - assetTypeId
+      - problem
+      - pseudoAsset
+      type: object
+      properties:
+        assetId:
+          type: string
+        relationshipType:
+          type: string
+        assetTypeId:
           type: integer
-        search:
+          format: int32
+        assetType:
           type: string
-        sort:
+        assetName:
           type: string
-        reverse:
+        externalAssetId:
+          type: string
+        cloudId:
+          type: string
+        cloudName:
+          type: string
+        pseudoAsset:
           type: boolean
-        type:
+        region:
           type: string
-        path:
+        cloudAccountId:
           type: string
-        riskFactors:
+        assetClassId:
+          type: string
+        assetClass:
+          type: string
+        alertsCount:
           type: array
           items:
-            type: string
-        funnelStage:
-          type: string
-        patchable:
-          type: boolean
-        vulnerable:
-          type: boolean
-        severity:
-          type: string
-        packageInUse:
-          type: boolean
-      description: Filters applied to CWP Vulns
-    GraphQLErrorDebugInfo:
+            $ref: '#/components/schemas/CountBySeverity'
+        alertCountBySeverity:
+          type: array
+          items:
+            $ref: '#/components/schemas/CountBySeverity'
+        vulnerabilityCounts:
+          type: object
+        problem:
+          type: array
+          items:
+            $ref: '#/components/schemas/Problem'
+    GraphQLError:
       required:
-      - subquery
-      - variables
+      - locations
+      - message
+      - path
+      - pathAsString
       type: object
       properties:
-        subquery:
+        message:
           type: string
-        variables:
+        path:
+          type: array
+          items:
+            type: object
+        locations:
+          type: array
+          items:
+            type: object
+        extensions:
+          $ref: '#/components/schemas/GraphQLErrorExtensions'
+        pathAsString:
+          type: string
+      description: Error Object.
+    AttackPathRequest:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum:
+          - ALERT_ID
+      description: List of Attack Path Ids
+    GraphQLErrorExtensions:
+      required:
+      - classification
+      - debugInfo
+      - origin
+      type: object
+      properties:
+        errorType:
+          type: string
+          enum:
+          - UNKNOWN
+          - INTERNAL
+          - NOT_FOUND
+          - UNAUTHENTICATED
+          - PERMISSION_DENIED
+          - BAD_REQUEST
+          - UNAVAILABLE
+          - FAILED_PRECONDITION
+        errorDetail:
+          type: string
+        origin:
+          type: string
+        debugInfo:
+          $ref: '#/components/schemas/GraphQLErrorDebugInfo'
+        classification:
+          type: object
+    AssetWrapper:
+      type: object
+      properties:
+        asset:
+          $ref: '#/components/schemas/UnifiedAsset'
+      description: Asset Domain Service Object type.
+    Problem:
+      type: object
+      properties:
+        title:
+          type: string
+        status:
+          $ref: '#/components/schemas/StatusType'
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri
+        type:
+          type: string
+          format: uri
+        parameters:
           type: object
           additionalProperties:
             type: object
-        additionalInformation:
-          type: object
-          additionalProperties:
-            type: object
-          writeOnly: true
     FindingType:
       type: object
       description: External Finding Types
@@ -1635,33 +1662,6 @@ components:
         - VIRTUAL_IMAGE_VULNERABILITY_CVE
         - SERVERLESS_VULNERABILITY
         - PACKAGE_VULNERABILITY
-    AlertAttribute:
-      required:
-      - isHyperionPolicy
-      type: object
-      properties:
-        problem:
-          $ref: '#/components/schemas/Problem'
-        id:
-          type: string
-        severity:
-          type: string
-        policyId:
-          type: string
-        isHyperionPolicy:
-          type: boolean
-        policyType:
-          type: string
-        policyName:
-          type: string
-        policyDescription:
-          type: string
-        alertTime:
-          type: integer
-          format: int64
-        hyperionPolicy:
-          type: boolean
-          writeOnly: true
     NetworkAttribute:
       type: object
       properties:
@@ -1754,82 +1754,15 @@ components:
             type: object
         assetJson:
           type: object
-    AlertCountTuple:
-      required:
-      - count
-      - severity
+    AlertAttribute_2:
       type: object
       properties:
+        problem:
+          $ref: '#/components/schemas/Problem'
+        id:
+          type: string
         severity:
           type: string
-        count:
-          type: integer
-          format: int32
-        problem:
-          $ref: '#/components/schemas/Problem'
-    RenderAttribute_2:
-      required:
-      - allowDrillDown
-      - hasExtFindingRiskFactors
-      - hasExternalFinding
-      - hasExternalIntegration
-      - hasNetwork
-      type: object
-      properties:
-        assetId:
-          type: string
-        allowDrillDown:
-          type: boolean
-        hasNetwork:
-          type: boolean
-        hasExternalFinding:
-          type: boolean
-        hasExternalIntegration:
-          type: boolean
-        hasExtFindingRiskFactors:
-          type: boolean
-        problem:
-          $ref: '#/components/schemas/Problem'
-    FilterModel_2:
-      description: Model for Filter
-      properties:
-        detailed:
-          description: Detailed
-          type: boolean
-        fields:
-          description: Array of specific fields to return
-          items:
-            type: string
-          type: array
-        filters:
-          description: "Filtering parameters. \n\nFor filter names, refer to List Filters API. \n\nFor filter values, refer to List filter suggestions. \n\nThe only exception is **resource.tagv2** filter name, provide filter value for it in the following format: \"{\"key\":\"'CustomerTagKey'\",\"value\":\"'CustomerTagValue'\"}\""
-          items:
-            $ref: '#/components/schemas/UIFilterModel_2'
-          type: array
-        groupBy:
-          description: For asset or data inventory only. Group returned items by **cloud.type**, **cloud.service**, **cloud.region**, **cloud.account**, and/or **resource.type**
-          items:
-            type: string
-          type: array
-        limit:
-          description: Maximum number of items to return. When data is paginated, maximum number of items per page.The maximum cannot exceed 10,000. The default is 10,000.
-          type: number
-        offset:
-          description: The number of items to skip before selecting items to return. Default is zero
-          type: number
-        pageToken:
-          description: 'Setting this pagination Token to the **nextPageToken** from a response object returns the next page of data '
-          type: string
-        sortBy:
-          description: Array of sort properties. Append **:asc** or  **:desc** to the key to sort by ascending or descending order respectively. Example sort properties are **id:asc** and **timestamp:desc**
-          items:
-            type: string
-          type: array
-        timeRange:
-          allOf:
-          - $ref: '#/components/schemas/TimeRangeConfigModel'
-          - description: Time range
-      type: object
     ExternalFinding:
       type: object
       properties:
@@ -2038,81 +1971,6 @@ components:
         updatedOn:
           type: integer
           format: int64
-    GraphQLErrorExtensions_2:
-      required:
-      - classification
-      - debugInfo
-      - origin
-      type: object
-      properties:
-        errorType:
-          type: string
-          enum:
-          - UNKNOWN
-          - INTERNAL
-          - NOT_FOUND
-          - UNAUTHENTICATED
-          - PERMISSION_DENIED
-          - BAD_REQUEST
-          - UNAVAILABLE
-          - FAILED_PRECONDITION
-        errorDetail:
-          type: string
-        origin:
-          type: string
-        debugInfo:
-          $ref: '#/components/schemas/GraphQLErrorDebugInfo_2'
-        classification:
-          type: string
-    UIFilterModel_2:
-      description: Model for UIFilter
-      properties:
-        name:
-          description: Name
-          type: string
-        operator:
-          description: Operator
-          enum:
-          - '='
-          type: string
-        value:
-          description: Value
-          type: string
-      type: object
-    Relationships_2:
-      required:
-      - assetTypeId
-      - problem
-      - pseudoAsset
-      type: object
-      properties:
-        assetId:
-          type: string
-        relationshipType:
-          type: string
-        assetTypeId:
-          type: integer
-          format: int32
-        assetType:
-          type: string
-        assetName:
-          type: string
-        externalAssetId:
-          type: string
-        cloudId:
-          type: string
-        cloudName:
-          type: string
-        pseudoAsset:
-          type: boolean
-        region:
-          type: string
-        cloudAccountId:
-          type: string
-        problem:
-          type: array
-          items:
-            $ref: '#/components/schemas/Problem'
     AssetResponse_2:
       type: object
       properties:
@@ -2142,6 +2000,117 @@ components:
               type: string
           description: Error Object.
       description: Asset object
+    AlertCountTuple:
+      required:
+      - count
+      - severity
+      type: object
+      properties:
+        severity:
+          type: string
+        count:
+          type: integer
+          format: int32
+        problem:
+          $ref: '#/components/schemas/Problem'
+    RenderAttribute_2:
+      required:
+      - allowDrillDown
+      - hasExtFindingRiskFactors
+      - hasExternalFinding
+      - hasExternalIntegration
+      - hasNetwork
+      type: object
+      properties:
+        assetId:
+          type: string
+        allowDrillDown:
+          type: boolean
+        hasNetwork:
+          type: boolean
+        hasExternalFinding:
+          type: boolean
+        hasExternalIntegration:
+          type: boolean
+        hasExtFindingRiskFactors:
+          type: boolean
+        problem:
+          $ref: '#/components/schemas/Problem'
+    ChunkedAssetRequest:
+      required:
+      - assetId
+      - type
+      type: object
+      properties:
+        assetId:
+          type: string
+          description: Unified Asset Id or RRN (Restricted Resource Name)
+          example: '[rrn:xxx:xx:xx-xx-x:xxx:xxx:x-xxxx or unified-asset-id]'
+        type:
+          type: string
+          description: Asset Query Type. The enum values are **case-insensitive.**
+          enum:
+          - EXTERNAL_FINDING
+          - ASSET
+          - ALERTS
+          - RAW_CONFIG
+          - NETWORK
+          - TIMELINE
+          - EXTERNAL_INTEGRATION
+          - ASSET_DATA_INDICATORS
+          - RELATIONSHIPS
+        findingType:
+          type: array
+          description: External Finding Type. Applies to **EXTERNAL_FINDING** Asset query type only. The enum values are **case-insensitive.**
+          items:
+            type: string
+            description: External Finding Types
+            enum:
+            - HOST_VULNERABILITY_CVE
+            - CONTAINER_IMAGE_VULNERABILITY_CVE
+            - COMPLIANCE_CIS
+            - GUARD_DUTY_HOST
+            - GUARD_DUTY_IAM
+            - INSPECTOR_RBA
+            - INSPECTOR_SBP
+            - SERVERLESS_VULNERABILITY
+            - NETWORK_REACHABILITY
+            - PACKAGE_VULNERABILITY
+            - AZURE_SECURITY_CENTER_ALERTS
+        riskFactors:
+          type: array
+          description: External Finding Risk Factors. Applies to **EXTERNAL_FINDING** Asset query type only. The enum values are **case-insensitive.**
+          items:
+            type: string
+            description: External finding risk factors
+            enum:
+            - CRITICAL_SEVERITY
+            - HIGH_SEVERITY
+            - MEDIUM_SEVERITY
+            - HAS_FIX
+            - REMOTE_EXECUTION
+            - DOS
+            - RECENT_VULNERABILITY
+            - EXPLOIT_EXISTS
+            - ATTACK_COMPLEXITY_LOW
+            - ATTACK_VECTOR_NETWORK
+            - REACHABLE_FROM_THE_INTERNET
+            - LISTENING_PORTS
+            - CONTAINER_IS_RUNNING_AS_ROOT
+            - NO_MANDATORY_SECURITY_PROFILE_APPLIED
+            - RUNNING_AS_PRIVILEGED_CONTAINER
+            - PACKAGE_IN_USE
+            - DOS_LOW
+            - DOS_HIGH
+            - EXPLOIT_EXISTS_IN_THE_WILD
+            - EXPLOIT_EXISTS_POC
+            - SENSITIVE_INFORMATION
+            - ROOT_MOUNT
+            - RUNTIME_SOCKET
+            - HOST_ACCESS
+        timelineItemId:
+          type: string
+          description: Timeline Item ID
     UnifiedAsset_2:
       required:
       - deleted
@@ -2265,101 +2234,65 @@ components:
           items:
             $ref: '#/components/schemas/TimelineAttribute_2'
       description: Asset Domain Service Object type.
-    GraphQLErrorDebugInfo_2:
+    Relationships_2:
       required:
-      - subquery
-      - variables
-      type: object
-      properties:
-        subquery:
-          type: string
-        variables:
-          type: object
-          additionalProperties:
-            type: object
-    ChunkedAssetRequest:
-      required:
-      - assetId
-      - type
+      - assetTypeId
+      - problem
+      - pseudoAsset
       type: object
       properties:
         assetId:
           type: string
-          description: Unified Asset Id or RRN (Restricted Resource Name)
-          example: '[rrn:xxx:xx:xx-xx-x:xxx:xxx:x-xxxx or unified-asset-id]'
-        type:
+        relationshipType:
           type: string
-          description: Asset Query Type. The enum values are **case-insensitive.**
-          enum:
-          - EXTERNAL_FINDING
-          - ASSET
-          - ALERTS
-          - RAW_CONFIG
-          - NETWORK
-          - TIMELINE
-          - EXTERNAL_INTEGRATION
-          - ASSET_DATA_INDICATORS
-          - RELATIONSHIPS
-        findingType:
-          type: array
-          description: External Finding Type. Applies to **EXTERNAL_FINDING** Asset query type only. The enum values are **case-insensitive.**
-          items:
-            type: string
-            description: External Finding Types
-            enum:
-            - HOST_VULNERABILITY_CVE
-            - CONTAINER_IMAGE_VULNERABILITY_CVE
-            - COMPLIANCE_CIS
-            - GUARD_DUTY_HOST
-            - GUARD_DUTY_IAM
-            - INSPECTOR_RBA
-            - INSPECTOR_SBP
-            - SERVERLESS_VULNERABILITY
-            - NETWORK_REACHABILITY
-            - PACKAGE_VULNERABILITY
-            - AZURE_SECURITY_CENTER_ALERTS
-        riskFactors:
-          type: array
-          description: External Finding Risk Factors. Applies to **EXTERNAL_FINDING** Asset query type only. The enum values are **case-insensitive.**
-          items:
-            type: string
-            description: External finding risk factors
-            enum:
-            - CRITICAL_SEVERITY
-            - HIGH_SEVERITY
-            - MEDIUM_SEVERITY
-            - HAS_FIX
-            - REMOTE_EXECUTION
-            - DOS
-            - RECENT_VULNERABILITY
-            - EXPLOIT_EXISTS
-            - ATTACK_COMPLEXITY_LOW
-            - ATTACK_VECTOR_NETWORK
-            - REACHABLE_FROM_THE_INTERNET
-            - LISTENING_PORTS
-            - CONTAINER_IS_RUNNING_AS_ROOT
-            - NO_MANDATORY_SECURITY_PROFILE_APPLIED
-            - RUNNING_AS_PRIVILEGED_CONTAINER
-            - PACKAGE_IN_USE
-            - DOS_LOW
-            - DOS_HIGH
-            - EXPLOIT_EXISTS_IN_THE_WILD
-            - EXPLOIT_EXISTS_POC
-            - SENSITIVE_INFORMATION
-            - ROOT_MOUNT
-            - RUNTIME_SOCKET
-            - HOST_ACCESS
-        timelineItemId:
+        assetTypeId:
+          type: integer
+          format: int32
+        assetType:
           type: string
-          description: Timeline Item ID
-    AlertAttribute_2:
+        assetName:
+          type: string
+        externalAssetId:
+          type: string
+        cloudId:
+          type: string
+        cloudName:
+          type: string
+        pseudoAsset:
+          type: boolean
+        region:
+          type: string
+        cloudAccountId:
+          type: string
+        problem:
+          type: array
+          items:
+            $ref: '#/components/schemas/Problem'
+    GraphQLErrorExtensions_2:
+      required:
+      - classification
+      - debugInfo
+      - origin
       type: object
       properties:
-        problem:
-          $ref: '#/components/schemas/Problem'
-        id:
+        errorType:
           type: string
-        severity:
+          enum:
+          - UNKNOWN
+          - INTERNAL
+          - NOT_FOUND
+          - UNAUTHENTICATED
+          - PERMISSION_DENIED
+          - BAD_REQUEST
+          - UNAVAILABLE
+          - FAILED_PRECONDITION
+        errorDetail:
+          type: string
+        origin:
+          type: string
+        debugInfo:
+          $ref: '#/components/schemas/GraphQLErrorDebugInfo_2'
+        classification:
           type: string
     TimelineAttribute_2:
       type: object
@@ -2407,6 +2340,73 @@ components:
         discoveredTs:
           type: integer
           format: int64
+    UIFilterModel_2:
+      description: Model for UIFilter
+      properties:
+        name:
+          description: Name
+          type: string
+        operator:
+          description: Operator
+          enum:
+          - '='
+          type: string
+        value:
+          description: Value
+          type: string
+      type: object
+    FilterModel_2:
+      description: Model for Filter
+      properties:
+        detailed:
+          description: Detailed
+          type: boolean
+        fields:
+          description: Array of specific fields to return
+          items:
+            type: string
+          type: array
+        filters:
+          description: "Filtering parameters. \n\nFor filter names, refer to List Filters API. \n\nFor filter values, refer to List filter suggestions. \n\nThe only exception is **resource.tagv2** filter name, provide filter value for it in the following format: \"{\"key\":\"'CustomerTagKey'\",\"value\":\"'CustomerTagValue'\"}\""
+          items:
+            $ref: '#/components/schemas/UIFilterModel_2'
+          type: array
+        groupBy:
+          description: For asset or data inventory only. Group returned items by **cloud.type**, **cloud.service**, **cloud.region**, **cloud.account**, and/or **resource.type**
+          items:
+            type: string
+          type: array
+        limit:
+          description: Maximum number of items to return. When data is paginated, maximum number of items per page.The maximum cannot exceed 10,000. The default is 10,000.
+          type: number
+        offset:
+          description: The number of items to skip before selecting items to return. Default is zero
+          type: number
+        pageToken:
+          description: 'Setting this pagination Token to the **nextPageToken** from a response object returns the next page of data '
+          type: string
+        sortBy:
+          description: Array of sort properties. Append **:asc** or  **:desc** to the key to sort by ascending or descending order respectively. Example sort properties are **id:asc** and **timestamp:desc**
+          items:
+            type: string
+          type: array
+        timeRange:
+          allOf:
+          - $ref: '#/components/schemas/TimeRangeConfigModel'
+          - description: Time range
+      type: object
+    GraphQLErrorDebugInfo_2:
+      required:
+      - subquery
+      - variables
+      type: object
+      properties:
+        subquery:
+          type: string
+        variables:
+          type: object
+          additionalProperties:
+            type: object
   securitySchemes:
     x-redlock-auth:
       description: The x-redlock-auth value is a JSON Web Token (JWT).

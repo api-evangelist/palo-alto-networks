@@ -1,0 +1,289 @@
+openapi: 3.2.0
+info:
+  title: Palo Alto Networks Metrics API
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+  version: '1.0'
+  description: 'Operations tagged Metrics across 2 of this provider''s published API definitions: palo-alto-autonomous-dem-api-openapi-original.yml, palo-alto-networks-metrics-api-openapi.yml. Each path carries the servers of the definition it was published in.'
+servers:
+- url: https://api.sase.paloaltonetworks.com/adem/telemetry/v2
+  description: Autonomous DEM telemetry API server.
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+tags:
+- name: Metrics
+  description: Detailed network performance metrics providing granular visibility into each segment of the user-to-application connection.
+paths:
+  /mt/monitor/adem/v1/metrics:
+    get:
+      operationId: getPerformanceMetrics
+      summary: Palo Alto Networks Get Performance Metrics
+      description: Returns network and application performance metrics collected from ADEM agents. Metrics include latency, packet loss, jitter, and throughput measurements across each segment of the user-to- application path. Supports filtering by user, site, application, and time range.
+      tags:
+      - Metrics
+      parameters:
+      - name: start_time
+        in: query
+        description: Start of the time range in ISO 8601 format.
+        schema:
+          type: string
+          format: date-time
+        example: '2024-05-20T23:09:05Z'
+      - name: end_time
+        in: query
+        description: End of the time range in ISO 8601 format.
+        schema:
+          type: string
+          format: date-time
+        example: '2025-01-05T09:42:10Z'
+      - name: time_range
+        in: query
+        description: Relative time range shorthand.
+        schema:
+          type: string
+          enum:
+          - last_1_hour
+          - last_4_hours
+          - last_24_hours
+          - last_7_days
+        example: last_1_hour
+      - name: user_id
+        in: query
+        description: Filter metrics by user email or identifier.
+        schema:
+          type: string
+        example: '818980'
+      - name: site_name
+        in: query
+        description: Filter metrics by site name.
+        schema:
+          type: string
+        example: Primary Sensor 63
+      - name: app_id
+        in: query
+        description: Filter metrics by application identifier.
+        schema:
+          type: string
+        example: '758710'
+      - name: metric_type
+        in: query
+        description: Type of metrics to retrieve.
+        schema:
+          type: string
+          enum:
+          - latency
+          - packet_loss
+          - jitter
+          - throughput
+          - dns_resolution
+          - tcp_connection
+        example: dns_resolution
+      - name: granularity
+        in: query
+        description: Time granularity for metric aggregation.
+        schema:
+          type: string
+          enum:
+          - 5m
+          - 15m
+          - 1h
+          - 1d
+          default: 15m
+        example: 15m
+      - name: offset
+        in: query
+        schema:
+          type: integer
+          default: 0
+        example: 0
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 100
+        example: 100
+      responses:
+        '200':
+          description: Performance metrics returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PerformanceMetric'
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+              examples:
+                GetPerformanceMetrics200Example:
+                  summary: Default getPerformanceMetrics 200 response
+                  x-microcks-default: true
+                  value:
+                    data:
+                    - timestamp: '2025-08-28T13:36:42Z'
+                      user_id: '277980'
+                      site_name: Branch Sensor 48
+                      app_id: '367972'
+                      metric_type: jitter
+                      value: 1.53
+                      unit: example-unit
+                      segment: application
+                      sample_count: 24
+                    - timestamp: '2025-08-28T13:36:42Z'
+                      user_id: '277980'
+                      site_name: Branch Sensor 48
+                      app_id: '367972'
+                      metric_type: jitter
+                      value: 1.53
+                      unit: example-unit
+                      segment: application
+                      sample_count: 24
+                    total: 285
+                    offset: 851
+                    limit: 405
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2: []
+    servers:
+    - url: https://api.sase.paloaltonetworks.com/adem/telemetry/v2
+      description: Autonomous DEM telemetry API server.
+components:
+  responses:
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Invalid request parameters or body.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid OAuth2 access token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        _errors:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+                example: example-code
+              message:
+                type: string
+                example: Firewall incident blocked blocked firewall configured firewall.
+              details:
+                type: object
+                example: {}
+          example:
+          - code: example-code
+            message: Security detected monitoring activity firewall violation activity.
+            details: {}
+        _request_id:
+          type: string
+          example: '921009'
+    PerformanceMetric:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Time bucket for the aggregated metric.
+          example: '2025-08-28T13:36:42Z'
+        user_id:
+          type: string
+          description: User identifier.
+          example: '277980'
+        site_name:
+          type: string
+          description: Site name.
+          example: Branch Sensor 48
+        app_id:
+          type: string
+          description: Application identifier if metric is application-specific.
+          example: '367972'
+        metric_type:
+          type: string
+          enum:
+          - latency
+          - packet_loss
+          - jitter
+          - throughput
+          - dns_resolution
+          - tcp_connection
+          description: Type of performance metric.
+          example: jitter
+        value:
+          type: number
+          description: Metric value in the appropriate unit for the metric type.
+          example: 1.53
+        unit:
+          type: string
+          description: Unit of measurement (e.g., ms, pct, Mbps).
+          example: example-unit
+        segment:
+          type: string
+          enum:
+          - endpoint
+          - local_network
+          - isp
+          - prisma_access
+          - application
+          description: Network segment this metric applies to.
+          example: application
+        sample_count:
+          type: integer
+          description: Number of measurement samples in this time bucket.
+          example: 24
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      description: OAuth 2.0 client credentials flow for obtaining an access token. Requires a client ID and client secret from the Palo Alto Networks SASE identity provider.
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
+          scopes: {}
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
+x-refined-from:
+- palo-alto-autonomous-dem-api-openapi-original.yml
+- palo-alto-networks-metrics-api-openapi.yml

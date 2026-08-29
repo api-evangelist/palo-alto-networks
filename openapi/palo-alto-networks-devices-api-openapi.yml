@@ -2,8 +2,18 @@ openapi: 3.2.0
 info:
   title: Palo Alto Networks Devices API
   version: '1.0'
-  description: 'Operations tagged Devices across 2 of this provider''s published API definitions: palo-alto-access-browser-mgmt-prismaaccess-browser-management-latest-openapi.yaml, palo-alto-scm-config-cloudngfw-setup-config-setup-feb-v1-openapi.yaml. Each path carries the servers of the definition it was published in.'
+  description: 'Operations tagged Devices across 5 of this provider''s published API definitions: palo-alto-access-browser-mgmt-prismaaccess-browser-management-latest-openapi.yaml, palo-alto-iot-security-api-openapi-original.yml, palo-alto-networks-devices-api-openapi.yml, palo-alto-prisma-access-browser-api-openapi-original.yml, palo-alto-scm-config-cloudngfw-setup-config-setup-feb-v1-openapi.yaml. Each path carries the servers of the definition it was published in.'
 servers:
+- url: https://{customer}.iot.paloaltonetworks.com/pub/v4.0
+  description: IoT Security API production server.
+  variables:
+    customer:
+      description: Customer-specific tenant identifier.
+      default: customer-tenant
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+- url: https://api.sase.paloaltonetworks.com/browser-mgmt
+  description: SASE Prisma Access Browser Management API production server.
 - url: https://api.strata.paloaltonetworks.com/config/setup/v1
   description: Current
 tags:
@@ -427,6 +437,359 @@ paths:
               $ref: '#/components/schemas/DeviceStatusChangeRequest'
       security:
       - BearerAuth: []
+  /device/list:
+    get:
+      operationId: listDevices
+      summary: Palo Alto Networks List Discovered Devices
+      description: Returns a paginated list of IoT and OT devices discovered on the network. Supports filtering by monitoring status and time range. Each device record includes identification details, network information, risk assessment, and classification metadata.
+      tags:
+      - Devices
+      parameters:
+      - name: customerid
+        in: query
+        required: true
+        description: Customer tenant identifier.
+        schema:
+          type: string
+        example: '858936'
+      - name: offset
+        in: query
+        description: Pagination offset for results.
+        schema:
+          type: integer
+          default: 0
+        example: 0
+      - name: pagelength
+        in: query
+        description: Number of devices to return per page.
+        schema:
+          type: integer
+          default: 100
+          maximum: 1000
+        example: 100
+      - name: detail
+        in: query
+        description: Level of detail to include in the response.
+        schema:
+          type: string
+          enum:
+          - full
+          - summary
+          default: summary
+        example: summary
+      - name: filter_monitored
+        in: query
+        description: Filter for monitored or unmonitored devices.
+        schema:
+          type: string
+          enum:
+          - 'yes'
+          - 'no'
+        example: 'no'
+      - name: stime
+        in: query
+        description: Start time filter as a Unix epoch timestamp in seconds. Returns devices active since this time.
+        schema:
+          type: string
+        example: example-stime
+      - name: etime
+        in: query
+        description: End time filter as a Unix epoch timestamp in seconds. Returns devices active before this time.
+        schema:
+          type: string
+        example: example-etime
+      responses:
+        '200':
+          description: Device list returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of devices matching the query.
+                  devices:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Device_2'
+              examples:
+                ListDevices200Example:
+                  summary: Default listDevices 200 response
+                  x-microcks-default: true
+                  value:
+                    total: 0
+                    devices:
+                    - deviceid: '805631'
+                      ip: 10.178.141.130
+                      mac: 42:f0:fc:53:1d:d1
+                      hostname: host-03a3
+                      profile: Network Printer
+                      category: advanced
+                      risk_score: 53
+                      os: Ubuntu 22.04
+                      os_version: 10.5.0
+                      vendor: Fortinet
+                      model: VM-300
+                      site: Branch-London
+                      subnet: 10.32.40.0/24
+                      first_seen: '2024-12-19T02:52:11Z'
+                      last_seen: '2025-01-24T06:19:11Z'
+                      monitored: 'no'
+                      confidence_score: 533
+                      tags:
+                      - pci-scope
+                    - deviceid: '805631'
+                      ip: 10.178.141.130
+                      mac: 42:f0:fc:53:1d:d1
+                      hostname: host-03a3
+                      profile: Network Printer
+                      category: advanced
+                      risk_score: 53
+                      os: Ubuntu 22.04
+                      os_version: 10.5.0
+                      vendor: Fortinet
+                      model: VM-300
+                      site: Branch-London
+                      subnet: 10.32.40.0/24
+                      first_seen: '2024-12-19T02:52:11Z'
+                      last_seen: '2025-01-24T06:19:11Z'
+                      monitored: 'no'
+                      confidence_score: 533
+                      tags:
+                      - pci-scope
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - keyId: []
+        accessKey: []
+    servers:
+    - url: https://{customer}.iot.paloaltonetworks.com/pub/v4.0
+      description: IoT Security API production server.
+      variables:
+        customer:
+          description: Customer-specific tenant identifier.
+          default: customer-tenant
+  /device/detail:
+    get:
+      operationId: getDeviceDetail
+      summary: Palo Alto Networks Get Device Details
+      description: Returns detailed information for the device associated with the specified device identifier. Includes full device profile, risk score breakdown, network activity summary, and classification details.
+      tags:
+      - Devices
+      parameters:
+      - name: customerid
+        in: query
+        required: true
+        description: Customer tenant identifier.
+        schema:
+          type: string
+        example: '904445'
+      - name: deviceid
+        in: query
+        required: true
+        description: Unique device identifier.
+        schema:
+          type: string
+        example: '348066'
+      responses:
+        '200':
+          description: Device details returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  device:
+                    $ref: '#/components/schemas/Device_2'
+              examples:
+                GetDeviceDetail200Example:
+                  summary: Default getDeviceDetail 200 response
+                  x-microcks-default: true
+                  value:
+                    device:
+                      deviceid: '805631'
+                      ip: 10.178.141.130
+                      mac: 42:f0:fc:53:1d:d1
+                      hostname: host-03a3
+                      profile: Network Printer
+                      category: advanced
+                      risk_score: 53
+                      os: Ubuntu 22.04
+                      os_version: 10.5.0
+                      vendor: Fortinet
+                      model: VM-300
+                      site: Branch-London
+                      subnet: 10.32.40.0/24
+                      first_seen: '2024-12-19T02:52:11Z'
+                      last_seen: '2025-01-24T06:19:11Z'
+                      monitored: 'no'
+                      confidence_score: 533
+                      tags:
+                      - pci-scope
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - keyId: []
+        accessKey: []
+    servers:
+    - url: https://{customer}.iot.paloaltonetworks.com/pub/v4.0
+      description: IoT Security API production server.
+      variables:
+        customer:
+          description: Customer-specific tenant identifier.
+          default: customer-tenant
+  /v1/devices:
+    get:
+      operationId: listManagedDevices
+      summary: Palo Alto Networks List Managed Devices
+      description: Returns the inventory of managed devices running the Prisma Access Browser. Includes device platform, browser version, compliance status, and last seen timestamp.
+      tags:
+      - Devices
+      parameters:
+      - name: platform
+        in: query
+        description: Filter devices by operating system platform.
+        schema:
+          type: string
+          enum:
+          - windows
+          - macos
+          - linux
+          - chromeos
+        example: linux
+      - name: compliance_status
+        in: query
+        description: Filter devices by compliance status.
+        schema:
+          type: string
+          enum:
+          - compliant
+          - non_compliant
+          - unknown
+        example: compliant
+      - name: offset
+        in: query
+        description: Number of results to skip for pagination.
+        schema:
+          type: integer
+          default: 0
+        example: 0
+      - name: limit
+        in: query
+        description: Maximum number of devices to return.
+        schema:
+          type: integer
+          default: 50
+          maximum: 200
+        example: 50
+      responses:
+        '200':
+          description: Managed devices returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ManagedDevice'
+              examples:
+                ListManagedDevices200Example:
+                  summary: Default listManagedDevices 200 response
+                  x-microcks-default: true
+                  value:
+                    total: 241
+                    offset: 328
+                    limit: 731
+                    items:
+                    - device_id: '923062'
+                      hostname: host-9746
+                      platform: windows
+                      browser_version: 9.6.7
+                      compliance_status: unknown
+                      user_id: '942976'
+                      last_seen_at: '2025-01-16T12:14:13Z'
+                    - device_id: '923062'
+                      hostname: host-9746
+                      platform: windows
+                      browser_version: 9.6.7
+                      compliance_status: unknown
+                      user_id: '942976'
+                      last_seen_at: '2025-01-16T12:14:13Z'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_2_2'
+              examples:
+                ListManagedDevices401Example:
+                  summary: Default listManagedDevices 401 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Suspicious detected incident malware activity traffic traffic.
+                    request_id: a6ecb027-74a1-4efb-9882-cb98e9bab4bf
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_2_2'
+              examples:
+                ListManagedDevices403Example:
+                  summary: Default listManagedDevices 403 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Suspicious detected incident malware activity traffic traffic.
+                    request_id: a6ecb027-74a1-4efb-9882-cb98e9bab4bf
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_2_2'
+              examples:
+                ListManagedDevices500Example:
+                  summary: Default listManagedDevices 500 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Suspicious detected incident malware activity traffic traffic.
+                    request_id: a6ecb027-74a1-4efb-9882-cb98e9bab4bf
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
   /devices:
     get:
       summary: List devices
@@ -549,6 +912,98 @@ paths:
       description: Current
 components:
   schemas:
+    SystemIntegrityPosture:
+      type: object
+      required:
+      - status
+      - services
+      properties:
+        status:
+          $ref: '#/components/schemas/SystemIntegrityPostureStatus'
+        services:
+          $ref: '#/components/schemas/SystemIntegrityPostureServices'
+    DeviceEPP:
+      type: object
+      required:
+      - products
+      - enabled
+      properties:
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/EPP'
+        enabled:
+          type: boolean
+    DeviceBrowserBrand:
+      type: string
+      description: Browser brand
+      enum:
+      - Arc
+      - Brave
+      - Chrome
+      - Edge
+      - Opera
+      - Dia
+      - Comet
+      - Prisma Browser
+      - Unknown
+    DeviceManagementSystem:
+      type: object
+      properties:
+        system:
+          type: string
+          enum:
+          - ad
+          - azureAd
+          - intune
+          - jamf
+        details:
+          type: string
+    FirewallProduct:
+      type: object
+      description: Firewall product information
+      required:
+      - vendorName
+      - productName
+      - enabled
+      properties:
+        vendorName:
+          $ref: '#/components/schemas/FirewallVendorName'
+        productName:
+          type: string
+          description: Product name of the firewall
+        enabled:
+          type: boolean
+          description: Whether the firewall is enabled
+    DeviceDiskEncryptionDetails:
+      type: object
+      description: Disk encryption details for the device
+      required:
+      - products
+      properties:
+        products:
+          type: array
+          description: List of disk encryption products detected on the device
+          items:
+            $ref: '#/components/schemas/DiskEncryptionProduct'
+    SystemIntegrityPostureStatus:
+      type: string
+      description: System integrity status
+      enum:
+      - pass
+      - fail
+      - unknown
+    DeviceRestoreResponse:
+      type: object
+      properties:
+        restoredDeviceIds:
+          type: array
+          items:
+            type: string
+          description: List of device IDs that were restored
+        message:
+          type: string
+          example: 3 devices restored successfully
     DevicePlatform:
       type: string
       description: Device platform
@@ -557,51 +1012,19 @@ components:
       - Mobile Browser
       - Browser Extension
       - Unknown
-    DeviceStatusChangeRequest:
+    PageInfo:
       type: object
       properties:
-        deviceIds:
-          type: array
-          items:
-            type: string
-          description: List of device IDs
-          minItems: 1
+        hasNextPage:
+          type: boolean
+          description: When paginating forwards, are there more items?
+        cursor:
+          type:
+          - string
+          - 'null'
+          description: When paginating forwards, the cursor to continue.
       required:
-      - deviceIds
-    DeviceForceReauthResponse:
-      type: object
-      properties:
-        forcedReauthDeviceIds:
-          type: array
-          items:
-            type: string
-          description: List of device IDs that were force re-authenticated
-        message:
-          type: string
-          example: Force re-authentication initiated for 2 devices
-    DiskEncryptionProduct:
-      type: object
-      description: Disk encryption product information
-      required:
-      - vendorName
-      - productName
-      - fullyEncrypted
-      properties:
-        vendorName:
-          $ref: '#/components/schemas/DiskEncryptionVendorName'
-        productName:
-          type: string
-          description: Product name of the disk encryption product
-    BrowserSelfProtectionModule:
-      type: object
-      description: Browser self-protection module
-      properties:
-        windows:
-          type: object
-          description: Windows driver info
-          properties:
-            status:
-              $ref: '#/components/schemas/BrowserSelfProtectionWindowsDriverStatus'
+      - hasNextPage
     CrowdstrikeZTAPosture:
       type: object
       required:
@@ -618,17 +1041,45 @@ components:
           type: integer
         CID:
           type: string
-    DeviceDeleteResponse:
+    LocationMethod:
+      type: string
+      description: Location detection method
+      enum:
+      - GeoIp
+      - Location services
+      - Unknown
+    ErrorResponse:
       type: object
+      required:
+      - message
       properties:
-        deletedDeviceIds:
+        error:
+          type: string
+        message:
+          type: string
+        missingDeviceIds:
           type: array
           items:
             type: string
-          description: List of device IDs that were deleted
-        message:
-          type: string
-          example: 3 devices deleted successfully
+          description: List of device IDs that were not found (only present for device not found errors)
+        missingUserIds:
+          type: array
+          items:
+            type: string
+          description: List of user IDs that were not found (only present for user not found errors)
+    SystemIntegrityPostureServices:
+      type: object
+      properties:
+        driversSigningEnforcement:
+          type: boolean
+        kernelDebugger:
+          type: boolean
+        secureBoot:
+          type: boolean
+        SIP:
+          type: boolean
+        gatekeeper:
+          type: boolean
     FirewallVendorName:
       type: string
       description: Firewall vendor name
@@ -756,25 +1207,233 @@ components:
       - Norman AS
       - PC Tools Software
       - Apple Inc.
-    LocationMethod:
-      type: string
-      description: Location detection method
-      enum:
-      - GeoIp
-      - Location services
-      - Unknown
-    DeviceEPP:
+    DevicePasswordPosturePolicy:
       type: object
       required:
-      - products
-      - enabled
+      - complexityReq
+      - maxPasswordAge
+      - minPasswordLength
       properties:
-        products:
+        complexityReq:
+          type: boolean
+        maxPasswordAge:
+          type: integer
+        minPasswordLength:
+          type: integer
+    DiskEncryptionVendorName:
+      type: string
+      description: Disk encryption vendor name
+      enum:
+      - 2BrightSparks Pte Ltd
+      - Acronis
+      - Adolix
+      - Apimac, software
+      - Apple Inc.
+      - archicrypt
+      - Arcserve (USA), LLC
+      - Ashampoo GmbH & Co. KG
+      - AVG Technologies CZ, s.r.o.
+      - Axantum Software AB
+      - AxCrypt AB
+      - Beachhead Solutions
+      - Becrypt Ltd
+      - BeLight Software Ltd.
+      - Bitdefender
+      - Braincell consult & research GmbH
+      - Check Point Software Technologies
+      - CipherShed
+      - COMODO Security Solutions
+      - CoSoSys Ltd.
+      - CP-Lab.com
+      - Crypto Systems, Inc.
+      - Cypherix Software Pvt. Ltd.
+      - DATEV eG
+      - Dekart
+      - Dell Inc.
+      - Deltacrypt Technologies Inc
+      - DESlock Limited
+      - Digital Millenium Inc.
+      - DoGoodSoft
+      - EgoSecure
+      - EGSoftWeb
+      - ENC Security Systems
+      - Encrypt4all Software
+      - ESET
+      - Evgeny Korovin
+      - EXLADE, Inc.
+      - Exosphere Labs, Inc.
+      - FileEncryption.org.
+      - G Data Software AG
+      - GiliSoft International LLC
+      - GitHub, Inc.
+      - GitLab Inc.
+      - Hewlett-Packard
+      - Hitek Software LLC
+      - HummerStudio
+      - IDRIX
+      - InterCrypto Ltd
+      - Inv Softworks LLC
+      - Jetico, Inc.
+      - Kaspersky Lab
+      - Kovell Ventures Ltd.
+      - Kromtech
+      - Kruptos 2 Software
+      - Lavasoft
+      - MadowSoft Software
+      - Max Secure Software
+      - McAfee, Inc.
+      - Microsoft Corporation
+      - MicroWorld Technologies Inc.
+      - Mnemonic Security Inc.
+      - MoRUN.net
+      - MSecure Data Labs
+      - NCH Software
+      - New Softwares.net
+      - Nomadesk NV
+      - ntldr
+      - Packetizer, Inc.
+      - Panda Security, S.L.
+      - PC Dynamics
+      - PDFKey
+      - PRIMX
+      - R-tools Technology, Inc.
+      - Ranquel Technologies
+      - RentAnAdviser
+      - Rogers
+      - Safetica Technologies
+      - Sarah Dean
+      - SecurStar GmbH
+      - SoftWinter
+      - Solid Programs
+      - Sophos Limited
+      - Stoneage Softwares
+      - SUSE LINUX GmbH
+      - Symantec Corporation
+      - TEHTRIS
+      - Tesline-Service SRL
+      - The Gpg4win Project
+      - Trellix
+      - Trend Micro, Inc.
+      - TrueCrypt Foundation
+      - TrustPort, a.s.
+      - Utimaco Safeware AG
+      - Vassil Arabadjiev
+      - WARDWIZ
+      - Webminds, Inc.
+      - WinEncrypt
+      - WinMagic Inc.
+      - Zmanda, Inc.
+    DeviceForceReauthResponse:
+      type: object
+      properties:
+        forcedReauthDeviceIds:
           type: array
           items:
-            $ref: '#/components/schemas/EPP'
+            type: string
+          description: List of device IDs that were force re-authenticated
+        message:
+          type: string
+          example: Force re-authentication initiated for 2 devices
+    DeviceStatusChangeRequest:
+      type: object
+      properties:
+        deviceIds:
+          type: array
+          items:
+            type: string
+          description: List of device IDs
+          minItems: 1
+      required:
+      - deviceIds
+    UserStatus:
+      type: string
+      description: User status
+      enum:
+      - active
+      - suspended
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: string
+          description: Unique identifier
+        externalId:
+          type: string
+          format: string
+          description: External identifier
+        email:
+          type: string
+          description: Email
+        lastSeen:
+          type: string
+          format: date-time
+          description: Last seen time
+        firstSeen:
+          type: string
+          format: date-time
+          description: First seen time
+        name:
+          type: string
+          description: Name
+        profilePictureURL:
+          type: string
+          description: Profile Picture URL
+        deletedTime:
+          type: string
+          format: date-time
+          description: Deleted Time
+        status:
+          $ref: '#/components/schemas/UserStatus'
+        provider:
+          type: string
+          description: Provider
+          enum:
+          - saml
+          - local
+          - oidc
+        deviceIds:
+          type: array
+          description: Device IDs
+          items:
+            type: string
+        userGroups:
+          type: array
+          description: User Groups
+          items:
+            $ref: '#/components/schemas/UserGroup'
+      required:
+      - id
+      - email
+      - lastSeen
+      - firstSeen
+      - name
+      - profilePictureURL
+      - deletedTime
+      - status
+      - provider
+      - externalId
+    DevicePasswordPosture:
+      type: object
+      required:
+      - enabled
+      - products
+      properties:
         enabled:
           type: boolean
+        passwordPolicy:
+          $ref: '#/components/schemas/DevicePasswordPosturePolicy'
+    DeviceSuspendResponse:
+      type: object
+      properties:
+        suspendedDeviceIds:
+          type: array
+          items:
+            type: string
+          description: List of device IDs that were suspended
+        message:
+          type: string
+          example: 3 devices suspended successfully
     Device:
       type: object
       properties:
@@ -953,121 +1612,6 @@ components:
       - deviceType
       - osVersion
       - externalId
-    DeviceManagementSystem:
-      type: object
-      properties:
-        system:
-          type: string
-          enum:
-          - ad
-          - azureAd
-          - intune
-          - jamf
-        details:
-          type: string
-    PageInfo:
-      type: object
-      properties:
-        hasNextPage:
-          type: boolean
-          description: When paginating forwards, are there more items?
-        cursor:
-          type:
-          - string
-          - 'null'
-          description: When paginating forwards, the cursor to continue.
-      required:
-      - hasNextPage
-    BrowserSelfProtectionWindowsDriverStatus:
-      type: string
-      description: Windows driver status
-      default: Unknown
-      enum:
-      - Unknown
-      - Protected
-      - Inactive
-      - UnprotectedArmIncompatible
-      - UnprotectedUserInstall
-      - Unprotected
-    User:
-      type: object
-      properties:
-        id:
-          type: string
-          format: string
-          description: Unique identifier
-        externalId:
-          type: string
-          format: string
-          description: External identifier
-        email:
-          type: string
-          description: Email
-        lastSeen:
-          type: string
-          format: date-time
-          description: Last seen time
-        firstSeen:
-          type: string
-          format: date-time
-          description: First seen time
-        name:
-          type: string
-          description: Name
-        profilePictureURL:
-          type: string
-          description: Profile Picture URL
-        deletedTime:
-          type: string
-          format: date-time
-          description: Deleted Time
-        status:
-          $ref: '#/components/schemas/UserStatus'
-        provider:
-          type: string
-          description: Provider
-          enum:
-          - saml
-          - local
-          - oidc
-        deviceIds:
-          type: array
-          description: Device IDs
-          items:
-            type: string
-        userGroups:
-          type: array
-          description: User Groups
-          items:
-            $ref: '#/components/schemas/UserGroup'
-      required:
-      - id
-      - email
-      - lastSeen
-      - firstSeen
-      - name
-      - profilePictureURL
-      - deletedTime
-      - status
-      - provider
-      - externalId
-    DeviceDiskEncryptionDetails:
-      type: object
-      description: Disk encryption details for the device
-      required:
-      - products
-      properties:
-        products:
-          type: array
-          description: List of disk encryption products detected on the device
-          items:
-            $ref: '#/components/schemas/DiskEncryptionProduct'
-    Order:
-      type: string
-      description: The sort order
-      enum:
-      - asc
-      - desc
     DeviceResumeResponse:
       type: object
       properties:
@@ -1079,6 +1623,108 @@ components:
         message:
           type: string
           example: 3 devices resumed successfully
+    BrowserSelfProtectionWindowsDriverStatus:
+      type: string
+      description: Windows driver status
+      default: Unknown
+      enum:
+      - Unknown
+      - Protected
+      - Inactive
+      - UnprotectedArmIncompatible
+      - UnprotectedUserInstall
+      - Unprotected
+    DeviceManagement:
+      type: object
+      required:
+      - status
+      - systems
+      properties:
+        status:
+          type: string
+          enum:
+          - managed
+          - unmanaged
+        systems:
+          type: array
+          description: Device Management
+          items:
+            $ref: '#/components/schemas/DeviceManagementSystem'
+    EPP:
+      type: object
+      required:
+      - name
+      - version
+      - state
+      properties:
+        name:
+          type: string
+        version:
+          type: string
+        state:
+          type: string
+    Order:
+      type: string
+      description: The sort order
+      enum:
+      - asc
+      - desc
+    DeviceFirewallDetails:
+      type: object
+      description: Firewall details for the device
+      required:
+      - products
+      properties:
+        products:
+          type: array
+          description: List of firewall products detected on the device
+          items:
+            $ref: '#/components/schemas/FirewallProduct'
+    BrowserSelfProtectionModule:
+      type: object
+      description: Browser self-protection module
+      properties:
+        windows:
+          type: object
+          description: Windows driver info
+          properties:
+            status:
+              $ref: '#/components/schemas/BrowserSelfProtectionWindowsDriverStatus'
+    DeviceArchiveResponse:
+      type: object
+      properties:
+        archivedDeviceIds:
+          type: array
+          items:
+            type: string
+          description: List of device IDs that were archived
+        message:
+          type: string
+          example: 3 devices archived successfully
+    DeviceDeleteResponse:
+      type: object
+      properties:
+        deletedDeviceIds:
+          type: array
+          items:
+            type: string
+          description: List of device IDs that were deleted
+        message:
+          type: string
+          example: 3 devices deleted successfully
+    DiskEncryptionProduct:
+      type: object
+      description: Disk encryption product information
+      required:
+      - vendorName
+      - productName
+      - fullyEncrypted
+      properties:
+        vendorName:
+          $ref: '#/components/schemas/DiskEncryptionVendorName'
+        productName:
+          type: string
+          description: Product name of the disk encryption product
     UserGroup:
       type: object
       properties:
@@ -1105,314 +1751,271 @@ components:
       required:
       - id
       - name
-    DiskEncryptionVendorName:
-      type: string
-      description: Disk encryption vendor name
-      enum:
-      - 2BrightSparks Pte Ltd
-      - Acronis
-      - Adolix
-      - Apimac, software
-      - Apple Inc.
-      - archicrypt
-      - Arcserve (USA), LLC
-      - Ashampoo GmbH & Co. KG
-      - AVG Technologies CZ, s.r.o.
-      - Axantum Software AB
-      - AxCrypt AB
-      - Beachhead Solutions
-      - Becrypt Ltd
-      - BeLight Software Ltd.
-      - Bitdefender
-      - Braincell consult & research GmbH
-      - Check Point Software Technologies
-      - CipherShed
-      - COMODO Security Solutions
-      - CoSoSys Ltd.
-      - CP-Lab.com
-      - Crypto Systems, Inc.
-      - Cypherix Software Pvt. Ltd.
-      - DATEV eG
-      - Dekart
-      - Dell Inc.
-      - Deltacrypt Technologies Inc
-      - DESlock Limited
-      - Digital Millenium Inc.
-      - DoGoodSoft
-      - EgoSecure
-      - EGSoftWeb
-      - ENC Security Systems
-      - Encrypt4all Software
-      - ESET
-      - Evgeny Korovin
-      - EXLADE, Inc.
-      - Exosphere Labs, Inc.
-      - FileEncryption.org.
-      - G Data Software AG
-      - GiliSoft International LLC
-      - GitHub, Inc.
-      - GitLab Inc.
-      - Hewlett-Packard
-      - Hitek Software LLC
-      - HummerStudio
-      - IDRIX
-      - InterCrypto Ltd
-      - Inv Softworks LLC
-      - Jetico, Inc.
-      - Kaspersky Lab
-      - Kovell Ventures Ltd.
-      - Kromtech
-      - Kruptos 2 Software
-      - Lavasoft
-      - MadowSoft Software
-      - Max Secure Software
-      - McAfee, Inc.
-      - Microsoft Corporation
-      - MicroWorld Technologies Inc.
-      - Mnemonic Security Inc.
-      - MoRUN.net
-      - MSecure Data Labs
-      - NCH Software
-      - New Softwares.net
-      - Nomadesk NV
-      - ntldr
-      - Packetizer, Inc.
-      - Panda Security, S.L.
-      - PC Dynamics
-      - PDFKey
-      - PRIMX
-      - R-tools Technology, Inc.
-      - Ranquel Technologies
-      - RentAnAdviser
-      - Rogers
-      - Safetica Technologies
-      - Sarah Dean
-      - SecurStar GmbH
-      - SoftWinter
-      - Solid Programs
-      - Sophos Limited
-      - Stoneage Softwares
-      - SUSE LINUX GmbH
-      - Symantec Corporation
-      - TEHTRIS
-      - Tesline-Service SRL
-      - The Gpg4win Project
-      - Trellix
-      - Trend Micro, Inc.
-      - TrueCrypt Foundation
-      - TrustPort, a.s.
-      - Utimaco Safeware AG
-      - Vassil Arabadjiev
-      - WARDWIZ
-      - Webminds, Inc.
-      - WinEncrypt
-      - WinMagic Inc.
-      - Zmanda, Inc.
-    SystemIntegrityPostureServices:
+    ErrorResponse_2:
       type: object
-      properties:
-        driversSigningEnforcement:
-          type: boolean
-        kernelDebugger:
-          type: boolean
-        secureBoot:
-          type: boolean
-        SIP:
-          type: boolean
-        gatekeeper:
-          type: boolean
-    DeviceRestoreResponse:
-      type: object
-      properties:
-        restoredDeviceIds:
-          type: array
-          items:
-            type: string
-          description: List of device IDs that were restored
-        message:
-          type: string
-          example: 3 devices restored successfully
-    DeviceManagement:
-      type: object
-      required:
-      - status
-      - systems
-      properties:
-        status:
-          type: string
-          enum:
-          - managed
-          - unmanaged
-        systems:
-          type: array
-          description: Device Management
-          items:
-            $ref: '#/components/schemas/DeviceManagementSystem'
-    UserStatus:
-      type: string
-      description: User status
-      enum:
-      - active
-      - suspended
-    DeviceFirewallDetails:
-      type: object
-      description: Firewall details for the device
-      required:
-      - products
-      properties:
-        products:
-          type: array
-          description: List of firewall products detected on the device
-          items:
-            $ref: '#/components/schemas/FirewallProduct'
-    SystemIntegrityPostureStatus:
-      type: string
-      description: System integrity status
-      enum:
-      - pass
-      - fail
-      - unknown
-    DeviceArchiveResponse:
-      type: object
-      properties:
-        archivedDeviceIds:
-          type: array
-          items:
-            type: string
-          description: List of device IDs that were archived
-        message:
-          type: string
-          example: 3 devices archived successfully
-    DeviceSuspendResponse:
-      type: object
-      properties:
-        suspendedDeviceIds:
-          type: array
-          items:
-            type: string
-          description: List of device IDs that were suspended
-        message:
-          type: string
-          example: 3 devices suspended successfully
-    FirewallProduct:
-      type: object
-      description: Firewall product information
-      required:
-      - vendorName
-      - productName
-      - enabled
-      properties:
-        vendorName:
-          $ref: '#/components/schemas/FirewallVendorName'
-        productName:
-          type: string
-          description: Product name of the firewall
-        enabled:
-          type: boolean
-          description: Whether the firewall is enabled
-    DevicePasswordPosturePolicy:
-      type: object
-      required:
-      - complexityReq
-      - maxPasswordAge
-      - minPasswordLength
-      properties:
-        complexityReq:
-          type: boolean
-        maxPasswordAge:
-          type: integer
-        minPasswordLength:
-          type: integer
-    ErrorResponse:
-      type: object
-      required:
-      - message
       properties:
         error:
           type: string
+          description: Error code or type.
+          example: example-error
         message:
           type: string
-        missingDeviceIds:
+          description: Human-readable error message.
+          example: Monitoring traffic activity network investigation investigation network policy traffic violation rule rule.
+    Device_2:
+      type: object
+      properties:
+        deviceid:
+          type: string
+          description: Unique device identifier.
+          example: '805631'
+        ip:
+          type: string
+          format: ipv4
+          description: IPv4 address of the device.
+          example: 10.178.141.130
+        mac:
+          type: string
+          description: MAC address of the device.
+          example: 42:f0:fc:53:1d:d1
+        hostname:
+          type: string
+          description: Hostname or NetBIOS name of the device.
+          example: host-03a3
+        profile:
+          type: string
+          description: Device profile classification (e.g., IP Camera, Infusion Pump).
+          example: Network Printer
+        category:
+          type: string
+          description: Device category (e.g., IoT, OT, IT).
+          example: advanced
+        risk_score:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Aggregate risk score from 0 (lowest) to 100 (highest).
+          example: 53
+        os:
+          type: string
+          description: Detected operating system.
+          example: Ubuntu 22.04
+        os_version:
+          type: string
+          description: Detected operating system version.
+          example: 10.5.0
+        vendor:
+          type: string
+          description: Device manufacturer or vendor.
+          example: Fortinet
+        model:
+          type: string
+          description: Device model identifier.
+          example: VM-300
+        site:
+          type: string
+          description: Network site where the device was discovered.
+          example: Branch-London
+        subnet:
+          type: string
+          description: Subnet the device belongs to.
+          example: 10.32.40.0/24
+        first_seen:
+          type: string
+          format: date-time
+          description: Timestamp when the device was first discovered.
+          example: '2024-12-19T02:52:11Z'
+        last_seen:
+          type: string
+          format: date-time
+          description: Timestamp when the device was last active.
+          example: '2025-01-24T06:19:11Z'
+        monitored:
+          type: string
+          enum:
+          - 'yes'
+          - 'no'
+          description: Whether the device is currently monitored.
+          example: 'no'
+        confidence_score:
+          type: integer
+          description: Confidence level of the device profile classification.
+          example: 533
+        tags:
           type: array
           items:
             type: string
-          description: List of device IDs that were not found (only present for device not found errors)
-        missingUserIds:
+          description: User-defined or system-assigned tags.
+          example:
+          - pci-scope
+    ManagedDevice:
+      type: object
+      properties:
+        device_id:
+          type: string
+          description: Unique identifier of the managed device.
+          example: '923062'
+        hostname:
+          type: string
+          description: Device hostname.
+          example: host-9746
+        platform:
+          type: string
+          enum:
+          - windows
+          - macos
+          - linux
+          - chromeos
+          description: Operating system platform.
+          example: windows
+        browser_version:
+          type: string
+          description: Installed Prisma Access Browser version.
+          example: 9.6.7
+        compliance_status:
+          type: string
+          enum:
+          - compliant
+          - non_compliant
+          - unknown
+          description: Device compliance status.
+          example: unknown
+        user_id:
+          type: string
+          description: ID of the last user who logged in on this device.
+          example: '942976'
+        last_seen_at:
+          type: string
+          format: date-time
+          description: Timestamp of the device's last check-in.
+          example: '2025-01-16T12:14:13Z'
+    ErrorResponse_2_2:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code identifying the error type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable description of the error.
+          example: Suspicious detected incident malware activity traffic traffic.
+        request_id:
+          type: string
+          description: Request identifier for support correlation.
+          example: a6ecb027-74a1-4efb-9882-cb98e9bab4bf
+    ErrorResponse_3:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code or type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable error message.
+          example: Monitoring traffic activity network investigation investigation network policy traffic violation rule rule.
+    Device_3:
+      type: object
+      properties:
+        deviceid:
+          type: string
+          description: Unique device identifier.
+          example: '805631'
+        ip:
+          type: string
+          format: ipv4
+          description: IPv4 address of the device.
+          example: 10.178.141.130
+        mac:
+          type: string
+          description: MAC address of the device.
+          example: 42:f0:fc:53:1d:d1
+        hostname:
+          type: string
+          description: Hostname or NetBIOS name of the device.
+          example: host-03a3
+        profile:
+          type: string
+          description: Device profile classification (e.g., IP Camera, Infusion Pump).
+          example: Network Printer
+        category:
+          type: string
+          description: Device category (e.g., IoT, OT, IT).
+          example: advanced
+        risk_score:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Aggregate risk score from 0 (lowest) to 100 (highest).
+          example: 53
+        os:
+          type: string
+          description: Detected operating system.
+          example: Ubuntu 22.04
+        os_version:
+          type: string
+          description: Detected operating system version.
+          example: 10.5.0
+        vendor:
+          type: string
+          description: Device manufacturer or vendor.
+          example: Fortinet
+        model:
+          type: string
+          description: Device model identifier.
+          example: VM-300
+        site:
+          type: string
+          description: Network site where the device was discovered.
+          example: Branch-London
+        subnet:
+          type: string
+          description: Subnet the device belongs to.
+          example: 10.32.40.0/24
+        first_seen:
+          type: string
+          format: date-time
+          description: Timestamp when the device was first discovered.
+          example: '2024-12-19T02:52:11Z'
+        last_seen:
+          type: string
+          format: date-time
+          description: Timestamp when the device was last active.
+          example: '2025-01-24T06:19:11Z'
+        monitored:
+          type: string
+          enum:
+          - 'yes'
+          - 'no'
+          description: Whether the device is currently monitored.
+          example: 'no'
+        confidence_score:
+          type: integer
+          description: Confidence level of the device profile classification.
+          example: 533
+        tags:
           type: array
           items:
             type: string
-          description: List of user IDs that were not found (only present for user not found errors)
-    DeviceBrowserBrand:
-      type: string
-      description: Browser brand
-      enum:
-      - Arc
-      - Brave
-      - Chrome
-      - Edge
-      - Opera
-      - Dia
-      - Comet
-      - Prisma Browser
-      - Unknown
-    EPP:
-      type: object
-      required:
-      - name
-      - version
-      - state
-      properties:
-        name:
-          type: string
-        version:
-          type: string
-        state:
-          type: string
-    DevicePasswordPosture:
-      type: object
-      required:
-      - enabled
-      - products
-      properties:
-        enabled:
-          type: boolean
-        passwordPolicy:
-          $ref: '#/components/schemas/DevicePasswordPosturePolicy'
-    SystemIntegrityPosture:
-      type: object
-      required:
-      - status
-      - services
-      properties:
-        status:
-          $ref: '#/components/schemas/SystemIntegrityPostureStatus'
-        services:
-          $ref: '#/components/schemas/SystemIntegrityPostureServices'
-    generic_error:
+          description: User-defined or system-assigned tags.
+          example:
+          - pci-scope
+    ErrorResponse_4:
       type: object
       properties:
-        _errors:
-          $ref: '#/components/schemas/error_detail_cause_infos'
-        _request_id:
+        error:
           type: string
-    error_detail_cause_info:
-      title: Cause Info
-      type: object
-      properties:
-        code:
-          type: string
+          description: Error code identifying the error type.
+          example: example-error
         message:
           type: string
-        details:
-          oneOf:
-          - type: string
-          - type: object
-        help:
+          description: Human-readable description of the error.
+          example: Suspicious detected incident malware activity traffic traffic.
+        request_id:
           type: string
-    error_detail_cause_infos:
-      type: array
-      items:
-        $ref: '#/components/schemas/error_detail_cause_info'
+          description: Request identifier for support correlation.
+          example: a6ecb027-74a1-4efb-9882-cb98e9bab4bf
     devices-put:
       type: object
       properties:
@@ -1435,6 +2038,31 @@ components:
           items:
             type: string
           description: Snippets associated with the device
+    generic_error:
+      type: object
+      properties:
+        _errors:
+          $ref: '#/components/schemas/error_detail_cause_infos'
+        _request_id:
+          type: string
+    error_detail_cause_infos:
+      type: array
+      items:
+        $ref: '#/components/schemas/error_detail_cause_info'
+    error_detail_cause_info:
+      title: Cause Info
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          oneOf:
+          - type: string
+          - type: object
+        help:
+          type: string
     devices:
       type: object
       required:
@@ -1613,228 +2241,64 @@ components:
                 type: string
                 readOnly: true
           readOnly: true
-  examples:
-    json_401_panui_auth_key_expired:
-      summary: Key Expired
-      value:
-        _errors:
-        - code: E016
-          message: Key Expired
-          details: {}
-        _request_id: abcd-1234
-    json_501_panui_restapi_method_not_supported:
-      summary: Method Not Supported
-      value:
-        _errors:
-        - code: E012
-          message: Method Not Supported
-          details: {}
-        _request_id: abcd-1234
-    json_400_panui_restapi_input_format_mismatch:
-      summary: Input Format Mismatch
-      value:
-        _errors:
-        - code: E003
-          message: 'Input Format Mismatch: input-format=json'
-          details: {}
-        _request_id: abcd-1234
-    json_501_panui_restapi_version_not_supported:
-      summary: Version Not Supported
-      value:
-        _errors:
-        - code: E012
-          message: Version Not Supported
-          details: {}
-        _request_id: abcd-1234
-    json_409_panui_mgmt_name_not_unique:
-      summary: Name Not Unique
-      value:
-        _errors:
-        - code: E006
-          message: Name Not Unique
-          details: {}
-        _request_id: abcd-1234
-    json_409_panui_mgmt_object_not_unique:
-      summary: Object Not Unique
-      value:
-        _errors:
-        - code: E016
-          message: Object Not Unique
-          details: {}
-        _request_id: abcd-1234
-    json_400_panui_restapi_missing_body:
-      summary: Missing Body
-      value:
-        _errors:
-        - code: E003
-          message: Missing Body
-          details: {}
-        _request_id: abcd-1234
-    json_404_panui_mgmt_object_not_present:
-      summary: Object Not Present
-      value:
-        _errors:
-        - code: E005
-          message: Object Not Present
-          details: {}
-        _request_id: abcd-1234
-    json_409_panui_mgmt_reference_not_zero:
-      summary: Reference Not Zero
-      value:
-        _errors:
-        - code: E009
-          message: Reference Not Zero
-          details: {}
-        _request_id: abcd-1234
-    json_400_panui_mgmt_invalid_command:
-      summary: Invalid Command
-      value:
-        _errors:
-        - code: E003
-          message: Invalid Command
-          details: {}
-        _request_id: abcd-1234
-    json_400_panui_restapi_output_format_mismatch:
-      summary: Output Format Mismatch
-      value:
-        _errors:
-        - code: E003
-          message: 'Output Format Mismatch: output-format=json Accept=xml'
-          details: {}
-        _request_id: abcd-1234
-    json_401_panui_auth_not_authenticated:
-      summary: Not Authenticated
-      value:
-        _errors:
-        - code: E016
-          message: Not Authenticated
-          details: {}
-        _request_id: abcd-1234
-    json_401_panui_auth_invalid_credential:
-      summary: Invalid Credential
-      value:
-        _errors:
-        - code: E016
-          message: Invalid Credential
-          details: {}
-        _request_id: abcd-1234
-    json_403_panui_auth_unauthorized:
-      summary: Unauthorized
-      value:
-        _errors:
-        - code: E007
-          message: Unauthorized
-          details: {}
-        _request_id: abcd-1234
-    json_400_panui_restapi_missing_query_parameter:
-      summary: Missing Query Parameter
-      value:
-        _errors:
-        - code: E003
-          message: 'Missing Query Parameter: name'
-          details: {}
-        _request_id: abcd-1234
-    json_405_panui_restapi_action_not_supported:
-      summary: Action Not Supported
-      value:
-        _errors:
-        - code: E012
-          message: 'Action Not Supported: move'
-          details: {}
-        _request_id: abcd-1234
-    json_400_panui_restapi_invalid_query_parameter:
-      summary: Invalid Query Parameter
-      value:
-        _errors:
-        - code: E003
-          message: 'Invalid Query Parameter: location=invalid'
-          details: {}
-        _request_id: abcd-1234
-    json_401_panui_auth_key_too_long:
-      summary: Key Too Long
-      value:
-        _errors:
-        - code: E016
-          message: Key Too Long
-          details: {}
-        _request_id: abcd-1234
-    json_400_panui_mgmt_invalid_object:
-      summary: Invalid Object
-      value:
-        _errors:
-        - code: E003
-          message: Invalid Object
-          details: {}
-        _request_id: abcd-1234
-    json_400_panui_mgmt_malformed_command:
-      summary: Malformed Command
-      value:
-        _errors:
-        - code: E003
-          message: Malformed Command
-          details: {}
-        _request_id: abcd-1234
-    json_504_panui_mgmt_session_timeout:
-      summary: Session Timeout
-      value:
-        _errors:
-        - code: '4'
-          message: Session Timeout
-          details: {}
-        _request_id: abcd-1234
-    json_401_panui_auth_need_password_change:
-      summary: Need Password Change
-      value:
-        _errors:
-        - code: E016
-          message: The password needs to be changed.
-          details: {}
-        _request_id: abcd-1234
-    json_400_panui_mgmt_bad_xpath:
-      summary: Bad XPath
-      value:
-        _errors:
-        - code: E013
-          message: Bad XPath
-          details: {}
-        _request_id: abcd-1234
-  parameters:
-    uuid:
-      name: id
-      in: path
-      required: true
-      schema:
-        type: string
-      description: The UUID of the resource
-    pagination-optional:
-      name: pagination
-      in: query
-      required: false
-      schema:
-        type: boolean
-      description: The parameter to mention if the response should be paginated. By default, its set to false
-    offset-optional:
-      name: offset
-      in: query
-      required: false
-      schema:
-        type: integer
-      description: The offset into the list of resources returned
-    limit-optional:
-      name: limit
-      in: query
-      required: false
-      schema:
-        type: integer
-      description: The maximum number of resources to return
-    name-optional:
-      name: name
-      in: query
-      required: false
-      schema:
-        type: string
-      description: The name of the resource
   responses:
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_2'
+    BadRequest:
+      description: Invalid request parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_2'
+    Unauthorized:
+      description: Invalid or missing API keys.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_2'
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_2'
+    InternalServerError_2:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_3'
+    BadRequest_2:
+      description: Invalid request parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_3'
+    Unauthorized_2:
+      description: Invalid or missing API keys.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_3'
+    NotFound_2:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_3'
+    access_errors:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/generic_error'
+          examples:
+            auth_unauthorized:
+              $ref: '#/components/examples/json_403_panui_auth_unauthorized'
     not_found:
       description: Not Found
       content:
@@ -1844,6 +2308,34 @@ components:
           examples:
             object_not_present:
               $ref: '#/components/examples/json_404_panui_mgmt_object_not_present'
+    conflict_errors:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/generic_error'
+          examples:
+            object_not_unique:
+              $ref: '#/components/examples/json_409_panui_mgmt_object_not_unique'
+            name_not_unique:
+              $ref: '#/components/examples/json_409_panui_mgmt_name_not_unique'
+            reference_not_zero:
+              $ref: '#/components/examples/json_409_panui_mgmt_reference_not_zero'
+    bad_request_errors_basic:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/generic_error'
+          examples:
+            input_format_mismatch:
+              $ref: '#/components/examples/json_400_panui_restapi_input_format_mismatch'
+            output_format_mismatch:
+              $ref: '#/components/examples/json_400_panui_restapi_output_format_mismatch'
+            missing_query_parameter:
+              $ref: '#/components/examples/json_400_panui_restapi_missing_query_parameter'
+            invalid_query_parameter:
+              $ref: '#/components/examples/json_400_panui_restapi_invalid_query_parameter'
     default_errors:
       description: General Errors
       content:
@@ -1865,6 +2357,23 @@ components:
               $ref: '#/components/examples/json_400_panui_mgmt_malformed_command'
             session_timeout:
               $ref: '#/components/examples/json_504_panui_mgmt_session_timeout'
+    auth_errors:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/generic_error'
+          examples:
+            auth_not_authenticated:
+              $ref: '#/components/examples/json_401_panui_auth_not_authenticated'
+            invalid_credential:
+              $ref: '#/components/examples/json_401_panui_auth_invalid_credential'
+            key_too_long:
+              $ref: '#/components/examples/json_401_panui_auth_key_too_long'
+            key_expired:
+              $ref: '#/components/examples/json_401_panui_auth_key_expired'
+            need_password_change:
+              $ref: '#/components/examples/json_401_panui_auth_need_password_change'
     bad_request_errors_basic_with_body:
       description: Bad Request
       content:
@@ -1884,66 +2393,248 @@ components:
               $ref: '#/components/examples/json_400_panui_restapi_missing_body'
             invalid_object:
               $ref: '#/components/examples/json_400_panui_mgmt_invalid_object'
-    bad_request_errors_basic:
-      description: Bad Request
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/generic_error'
-          examples:
-            input_format_mismatch:
-              $ref: '#/components/examples/json_400_panui_restapi_input_format_mismatch'
-            output_format_mismatch:
-              $ref: '#/components/examples/json_400_panui_restapi_output_format_mismatch'
-            missing_query_parameter:
-              $ref: '#/components/examples/json_400_panui_restapi_missing_query_parameter'
-            invalid_query_parameter:
-              $ref: '#/components/examples/json_400_panui_restapi_invalid_query_parameter'
-    auth_errors:
-      description: Unauthorized
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/generic_error'
-          examples:
-            auth_not_authenticated:
-              $ref: '#/components/examples/json_401_panui_auth_not_authenticated'
-            invalid_credential:
-              $ref: '#/components/examples/json_401_panui_auth_invalid_credential'
-            key_too_long:
-              $ref: '#/components/examples/json_401_panui_auth_key_too_long'
-            key_expired:
-              $ref: '#/components/examples/json_401_panui_auth_key_expired'
-            need_password_change:
-              $ref: '#/components/examples/json_401_panui_auth_need_password_change'
-    conflict_errors:
-      description: Conflict
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/generic_error'
-          examples:
-            object_not_unique:
-              $ref: '#/components/examples/json_409_panui_mgmt_object_not_unique'
-            name_not_unique:
-              $ref: '#/components/examples/json_409_panui_mgmt_name_not_unique'
-            reference_not_zero:
-              $ref: '#/components/examples/json_409_panui_mgmt_reference_not_zero'
-    access_errors:
-      description: Forbidden
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/generic_error'
-          examples:
-            auth_unauthorized:
-              $ref: '#/components/examples/json_403_panui_auth_unauthorized'
+  examples:
+    json_400_panui_mgmt_invalid_object:
+      summary: Invalid Object
+      value:
+        _errors:
+        - code: E003
+          message: Invalid Object
+          details: {}
+        _request_id: abcd-1234
+    json_409_panui_mgmt_object_not_unique:
+      summary: Object Not Unique
+      value:
+        _errors:
+        - code: E016
+          message: Object Not Unique
+          details: {}
+        _request_id: abcd-1234
+    json_400_panui_restapi_input_format_mismatch:
+      summary: Input Format Mismatch
+      value:
+        _errors:
+        - code: E003
+          message: 'Input Format Mismatch: input-format=json'
+          details: {}
+        _request_id: abcd-1234
+    json_405_panui_restapi_action_not_supported:
+      summary: Action Not Supported
+      value:
+        _errors:
+        - code: E012
+          message: 'Action Not Supported: move'
+          details: {}
+        _request_id: abcd-1234
+    json_401_panui_auth_key_expired:
+      summary: Key Expired
+      value:
+        _errors:
+        - code: E016
+          message: Key Expired
+          details: {}
+        _request_id: abcd-1234
+    json_400_panui_mgmt_bad_xpath:
+      summary: Bad XPath
+      value:
+        _errors:
+        - code: E013
+          message: Bad XPath
+          details: {}
+        _request_id: abcd-1234
+    json_400_panui_restapi_missing_body:
+      summary: Missing Body
+      value:
+        _errors:
+        - code: E003
+          message: Missing Body
+          details: {}
+        _request_id: abcd-1234
+    json_403_panui_auth_unauthorized:
+      summary: Unauthorized
+      value:
+        _errors:
+        - code: E007
+          message: Unauthorized
+          details: {}
+        _request_id: abcd-1234
+    json_401_panui_auth_invalid_credential:
+      summary: Invalid Credential
+      value:
+        _errors:
+        - code: E016
+          message: Invalid Credential
+          details: {}
+        _request_id: abcd-1234
+    json_504_panui_mgmt_session_timeout:
+      summary: Session Timeout
+      value:
+        _errors:
+        - code: '4'
+          message: Session Timeout
+          details: {}
+        _request_id: abcd-1234
+    json_401_panui_auth_not_authenticated:
+      summary: Not Authenticated
+      value:
+        _errors:
+        - code: E016
+          message: Not Authenticated
+          details: {}
+        _request_id: abcd-1234
+    json_400_panui_mgmt_invalid_command:
+      summary: Invalid Command
+      value:
+        _errors:
+        - code: E003
+          message: Invalid Command
+          details: {}
+        _request_id: abcd-1234
+    json_401_panui_auth_key_too_long:
+      summary: Key Too Long
+      value:
+        _errors:
+        - code: E016
+          message: Key Too Long
+          details: {}
+        _request_id: abcd-1234
+    json_409_panui_mgmt_name_not_unique:
+      summary: Name Not Unique
+      value:
+        _errors:
+        - code: E006
+          message: Name Not Unique
+          details: {}
+        _request_id: abcd-1234
+    json_401_panui_auth_need_password_change:
+      summary: Need Password Change
+      value:
+        _errors:
+        - code: E016
+          message: The password needs to be changed.
+          details: {}
+        _request_id: abcd-1234
+    json_501_panui_restapi_method_not_supported:
+      summary: Method Not Supported
+      value:
+        _errors:
+        - code: E012
+          message: Method Not Supported
+          details: {}
+        _request_id: abcd-1234
+    json_400_panui_mgmt_malformed_command:
+      summary: Malformed Command
+      value:
+        _errors:
+        - code: E003
+          message: Malformed Command
+          details: {}
+        _request_id: abcd-1234
+    json_409_panui_mgmt_reference_not_zero:
+      summary: Reference Not Zero
+      value:
+        _errors:
+        - code: E009
+          message: Reference Not Zero
+          details: {}
+        _request_id: abcd-1234
+    json_400_panui_restapi_invalid_query_parameter:
+      summary: Invalid Query Parameter
+      value:
+        _errors:
+        - code: E003
+          message: 'Invalid Query Parameter: location=invalid'
+          details: {}
+        _request_id: abcd-1234
+    json_501_panui_restapi_version_not_supported:
+      summary: Version Not Supported
+      value:
+        _errors:
+        - code: E012
+          message: Version Not Supported
+          details: {}
+        _request_id: abcd-1234
+    json_400_panui_restapi_missing_query_parameter:
+      summary: Missing Query Parameter
+      value:
+        _errors:
+        - code: E003
+          message: 'Missing Query Parameter: name'
+          details: {}
+        _request_id: abcd-1234
+    json_400_panui_restapi_output_format_mismatch:
+      summary: Output Format Mismatch
+      value:
+        _errors:
+        - code: E003
+          message: 'Output Format Mismatch: output-format=json Accept=xml'
+          details: {}
+        _request_id: abcd-1234
+    json_404_panui_mgmt_object_not_present:
+      summary: Object Not Present
+      value:
+        _errors:
+        - code: E005
+          message: Object Not Present
+          details: {}
+        _request_id: abcd-1234
+  parameters:
+    offset-optional:
+      name: offset
+      in: query
+      required: false
+      schema:
+        type: integer
+      description: The offset into the list of resources returned
+    uuid:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: The UUID of the resource
+    limit-optional:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+      description: The maximum number of resources to return
+    pagination-optional:
+      name: pagination
+      in: query
+      required: false
+      schema:
+        type: boolean
+      description: The parameter to mention if the response should be paginated. By default, its set to false
+    name-optional:
+      name: name
+      in: query
+      required: false
+      schema:
+        type: string
+      description: The name of the resource
   securitySchemes:
     BearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
       description: Enter your JWT Bearer token to authorize.
+    keyId:
+      type: apiKey
+      in: header
+      name: X-Key-Id
+      description: IoT Security API key identifier. Generated from the IoT Security portal under Settings > API Keys.
+    accessKey:
+      type: apiKey
+      in: header
+      name: X-Access-Key
+      description: IoT Security API access key. Generated alongside the key identifier from the IoT Security portal.
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
     scmOAuth:
       type: oauth2
       description: "Strata Cloud Manager APIs authenticate client requests using the \nOAuth 2.0 Client Credentials flow.  Please use the `client_id`, \n`client_secret` values associated with an IAM service account along \nwith a scope value of `tsg_id:XXXXXXXXXX`, where `XXXXXXXXXX` is the \nTenant Service Group (TSG) ID.  The resulting JWT access token should \nbe attached to all API calls as a `Bearer` token in the `Authorization` \nheader (ex. `Authorization: Bearer tokenstring`).\n"
@@ -1958,4 +2649,7 @@ components:
       bearerFormat: JWT
 x-refined-from:
 - palo-alto-access-browser-mgmt-prismaaccess-browser-management-latest-openapi.yaml
+- palo-alto-iot-security-api-openapi-original.yml
+- palo-alto-networks-devices-api-openapi.yml
+- palo-alto-prisma-access-browser-api-openapi-original.yml
 - palo-alto-scm-config-cloudngfw-setup-config-setup-feb-v1-openapi.yaml

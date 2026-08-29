@@ -1,0 +1,251 @@
+openapi: 3.2.0
+info:
+  title: Palo Alto Networks Verdict API
+  version: '1.0'
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+  description: 'Operations tagged Verdict across 2 of this provider''s published API definitions: palo-alto-networks-verdict-api-openapi.yml, palo-alto-wildfire-api-openapi-original.yml. Each path carries the servers of the definition it was published in.'
+servers:
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+- url: https://wildfire.paloaltonetworks.com/publicapi
+  description: WildFire global cloud (US).
+- url: https://wildfire.{region}.paloaltonetworks.com/publicapi
+  description: WildFire regional cloud endpoint.
+  variables:
+    region:
+      description: Regional deployment (e.g., eu, jp).
+      default: eu
+tags:
+- name: Verdict
+  description: Retrieve analysis verdicts by file hash.
+paths:
+  /get/verdict:
+    post:
+      operationId: getVerdict
+      summary: Palo Alto Networks Get Verdict by Hash
+      description: 'Retrieves the WildFire analysis verdict for a file identified by its MD5 or SHA-256 hash. Verdicts are: 0 (benign), 1 (malware), 2 (grayware), 4 (phishing), -100 (pending analysis), -101 (error), -102 (unknown), -103 (invalid hash).'
+      tags:
+      - Verdict
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - apikey
+              - hash
+              properties:
+                apikey:
+                  type: string
+                  description: WildFire API key for authentication.
+                hash:
+                  type: string
+                  description: MD5 or SHA-256 hash of the file to query.
+            examples:
+              GetVerdictRequestExample:
+                summary: Default getVerdict request
+                x-microcks-default: true
+                value:
+                  apikey: example-apikey
+                  hash: example-hash
+      responses:
+        '200':
+          description: Verdict returned successfully.
+          content:
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/VerdictResponse'
+              examples:
+                GetVerdict200Example:
+                  summary: Default getVerdict 200 response
+                  x-microcks-default: true
+                  value:
+                    get-verdict-info:
+                      md5: 38498da0e6edd44b63ec5776e3ac4349
+                      sha256: 48a8bc75aef249c015423b2e6abe7c31f9432715b65e0b0310e65f34d6b5d3ca
+                      verdict: -101
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
+  /get/verdicts:
+    post:
+      operationId: getBulkVerdicts
+      summary: Palo Alto Networks Get Bulk Verdicts
+      description: Retrieves WildFire analysis verdicts for multiple files in a single request. Submit an array of MD5 or SHA-256 hashes to query up to 500 verdicts simultaneously.
+      tags:
+      - Verdict
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - apikey
+              - hash
+              properties:
+                apikey:
+                  type: string
+                  description: WildFire API key for authentication.
+                hash:
+                  type: array
+                  items:
+                    type: string
+                  description: Array of MD5 or SHA-256 hashes to query (max 500).
+            examples:
+              GetBulkVerdictsRequestExample:
+                summary: Default getBulkVerdicts request
+                x-microcks-default: true
+                value:
+                  apikey: example-apikey
+                  hash:
+                  - example-hash_item
+                  - example-hash_item
+      responses:
+        '200':
+          description: Bulk verdicts returned successfully.
+          content:
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/BulkVerdictResponse'
+              examples:
+                GetBulkVerdicts200Example:
+                  summary: Default getBulkVerdicts 200 response
+                  x-microcks-default: true
+                  value:
+                    get-verdicts-info:
+                      entry:
+                      - md5: 97ccdf884551f2ecf8abc10da662652d
+                        sha256: 47d2198514583bc897bb7b8ae089187d336a6de865b6d6ad0e943777abbe85af
+                        verdict: 596
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
+components:
+  responses:
+    BadRequest:
+      description: Malformed request, missing required parameters, or invalid API key format.
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing API key or API key is invalid.
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: No analysis result found for the specified hash.
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    BulkVerdictResponse:
+      type: object
+      description: WildFire bulk verdict results for multiple hash queries.
+      properties:
+        get-verdicts-info:
+          type: object
+          properties:
+            entry:
+              type: array
+              items:
+                type: object
+                properties:
+                  md5:
+                    type: string
+                    example: e508ea95575f45e7ba5e47b556d7a241
+                  sha256:
+                    type: string
+                    example: 328888a8b561894deaaba0fb4e0abda175b02cafd71320b2b72d18c59139fd86
+                  verdict:
+                    type: integer
+                    example: 792
+              example:
+              - md5: 36e5049a68495c51691a114c9087a07e
+                sha256: c8899b756e0d13dd355342c97737825750fdb64903f4770725334e4991c4dc23
+                verdict: 168
+          example:
+            entry:
+            - md5: 97ccdf884551f2ecf8abc10da662652d
+              sha256: 47d2198514583bc897bb7b8ae089187d336a6de865b6d6ad0e943777abbe85af
+              verdict: 596
+    VerdictResponse:
+      type: object
+      description: WildFire verdict result for a single file hash query.
+      properties:
+        get-verdict-info:
+          type: object
+          properties:
+            md5:
+              type: string
+              description: MD5 hash of the queried file.
+              example: 629a220afeea672abcc2e391ea07b26d
+            sha256:
+              type: string
+              description: SHA-256 hash of the queried file.
+              example: 365d23a6a81b4ff0b6ea99f59667be72b252544284c549fc165bc04b9be441be
+            verdict:
+              type: integer
+              description: 'Verdict code: 0 (benign), 1 (malware), 2 (grayware), 4 (phishing), -100 (pending), -101 (error), -102 (unknown), -103 (invalid hash).'
+              enum:
+              - 0
+              - 1
+              - 2
+              - 4
+              - -100
+              - -101
+              - -102
+              - -103
+              example: 2
+          example:
+            md5: 38498da0e6edd44b63ec5776e3ac4349
+            sha256: 48a8bc75aef249c015423b2e6abe7c31f9432715b65e0b0310e65f34d6b5d3ca
+            verdict: -101
+    ErrorResponse:
+      type: object
+      description: Error response returned when a request fails.
+      properties:
+        error:
+          type: object
+          properties:
+            error-message:
+              type: string
+              description: Human-readable error message.
+              example: example-error-message
+          example:
+            error-message: example-error-message
+  securitySchemes:
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
+x-refined-from:
+- palo-alto-networks-verdict-api-openapi.yml
+- palo-alto-wildfire-api-openapi-original.yml

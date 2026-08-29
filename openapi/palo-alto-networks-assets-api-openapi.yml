@@ -1,18 +1,332 @@
 openapi: 3.2.0
 info:
-  title: Dig Security public Assets API
-  description: Dig Security public API. 12 operations across 12 paths.
-  version: 1.0.0
-  x-description-source: desc/intro.md
+  title: Palo Alto Networks Assets API
+  x-refined-note:
+  - x-description-source differs across the merged source definitions and was not carried
+  version: '1.0'
+  description: 'Operations tagged Assets across 5 of this provider''s published API definitions: palo-alto-cortex-xpanse-api-openapi-original.yml, palo-alto-cortex-xsiam-api-openapi-original.yml, palo-alto-dspm-dspm-openapi.json, palo-alto-networks-assets-api-openapi.yml, palo-alto-saas-security-api-openapi-original.yml. Each path carries the servers of the definition it was published in.'
 servers:
+- url: https://api-{fqdn}/public_api/v1
+  description: Cortex Xpanse tenant API endpoint.
+  variables:
+    fqdn:
+      description: Tenant FQDN from the Xpanse settings page (e.g., example.xpanse.paloaltonetworks.com).
+      default: example.xpanse.paloaltonetworks.com
 - url: https://api.dig.security
   description: Dig Security public API
 - url: PATH_TO_CONSOLE
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+- url: https://api.aperture.paloaltonetworks.com
+  description: SaaS Security (Aperture) API production server.
 tags:
 - name: Assets
-  description: Assets. 2 operations in this definition.
-  x-description-source: desc/assets/assets.md
+  description: Internet-exposed asset discovery and enumeration.
 paths:
+  /assets/get_assets_internet_exposure:
+    post:
+      operationId: getAssetsInternetExposure
+      summary: Palo Alto Networks Get Internet-exposed Assets
+      description: Returns a list of assets with internet exposure discovered by Xpanse. Assets include servers, cloud instances, network devices, and any internet-facing infrastructure. Supports filtering by asset type, business unit, tags, and exposure classification. Use this endpoint to inventory all externally visible infrastructure.
+      tags:
+      - Assets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_data:
+                  type: object
+                  properties:
+                    filters:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Filter'
+                      description: Filter criteria for asset list.
+                    search_from:
+                      type: integer
+                      default: 0
+                    search_to:
+                      type: integer
+                      default: 100
+                    sort:
+                      $ref: '#/components/schemas/SortOrder'
+            examples:
+              GetAssetsInternetExposureRequestExample:
+                summary: Default getAssetsInternetExposure request
+                x-microcks-default: true
+                value:
+                  request_data:
+                    filters:
+                    - field: example-field
+                      operator: contains
+                      value: example-value
+                    search_from: 0
+                    search_to: 100
+                    sort:
+                      field: example-field
+                      keyword: asc
+      responses:
+        '200':
+          description: Internet-exposed assets returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      total_count:
+                        type: integer
+                      result_count:
+                        type: integer
+                      assets_internet_exposure:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AssetInternetExposure'
+              examples:
+                GetAssetsInternetExposure200Example:
+                  summary: Default getAssetsInternetExposure 200 response
+                  x-microcks-default: true
+                  value:
+                    reply:
+                      total_count: 214
+                      result_count: 275
+                      assets_internet_exposure:
+                      - asm_id_list:
+                        - '594748'
+                        asset_name: Branch Policy 81
+                        asset_type: UNMANAGED_NETWORK_DEVICE
+                        ip_address:
+                        - 10.131.211.150
+                        - 10.237.60.87
+                        domain:
+                        - example-domain_item
+                        ipv6_address:
+                        - 10.147.211.139
+                        cloud_id: '583636'
+                        cloud_provider: Azure
+                        externally_detected_providers:
+                        - example-externally_detected_providers_item
+                        business_units:
+                        - example-business_units_item
+                        tags:
+                        - key: example-key
+                          value: example-value
+                        - key: example-key
+                          value: example-value
+                        created: 919
+                        last_observed: 958
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - xpanseAuth: []
+    servers:
+    - url: https://api-{fqdn}/public_api/v1
+      description: Cortex Xpanse tenant API endpoint.
+      variables:
+        fqdn:
+          description: Tenant FQDN from the Xpanse settings page (e.g., example.xpanse.paloaltonetworks.com).
+          default: example.xpanse.paloaltonetworks.com
+  /assets/get_asset_internet_exposure:
+    post:
+      operationId: getAssetInternetExposure
+      summary: Palo Alto Networks Get Single Asset Details
+      description: Returns detailed information about a specific internet-exposed asset identified by its asset ID. Includes all services, certificates, observations, and associated business context data.
+      tags:
+      - Assets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - request_data
+              properties:
+                request_data:
+                  type: object
+                  required:
+                  - asm_id_list
+                  properties:
+                    asm_id_list:
+                      type: array
+                      items:
+                        type: string
+                      description: List of asset IDs to retrieve details for.
+            examples:
+              GetAssetInternetExposureRequestExample:
+                summary: Default getAssetInternetExposure request
+                x-microcks-default: true
+                value:
+                  request_data:
+                    asm_id_list:
+                    - '595684'
+      responses:
+        '200':
+          description: Asset details returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      total_count:
+                        type: integer
+                      result_count:
+                        type: integer
+                      assets_internet_exposure:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AssetInternetExposureDetail'
+              examples:
+                GetAssetInternetExposure200Example:
+                  summary: Default getAssetInternetExposure 200 response
+                  x-microcks-default: true
+                  value:
+                    reply:
+                      total_count: 12
+                      result_count: 106
+                      assets_internet_exposure:
+                      - example-assets_internet_exposure_item
+                      - example-assets_internet_exposure_item
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - xpanseAuth: []
+    servers:
+    - url: https://api-{fqdn}/public_api/v1
+      description: Cortex Xpanse tenant API endpoint.
+      variables:
+        fqdn:
+          description: Tenant FQDN from the Xpanse settings page (e.g., example.xpanse.paloaltonetworks.com).
+          default: example.xpanse.paloaltonetworks.com
+  /assets/list_assets:
+    post:
+      operationId: listAssets
+      summary: Palo Alto Networks List Assets
+      description: Returns a list of assets discovered and tracked by XSIAM. Assets represent devices, cloud resources, users, and service accounts observed in the environment. Supports filtering by asset type, operating system, and risk score.
+      tags:
+      - Assets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_data:
+                  type: object
+                  properties:
+                    filters:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Filter_2'
+                    search_from:
+                      type: integer
+                      default: 0
+                    search_to:
+                      type: integer
+                      default: 100
+                    sort:
+                      $ref: '#/components/schemas/SortOrder_2'
+            examples:
+              ListAssetsRequestExample:
+                summary: Default listAssets request
+                x-microcks-default: true
+                value:
+                  request_data:
+                    filters:
+                    - field: example-field
+                      operator: eq
+                      value: example-value
+                    - field: example-field
+                      operator: eq
+                      value: example-value
+                    search_from: 0
+                    search_to: 100
+                    sort:
+                      field: example-field
+                      keyword: desc
+      responses:
+        '200':
+          description: Assets returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      total_count:
+                        type: integer
+                      result_count:
+                        type: integer
+                      assets:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Asset'
+              examples:
+                ListAssets200Example:
+                  summary: Default listAssets 200 response
+                  x-microcks-default: true
+                  value:
+                    reply:
+                      total_count: 379
+                      result_count: 575
+                      assets:
+                      - asset_id: '172266'
+                        asset_name: Production Policy 57
+                        asset_type: DEVICE
+                        operating_system: Ubuntu 22.04
+                        ip_addresses:
+                        - 10.89.140.152
+                        risk_score: 6.34
+                        first_seen: 751
+                        last_seen: 24
+                        tags:
+                        - critical-asset
+                        sources:
+                        - example-sources_item
+                        - example-sources_item
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - xsiamAuth: []
+    servers:
+    - url: https://api-{fqdn}/public_api/v1
+      description: Cortex XSIAM tenant API endpoint.
+      variables:
+        fqdn:
+          description: Tenant FQDN from the XSIAM settings page (e.g., example.xsiam.paloaltonetworks.com).
+          default: example.xsiam.paloaltonetworks.com
   /v1/assets:
     get:
       tags:
@@ -469,6 +783,10 @@ paths:
       summary: List Assets
       description: 'List Assets. GET /v1/assets on the Assets API. Takes 29 query parameters. Documented responses: 200.'
       x-description-source: desc/assets/get.md
+    servers:
+    - url: https://api.dig.security
+      description: Dig Security public API
+    - url: PATH_TO_CONSOLE
   /v1/assets/id:
     get:
       tags:
@@ -496,18 +814,699 @@ paths:
       summary: Describe Asset
       description: 'Describe Asset. GET /v1/assets/id on the Assets API. Takes 1 query parameter. Documented responses: 200.'
       x-description-source: desc/assets/id_get.md
+    servers:
+    - url: https://api.dig.security
+      description: Dig Security public API
+    - url: PATH_TO_CONSOLE
+  /api/assets:
+    get:
+      operationId: listAssets
+      summary: Palo Alto Networks List Scanned Assets
+      description: Returns a paginated list of assets scanned across connected SaaS applications. Assets include files, folders, emails, and other content objects. Supports filtering by application, asset type, and exposure level indicating who can access the asset.
+      tags:
+      - Assets
+      parameters:
+      - name: app_id
+        in: query
+        description: Filter assets by SaaS application ID.
+        schema:
+          type: string
+        example: '651878'
+      - name: type
+        in: query
+        description: Filter by asset type.
+        schema:
+          type: string
+          enum:
+          - file
+          - folder
+          - email
+          - calendar_event
+          - contact
+        example: file
+      - name: exposure
+        in: query
+        description: Filter by exposure level.
+        schema:
+          type: string
+          enum:
+          - private
+          - internal
+          - external
+          - public
+        example: internal
+      - name: offset
+        in: query
+        description: Number of results to skip for pagination.
+        schema:
+          type: integer
+          default: 0
+        example: 0
+      - name: limit
+        in: query
+        description: Maximum number of assets to return per page.
+        schema:
+          type: integer
+          default: 50
+          maximum: 200
+        example: 50
+      responses:
+        '200':
+          description: Assets returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Asset_2'
+              examples:
+                ListAssets200Example:
+                  summary: Default listAssets 200 response
+                  x-microcks-default: true
+                  value:
+                    total: 903
+                    offset: 933
+                    limit: 396
+                    items:
+                    - id: example-id
+                      name: Production Policy 38
+                      type: calendar_event
+                      app_id: '972712'
+                      app_name: Production Sensor 05
+                      owner: example-owner
+                      exposure: external
+                      size_bytes: 550
+                      dlp_violations:
+                      - example-dlp_violations_item
+                      - example-dlp_violations_item
+                      created_at: '2024-12-03T07:42:31Z'
+                      updated_at: '2026-05-28T11:46:06Z'
+                      last_scanned_at: '2026-10-13T08:39:47Z'
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3'
+              examples:
+                ListAssets400Example:
+                  summary: Default listAssets 400 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Configured monitoring network blocked investigation applied activity.
+                    request_id: 5cc3d66e-5479-4e15-bd64-849adde3cb60
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3'
+              examples:
+                ListAssets401Example:
+                  summary: Default listAssets 401 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Configured monitoring network blocked investigation applied activity.
+                    request_id: 5cc3d66e-5479-4e15-bd64-849adde3cb60
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3'
+              examples:
+                ListAssets403Example:
+                  summary: Default listAssets 403 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Configured monitoring network blocked investigation applied activity.
+                    request_id: 5cc3d66e-5479-4e15-bd64-849adde3cb60
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3'
+              examples:
+                ListAssets500Example:
+                  summary: Default listAssets 500 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Configured monitoring network blocked investigation applied activity.
+                    request_id: 5cc3d66e-5479-4e15-bd64-849adde3cb60
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
+  /api/assets/{id}:
+    get:
+      operationId: getAsset
+      summary: Palo Alto Networks Get Asset Details
+      description: Returns detailed information about a specific scanned asset including its current exposure, collaborators with access, DLP policy violations, and scan history.
+      tags:
+      - Assets
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Unique identifier of the asset.
+        schema:
+          type: string
+        example: example-id
+      responses:
+        '200':
+          description: Asset details returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Asset_2'
+              examples:
+                GetAsset200Example:
+                  summary: Default getAsset 200 response
+                  x-microcks-default: true
+                  value:
+                    id: example-id
+                    name: Production Policy 38
+                    type: calendar_event
+                    app_id: '972712'
+                    app_name: Production Sensor 05
+                    owner: example-owner
+                    exposure: external
+                    size_bytes: 550
+                    dlp_violations:
+                    - example-dlp_violations_item
+                    - example-dlp_violations_item
+                    created_at: '2024-12-03T07:42:31Z'
+                    updated_at: '2026-05-28T11:46:06Z'
+                    last_scanned_at: '2026-10-13T08:39:47Z'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3'
+              examples:
+                GetAsset401Example:
+                  summary: Default getAsset 401 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Configured monitoring network blocked investigation applied activity.
+                    request_id: 5cc3d66e-5479-4e15-bd64-849adde3cb60
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3'
+              examples:
+                GetAsset403Example:
+                  summary: Default getAsset 403 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Configured monitoring network blocked investigation applied activity.
+                    request_id: 5cc3d66e-5479-4e15-bd64-849adde3cb60
+        '404':
+          description: Asset not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3'
+              examples:
+                GetAsset404Example:
+                  summary: Default getAsset 404 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Configured monitoring network blocked investigation applied activity.
+                    request_id: 5cc3d66e-5479-4e15-bd64-849adde3cb60
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3'
+              examples:
+                GetAsset500Example:
+                  summary: Default getAsset 500 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Configured monitoring network blocked investigation applied activity.
+                    request_id: 5cc3d66e-5479-4e15-bd64-849adde3cb60
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
 components:
+  responses:
+    Forbidden:
+      description: Insufficient RBAC permissions for the requested operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: An internal server error occurred.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Malformed request body or invalid parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid authentication headers.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   schemas:
-    AssetDigTagDTO:
+    ErrorResponse:
       type: object
       properties:
-        digTagId:
-          type: integer
-          format: int64
-        key:
+        reply:
+          type: object
+          properties:
+            err_code:
+              type: integer
+              example: 849
+            err_msg:
+              type: string
+              example: example-err_msg
+            err_extra:
+              type: string
+              example: example-err_extra
+          example:
+            err_code: 931
+            err_msg: example-err_msg
+            err_extra: example-err_extra
+    Filter:
+      type: object
+      description: A filter criterion for querying Xpanse resources.
+      required:
+      - field
+      - operator
+      - value
+      properties:
+        field:
           type: string
+          description: Field name to filter on.
+          example: example-field
+        operator:
+          type: string
+          enum:
+          - in
+          - contains
+          - gte
+          - lte
+          - eq
+          - neq
+          example: contains
         value:
+          description: Filter value (string, integer, or array for "in" operator).
+          oneOf:
+          - type: string
+          - type: integer
+          - type: array
+            items:
+              oneOf:
+              - type: string
+              - type: integer
+          example: example-value
+    ExposedService:
+      type: object
+      description: An internet-exposed network service discovered on an asset.
+      properties:
+        service_id:
           type: string
+          example: '336506'
+        service_name:
+          type: string
+          description: Service name or protocol (e.g., HTTPS, SSH, RDP).
+          example: Corporate Agent 50
+        service_type:
+          type: string
+          enum:
+          - APPLICATION_SERVER
+          - CLOUD_STORAGE
+          - DATABASE
+          - NETWORKING
+          - REMOTE_DESKTOP
+          - UNCLASSIFIED
+          - WEB
+          example: NETWORKING
+        ip_address:
+          type: array
+          items:
+            type: string
+          example:
+          - 10.239.5.194
+        domain:
+          type: array
+          items:
+            type: string
+          example:
+          - example-domain_item
+          - example-domain_item
+        port:
+          type: integer
+          description: TCP/UDP port number.
+          example: 278
+        protocol:
+          type: string
+          enum:
+          - TCP
+          - UDP
+          example: TCP
+        provider:
+          type: array
+          items:
+            type: string
+          description: Cloud or hosting providers detected for this service.
+          example:
+          - example-provider_item
+        business_units:
+          type: array
+          items:
+            type: string
+          example:
+          - example-business_units_item
+          - example-business_units_item
+        created:
+          type: integer
+          description: Service first discovery timestamp as Unix epoch milliseconds.
+          example: 966
+        last_observed:
+          type: integer
+          example: 356
+        is_active:
+          type: string
+          enum:
+          - Active
+          - Inactive
+          - Unconfirmed
+          example: Unconfirmed
+        discovery_type:
+          type: string
+          enum:
+          - ColocatedOnIp
+          - DirectlyDiscovered
+          - CSP
+          - CertificateAssociation
+          example: DirectlyDiscovered
+    AssetInternetExposureDetail:
+      allOf:
+      - $ref: '#/components/schemas/AssetInternetExposure'
+      - type: object
+        description: Detailed asset information including all services and observations.
+        properties:
+          service_list:
+            type: array
+            items:
+              $ref: '#/components/schemas/ExposedService'
+          certificate:
+            type: object
+            description: TLS certificate details if applicable.
+            properties:
+              issuer:
+                type: string
+              subject:
+                type: string
+              valid_from:
+                type: string
+                format: date
+              valid_to:
+                type: string
+                format: date
+              sha256:
+                type: string
+          active_service_ids:
+            type: array
+            items:
+              type: string
+          all_service_ids:
+            type: array
+            items:
+              type: string
+    AssetInternetExposure:
+      type: object
+      description: Summary of an internet-exposed asset discovered by Xpanse.
+      properties:
+        asm_id_list:
+          type: array
+          items:
+            type: string
+          description: List of ASM identifiers for this asset.
+          example:
+          - '594748'
+        asset_name:
+          type: string
+          description: Asset hostname, IP address, or identifier.
+          example: Branch Policy 81
+        asset_type:
+          type: string
+          enum:
+          - CERTIFICATE
+          - CLOUD_COMPUTE_INSTANCE
+          - CLOUD_LOAD_BALANCER
+          - CLOUD_OBJECT_STORAGE
+          - DOMAIN
+          - NETWORKING_DEVICE
+          - ON_PREM_SERVER
+          - UNMANAGED_NETWORK_DEVICE
+          example: UNMANAGED_NETWORK_DEVICE
+        ip_address:
+          type: array
+          items:
+            type: string
+          description: IP addresses associated with this asset.
+          example:
+          - 10.131.211.150
+          - 10.237.60.87
+        domain:
+          type: array
+          items:
+            type: string
+          description: Domain names associated with this asset.
+          example:
+          - example-domain_item
+        ipv6_address:
+          type: array
+          items:
+            type: string
+          example:
+          - 10.147.211.139
+        cloud_id:
+          type: string
+          description: Cloud provider resource identifier.
+          example: '583636'
+        cloud_provider:
+          type: string
+          enum:
+          - AWS
+          - Azure
+          - GCP
+          - OTHER
+          example: Azure
+        externally_detected_providers:
+          type: array
+          items:
+            type: string
+          example:
+          - example-externally_detected_providers_item
+        business_units:
+          type: array
+          items:
+            type: string
+          description: Business units associated with this asset.
+          example:
+          - example-business_units_item
+        tags:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+                example: example-key
+              value:
+                type: string
+                example: example-value
+          example:
+          - key: example-key
+            value: example-value
+          - key: example-key
+            value: example-value
+        created:
+          type: integer
+          description: Asset first discovery timestamp as Unix epoch milliseconds.
+          example: 919
+        last_observed:
+          type: integer
+          description: Most recent observation timestamp as Unix epoch milliseconds.
+          example: 958
+    SortOrder:
+      type: object
+      description: Sorting specification for result sets.
+      properties:
+        field:
+          type: string
+          example: example-field
+        keyword:
+          type: string
+          enum:
+          - asc
+          - desc
+          example: asc
+    ErrorResponse_2:
+      type: object
+      properties:
+        reply:
+          type: object
+          properties:
+            err_code:
+              type: integer
+              example: 140
+            err_msg:
+              type: string
+              example: example-err_msg
+            err_extra:
+              type: string
+              example: example-err_extra
+          example:
+            err_code: 33
+            err_msg: example-err_msg
+            err_extra: example-err_extra
+    Filter_2:
+      type: object
+      description: A filter criterion for querying XSIAM resources.
+      required:
+      - field
+      - operator
+      - value
+      properties:
+        field:
+          type: string
+          description: Field name to filter on.
+          example: example-field
+        operator:
+          type: string
+          enum:
+          - in
+          - contains
+          - gte
+          - lte
+          - eq
+          - neq
+          example: eq
+        value:
+          description: Filter value (string, integer, or array for the "in" operator).
+          oneOf:
+          - type: string
+          - type: integer
+          - type: array
+            items:
+              oneOf:
+              - type: string
+              - type: integer
+          example: example-value
+    Asset:
+      type: object
+      description: An asset tracked in the XSIAM asset inventory.
+      properties:
+        asset_id:
+          type: string
+          example: '172266'
+        asset_name:
+          type: string
+          example: Production Policy 57
+        asset_type:
+          type: string
+          enum:
+          - DEVICE
+          - CLOUD_RESOURCE
+          - USER
+          - SERVICE_ACCOUNT
+          example: DEVICE
+        operating_system:
+          type: string
+          example: Ubuntu 22.04
+        ip_addresses:
+          type: array
+          items:
+            type: string
+          example:
+          - 10.89.140.152
+        risk_score:
+          type: number
+          description: Asset risk score (0.0 to 100.0).
+          example: 6.34
+        first_seen:
+          type: integer
+          description: First observation timestamp as Unix epoch milliseconds.
+          example: 751
+        last_seen:
+          type: integer
+          example: 24
+        tags:
+          type: array
+          items:
+            type: string
+          example:
+          - critical-asset
+        sources:
+          type: array
+          items:
+            type: string
+          description: Data sources that reported this asset.
+          example:
+          - example-sources_item
+          - example-sources_item
+    SortOrder_2:
+      type: object
+      description: Sorting specification for result sets.
+      properties:
+        field:
+          type: string
+          example: example-field
+        keyword:
+          type: string
+          enum:
+          - asc
+          - desc
+          example: desc
     AssetDTO:
       type: object
       properties:
@@ -701,3 +1700,202 @@ components:
         numberOfFindings:
           type: integer
           format: int64
+    AssetDigTagDTO:
+      type: object
+      properties:
+        digTagId:
+          type: integer
+          format: int64
+        key:
+          type: string
+        value:
+          type: string
+    Asset_2:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique asset identifier.
+          example: example-id
+        name:
+          type: string
+          description: Asset name or filename.
+          example: Production Policy 38
+        type:
+          type: string
+          enum:
+          - file
+          - folder
+          - email
+          - calendar_event
+          - contact
+          description: Asset type.
+          example: calendar_event
+        app_id:
+          type: string
+          description: ID of the SaaS application containing the asset.
+          example: '972712'
+        app_name:
+          type: string
+          description: Name of the SaaS application.
+          example: Production Sensor 05
+        owner:
+          type: string
+          description: User ID of the asset owner.
+          example: example-owner
+        exposure:
+          type: string
+          enum:
+          - private
+          - internal
+          - external
+          - public
+          description: Current exposure level of the asset.
+          example: external
+        size_bytes:
+          type: integer
+          description: Asset size in bytes.
+          example: 550
+        dlp_violations:
+          type: array
+          items:
+            type: string
+          description: DLP policy violation names triggered for this asset.
+          example:
+          - example-dlp_violations_item
+          - example-dlp_violations_item
+        created_at:
+          type: string
+          format: date-time
+          example: '2024-12-03T07:42:31Z'
+        updated_at:
+          type: string
+          format: date-time
+          example: '2026-05-28T11:46:06Z'
+        last_scanned_at:
+          type: string
+          format: date-time
+          example: '2026-10-13T08:39:47Z'
+    ErrorResponse_3:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code identifying the error type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable description of the error.
+          example: Configured monitoring network blocked investigation applied activity.
+        request_id:
+          type: string
+          description: Request identifier for support correlation.
+          example: 5cc3d66e-5479-4e15-bd64-849adde3cb60
+    Asset_3:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique asset identifier.
+          example: example-id
+        name:
+          type: string
+          description: Asset name or filename.
+          example: Production Policy 38
+        type:
+          type: string
+          enum:
+          - file
+          - folder
+          - email
+          - calendar_event
+          - contact
+          description: Asset type.
+          example: calendar_event
+        app_id:
+          type: string
+          description: ID of the SaaS application containing the asset.
+          example: '972712'
+        app_name:
+          type: string
+          description: Name of the SaaS application.
+          example: Production Sensor 05
+        owner:
+          type: string
+          description: User ID of the asset owner.
+          example: example-owner
+        exposure:
+          type: string
+          enum:
+          - private
+          - internal
+          - external
+          - public
+          description: Current exposure level of the asset.
+          example: external
+        size_bytes:
+          type: integer
+          description: Asset size in bytes.
+          example: 550
+        dlp_violations:
+          type: array
+          items:
+            type: string
+          description: DLP policy violation names triggered for this asset.
+          example:
+          - example-dlp_violations_item
+          - example-dlp_violations_item
+        created_at:
+          type: string
+          format: date-time
+          example: '2024-12-03T07:42:31Z'
+        updated_at:
+          type: string
+          format: date-time
+          example: '2026-05-28T11:46:06Z'
+        last_scanned_at:
+          type: string
+          format: date-time
+          example: '2026-10-13T08:39:47Z'
+    ErrorResponse_4:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code identifying the error type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable description of the error.
+          example: Configured monitoring network blocked investigation applied activity.
+        request_id:
+          type: string
+          description: Request identifier for support correlation.
+          example: 5cc3d66e-5479-4e15-bd64-849adde3cb60
+  securitySchemes:
+    xpanseAuth:
+      type: apiKey
+      in: header
+      name: x-xdr-hmac-v2
+      description: 'Cortex Xpanse uses a custom HMAC-SHA256 authentication scheme with RBAC API key pairs. Include four headers: x-xdr-auth-id (API key ID), x-xdr-nonce (64-character random string), x-xdr-timestamp (Unix epoch milliseconds), and x-xdr-hmac-v2 (SHA-256 hash of api_key + nonce + timestamp). API keys are scoped with RBAC roles controlling which Xpanse data and operations are accessible. Generate keys from Xpanse Settings > Configurations > API Keys.'
+    xsiamAuth:
+      type: apiKey
+      in: header
+      name: x-xdr-hmac-v2
+      description: 'Cortex XSIAM uses a custom HMAC-SHA256 authentication scheme. Include four headers on each request: x-xdr-auth-id (API key ID number), x-xdr-nonce (64-character random string), x-xdr-timestamp (Unix epoch milliseconds as a string), and x-xdr-hmac-v2 (SHA-256 hash of api_key + nonce + timestamp). Standard and Advanced API key types are supported; Advanced keys provide additional security through IP allowlisting. Generate API keys from XSIAM Settings > Configurations > API Keys.'
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token. Obtain by authenticating with the SaaS Security API token endpoint using your service account credentials.
+x-refined-from:
+- palo-alto-cortex-xpanse-api-openapi-original.yml
+- palo-alto-cortex-xsiam-api-openapi-original.yml
+- palo-alto-dspm-dspm-openapi.json
+- palo-alto-networks-assets-api-openapi.yml
+- palo-alto-saas-security-api-openapi-original.yml

@@ -1,9 +1,8 @@
 openapi: 3.2.0
 info:
   title: Palo Alto Networks Reports API
-  version: Latest
-  contact: {}
-  description: 'Operations tagged Reports across 2 of this provider''s published API definitions: palo-alto-cspm-consolidated-spec-cspm-spec-openapi.json, palo-alto-cspm-reports-openapi.json. Each path carries the servers of the definition it was published in.'
+  version: '1.0'
+  description: 'Operations tagged Reports across 7 of this provider''s published API definitions: palo-alto-cspm-consolidated-spec-cspm-spec-openapi.json, palo-alto-cspm-reports-openapi.json, palo-alto-dlp-api-openapi-original.yml, palo-alto-iot-security-api-openapi-original.yml, palo-alto-networks-reports-api-openapi.yml, palo-alto-prisma-access-browser-api-openapi-original.yml, palo-alto-prisma-cloud-cspm-api-openapi-original.yml. Each path carries the servers of the definition it was published in.'
 servers:
 - url: https://api.prismacloud.io
 - url: https://api2.prismacloud.io
@@ -20,6 +19,18 @@ servers:
 - url: https://api.ind.prismacloud.io
 - url: https://api.jp.prismacloud.io
 - url: https://api.fr.prismacloud.io
+- url: https://api.dlp.paloaltonetworks.com/v4
+  description: Enterprise DLP API production server.
+- url: https://{customer}.iot.paloaltonetworks.com/pub/v4.0
+  description: IoT Security API production server.
+  variables:
+    customer:
+      description: Customer-specific tenant identifier.
+      default: customer-tenant
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+- url: https://api.sase.paloaltonetworks.com/browser-mgmt
+  description: SASE Prisma Access Browser Management API production server.
 tags:
 - description: "Creating compliance reports is the best way to monitor your cloud accounts across all cloud types and ensure that you \nare adhering to all compliance standards. You can create compliance reports based on a cloud compliance standard for \nimmediate download or schedule recurring reports so you can monitor compliance to the standard over time. From a single \nreport, you have a consolidated view of how well all of your cloud accounts are adhering to the selected standard. You \ncan also download historic reports so that you can see your compliance trend.\n"
   name: Reports
@@ -489,8 +500,305 @@ paths:
     - url: https://api.ind.prismacloud.io
     - url: https://api.jp.prismacloud.io
     - url: https://api.fr.prismacloud.io
+  /reports/summary:
+    get:
+      operationId: getReportSummary
+      summary: Palo Alto Networks Get Incident Summary Report
+      description: Returns an aggregated summary of DLP incidents over a specified time period. Includes breakdowns by severity, channel, data pattern, top users, and trend data. Useful for executive reporting and compliance dashboards.
+      tags:
+      - Reports
+      parameters:
+      - name: start_time
+        in: query
+        required: true
+        description: Start of reporting period (ISO 8601 format).
+        schema:
+          type: string
+          format: date-time
+        example: '2026-09-18T10:51:33Z'
+      - name: end_time
+        in: query
+        required: true
+        description: End of reporting period (ISO 8601 format).
+        schema:
+          type: string
+          format: date-time
+        example: '2026-11-06T16:58:45Z'
+      responses:
+        '200':
+          description: Incident summary report returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidentSummary'
+              examples:
+                GetReportSummary200Example:
+                  summary: Default getReportSummary 200 response
+                  x-microcks-default: true
+                  value:
+                    total_incidents: 619
+                    open_incidents: 195
+                    resolved_incidents: 393
+                    by_severity:
+                      critical: 30
+                      high: 424
+                      medium: 932
+                      low: 723
+                      informational: 986
+                    by_channel:
+                      web: 358
+                      ssl: 453
+                      saas: 815
+                      email: 786
+                      endpoint: 131
+                    top_data_patterns:
+                    - pattern_name: Production Sensor 38
+                      incident_count: 299
+                    top_users:
+                    - user: example-user
+                      incident_count: 609
+                    - user: example-user
+                      incident_count: 164
+                    reporting_period:
+                      start_time: '2024-09-15T06:09:00Z'
+                      end_time: '2026-07-19T16:10:14Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - bearerAuth: []
+    servers:
+    - url: https://api.dlp.paloaltonetworks.com/v4
+      description: Enterprise DLP API production server.
+  /report/asset:
+    get:
+      operationId: getAssetReport
+      summary: Palo Alto Networks Get Asset Report
+      description: Returns an asset inventory report summarizing all discovered IoT and OT devices. The report includes breakdowns by device category, profile, risk level, and site. Useful for asset inventory management and compliance reporting.
+      tags:
+      - Reports
+      parameters:
+      - name: customerid
+        in: query
+        required: true
+        description: Customer tenant identifier.
+        schema:
+          type: string
+        example: '725385'
+      - name: offset
+        in: query
+        description: Pagination offset for results.
+        schema:
+          type: integer
+          default: 0
+        example: 0
+      - name: pagelength
+        in: query
+        description: Number of report records to return per page.
+        schema:
+          type: integer
+          default: 100
+        example: 100
+      responses:
+        '200':
+          description: Asset report returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of assets in the report.
+                  report:
+                    $ref: '#/components/schemas/AssetReport'
+              examples:
+                GetAssetReport200Example:
+                  summary: Default getAssetReport 200 response
+                  x-microcks-default: true
+                  value:
+                    total: 9
+                    report:
+                      total_devices: 646
+                      monitored_devices: 724
+                      by_category: {}
+                      by_risk_level:
+                        critical: 372
+                        high: 696
+                        medium: 301
+                        low: 206
+                      by_site:
+                      - site: HQ-SanFrancisco
+                        device_count: 327
+                      top_profiles:
+                      - profile: Network Printer
+                        device_count: 597
+                      report_time: '2025-03-06T06:54:38Z'
+        '400':
+          $ref: '#/components/responses/BadRequest_2'
+        '401':
+          $ref: '#/components/responses/Unauthorized_2'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - keyId: []
+        accessKey: []
+    servers:
+    - url: https://{customer}.iot.paloaltonetworks.com/pub/v4.0
+      description: IoT Security API production server.
+      variables:
+        customer:
+          description: Customer-specific tenant identifier.
+          default: customer-tenant
+  /v1/reports/usage:
+    get:
+      operationId: getUsageReport
+      summary: Palo Alto Networks Get Usage Report
+      description: Returns browser usage statistics for the specified time period including active users, session counts, data transferred, blocked threats, and DLP events.
+      tags:
+      - Reports
+      parameters:
+      - name: start_date
+        in: query
+        required: true
+        description: Start of the reporting period (ISO 8601).
+        schema:
+          type: string
+          format: date
+        example: '2026-10-14'
+      - name: end_date
+        in: query
+        required: true
+        description: End of the reporting period (ISO 8601).
+        schema:
+          type: string
+          format: date
+        example: '2025-04-14'
+      - name: group_by
+        in: query
+        description: Dimension to group results by.
+        schema:
+          type: string
+          enum:
+          - day
+          - week
+          - month
+          - user
+          - device
+          - policy
+        example: week
+      responses:
+        '200':
+          description: Usage report returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageReport'
+              examples:
+                GetUsageReport200Example:
+                  summary: Default getUsageReport 200 response
+                  x-microcks-default: true
+                  value:
+                    period:
+                      start: '2025-02-09'
+                      end: '2025-07-27'
+                    active_users: 489
+                    total_sessions: 336
+                    data_transferred_gb: 1.65
+                    threats_blocked: 211
+                    dlp_events: 404
+                    data_points:
+                    - timestamp: '2026-04-05T18:42:10Z'
+                      active_users: 55
+                      sessions: 417
+                    - timestamp: '2025-12-14T19:49:02Z'
+                      active_users: 469
+                      sessions: 309
+        '400':
+          description: Invalid date range or query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3'
+              examples:
+                GetUsageReport400Example:
+                  summary: Default getUsageReport 400 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Suspicious detected incident malware activity traffic traffic.
+                    request_id: a6ecb027-74a1-4efb-9882-cb98e9bab4bf
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3'
+              examples:
+                GetUsageReport401Example:
+                  summary: Default getUsageReport 401 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Suspicious detected incident malware activity traffic traffic.
+                    request_id: a6ecb027-74a1-4efb-9882-cb98e9bab4bf
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3'
+              examples:
+                GetUsageReport403Example:
+                  summary: Default getUsageReport 403 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Suspicious detected incident malware activity traffic traffic.
+                    request_id: a6ecb027-74a1-4efb-9882-cb98e9bab4bf
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3'
+              examples:
+                GetUsageReport500Example:
+                  summary: Default getUsageReport 500 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Suspicious detected incident malware activity traffic traffic.
+                    request_id: a6ecb027-74a1-4efb-9882-cb98e9bab4bf
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
 components:
   schemas:
+    NameValueIntegerString:
+      properties:
+        id:
+          format: int32
+          type: integer
+        name:
+          type: string
+      type: object
     FilterSuggestionModel:
       description: Model for Filter Suggestions
       properties:
@@ -502,208 +810,6 @@ components:
           type: string
       required:
       - filterName
-      type: object
-    RelativeTimeRangeConfigModel:
-      allOf:
-      - $ref: '#/components/schemas/TimeRangeConfigModel'
-      - description: Model for RelativeTimeRangeConfig
-        properties:
-          relativeTimeType:
-            description: Direction in which to count time. Default = BACKWARD
-            enum:
-            - BACKWARD
-            - FORWARD
-            type: string
-          type:
-            example: relative
-            type: string
-          value:
-            allOf:
-            - $ref: '#/components/schemas/RelativeTimeDurationModel'
-            - description: Time range object
-        required:
-        - value
-        type: object
-    ReportTargetModel:
-      description: Model for report target
-      properties:
-        accountGroups:
-          description: List of cloud account groups
-          items:
-            type: string
-          type: array
-        accounts:
-          description: List of cloud accounts
-          items:
-            type: string
-          type: array
-        complianceStandardIds:
-          description: List of compliance Standard IDs
-          items:
-            type: string
-          type: array
-        compressionEnabled:
-          description: Business unit detailed report compression enabled
-          type: boolean
-        downloadNow:
-          description: True = download now
-          type: boolean
-        notificationTemplateId:
-          description: Notification template id
-          readOnly: true
-          type: string
-        notifyTo:
-          description: List of email addresses to receive notification
-          items:
-            type: string
-          type: array
-        regions:
-          description: List of regions
-          items:
-            type: string
-          type: array
-        schedule:
-          description: Recurring report schedule in RRULE format
-          type: string
-        scheduleEnabled:
-          description: Report scheduling enabled
-          type: boolean
-        timeRange:
-          allOf:
-          - $ref: '#/components/schemas/TimeRangeConfigModel'
-          - description: Time range
-      required:
-      - timeRange
-      type: object
-    ToNowTimeRangeConfigModel:
-      allOf:
-      - $ref: '#/components/schemas/TimeRangeConfigModel'
-      - description: Model for ToNowTimeRangeConfig
-        properties:
-          value:
-            description: Time range object
-            enum:
-            - MINUTE
-            - HOUR
-            - DAY
-            - WEEK
-            - MONTH
-            - YEAR
-            - EPOCH
-            - LOGIN
-            type: string
-        type: object
-    TimeRangeConfigModel:
-      description: 'See the [Time Range Model](/prisma-cloud/api/cspm/api-time-range-model) for details.
-
-        '
-      discriminator:
-        mapping:
-          absolute: '#/components/schemas/AbsoluteTimeRangeConfigModel'
-          relative: '#/components/schemas/RelativeTimeRangeConfigModel'
-          to_now: '#/components/schemas/ToNowTimeRangeConfigModel'
-        propertyName: type
-      oneOf:
-      - $ref: '#/components/schemas/RelativeTimeRangeConfigModel'
-      - $ref: '#/components/schemas/AbsoluteTimeRangeConfigModel'
-      - $ref: '#/components/schemas/ToNowTimeRangeConfigModel'
-      properties:
-        type:
-          description: Time type
-          type: string
-      required:
-      - type
-      type: object
-    RelativeTimeDurationModel:
-      description: Model for RelativeTimeDuration
-      properties:
-        amount:
-          description: Number of time units
-          format: int32
-          type: integer
-        unit:
-          description: Time unit
-          enum:
-          - minute
-          - hour
-          - day
-          - week
-          - month
-          - year
-          type: string
-      type: object
-    AbsoluteTimeRangeConfigModel:
-      allOf:
-      - $ref: '#/components/schemas/TimeRangeConfigModel'
-      - description: Model for AbsoluteTimeRangeConfig
-        properties:
-          type:
-            example: absolute
-            type: string
-          value:
-            allOf:
-            - $ref: '#/components/schemas/TimeModel'
-            - description: Time range object
-        required:
-        - value
-        type: object
-    FilterSuggestion:
-      description: Model for FilterSuggestion
-      properties:
-        nameValue:
-          description: Filter options
-          items:
-            $ref: '#/components/schemas/NameValueIntegerString'
-          type: array
-        options:
-          description: Filter options, which lists all the default options for static filters or all the recent options, if any, for non-static filters
-          items:
-            type: string
-          type: array
-          uniqueItems: true
-        staticFilter:
-          description: Filter is a static filter
-          type: boolean
-      type: object
-    ReportFilterSuggestion:
-      description: Model for ReportFilterSuggestion
-      properties:
-        account.group:
-          allOf:
-          - $ref: '#/components/schemas/FilterSuggestion'
-          - description: Account group
-        cloud.account:
-          allOf:
-          - $ref: '#/components/schemas/FilterSuggestion'
-          - description: Cloud account
-        cloud.region:
-          allOf:
-          - $ref: '#/components/schemas/FilterSuggestion'
-          - description: Cloud region
-        cloud.type:
-          allOf:
-          - $ref: '#/components/schemas/FilterSuggestion'
-          - readOnly: true
-        policy.complianceStandard:
-          allOf:
-          - $ref: '#/components/schemas/FilterSuggestion'
-          - description: Policy compliance standard
-        report.email.recipients:
-          allOf:
-          - $ref: '#/components/schemas/FilterSuggestion'
-          - description: Report email recepients
-        report.frequency:
-          allOf:
-          - $ref: '#/components/schemas/FilterSuggestion'
-          - readOnly: true
-        report.schedule:
-          allOf:
-          - $ref: '#/components/schemas/FilterSuggestion'
-          - readOnly: true
-        schedule.status:
-          allOf:
-          - $ref: '#/components/schemas/FilterSuggestion'
-          - readOnly: true
       type: object
     ReportGenerationConfigApiModel:
       description: Model for report generation configuration
@@ -827,6 +933,235 @@ components:
           description: Query is valid
           type: boolean
       type: object
+    ReportFilterSuggestion:
+      description: Model for ReportFilterSuggestion
+      properties:
+        account.group:
+          allOf:
+          - $ref: '#/components/schemas/FilterSuggestion'
+          - description: Account group
+        cloud.account:
+          allOf:
+          - $ref: '#/components/schemas/FilterSuggestion'
+          - description: Cloud account
+        cloud.region:
+          allOf:
+          - $ref: '#/components/schemas/FilterSuggestion'
+          - description: Cloud region
+        cloud.type:
+          allOf:
+          - $ref: '#/components/schemas/FilterSuggestion'
+          - readOnly: true
+        policy.complianceStandard:
+          allOf:
+          - $ref: '#/components/schemas/FilterSuggestion'
+          - description: Policy compliance standard
+        report.email.recipients:
+          allOf:
+          - $ref: '#/components/schemas/FilterSuggestion'
+          - description: Report email recepients
+        report.frequency:
+          allOf:
+          - $ref: '#/components/schemas/FilterSuggestion'
+          - readOnly: true
+        report.schedule:
+          allOf:
+          - $ref: '#/components/schemas/FilterSuggestion'
+          - readOnly: true
+        schedule.status:
+          allOf:
+          - $ref: '#/components/schemas/FilterSuggestion'
+          - readOnly: true
+      type: object
+    TimeModel:
+      description: Model for Time
+      properties:
+        endTime:
+          description: End timestamp
+          format: int64
+          type: integer
+        startTime:
+          description: Start timestamp
+          format: int64
+          type: integer
+      type: object
+    RelativeTimeRangeConfigModel:
+      allOf:
+      - $ref: '#/components/schemas/TimeRangeConfigModel'
+      - description: Model for RelativeTimeRangeConfig
+        properties:
+          relativeTimeType:
+            description: Direction in which to count time. Default = BACKWARD
+            enum:
+            - BACKWARD
+            - FORWARD
+            type: string
+          type:
+            example: relative
+            type: string
+          value:
+            allOf:
+            - $ref: '#/components/schemas/RelativeTimeDurationModel'
+            - description: Time range object
+        required:
+        - value
+        type: object
+    TimeRangeConfigModel:
+      description: 'See the [Time Range Model](/prisma-cloud/api/cspm/api-time-range-model) for details.
+
+        '
+      discriminator:
+        mapping:
+          absolute: '#/components/schemas/AbsoluteTimeRangeConfigModel'
+          relative: '#/components/schemas/RelativeTimeRangeConfigModel'
+          to_now: '#/components/schemas/ToNowTimeRangeConfigModel'
+        propertyName: type
+      oneOf:
+      - $ref: '#/components/schemas/RelativeTimeRangeConfigModel'
+      - $ref: '#/components/schemas/AbsoluteTimeRangeConfigModel'
+      - $ref: '#/components/schemas/ToNowTimeRangeConfigModel'
+      properties:
+        type:
+          description: Time type
+          type: string
+      required:
+      - type
+      type: object
+    RelativeTimeDurationModel:
+      description: Model for RelativeTimeDuration
+      properties:
+        amount:
+          description: Number of time units
+          format: int32
+          type: integer
+        unit:
+          description: Time unit
+          enum:
+          - minute
+          - hour
+          - day
+          - week
+          - month
+          - year
+          type: string
+      type: object
+    AbsoluteTimeRangeConfigModel:
+      allOf:
+      - $ref: '#/components/schemas/TimeRangeConfigModel'
+      - description: Model for AbsoluteTimeRangeConfig
+        properties:
+          type:
+            example: absolute
+            type: string
+          value:
+            allOf:
+            - $ref: '#/components/schemas/TimeModel'
+            - description: Time range object
+        required:
+        - value
+        type: object
+    ToNowTimeRangeConfigModel:
+      allOf:
+      - $ref: '#/components/schemas/TimeRangeConfigModel'
+      - description: Model for ToNowTimeRangeConfig
+        properties:
+          value:
+            description: Time range object
+            enum:
+            - MINUTE
+            - HOUR
+            - DAY
+            - WEEK
+            - MONTH
+            - YEAR
+            - EPOCH
+            - LOGIN
+            type: string
+        type: object
+    FilterSuggestion:
+      description: Model for FilterSuggestion
+      properties:
+        nameValue:
+          description: Filter options
+          items:
+            $ref: '#/components/schemas/NameValueIntegerString'
+          type: array
+        options:
+          description: Filter options, which lists all the default options for static filters or all the recent options, if any, for non-static filters
+          items:
+            type: string
+          type: array
+          uniqueItems: true
+        staticFilter:
+          description: Filter is a static filter
+          type: boolean
+      type: object
+    ReportTargetModel:
+      description: Model for report target
+      properties:
+        accountGroups:
+          description: List of cloud account groups
+          items:
+            type: string
+          type: array
+        accounts:
+          description: List of cloud accounts
+          items:
+            type: string
+          type: array
+        complianceStandardIds:
+          description: List of compliance Standard IDs
+          items:
+            type: string
+          type: array
+        compressionEnabled:
+          description: Business unit detailed report compression enabled
+          type: boolean
+        downloadNow:
+          description: True = download now
+          type: boolean
+        notificationTemplateId:
+          description: Notification template id
+          readOnly: true
+          type: string
+        notifyTo:
+          description: List of email addresses to receive notification
+          items:
+            type: string
+          type: array
+        regions:
+          description: List of regions
+          items:
+            type: string
+          type: array
+        schedule:
+          description: Recurring report schedule in RRULE format
+          type: string
+        scheduleEnabled:
+          description: Report scheduling enabled
+          type: boolean
+        timeRange:
+          allOf:
+          - $ref: '#/components/schemas/TimeRangeConfigModel'
+          - description: Time range
+      required:
+      - timeRange
+      type: object
+    UIFilterModel:
+      description: Model for UIFilter
+      properties:
+        name:
+          description: Name
+          type: string
+        operator:
+          description: Operator
+          enum:
+          - '='
+          type: string
+        value:
+          description: Value
+          type: string
+      type: object
     ComplianceAggregateCount:
       description: Model for compliance aggregate count
       properties:
@@ -871,129 +1206,50 @@ components:
           readOnly: true
           type: integer
       type: object
-    NameValueIntegerString:
+    BaseReportTargetModel:
+      description: Model for base report target
       properties:
-        id:
-          format: int32
-          type: integer
-        name:
-          type: string
-      type: object
-    TimeModel:
-      description: Model for Time
-      properties:
-        endTime:
-          description: End timestamp
-          format: int64
-          type: integer
-        startTime:
-          description: Start timestamp
-          format: int64
-          type: integer
-      type: object
-    UIFilterModel:
-      description: Model for UIFilter
-      properties:
-        name:
-          description: Name
-          type: string
-        operator:
-          description: Operator
-          enum:
-          - '='
-          type: string
-        value:
-          description: Value
-          type: string
-      type: object
-    BaseReportGenerationConfigApiModel:
-      description: Base Model for report generation configuration
-      properties:
-        cloudType:
-          description: Cloud type
-          enum:
-          - aws
-          - azure
-          - gcp
-          - alibaba_cloud
-          - oci
-          type: string
-        complianceStandardDeleted:
-          description: Compliance Standard Deleted
-          readOnly: true
+        accountGroups:
+          description: List of cloud account groups
+          items:
+            type: string
+          type: array
+        accounts:
+          description: List of cloud accounts
+          items:
+            type: string
+          type: array
+        complianceStandardIds:
+          description: List of compliance Standard IDs
+          items:
+            type: string
+          type: array
+        compressionEnabled:
+          description: Business unit detailed report compression enabled
           type: boolean
-        complianceStandardId:
-          description: Compliance standard ID
-          format: uuid
+        downloadNow:
+          description: True = download now
+          type: boolean
+        notificationTemplateId:
+          description: Notification template id
           readOnly: true
           type: string
-        counts:
-          allOf:
-          - $ref: '#/components/schemas/ComplianceAggregateCount'
-          - description: Model for compliance aggregate count
-            readOnly: true
-        createdBy:
-          description: User who created this report
-          readOnly: true
+        notifyTo:
+          description: List of email addresses to receive notification
+          items:
+            type: string
+          type: array
+        regions:
+          description: List of regions
+          items:
+            type: string
+          type: array
+        schedule:
+          description: Recurring report schedule in RRULE format
           type: string
-        createdOn:
-          description: Report created on this timestamp
-          format: int64
-          readOnly: true
-          type: integer
-        id:
-          description: Report ID
-          readOnly: true
-          type: string
-        lastModifiedBy:
-          description: Last modified by
-          readOnly: true
-          type: string
-        lastModifiedOn:
-          description: Timestamp of last modification
-          format: int64
-          readOnly: true
-          type: integer
-        lastScheduled:
-          description: Timestamp of last generated report
-          format: int64
-          readOnly: true
-          type: integer
-        locale:
-          description: Locale of caller (e.g. en_us, jp). Default is en_us.
-          type: string
-        name:
-          description: Report name
-          type: string
-        nextSchedule:
-          description: Timestamp of next scheduled report
-          format: int64
-          readOnly: true
-          type: integer
-        status:
-          description: Report generation status
-          readOnly: true
-          type: string
-        target:
-          allOf:
-          - $ref: '#/components/schemas/BaseReportTargetModel'
-          - description: Report definition
-        totalInstanceCount:
-          description: Total number of reports for the report ID
-          format: int32
-          readOnly: true
-          type: integer
-        type:
-          description: Report type. Default is COMPLIANCE.
-          enum:
-          - COMPLIANCE
-          - RIS
-          - INVENTORY_OVERVIEW
-          - INVENTORY_DETAIL
-          type: string
-      required:
-      - cloudType
-      - name
+        scheduleEnabled:
+          description: Report scheduling enabled
+          type: boolean
       type: object
     ReportGenerationConfigApiModel_2:
       description: Model for report generation configuration
@@ -1084,50 +1340,94 @@ components:
       - cloudType
       - name
       type: object
-    BaseReportTargetModel:
-      description: Model for base report target
+    BaseReportGenerationConfigApiModel:
+      description: Base Model for report generation configuration
       properties:
-        accountGroups:
-          description: List of cloud account groups
-          items:
-            type: string
-          type: array
-        accounts:
-          description: List of cloud accounts
-          items:
-            type: string
-          type: array
-        complianceStandardIds:
-          description: List of compliance Standard IDs
-          items:
-            type: string
-          type: array
-        compressionEnabled:
-          description: Business unit detailed report compression enabled
+        cloudType:
+          description: Cloud type
+          enum:
+          - aws
+          - azure
+          - gcp
+          - alibaba_cloud
+          - oci
+          type: string
+        complianceStandardDeleted:
+          description: Compliance Standard Deleted
+          readOnly: true
           type: boolean
-        downloadNow:
-          description: True = download now
-          type: boolean
-        notificationTemplateId:
-          description: Notification template id
+        complianceStandardId:
+          description: Compliance standard ID
+          format: uuid
           readOnly: true
           type: string
-        notifyTo:
-          description: List of email addresses to receive notification
-          items:
-            type: string
-          type: array
-        regions:
-          description: List of regions
-          items:
-            type: string
-          type: array
-        schedule:
-          description: Recurring report schedule in RRULE format
+        counts:
+          allOf:
+          - $ref: '#/components/schemas/ComplianceAggregateCount'
+          - description: Model for compliance aggregate count
+            readOnly: true
+        createdBy:
+          description: User who created this report
+          readOnly: true
           type: string
-        scheduleEnabled:
-          description: Report scheduling enabled
-          type: boolean
+        createdOn:
+          description: Report created on this timestamp
+          format: int64
+          readOnly: true
+          type: integer
+        id:
+          description: Report ID
+          readOnly: true
+          type: string
+        lastModifiedBy:
+          description: Last modified by
+          readOnly: true
+          type: string
+        lastModifiedOn:
+          description: Timestamp of last modification
+          format: int64
+          readOnly: true
+          type: integer
+        lastScheduled:
+          description: Timestamp of last generated report
+          format: int64
+          readOnly: true
+          type: integer
+        locale:
+          description: Locale of caller (e.g. en_us, jp). Default is en_us.
+          type: string
+        name:
+          description: Report name
+          type: string
+        nextSchedule:
+          description: Timestamp of next scheduled report
+          format: int64
+          readOnly: true
+          type: integer
+        status:
+          description: Report generation status
+          readOnly: true
+          type: string
+        target:
+          allOf:
+          - $ref: '#/components/schemas/BaseReportTargetModel'
+          - description: Report definition
+        totalInstanceCount:
+          description: Total number of reports for the report ID
+          format: int32
+          readOnly: true
+          type: integer
+        type:
+          description: Report type. Default is COMPLIANCE.
+          enum:
+          - COMPLIANCE
+          - RIS
+          - INVENTORY_OVERVIEW
+          - INVENTORY_DETAIL
+          type: string
+      required:
+      - cloudType
+      - name
       type: object
     UIFilterModel_2:
       description: Model for UIFilter
@@ -1144,12 +1444,454 @@ components:
           description: Value
           type: string
       type: object
+    IncidentSummary:
+      type: object
+      properties:
+        total_incidents:
+          type: integer
+          description: Total number of incidents in the reporting period.
+          example: 619
+        open_incidents:
+          type: integer
+          description: Number of incidents still in open status.
+          example: 195
+        resolved_incidents:
+          type: integer
+          description: Number of resolved incidents.
+          example: 393
+        by_severity:
+          type: object
+          properties:
+            critical:
+              type: integer
+              example: 256
+            high:
+              type: integer
+              example: 125
+            medium:
+              type: integer
+              example: 374
+            low:
+              type: integer
+              example: 290
+            informational:
+              type: integer
+              example: 50
+          description: Incident count breakdown by severity.
+          example:
+            critical: 30
+            high: 424
+            medium: 932
+            low: 723
+            informational: 986
+        by_channel:
+          type: object
+          properties:
+            web:
+              type: integer
+              example: 645
+            ssl:
+              type: integer
+              example: 738
+            saas:
+              type: integer
+              example: 323
+            email:
+              type: integer
+              example: 838
+            endpoint:
+              type: integer
+              example: 664
+          description: Incident count breakdown by detection channel.
+          example:
+            web: 358
+            ssl: 453
+            saas: 815
+            email: 786
+            endpoint: 131
+        top_data_patterns:
+          type: array
+          items:
+            type: object
+            properties:
+              pattern_name:
+                type: string
+                example: Corporate Firewall 91
+              incident_count:
+                type: integer
+                example: 629
+          description: Most frequently triggered data patterns.
+          example:
+          - pattern_name: Production Sensor 38
+            incident_count: 299
+        top_users:
+          type: array
+          items:
+            type: object
+            properties:
+              user:
+                type: string
+                example: example-user
+              incident_count:
+                type: integer
+                example: 403
+          description: Users with the most incidents.
+          example:
+          - user: example-user
+            incident_count: 609
+          - user: example-user
+            incident_count: 164
+        reporting_period:
+          type: object
+          properties:
+            start_time:
+              type: string
+              format: date-time
+              example: '2024-04-04T07:15:01Z'
+            end_time:
+              type: string
+              format: date-time
+              example: '2024-04-24T08:10:19Z'
+          description: Time range for the summary report.
+          example:
+            start_time: '2024-09-15T06:09:00Z'
+            end_time: '2026-07-19T16:10:14Z'
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code or type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable error message.
+          example: Policy blocked rule alert configured traffic Security activity.
+    AssetReport:
+      type: object
+      properties:
+        total_devices:
+          type: integer
+          description: Total number of discovered devices.
+          example: 646
+        monitored_devices:
+          type: integer
+          description: Number of actively monitored devices.
+          example: 724
+        by_category:
+          type: object
+          description: Device count breakdown by category.
+          additionalProperties:
+            type: integer
+          example: {}
+        by_risk_level:
+          type: object
+          description: Device count breakdown by risk level.
+          properties:
+            critical:
+              type: integer
+              example: 399
+            high:
+              type: integer
+              example: 441
+            medium:
+              type: integer
+              example: 911
+            low:
+              type: integer
+              example: 769
+          example:
+            critical: 372
+            high: 696
+            medium: 301
+            low: 206
+        by_site:
+          type: array
+          items:
+            type: object
+            properties:
+              site:
+                type: string
+                example: HQ-SanFrancisco
+              device_count:
+                type: integer
+                example: 930
+          description: Device count breakdown by network site.
+          example:
+          - site: HQ-SanFrancisco
+            device_count: 327
+        top_profiles:
+          type: array
+          items:
+            type: object
+            properties:
+              profile:
+                type: string
+                example: Network Printer
+              device_count:
+                type: integer
+                example: 267
+          description: Most common device profiles.
+          example:
+          - profile: Network Printer
+            device_count: 597
+        report_time:
+          type: string
+          format: date-time
+          description: Timestamp when the report was generated.
+          example: '2025-03-06T06:54:38Z'
+    ErrorResponse_2:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code or type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable error message.
+          example: Monitoring traffic activity network investigation investigation network policy traffic violation rule rule.
+    Report:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique report identifier.
+          example: example-id
+        name:
+          type: string
+          description: Report name.
+          example: Production Agent 34
+        type:
+          type: string
+          description: Report type.
+          enum:
+          - RIS
+          - COMPLIANCE
+          - ALERT
+          example: COMPLIANCE
+        status:
+          type: string
+          enum:
+          - pending
+          - processing
+          - completed
+          - failed
+          description: Current report generation status.
+          example: failed
+        createdOn:
+          type: integer
+          description: Epoch timestamp when the report was created.
+          example: 972
+        lastModifiedOn:
+          type: integer
+          description: Epoch timestamp of last modification.
+          example: 196
+        downloadUrl:
+          type: string
+          description: URL for downloading the completed report.
+          example: example-downloadUrl
+    UsageReport:
+      type: object
+      properties:
+        period:
+          type: object
+          properties:
+            start:
+              type: string
+              format: date
+              example: '2025-07-03'
+            end:
+              type: string
+              format: date
+              example: '2024-01-15'
+          example:
+            start: '2025-02-09'
+            end: '2025-07-27'
+        active_users:
+          type: integer
+          description: Number of unique active users during the period.
+          example: 489
+        total_sessions:
+          type: integer
+          description: Total browser sessions started during the period.
+          example: 336
+        data_transferred_gb:
+          type: number
+          format: float
+          description: Total data transferred through the browser in GB.
+          example: 1.65
+        threats_blocked:
+          type: integer
+          description: Number of threats blocked by the browser.
+          example: 211
+        dlp_events:
+          type: integer
+          description: Number of DLP policy events triggered.
+          example: 404
+        data_points:
+          type: array
+          description: Time-series data points for the report.
+          items:
+            type: object
+            properties:
+              timestamp:
+                type: string
+                format: date-time
+                example: '2026-04-21T12:03:31Z'
+              active_users:
+                type: integer
+                example: 967
+              sessions:
+                type: integer
+                example: 55
+          example:
+          - timestamp: '2026-04-05T18:42:10Z'
+            active_users: 55
+            sessions: 417
+          - timestamp: '2025-12-14T19:49:02Z'
+            active_users: 469
+            sessions: 309
+    ErrorResponse_4:
+      type: object
+      properties:
+        status:
+          type: integer
+          description: HTTP status code.
+          example: 747
+        message:
+          type: string
+          description: Human-readable error message.
+          example: Traffic violation investigation monitoring policy incident applied threat monitoring alert.
+        error:
+          type: string
+          description: Error code.
+          example: example-error
+    ErrorResponse_3:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code identifying the error type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable description of the error.
+          example: Suspicious detected incident malware activity traffic traffic.
+        request_id:
+          type: string
+          description: Request identifier for support correlation.
+          example: a6ecb027-74a1-4efb-9882-cb98e9bab4bf
+    ErrorResponse_5:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code identifying the error type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable description of the error.
+          example: Suspicious detected incident malware activity traffic traffic.
+        request_id:
+          type: string
+          description: Request identifier for support correlation.
+          example: a6ecb027-74a1-4efb-9882-cb98e9bab4bf
+    ErrorResponse_6:
+      type: object
+      properties:
+        status:
+          type: integer
+          description: HTTP status code.
+          example: 747
+        message:
+          type: string
+          description: Human-readable error message.
+          example: Traffic violation investigation monitoring policy incident applied threat monitoring alert.
+        error:
+          type: string
+          description: Error code.
+          example: example-error
+  responses:
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Invalid request parameters or body.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Invalid or expired bearer token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest_2:
+      description: Invalid request parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_2'
+    Unauthorized_2:
+      description: Invalid or missing API keys.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_2'
+    Unauthorized_3:
+      description: Invalid or expired JWT token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_4'
+    Unauthorized_4:
+      description: Invalid or expired JWT token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_6'
   securitySchemes:
     x-redlock-auth:
       description: The x-redlock-auth value is a JSON Web Token (JWT).
       in: header
       name: x-redlock-auth
       type: apiKey
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 bearer token obtained from the Palo Alto Networks SASE authentication service using the client credentials flow.
+    keyId:
+      type: apiKey
+      in: header
+      name: X-Key-Id
+      description: IoT Security API key identifier. Generated from the IoT Security portal under Settings > API Keys.
+    accessKey:
+      type: apiKey
+      in: header
+      name: X-Access-Key
+      description: IoT Security API access key. Generated alongside the key identifier from the IoT Security portal.
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
 x-refined-from:
 - palo-alto-cspm-consolidated-spec-cspm-spec-openapi.json
 - palo-alto-cspm-reports-openapi.json
+- palo-alto-dlp-api-openapi-original.yml
+- palo-alto-iot-security-api-openapi-original.yml
+- palo-alto-networks-reports-api-openapi.yml
+- palo-alto-prisma-access-browser-api-openapi-original.yml
+- palo-alto-prisma-cloud-cspm-api-openapi-original.yml

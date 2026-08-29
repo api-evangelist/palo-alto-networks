@@ -1,0 +1,289 @@
+openapi: 3.2.0
+info:
+  title: Palo Alto Networks Prefix Lists API
+  version: '1.0'
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+  description: 'Operations tagged PrefixLists across 2 of this provider''s published API definitions: palo-alto-cloud-ngfw-api-openapi-original.yml, palo-alto-networks-prefixlists-api-openapi.yml. Each path carries the servers of the definition it was published in.'
+servers:
+- url: https://api.{region}.aws.cloudngfw.paloaltonetworks.com/v1
+  description: Cloud NGFW for AWS regional API endpoint.
+  variables:
+    region:
+      description: AWS region where Cloud NGFW is deployed (e.g., us-east-1, us-west-2, eu-west-1).
+      default: us-east-1
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+tags:
+- name: PrefixLists
+  description: IP prefix list management for use in security rule source and destination criteria.
+paths:
+  /config/rulestacks/{rulestack}/prefixlists:
+    get:
+      operationId: listPrefixLists
+      summary: Palo Alto Networks List Prefix Lists
+      description: Returns all IP prefix lists in the specified rule stack. Prefix lists contain CIDR block entries used as source or destination criteria in security rules.
+      tags:
+      - PrefixLists
+      parameters:
+      - $ref: '#/components/parameters/rulestack'
+      - name: maxresults
+        in: query
+        schema:
+          type: integer
+          default: 100
+        example: 100
+      - name: nexttoken
+        in: query
+        schema:
+          type: string
+        example: example-nexttoken
+      responses:
+        '200':
+          description: Prefix lists returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: object
+                    properties:
+                      PrefixListCandidates:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PrefixListSummary'
+                      NextToken:
+                        type: string
+                  ResponseStatus:
+                    $ref: '#/components/schemas/ResponseStatus'
+              examples:
+                ListPrefixLists200Example:
+                  summary: Default listPrefixLists 200 response
+                  x-microcks-default: true
+                  value:
+                    Response:
+                      PrefixListCandidates:
+                      - PrefixListName: Staging Sensor 53
+                      NextToken: example-NextToken
+                    ResponseStatus:
+                      ErrorCode: 0
+                      Reason: ''
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - awsSigV4: []
+    post:
+      operationId: createPrefixList
+      summary: Palo Alto Networks Create Prefix List
+      description: Creates a new IP prefix list in the rule stack with a set of CIDR entries.
+      tags:
+      - PrefixLists
+      parameters:
+      - $ref: '#/components/parameters/rulestack'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrefixListRequest'
+            examples:
+              CreatePrefixListRequestExample:
+                summary: Default createPrefixList request
+                x-microcks-default: true
+                value:
+                  PrefixListName: Primary Agent 32
+                  PrefixListEntry:
+                    Description: Incident monitoring rule incident violation activity.
+                    PrefixList:
+                    - example-PrefixList_item
+      responses:
+        '200':
+          description: Prefix list created successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    $ref: '#/components/schemas/PrefixList'
+                  ResponseStatus:
+                    $ref: '#/components/schemas/ResponseStatus'
+              examples:
+                CreatePrefixList200Example:
+                  summary: Default createPrefixList 200 response
+                  x-microcks-default: true
+                  value:
+                    Response:
+                      PrefixListName: Production Sensor 34
+                      PrefixListEntry:
+                        Description: Traffic configured policy applied blocked detected violation investigation suspicious threat.
+                        PrefixList:
+                        - example-PrefixList_item
+                        - example-PrefixList_item
+                      UpdateToken: example-UpdateToken
+                    ResponseStatus:
+                      ErrorCode: 0
+                      Reason: ''
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - awsSigV4: []
+    servers:
+    - url: https://api.{region}.aws.cloudngfw.paloaltonetworks.com/v1
+      description: Cloud NGFW for AWS regional API endpoint.
+      variables:
+        region:
+          description: AWS region where Cloud NGFW is deployed (e.g., us-east-1, us-west-2, eu-west-1).
+          default: us-east-1
+components:
+  parameters:
+    rulestack:
+      name: rulestack
+      in: path
+      required: true
+      description: Name of the rule stack.
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: Malformed request or invalid parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid AWS credentials.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: A resource with the specified name already exists or cannot be modified.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    PrefixListRequest:
+      type: object
+      required:
+      - PrefixListName
+      - PrefixListEntry
+      properties:
+        PrefixListName:
+          type: string
+          example: Primary Agent 32
+        PrefixListEntry:
+          type: object
+          required:
+          - PrefixList
+          properties:
+            Description:
+              type: string
+              example: Applied Security policy firewall applied alert.
+            PrefixList:
+              type: array
+              items:
+                type: string
+              example:
+              - example-PrefixList_item
+          example:
+            Description: Incident monitoring rule incident violation activity.
+            PrefixList:
+            - example-PrefixList_item
+    ErrorResponse:
+      type: object
+      properties:
+        ResponseStatus:
+          type: object
+          properties:
+            ErrorCode:
+              type: integer
+              example: 869
+            Reason:
+              type: string
+              example: Blocked investigation activity firewall activity malware network on applied.
+          example:
+            ErrorCode: 719
+            Reason: Alert incident applied violation rule blocked alert violation incident suspicious suspicious.
+    PrefixListSummary:
+      type: object
+      properties:
+        PrefixListName:
+          type: string
+          example: Staging Sensor 53
+    ResponseStatus:
+      type: object
+      description: Standard API response status envelope included in all responses.
+      properties:
+        ErrorCode:
+          type: integer
+          description: Error code. 0 indicates success.
+          example: 0
+        Reason:
+          type: string
+          description: Human-readable status message.
+          example: ''
+    PrefixList:
+      type: object
+      description: An IP prefix list containing CIDR entries for use in security rule source and destination criteria.
+      properties:
+        PrefixListName:
+          type: string
+          example: Production Sensor 34
+        PrefixListEntry:
+          type: object
+          properties:
+            Description:
+              type: string
+              example: Alert on investigation incident blocked Security blocked rule policy.
+            PrefixList:
+              type: array
+              items:
+                type: string
+              description: CIDR block entries (e.g., 10.0.0.0/8, 192.168.0.0/16).
+              example:
+              - example-PrefixList_item
+              - example-PrefixList_item
+          example:
+            Description: Traffic configured policy applied blocked detected violation investigation suspicious threat.
+            PrefixList:
+            - example-PrefixList_item
+            - example-PrefixList_item
+        UpdateToken:
+          type: string
+          example: example-UpdateToken
+  securitySchemes:
+    awsSigV4:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: AWS Signature Version 4 (SigV4) signed request. Use an AWS IAM role or user with CloudNGFW IAM permissions. Sign requests using the service name cloudngfw and the target AWS region. Include x-amz-date and x-amz-security-token headers as required.
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
+x-refined-from:
+- palo-alto-cloud-ngfw-api-openapi-original.yml
+- palo-alto-networks-prefixlists-api-openapi.yml

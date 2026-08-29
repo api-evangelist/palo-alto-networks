@@ -1,0 +1,204 @@
+openapi: 3.2.0
+info:
+  title: Palo Alto Networks Release Notes API
+  version: '1.0'
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+  description: 'Operations tagged ReleaseNotes across 2 of this provider''s published API definitions: palo-alto-networks-releasenotes-api-openapi.yml, palo-alto-threat-vault-api-openapi-original.yml. Each path carries the servers of the definition it was published in.'
+servers:
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+- url: https://api.threatvault.paloaltonetworks.com/service/v1
+  description: Threat Vault API production endpoint.
+tags:
+- name: ReleaseNotes
+  description: Content release notes for PAN-OS content updates.
+paths:
+  /release-notes:
+    get:
+      operationId: getReleaseNotes
+      summary: Palo Alto Networks Get Content Release Notes
+      description: Retrieves content release notes for PAN-OS content updates including Applications and Threats, Antivirus, and WildFire content packages. Release notes describe new signatures, modified signatures, and deprecated signatures included in each content version.
+      tags:
+      - ReleaseNotes
+      parameters:
+      - name: type
+        in: query
+        required: true
+        description: Content release type.
+        schema:
+          type: string
+          enum:
+          - content
+          - antivirus
+          - wildfire
+        example: antivirus
+      - name: version
+        in: query
+        description: Specific content version to retrieve notes for (e.g., 8000-7000).
+        schema:
+          type: string
+        example: 1.5.2
+      - name: offset
+        in: query
+        schema:
+          type: integer
+          default: 0
+        example: 0
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 10
+          maximum: 100
+        example: 10
+      responses:
+        '200':
+          description: Release notes returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseNotesList'
+              examples:
+                GetReleaseNotes200Example:
+                  summary: Default getReleaseNotes 200 response
+                  x-microcks-default: true
+                  value:
+                    success: true
+                    data:
+                    - version: 10.5.6
+                      type: wildfire
+                      release_date: '2024-11-03'
+                      new_signatures: 835
+                      modified_signatures: 48
+                      deprecated_signatures: 698
+                      notes: Traffic threat Security applied network alert violation.
+                    total: 124
+                    offset: 201
+                    limit: 455
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
+components:
+  schemas:
+    ReleaseNotesList:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReleaseNote'
+          example:
+          - version: 10.5.6
+            type: wildfire
+            release_date: '2024-11-03'
+            new_signatures: 835
+            modified_signatures: 48
+            deprecated_signatures: 698
+            notes: Traffic threat Security applied network alert violation.
+        total:
+          type: integer
+          example: 124
+        offset:
+          type: integer
+          example: 201
+        limit:
+          type: integer
+          example: 455
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          description: Human-readable error message.
+          example: Threat applied violation endpoint activity violation activity incident applied.
+        error_code:
+          type: string
+          description: Machine-readable error code.
+          example: example-error_code
+    ReleaseNote:
+      type: object
+      description: Content release notes for a specific PAN-OS content version.
+      properties:
+        version:
+          type: string
+          description: Content version identifier (e.g., 8000-7000).
+          example: 10.5.6
+        type:
+          type: string
+          enum:
+          - content
+          - antivirus
+          - wildfire
+          example: wildfire
+        release_date:
+          type: string
+          format: date
+          example: '2024-11-03'
+        new_signatures:
+          type: integer
+          description: Number of new signatures in this release.
+          example: 835
+        modified_signatures:
+          type: integer
+          description: Number of modified signatures in this release.
+          example: 48
+        deprecated_signatures:
+          type: integer
+          description: Number of deprecated signatures in this release.
+          example: 698
+        notes:
+          type: string
+          description: Release notes text.
+          example: Traffic threat Security applied network alert violation.
+  responses:
+    BadRequest:
+      description: Malformed request or invalid query parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid API key.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  securitySchemes:
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+      description: Threat Vault API key. Generate your API key from the Palo Alto Networks customer support portal or the Developer Portal at pan.dev. The API key controls access level and daily quota limits.
+x-refined-from:
+- palo-alto-networks-releasenotes-api-openapi.yml
+- palo-alto-threat-vault-api-openapi-original.yml

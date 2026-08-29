@@ -1,14 +1,372 @@
 openapi: 3.2.0
 info:
-  title: SSPM Management Apps API
-  version: 1.0.0
-  description: © 2025 Palo Alto Networks, Inc This Open API spec file was created on March 02, 2026. © 2026 Palo Alto Networks, Inc. Palo Alto Networks is a registered trademark of Palo Alto Networks. A list of our trademarks can be found at [https://www.paloaltonetworks.com/company/trademarks.html](https://www.paloaltonetworks.com/company/trademarks.html). All other marks mentioned herein may be trademarks of their respective companies.
+  title: Palo Alto Networks Apps API
+  version: '1.0'
+  description: 'Operations tagged Apps across 3 of this provider''s published API definitions: palo-alto-networks-apps-api-openapi.yml, palo-alto-sase-sspm-consolidated-sspm-new-openapi.yaml, palo-alto-sspm-api-openapi-original.yml. Each path carries the servers of the definition it was published in.'
 servers:
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
 - url: https://api.sase.paloaltonetworks.com
 - url: https://api.strata.paloaltonetworks.com
+- url: https://api.sase.paloaltonetworks.com/sspm
+  description: SASE SSPM API production server.
 tags:
 - name: Apps
+  description: SaaS application onboarding and management.
 paths:
+  /v1/apps:
+    get:
+      operationId: listOnboardedApps
+      summary: Palo Alto Networks List Onboarded SaaS Applications
+      description: Returns the list of SaaS applications that have been onboarded to SSPM for posture assessment. Each entry includes the application type, connection status, and summary counts of posture check results by severity.
+      tags:
+      - Apps
+      parameters:
+      - name: status
+        in: query
+        description: Filter applications by connection status.
+        schema:
+          type: string
+          enum:
+          - connected
+          - disconnected
+          - pending
+          - error
+        example: disconnected
+      - name: offset
+        in: query
+        description: Number of results to skip for pagination.
+        schema:
+          type: integer
+          default: 0
+        example: 0
+      - name: limit
+        in: query
+        description: Maximum number of applications to return.
+        schema:
+          type: integer
+          default: 50
+          maximum: 200
+        example: 50
+      responses:
+        '200':
+          description: Onboarded applications returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OnboardedApp'
+              examples:
+                ListOnboardedApps200Example:
+                  summary: Default listOnboardedApps 200 response
+                  x-microcks-default: true
+                  value:
+                    total: 694
+                    offset: 752
+                    limit: 416
+                    items:
+                    - app_id: '621838'
+                      app_type: standard
+                      display_name: Sarah Doe
+                      status: error
+                      tenant_id: tenant-34be8834
+                      check_summary:
+                        critical: 904
+                        high: 463
+                        medium: 193
+                        low: 762
+                        pass: 336
+                      last_scanned_at: '2026-06-23T07:17:30Z'
+                      onboarded_at: '2026-07-05T03:34:39Z'
+                    - app_id: '621838'
+                      app_type: standard
+                      display_name: Sarah Doe
+                      status: error
+                      tenant_id: tenant-34be8834
+                      check_summary:
+                        critical: 904
+                        high: 463
+                        medium: 193
+                        low: 762
+                        pass: 336
+                      last_scanned_at: '2026-06-23T07:17:30Z'
+                      onboarded_at: '2026-07-05T03:34:39Z'
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                ListOnboardedApps400Example:
+                  summary: Default listOnboardedApps 400 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Malware violation rule blocked detected endpoint policy detected.
+                    request_id: f7942ddd-4571-4f6e-a8a1-00c0f9d7dfb4
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                ListOnboardedApps401Example:
+                  summary: Default listOnboardedApps 401 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Malware violation rule blocked detected endpoint policy detected.
+                    request_id: f7942ddd-4571-4f6e-a8a1-00c0f9d7dfb4
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                ListOnboardedApps403Example:
+                  summary: Default listOnboardedApps 403 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Malware violation rule blocked detected endpoint policy detected.
+                    request_id: f7942ddd-4571-4f6e-a8a1-00c0f9d7dfb4
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                ListOnboardedApps500Example:
+                  summary: Default listOnboardedApps 500 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Malware violation rule blocked detected endpoint policy detected.
+                    request_id: f7942ddd-4571-4f6e-a8a1-00c0f9d7dfb4
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    post:
+      operationId: onboardApp
+      summary: Palo Alto Networks Onboard New Application
+      description: Onboards a new SaaS application to SSPM for posture assessment. Requires specifying the application type and providing the OAuth consent or API credentials needed to connect to the application. After onboarding, SSPM performs an initial posture scan.
+      tags:
+      - Apps
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OnboardAppRequest'
+            examples:
+              OnboardAppRequestExample:
+                summary: Default onboardApp request
+                x-microcks-default: true
+                value:
+                  app_type: standard
+                  display_name: Alex Garcia
+                  credentials: {}
+      responses:
+        '201':
+          description: Application onboarded successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardedApp'
+              examples:
+                OnboardApp201Example:
+                  summary: Default onboardApp 201 response
+                  x-microcks-default: true
+                  value:
+                    app_id: '621838'
+                    app_type: standard
+                    display_name: Sarah Doe
+                    status: error
+                    tenant_id: tenant-34be8834
+                    check_summary:
+                      critical: 904
+                      high: 463
+                      medium: 193
+                      low: 762
+                      pass: 336
+                    last_scanned_at: '2026-06-23T07:17:30Z'
+                    onboarded_at: '2026-07-05T03:34:39Z'
+        '400':
+          description: Invalid request body or unsupported application type.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                OnboardApp400Example:
+                  summary: Default onboardApp 400 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Malware violation rule blocked detected endpoint policy detected.
+                    request_id: f7942ddd-4571-4f6e-a8a1-00c0f9d7dfb4
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                OnboardApp401Example:
+                  summary: Default onboardApp 401 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Malware violation rule blocked detected endpoint policy detected.
+                    request_id: f7942ddd-4571-4f6e-a8a1-00c0f9d7dfb4
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                OnboardApp403Example:
+                  summary: Default onboardApp 403 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Malware violation rule blocked detected endpoint policy detected.
+                    request_id: f7942ddd-4571-4f6e-a8a1-00c0f9d7dfb4
+        '409':
+          description: Application of this type is already onboarded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                OnboardApp409Example:
+                  summary: Default onboardApp 409 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Malware violation rule blocked detected endpoint policy detected.
+                    request_id: f7942ddd-4571-4f6e-a8a1-00c0f9d7dfb4
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                OnboardApp500Example:
+                  summary: Default onboardApp 500 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Malware violation rule blocked detected endpoint policy detected.
+                    request_id: f7942ddd-4571-4f6e-a8a1-00c0f9d7dfb4
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
+  /v1/apps/{app_id}:
+    delete:
+      operationId: removeApp
+      summary: Palo Alto Networks Remove Onboarded Application
+      description: Removes a previously onboarded SaaS application from SSPM. This stops posture scanning for the application and removes all associated check results. This action cannot be undone.
+      tags:
+      - Apps
+      parameters:
+      - name: app_id
+        in: path
+        required: true
+        description: Unique identifier of the onboarded application.
+        schema:
+          type: string
+        example: '293827'
+      responses:
+        '204':
+          description: Application removed successfully.
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                RemoveApp401Example:
+                  summary: Default removeApp 401 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Malware violation rule blocked detected endpoint policy detected.
+                    request_id: f7942ddd-4571-4f6e-a8a1-00c0f9d7dfb4
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                RemoveApp403Example:
+                  summary: Default removeApp 403 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Malware violation rule blocked detected endpoint policy detected.
+                    request_id: f7942ddd-4571-4f6e-a8a1-00c0f9d7dfb4
+        '404':
+          description: Application not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                RemoveApp404Example:
+                  summary: Default removeApp 404 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Malware violation rule blocked detected endpoint policy detected.
+                    request_id: f7942ddd-4571-4f6e-a8a1-00c0f9d7dfb4
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                RemoveApp500Example:
+                  summary: Default removeApp 500 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Malware violation rule blocked detected endpoint policy detected.
+                    request_id: f7942ddd-4571-4f6e-a8a1-00c0f9d7dfb4
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
   /sspm/api/v1/apps:
     get:
       summary: Registered Application
@@ -48,6 +406,9 @@ paths:
           type: string
       tags:
       - Apps
+    servers:
+    - url: https://api.sase.paloaltonetworks.com
+    - url: https://api.strata.paloaltonetworks.com
   /sspm/api/v1/apps/{app_id}:
     get:
       summary: Application Details
@@ -78,6 +439,9 @@ paths:
           type: string
       tags:
       - Apps
+    servers:
+    - url: https://api.sase.paloaltonetworks.com
+    - url: https://api.strata.paloaltonetworks.com
   /sspm/api/v1/apps/{app_id}/configs:
     get:
       summary: Application Configuration Details
@@ -110,6 +474,9 @@ paths:
           type: string
       tags:
       - Apps
+    servers:
+    - url: https://api.sase.paloaltonetworks.com
+    - url: https://api.strata.paloaltonetworks.com
   /sspm/api/v1/apps/{app_id}/settings:
     get:
       summary: Application Settings Details
@@ -142,26 +509,161 @@ paths:
           type: string
       tags:
       - Apps
+    servers:
+    - url: https://api.sase.paloaltonetworks.com
+    - url: https://api.strata.paloaltonetworks.com
 components:
   schemas:
-    FeatureState:
+    OnboardAppRequest:
+      type: object
+      required:
+      - app_type
       properties:
+        app_type:
+          type: string
+          description: Application type to onboard (e.g., google_workspace, microsoft_365, salesforce).
+          example: standard
+        display_name:
+          type: string
+          description: Optional display name for this application instance.
+          example: Alex Garcia
+        credentials:
+          type: object
+          description: Authentication credentials required to connect to the application.
+          additionalProperties: true
+          example: {}
+    OnboardedApp:
+      type: object
+      properties:
+        app_id:
+          type: string
+          description: Unique identifier for the onboarded application.
+          example: '621838'
+        app_type:
+          type: string
+          description: Application type identifier (e.g., google_workspace, microsoft_365).
+          example: standard
+        display_name:
+          type: string
+          description: Human-readable name for the onboarded application instance.
+          example: Sarah Doe
+        status:
+          type: string
+          enum:
+          - connected
+          - disconnected
+          - pending
+          - error
+          description: Current connection status.
+          example: error
+        tenant_id:
+          type: string
+          description: Tenant or domain identifier within the SaaS application.
+          example: tenant-34be8834
+        check_summary:
+          type: object
+          description: Summary counts of posture check results by severity.
+          properties:
+            critical:
+              type: integer
+              example: 195
+            high:
+              type: integer
+              example: 699
+            medium:
+              type: integer
+              example: 127
+            low:
+              type: integer
+              example: 223
+            pass:
+              type: integer
+              example: 442
+          example:
+            critical: 904
+            high: 463
+            medium: 193
+            low: 762
+            pass: 336
         last_scanned_at:
+          type: string
           format: date-time
+          description: Timestamp of the most recent posture scan.
+          example: '2026-06-23T07:17:30Z'
+        onboarded_at:
+          type: string
+          format: date-time
+          description: Timestamp when the application was onboarded.
+          example: '2026-07-05T03:34:39Z'
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code identifying the error type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable description of the error.
+          example: Malware violation rule blocked detected endpoint policy detected.
+        request_id:
+          type: string
+          description: Request identifier for support correlation.
+          example: f7942ddd-4571-4f6e-a8a1-00c0f9d7dfb4
+    Config:
+      properties:
+        app_id:
+          type: string
+        category:
+          type: string
+        common_control_id:
+          type: string
+        config_id:
+          type: string
+        console_url:
+          type: string
+        current_value:
+          type: string
+        description:
+          type: string
+        descriptionUrl:
+          type: string
+        id:
+          type: string
+        locked:
+          type: boolean
+        locked_value:
+          type: string
+        monitored:
+          type: boolean
+        monitored_attestation:
+          type: string
+        name:
+          type: string
+        operator:
+          type: string
+        operator_display_value:
+          type: string
+        overridden:
+          type: boolean
+        overridden_value:
+          type: string
+        recommended_value:
+          type: string
+        remediation_enabled:
+          type: boolean
+        remediation_steps:
           type: string
         status:
-          enum:
-          - UNKNOWN
-          - OK
-          - UNHEALTHY
-          - AUTH_REQUIRED
-          - SCANNING
           type: string
-        status_details:
+        subcategory:
           type: string
-        updated_at:
-          format: date-time
+        tenant:
           type: string
+        tickets:
+          items:
+            $ref: '#/components/schemas/Ticket'
+          type: array
       type: object
     Application:
       properties:
@@ -246,82 +748,6 @@ components:
         type:
           type: string
       type: object
-    Config:
-      properties:
-        app_id:
-          type: string
-        category:
-          type: string
-        common_control_id:
-          type: string
-        config_id:
-          type: string
-        console_url:
-          type: string
-        current_value:
-          type: string
-        description:
-          type: string
-        descriptionUrl:
-          type: string
-        id:
-          type: string
-        locked:
-          type: boolean
-        locked_value:
-          type: string
-        monitored:
-          type: boolean
-        monitored_attestation:
-          type: string
-        name:
-          type: string
-        operator:
-          type: string
-        operator_display_value:
-          type: string
-        overridden:
-          type: boolean
-        overridden_value:
-          type: string
-        recommended_value:
-          type: string
-        remediation_enabled:
-          type: boolean
-        remediation_steps:
-          type: string
-        status:
-          type: string
-        subcategory:
-          type: string
-        tenant:
-          type: string
-        tickets:
-          items:
-            $ref: '#/components/schemas/Ticket'
-          type: array
-      type: object
-    Ticket:
-      properties:
-        createdAt:
-          format: date-time
-          type: string
-        integrationId:
-          type: string
-        summary:
-          type: string
-        tenant:
-          type: string
-        ticketKey:
-          type: string
-        ticketUrl:
-          type: string
-        type:
-          enum:
-          - JIRA_TICKETING
-          - SNOW_TICKETING
-          type: string
-      type: object
     ApplicationPage:
       properties:
         items:
@@ -352,3 +778,53 @@ components:
       - full_name
       - user_id
       type: object
+    FeatureState:
+      properties:
+        last_scanned_at:
+          format: date-time
+          type: string
+        status:
+          enum:
+          - UNKNOWN
+          - OK
+          - UNHEALTHY
+          - AUTH_REQUIRED
+          - SCANNING
+          type: string
+        status_details:
+          type: string
+        updated_at:
+          format: date-time
+          type: string
+      type: object
+    Ticket:
+      properties:
+        createdAt:
+          format: date-time
+          type: string
+        integrationId:
+          type: string
+        summary:
+          type: string
+        tenant:
+          type: string
+        ticketKey:
+          type: string
+        ticketUrl:
+          type: string
+        type:
+          enum:
+          - JIRA_TICKETING
+          - SNOW_TICKETING
+          type: string
+      type: object
+  securitySchemes:
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
+x-refined-from:
+- palo-alto-networks-apps-api-openapi.yml
+- palo-alto-sase-sspm-consolidated-sspm-new-openapi.yaml
+- palo-alto-sspm-api-openapi-original.yml

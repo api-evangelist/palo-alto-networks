@@ -509,66 +509,19 @@ paths:
     - url: https://api.fr.prismacloud.io
 components:
   schemas:
-    RelativeTimeRangeConfig:
-      required:
-      - type
+    Item:
       type: object
       properties:
-        type:
-          type: string
-          enum:
-          - relative
-        value:
-          $ref: '#/components/schemas/RelativeTimeDurationModel1'
-        relativeTimeType:
-          type: string
-          enum:
-          - BACKWARD
-      description: Model for RelativeTimeRangeConfig
-    GraphDataPoint:
-      type: object
-      properties:
-        timeRange:
-          $ref: '#/components/schemas/TimeRange'
-        counts:
+        total:
+          type: integer
+          format: int32
+        account:
+          $ref: '#/components/schemas/Account'
+        resourceTypeCount:
           type: object
           additionalProperties:
             type: object
-            additionalProperties:
-              type: integer
-              description: Graph resource usage by cloud type
-              format: int32
-            description: Graph resource usage by cloud type
-          description: Graph resource usage by cloud type
-      description: Graph resource usage data points
-    RelativeTimeDurationModel1:
-      type: object
-      properties:
-        unit:
-          type: string
-          description: Time unit
-          enum:
-          - minute
-          - hour
-          - day
-          - week
-          - month
-          - year
-          - epoch
-          - login
-          - minute, hour, day, week, month, year, epoch, login
-        amount:
-          type: integer
-          description: Number of time units
-          format: int32
-      description: Model for RelativeTimeDuration
-    AccountDetails:
-      type: object
-      properties:
-        name:
-          type: string
-        id:
-          type: string
+      description: List of items. Each item contains cloud account name and the workload count of resource type
     LicensingUsageApiRequest:
       required:
       - accountIds
@@ -604,6 +557,98 @@ components:
           format: int64
           example: 0
       description: Licensing Usage Api request payload
+    RelativeTimeDurationModel1:
+      type: object
+      properties:
+        unit:
+          type: string
+          description: Time unit
+          enum:
+          - minute
+          - hour
+          - day
+          - week
+          - month
+          - year
+          - epoch
+          - login
+          - minute, hour, day, week, month, year, epoch, login
+        amount:
+          type: integer
+          description: Number of time units
+          format: int32
+      description: Model for RelativeTimeDuration
+    TimeRange:
+      required:
+      - endTime
+      - startTime
+      type: object
+      properties:
+        startTime:
+          type: object
+          properties:
+            empty:
+              type: boolean
+            present:
+              type: boolean
+            asLong:
+              type: integer
+              format: int64
+          description: Start Time im Millis
+        endTime:
+          type: object
+          properties:
+            empty:
+              type: boolean
+            present:
+              type: boolean
+            asLong:
+              type: integer
+              format: int64
+          description: End Time im Millis
+      description: Time range
+    GraphDataPoint:
+      type: object
+      properties:
+        timeRange:
+          $ref: '#/components/schemas/TimeRange'
+        counts:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: integer
+              description: Graph resource usage by cloud type
+              format: int32
+            description: Graph resource usage by cloud type
+          description: Graph resource usage by cloud type
+      description: Graph resource usage data points
+    ResourceUsageCountResponse:
+      type: object
+      properties:
+        totalRows:
+          type: integer
+          description: Total number of rows for the query
+          format: int32
+        stats:
+          type: object
+          additionalProperties:
+            type: integer
+            description: Statistics to be shown. This contains the total workload per resource type.
+            format: int32
+          description: Statistics to be shown. This contains the total workload per resource type.
+        items:
+          type: array
+          description: List of items. Each item contains cloud account name and the workload count of resource type
+          items:
+            $ref: '#/components/schemas/ResourceUsageCount'
+        nextPageToken:
+          type: string
+          description: Token to be used for next page call
+        planType:
+          type: string
+          description: PlanType of the selected time range
+      description: Model containing Paginated License response
     LicenseRequestModel:
       required:
       - accountIds
@@ -641,6 +686,69 @@ components:
           format: int64
           example: 0
       description: Model for LicenseRequest
+    SpringErrorResponse:
+      required:
+      - error
+      - message
+      - path
+      - status
+      - timestamp
+      type: object
+      properties:
+        timestamp:
+          type: string
+          description: timestamp
+        status:
+          type: integer
+          description: Http status
+          format: int32
+        error:
+          type: string
+          description: Error message
+        message:
+          type: string
+          description: Error message
+        path:
+          type: string
+          description: Request path
+      description: Error Response
+    Stats:
+      type: object
+      properties:
+        stats:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+      description: Statistics to be shown. This contains the total workload per resource type.
+    AccountListRequestModel1:
+      required:
+      - accountIds
+      - timeRange
+      type: object
+      properties:
+        accountIds:
+          type: array
+          description: List of account IDs
+          items:
+            type: string
+            description: List of account IDs
+        limit:
+          type: integer
+          description: Limit of items per request. Default is 1000.
+          format: int32
+          example: 100
+        timeRange:
+          $ref: '#/components/schemas/RelativeTimeRangeConfig'
+        cloudType:
+          type: string
+          description: Cloud type values
+          example: aws
+        csvHeaderRequired:
+          type: boolean
+          description: CSV file header
+          example: true
+      description: Model for AccountListRequest
     CsvMessage:
       type: object
       properties:
@@ -666,6 +774,63 @@ components:
               type: string
               description: List of rows
       description: Model for CsvMessage
+    ResourceUsageCount:
+      type: object
+      properties:
+        account:
+          $ref: '#/components/schemas/AccountDetails'
+        cloudType:
+          type: string
+        total:
+          type: integer
+          format: int32
+        resourceTypeCount:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+      description: List of items. Each item contains cloud account name and the workload count of resource type
+    LicenseResponseModel:
+      type: object
+      properties:
+        totalRows:
+          type: integer
+          description: Total number of rows for the query.
+          format: int64
+        nextPageToken:
+          type: string
+          description: Token to be used for next page call.
+        items:
+          type: array
+          description: List of items. Each item contains cloud account name and the workload count of resource type.
+          items:
+            $ref: '#/components/schemas/Item'
+        stats:
+          $ref: '#/components/schemas/Stats'
+      description: Model containing Paginated License response
+    Account:
+      type: object
+      properties:
+        name:
+          type: string
+        id:
+          type: string
+    RelativeTimeRangeConfig:
+      required:
+      - type
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - relative
+        value:
+          $ref: '#/components/schemas/RelativeTimeDurationModel1'
+        relativeTimeType:
+          type: string
+          enum:
+          - BACKWARD
+      description: Model for RelativeTimeRangeConfig
     ResourceUsageGraphResponse:
       type: object
       properties:
@@ -695,178 +860,13 @@ components:
           description: Selected data end time in milli second
           format: int64
       description: Graph resource usage
-    SpringErrorResponse:
-      required:
-      - error
-      - message
-      - path
-      - status
-      - timestamp
-      type: object
-      properties:
-        timestamp:
-          type: string
-          description: timestamp
-        status:
-          type: integer
-          description: Http status
-          format: int32
-        error:
-          type: string
-          description: Error message
-        message:
-          type: string
-          description: Error message
-        path:
-          type: string
-          description: Request path
-      description: Error Response
-    Account:
+    AccountDetails:
       type: object
       properties:
         name:
           type: string
         id:
           type: string
-    Stats:
-      type: object
-      properties:
-        stats:
-          type: object
-          additionalProperties:
-            type: integer
-            format: int32
-      description: Statistics to be shown. This contains the total workload per resource type.
-    Item:
-      type: object
-      properties:
-        total:
-          type: integer
-          format: int32
-        account:
-          $ref: '#/components/schemas/Account'
-        resourceTypeCount:
-          type: object
-          additionalProperties:
-            type: object
-      description: List of items. Each item contains cloud account name and the workload count of resource type
-    AccountListRequestModel1:
-      required:
-      - accountIds
-      - timeRange
-      type: object
-      properties:
-        accountIds:
-          type: array
-          description: List of account IDs
-          items:
-            type: string
-            description: List of account IDs
-        limit:
-          type: integer
-          description: Limit of items per request. Default is 1000.
-          format: int32
-          example: 100
-        timeRange:
-          $ref: '#/components/schemas/RelativeTimeRangeConfig'
-        cloudType:
-          type: string
-          description: Cloud type values
-          example: aws
-        csvHeaderRequired:
-          type: boolean
-          description: CSV file header
-          example: true
-      description: Model for AccountListRequest
-    LicenseResponseModel:
-      type: object
-      properties:
-        totalRows:
-          type: integer
-          description: Total number of rows for the query.
-          format: int64
-        nextPageToken:
-          type: string
-          description: Token to be used for next page call.
-        items:
-          type: array
-          description: List of items. Each item contains cloud account name and the workload count of resource type.
-          items:
-            $ref: '#/components/schemas/Item'
-        stats:
-          $ref: '#/components/schemas/Stats'
-      description: Model containing Paginated License response
-    TimeRange:
-      required:
-      - endTime
-      - startTime
-      type: object
-      properties:
-        startTime:
-          type: object
-          properties:
-            empty:
-              type: boolean
-            present:
-              type: boolean
-            asLong:
-              type: integer
-              format: int64
-          description: Start Time im Millis
-        endTime:
-          type: object
-          properties:
-            empty:
-              type: boolean
-            present:
-              type: boolean
-            asLong:
-              type: integer
-              format: int64
-          description: End Time im Millis
-      description: Time range
-    ResourceUsageCountResponse:
-      type: object
-      properties:
-        totalRows:
-          type: integer
-          description: Total number of rows for the query
-          format: int32
-        stats:
-          type: object
-          additionalProperties:
-            type: integer
-            description: Statistics to be shown. This contains the total workload per resource type.
-            format: int32
-          description: Statistics to be shown. This contains the total workload per resource type.
-        items:
-          type: array
-          description: List of items. Each item contains cloud account name and the workload count of resource type
-          items:
-            $ref: '#/components/schemas/ResourceUsageCount'
-        nextPageToken:
-          type: string
-          description: Token to be used for next page call
-        planType:
-          type: string
-          description: PlanType of the selected time range
-      description: Model containing Paginated License response
-    ResourceUsageCount:
-      type: object
-      properties:
-        account:
-          $ref: '#/components/schemas/AccountDetails'
-        cloudType:
-          type: string
-        total:
-          type: integer
-          format: int32
-        resourceTypeCount:
-          type: object
-          additionalProperties:
-            type: integer
-            format: int32
-      description: List of items. Each item contains cloud account name and the workload count of resource type
     CreditAllocationRule:
       required:
       - accountGroups
@@ -928,202 +928,6 @@ components:
           description: Percent credit usage of the rule allocated credits
           format: int32
       description: Credit allocation rule
-    ResourceUsageGraphResponse_2:
-      type: object
-      properties:
-        dataPoints:
-          type: array
-          description: Graph GraphDataPoint points
-          items:
-            $ref: '#/components/schemas/GraphDataPoint'
-        workloadsPurchased:
-          type: integer
-          description: Purchased workload count
-          format: int32
-        timeUnit:
-          type: string
-          description: Returned data in time unit
-          enum:
-          - minute
-          - hour
-          - day
-          - week
-          - month
-          - year
-          - epoch
-          - login
-          - INVALID
-        availableAsOf:
-          type: integer
-          description: Selected data end time in milli second
-          format: int64
-      description: Graph resource usage
-    TimeRangeValue:
-      type: object
-      properties:
-        unit:
-          type: string
-          description: Time unit when type=relative, to_now, or from_now.  The unit 'week' is only supported when type=relative.
-          enum:
-          - hour
-          - day
-          - week
-          - month
-          - year
-        amount:
-          minimum: 1
-          type: integer
-          description: Number of time units when type=relative
-          format: int32
-        startTime:
-          minimum: 0
-          type: integer
-          description: Start time when type=absolute.  startTime must be milli-seconds since epoch.
-          format: int64
-        endTime:
-          minimum: 0
-          type: integer
-          description: End time when type=absolute.  endTime must be milli-seconds since epoch.
-          format: int64
-      description: Time range value for credit allocation rule request. For relative, provide an object with unit and amount fields. For absolute, provide an object with startTime and endTime fields. For to_now or from_now, provide a string time unit.
-    Stats_2:
-      type: object
-      properties:
-        stats:
-          type: object
-          additionalProperties:
-            type: integer
-            format: int32
-      description: Statistics to be shown. This contains the total workload per resource type
-    TimeRangeRequest:
-      required:
-      - type
-      type: object
-      properties:
-        type:
-          type: string
-          description: One of 'relative', 'absolute', 'to_now', or 'from_now'
-          enum:
-          - relative
-          - absolute
-          - to_now
-          - from_now
-        value:
-          $ref: '#/components/schemas/TimeRangeValue'
-      description: Time range for credit allocation rule request
-    CreditAllocationSummary:
-      type: object
-      properties:
-        purchased:
-          type: integer
-          description: Purchased credits
-          format: int32
-        usage:
-          type: integer
-          description: Credits used for the time period
-          format: int32
-    AccountListRequestModel:
-      required:
-      - accountIds
-      - timeRange
-      type: object
-      properties:
-        accountIds:
-          type: array
-          description: List of account IDs
-          items:
-            type: string
-            description: List of account IDs
-        limit:
-          type: integer
-          description: Limit of items per request. Default is 1000.
-          format: int32
-          example: 100
-        timeRange:
-          $ref: '#/components/schemas/RelativeTimeRangeConfig_2'
-        cloudType:
-          type: string
-          description: Cloud type values
-          example: aws
-        csvHeaderRequired:
-          type: boolean
-          description: CSV file header
-          example: true
-      description: Model for AccountListRequest
-    TimeRangeConfigModel:
-      required:
-      - type
-      type: object
-      properties:
-        type:
-          type: string
-          enum:
-          - relative
-        value:
-          $ref: '#/components/schemas/RelativeTimeDurationModel'
-      description: Model for TimeRangeConfig
-      discriminator:
-        propertyName: type
-    RelativeTimeDurationModel:
-      type: object
-      properties:
-        unit:
-          type: string
-          description: Time unit
-          enum:
-          - minute
-          - hour
-          - day
-          - week
-          - month
-          - year
-          - epoch
-          - login
-          - INVALID
-          - minute, hour, day, week, month, year, epoch, login
-        amount:
-          type: integer
-          description: Number of time units
-          format: int32
-      description: Model for RelativeTimeDuration
-    CreditAllocationRuleNames:
-      type: object
-      properties:
-        names:
-          type: array
-          items:
-            type: string
-    RelativeTimeRangeConfig_2:
-      required:
-      - type
-      type: object
-      description: Model for RelativeTimeRangeConfig
-      allOf:
-      - $ref: '#/components/schemas/TimeRangeConfigModel'
-      - type: object
-        properties:
-          relativeTimeType:
-            type: string
-            enum:
-            - BACKWARD
-    CreditAllocationRuleSummaryRequest:
-      type: object
-      properties:
-        timeRange:
-          $ref: '#/components/schemas/TimeRangeRequest'
-      description: Get credit allocation rules request
-    CreditAllocationRuleList:
-      type: object
-      properties:
-        rules:
-          type: array
-          description: Credit allocation rules.  Null when no rules.
-          items:
-            $ref: '#/components/schemas/CreditAllocationRule'
-        pageToken:
-          type: string
-          description: Non-null when there is another page of rules available.  Use value as 'pageToken' to get the next page.
-      description: List of credit allocation rules
     CreditAllocationRuleListRequest:
       type: object
       properties:
@@ -1157,6 +961,153 @@ components:
           type: string
           description: The pageToken returned from a previous call to this endpoint.  The next page is returned.
       description: Get credit allocation rules request
+    CreditAllocationRuleList:
+      type: object
+      properties:
+        rules:
+          type: array
+          description: Credit allocation rules.  Null when no rules.
+          items:
+            $ref: '#/components/schemas/CreditAllocationRule'
+        pageToken:
+          type: string
+          description: Non-null when there is another page of rules available.  Use value as 'pageToken' to get the next page.
+      description: List of credit allocation rules
+    CreditAllocationSummary:
+      type: object
+      properties:
+        purchased:
+          type: integer
+          description: Purchased credits
+          format: int32
+        usage:
+          type: integer
+          description: Credits used for the time period
+          format: int32
+    RelativeTimeDurationModel:
+      type: object
+      properties:
+        unit:
+          type: string
+          description: Time unit
+          enum:
+          - minute
+          - hour
+          - day
+          - week
+          - month
+          - year
+          - epoch
+          - login
+          - INVALID
+          - minute, hour, day, week, month, year, epoch, login
+        amount:
+          type: integer
+          description: Number of time units
+          format: int32
+      description: Model for RelativeTimeDuration
+    TimeRangeValue:
+      type: object
+      properties:
+        unit:
+          type: string
+          description: Time unit when type=relative, to_now, or from_now.  The unit 'week' is only supported when type=relative.
+          enum:
+          - hour
+          - day
+          - week
+          - month
+          - year
+        amount:
+          minimum: 1
+          type: integer
+          description: Number of time units when type=relative
+          format: int32
+        startTime:
+          minimum: 0
+          type: integer
+          description: Start time when type=absolute.  startTime must be milli-seconds since epoch.
+          format: int64
+        endTime:
+          minimum: 0
+          type: integer
+          description: End time when type=absolute.  endTime must be milli-seconds since epoch.
+          format: int64
+      description: Time range value for credit allocation rule request. For relative, provide an object with unit and amount fields. For absolute, provide an object with startTime and endTime fields. For to_now or from_now, provide a string time unit.
+    ResourceUsageGraphResponse_2:
+      type: object
+      properties:
+        dataPoints:
+          type: array
+          description: Graph GraphDataPoint points
+          items:
+            $ref: '#/components/schemas/GraphDataPoint'
+        workloadsPurchased:
+          type: integer
+          description: Purchased workload count
+          format: int32
+        timeUnit:
+          type: string
+          description: Returned data in time unit
+          enum:
+          - minute
+          - hour
+          - day
+          - week
+          - month
+          - year
+          - epoch
+          - login
+          - INVALID
+        availableAsOf:
+          type: integer
+          description: Selected data end time in milli second
+          format: int64
+      description: Graph resource usage
+    TimeRangeRequest:
+      required:
+      - type
+      type: object
+      properties:
+        type:
+          type: string
+          description: One of 'relative', 'absolute', 'to_now', or 'from_now'
+          enum:
+          - relative
+          - absolute
+          - to_now
+          - from_now
+        value:
+          $ref: '#/components/schemas/TimeRangeValue'
+      description: Time range for credit allocation rule request
+    AccountListRequestModel:
+      required:
+      - accountIds
+      - timeRange
+      type: object
+      properties:
+        accountIds:
+          type: array
+          description: List of account IDs
+          items:
+            type: string
+            description: List of account IDs
+        limit:
+          type: integer
+          description: Limit of items per request. Default is 1000.
+          format: int32
+          example: 100
+        timeRange:
+          $ref: '#/components/schemas/RelativeTimeRangeConfig_2'
+        cloudType:
+          type: string
+          description: Cloud type values
+          example: aws
+        csvHeaderRequired:
+          type: boolean
+          description: CSV file header
+          example: true
+      description: Model for AccountListRequest
     LicenseResponseModel_2:
       type: object
       properties:
@@ -1175,6 +1126,19 @@ components:
         stats:
           $ref: '#/components/schemas/Stats_2'
       description: Model containing Paginated License response
+    CreditAllocationRuleNames:
+      type: object
+      properties:
+        names:
+          type: array
+          items:
+            type: string
+    CreditAllocationRuleSummaryRequest:
+      type: object
+      properties:
+        timeRange:
+          $ref: '#/components/schemas/TimeRangeRequest'
+      description: Get credit allocation rules request
     ResourceUsageCountResponse_2:
       type: object
       properties:
@@ -1201,6 +1165,42 @@ components:
           type: string
           description: PlanType of the selected time range
       description: Model containing Paginated License response
+    TimeRangeConfigModel:
+      required:
+      - type
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - relative
+        value:
+          $ref: '#/components/schemas/RelativeTimeDurationModel'
+      description: Model for TimeRangeConfig
+      discriminator:
+        propertyName: type
+    Stats_2:
+      type: object
+      properties:
+        stats:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+      description: Statistics to be shown. This contains the total workload per resource type
+    RelativeTimeRangeConfig_2:
+      required:
+      - type
+      type: object
+      description: Model for RelativeTimeRangeConfig
+      allOf:
+      - $ref: '#/components/schemas/TimeRangeConfigModel'
+      - type: object
+        properties:
+          relativeTimeType:
+            type: string
+            enum:
+            - BACKWARD
   securitySchemes:
     x-redlock-auth:
       description: The x-redlock-auth value is a JSON Web Token (JWT).

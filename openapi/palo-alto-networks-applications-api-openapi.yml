@@ -1,10 +1,14 @@
 openapi: 3.2.0
 info:
   title: Palo Alto Networks Applications API
+  x-refined-note:
+  - x-logo differs across the merged source definitions and was not carried
   version: '1.0'
-  description: 'Operations tagged Applications across 5 of this provider''s published API definitions: palo-alto-access-browser-mgmt-prismaaccess-browser-management-latest-openapi.yaml, palo-alto-access-prisma-access-config-applications-openapi.yaml, palo-alto-cspm-applicationconfigmicroservice-openapi.json, palo-alto-cspm-applicationsearchmicroservice-openapi.json, palo-alto-scm-config-cloudngfw-objects-objects-june-openapi.yaml. Each path carries the servers of the definition it was published in.'
+  description: 'Operations tagged Applications across 9 of this provider''s published API definitions: palo-alto-access-browser-mgmt-prismaaccess-browser-management-latest-openapi.yaml, palo-alto-access-prisma-access-config-applications-openapi.yaml, palo-alto-autonomous-dem-api-openapi-original.yml, palo-alto-cspm-applicationconfigmicroservice-openapi.json, palo-alto-cspm-applicationsearchmicroservice-openapi.json, palo-alto-networks-applications-api-openapi.yml, palo-alto-saas-security-api-openapi-original.yml, palo-alto-scm-config-cloudngfw-objects-objects-june-openapi.yaml, palo-alto-ztna-connector-api-openapi-original.yml. Each path carries the servers of the definition it was published in.'
 servers:
 - url: https://api.sase.paloaltonetworks.com
+- url: https://api.sase.paloaltonetworks.com/adem/telemetry/v2
+  description: Autonomous DEM telemetry API server.
 - url: https://api.prismacloud.io
 - url: https://api2.prismacloud.io
 - url: https://api3.prismacloud.io
@@ -20,10 +24,16 @@ servers:
 - url: https://api.ind.prismacloud.io
 - url: https://api.jp.prismacloud.io
 - url: https://api.fr.prismacloud.io
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+- url: https://api.aperture.paloaltonetworks.com
+  description: SaaS Security (Aperture) API production server.
 - url: https://api.strata.paloaltonetworks.com/config/objects/v1
   description: Current
 - url: https://api.sase.paloaltonetworks.com/sse/config/v1
   description: Legacy
+- url: https://api.sase.paloaltonetworks.com/ztna
+  description: SASE ZTNA Connector API production server.
 tags:
 - name: Applications
 paths:
@@ -847,6 +857,89 @@ paths:
       - Applications
     servers:
     - url: https://api.sase.paloaltonetworks.com
+  /mt/monitor/adem/v1/applications:
+    get:
+      operationId: listMonitoredApplications
+      summary: Palo Alto Networks List Monitored Applications
+      description: Returns a list of all applications configured for monitoring in Autonomous DEM. Each entry includes the application name, category, and the synthetic tests configured for probing it.
+      tags:
+      - Applications
+      parameters:
+      - name: app_id
+        in: query
+        description: Filter by specific application identifier.
+        schema:
+          type: string
+        example: '473439'
+      - name: offset
+        in: query
+        schema:
+          type: integer
+          default: 0
+        example: 0
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 100
+        example: 100
+      responses:
+        '200':
+          description: Monitored applications returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MonitoredApplication'
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+              examples:
+                ListMonitoredApplications200Example:
+                  summary: Default listMonitoredApplications 200 response
+                  x-microcks-default: true
+                  value:
+                    data:
+                    - app_id: '100488'
+                      name: Production Firewall 97
+                      category: custom
+                      type: saas
+                      url: https://vpn.acme-systems.org/a5d006
+                      test_count: 241
+                      monitored_users: 122
+                      created_at: '2026-02-02T08:43:53Z'
+                    - app_id: '100488'
+                      name: Production Firewall 97
+                      category: custom
+                      type: saas
+                      url: https://vpn.acme-systems.org/a5d006
+                      test_count: 241
+                      monitored_users: 122
+                      created_at: '2026-02-02T08:43:53Z'
+                    total: 926
+                    offset: 718
+                    limit: 679
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2: []
+    servers:
+    - url: https://api.sase.paloaltonetworks.com/adem/telemetry/v2
+      description: Autonomous DEM telemetry API server.
   /appid/api/v1/download/app:
     post:
       tags:
@@ -875,19 +968,19 @@ paths:
           content:
             application/octet-stream:
               schema:
-                $ref: '#/components/schemas/ErrorResponse_2'
+                $ref: '#/components/schemas/ErrorResponse_3'
         '401':
           description: Unauthorized - user cannot be authenticated to service the request
           content:
             application/octet-stream:
               schema:
-                $ref: '#/components/schemas/ErrorResponse_2'
+                $ref: '#/components/schemas/ErrorResponse_3'
         '403':
           description: Forbidden - user is not authorized, or does not have the correct permissions, to make the call
           content:
             application/octet-stream:
               schema:
-                $ref: '#/components/schemas/ErrorResponse_2'
+                $ref: '#/components/schemas/ErrorResponse_3'
         '413':
           description: Payload Too Large
           content:
@@ -939,19 +1032,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse_2'
+                $ref: '#/components/schemas/ErrorResponse_3'
         '401':
           description: Unauthorized - user cannot be authenticated to service the request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse_2'
+                $ref: '#/components/schemas/ErrorResponse_3'
         '403':
           description: Forbidden - user is not authorized, or does not have the correct permissions, to make the call
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse_2'
+                $ref: '#/components/schemas/ErrorResponse_3'
         '413':
           description: Payload Too Large
           content:
@@ -992,19 +1085,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse_2'
+                $ref: '#/components/schemas/ErrorResponse_3'
         '401':
           description: Unauthorized - user cannot be authenticated to service the request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse_2'
+                $ref: '#/components/schemas/ErrorResponse_3'
         '403':
           description: Forbidden - user is not authorized, or does not have the correct permissions, to make the call
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse_2'
+                $ref: '#/components/schemas/ErrorResponse_3'
         '413':
           description: Payload Too Large
           content:
@@ -1056,19 +1149,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse_2'
+                $ref: '#/components/schemas/ErrorResponse_3'
         '401':
           description: Unauthorized - user cannot be authenticated to service the request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse_2'
+                $ref: '#/components/schemas/ErrorResponse_3'
         '403':
           description: Forbidden - user is not authorized, or does not have the correct permissions, to make the call
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse_2'
+                $ref: '#/components/schemas/ErrorResponse_3'
         '413':
           description: Payload Too Large
           content:
@@ -1103,19 +1196,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse_2'
+                $ref: '#/components/schemas/ErrorResponse_3'
         '401':
           description: Unauthorized - user cannot be authenticated to service the request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse_2'
+                $ref: '#/components/schemas/ErrorResponse_3'
         '403':
           description: Forbidden - user is not authorized, or does not have the correct permissions, to make the call
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse_2'
+                $ref: '#/components/schemas/ErrorResponse_3'
         '413':
           description: Payload Too Large
           content:
@@ -1156,19 +1249,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse_2'
+                $ref: '#/components/schemas/ErrorResponse_3'
         '401':
           description: Unauthorized - user cannot be authenticated to service the request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse_2'
+                $ref: '#/components/schemas/ErrorResponse_3'
         '403':
           description: Forbidden - user is not authorized, or does not have the correct permissions, to make the call
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse_2'
+                $ref: '#/components/schemas/ErrorResponse_3'
         '413':
           description: Payload Too Large
           content:
@@ -1228,19 +1321,19 @@ paths:
           content:
             application/octet-stream:
               schema:
-                $ref: '#/components/schemas/ErrorResponse_2'
+                $ref: '#/components/schemas/ErrorResponse_3'
         '401':
           description: Unauthorized - user cannot be authenticated to service the request
           content:
             application/octet-stream:
               schema:
-                $ref: '#/components/schemas/ErrorResponse_2'
+                $ref: '#/components/schemas/ErrorResponse_3'
         '403':
           description: Forbidden - user is not authorized, or does not have the correct permissions, to make the call
           content:
             application/octet-stream:
               schema:
-                $ref: '#/components/schemas/ErrorResponse_2'
+                $ref: '#/components/schemas/ErrorResponse_3'
         '413':
           description: Payload Too Large
           content:
@@ -1293,19 +1386,19 @@ paths:
           content:
             application/octet-stream:
               schema:
-                $ref: '#/components/schemas/ErrorResponse_2'
+                $ref: '#/components/schemas/ErrorResponse_3'
         '401':
           description: Unauthorized - user cannot be authenticated to service the request
           content:
             application/octet-stream:
               schema:
-                $ref: '#/components/schemas/ErrorResponse_2'
+                $ref: '#/components/schemas/ErrorResponse_3'
         '403':
           description: Forbidden - user is not authorized, or does not have the correct permissions, to make the call
           content:
             application/octet-stream:
               schema:
-                $ref: '#/components/schemas/ErrorResponse_2'
+                $ref: '#/components/schemas/ErrorResponse_3'
         '413':
           description: Payload Too Large
           content:
@@ -2211,6 +2304,608 @@ paths:
     - url: https://api.ind.prismacloud.io
     - url: https://api.jp.prismacloud.io
     - url: https://api.fr.prismacloud.io
+  /api/applications:
+    get:
+      operationId: listApplications
+      summary: Palo Alto Networks List Connected SaaS Applications
+      description: Returns the list of SaaS applications connected to the SaaS Security tenant. Each application entry includes its connection status, the number of scanned assets, and the number of active incidents.
+      tags:
+      - Applications
+      responses:
+        '200':
+          description: Connected applications returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Application'
+              examples:
+                ListApplications200Example:
+                  summary: Default listApplications 200 response
+                  x-microcks-default: true
+                  value:
+                    total: 994
+                    items:
+                    - id: example-id
+                      name: Primary Agent 80
+                      type: advanced
+                      status: connected
+                      asset_count: 752
+                      incident_count: 54
+                      connected_at: '2025-07-22T17:44:41Z'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_2_2'
+              examples:
+                ListApplications401Example:
+                  summary: Default listApplications 401 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Configured monitoring network blocked investigation applied activity.
+                    request_id: 5cc3d66e-5479-4e15-bd64-849adde3cb60
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_2_2'
+              examples:
+                ListApplications403Example:
+                  summary: Default listApplications 403 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Configured monitoring network blocked investigation applied activity.
+                    request_id: 5cc3d66e-5479-4e15-bd64-849adde3cb60
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_2_2'
+              examples:
+                ListApplications500Example:
+                  summary: Default listApplications 500 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Configured monitoring network blocked investigation applied activity.
+                    request_id: 5cc3d66e-5479-4e15-bd64-849adde3cb60
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
+  /v2/applications:
+    get:
+      operationId: listZTNAApplications
+      summary: Palo Alto Networks List ZTNA-protected Applications
+      description: Returns the list of applications protected by ZTNA. Each application defines the private resource users can access along with the connector group that provides access.
+      tags:
+      - Applications
+      responses:
+        '200':
+          description: ZTNA applications returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ZTNAApplication'
+              examples:
+                ListZtnaapplications200Example:
+                  summary: Default listZTNAApplications 200 response
+                  x-microcks-default: true
+                  value:
+                    total: 626
+                    items:
+                    - app_id: '768496'
+                      name: Corporate Sensor 20
+                      description: On investigation rule violation threat monitoring.
+                      group_id: '907399'
+                      fqdn: api.acme-systems.org
+                      ports:
+                      - 603
+                      - 3
+                      protocols:
+                      - TCP
+                      enabled: true
+                      created_at: '2024-05-17T06:02:30Z'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3_2'
+              examples:
+                ListZtnaapplications401Example:
+                  summary: Default listZTNAApplications 401 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Security firewall network configured traffic blocked threat.
+                    request_id: 709c60bb-8234-4bc4-938b-d0835224c350
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3_2'
+              examples:
+                ListZtnaapplications403Example:
+                  summary: Default listZTNAApplications 403 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Security firewall network configured traffic blocked threat.
+                    request_id: 709c60bb-8234-4bc4-938b-d0835224c350
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3_2'
+              examples:
+                ListZtnaapplications500Example:
+                  summary: Default listZTNAApplications 500 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Security firewall network configured traffic blocked threat.
+                    request_id: 709c60bb-8234-4bc4-938b-d0835224c350
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    post:
+      operationId: createZTNAApplication
+      summary: Palo Alto Networks Create ZTNA Application
+      description: Creates a new ZTNA-protected application definition.
+      tags:
+      - Applications
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZTNAApplicationRequest'
+            examples:
+              CreateZtnaapplicationRequestExample:
+                summary: Default createZTNAApplication request
+                x-microcks-default: true
+                value:
+                  name: Branch Agent 75
+                  description: Incident suspicious firewall Security suspicious policy threat suspicious.
+                  group_id: '376339'
+                  fqdn: login.test-corp.net
+                  ports:
+                  - 28
+                  protocols:
+                  - TCP
+                  - UDP
+                  enabled: true
+      responses:
+        '201':
+          description: ZTNA application created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZTNAApplication'
+              examples:
+                CreateZtnaapplication201Example:
+                  summary: Default createZTNAApplication 201 response
+                  x-microcks-default: true
+                  value:
+                    app_id: '768496'
+                    name: Corporate Sensor 20
+                    description: On investigation rule violation threat monitoring.
+                    group_id: '907399'
+                    fqdn: api.acme-systems.org
+                    ports:
+                    - 603
+                    - 3
+                    protocols:
+                    - TCP
+                    enabled: true
+                    created_at: '2024-05-17T06:02:30Z'
+        '400':
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3_2'
+              examples:
+                CreateZtnaapplication400Example:
+                  summary: Default createZTNAApplication 400 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Security firewall network configured traffic blocked threat.
+                    request_id: 709c60bb-8234-4bc4-938b-d0835224c350
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3_2'
+              examples:
+                CreateZtnaapplication401Example:
+                  summary: Default createZTNAApplication 401 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Security firewall network configured traffic blocked threat.
+                    request_id: 709c60bb-8234-4bc4-938b-d0835224c350
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3_2'
+              examples:
+                CreateZtnaapplication403Example:
+                  summary: Default createZTNAApplication 403 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Security firewall network configured traffic blocked threat.
+                    request_id: 709c60bb-8234-4bc4-938b-d0835224c350
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3_2'
+              examples:
+                CreateZtnaapplication500Example:
+                  summary: Default createZTNAApplication 500 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Security firewall network configured traffic blocked threat.
+                    request_id: 709c60bb-8234-4bc4-938b-d0835224c350
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
+  /v2/applications/{app_id}:
+    get:
+      operationId: getZTNAApplication
+      summary: Palo Alto Networks Get ZTNA Application
+      description: Returns full details for a specific ZTNA-protected application.
+      tags:
+      - Applications
+      parameters:
+      - name: app_id
+        in: path
+        required: true
+        description: Unique identifier of the ZTNA application.
+        schema:
+          type: string
+        example: '990231'
+      responses:
+        '200':
+          description: ZTNA application details returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZTNAApplication'
+              examples:
+                GetZtnaapplication200Example:
+                  summary: Default getZTNAApplication 200 response
+                  x-microcks-default: true
+                  value:
+                    app_id: '768496'
+                    name: Corporate Sensor 20
+                    description: On investigation rule violation threat monitoring.
+                    group_id: '907399'
+                    fqdn: api.acme-systems.org
+                    ports:
+                    - 603
+                    - 3
+                    protocols:
+                    - TCP
+                    enabled: true
+                    created_at: '2024-05-17T06:02:30Z'
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3_2'
+              examples:
+                GetZtnaapplication401Example:
+                  summary: Default getZTNAApplication 401 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Security firewall network configured traffic blocked threat.
+                    request_id: 709c60bb-8234-4bc4-938b-d0835224c350
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3_2'
+              examples:
+                GetZtnaapplication403Example:
+                  summary: Default getZTNAApplication 403 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Security firewall network configured traffic blocked threat.
+                    request_id: 709c60bb-8234-4bc4-938b-d0835224c350
+        '404':
+          description: ZTNA application not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3_2'
+              examples:
+                GetZtnaapplication404Example:
+                  summary: Default getZTNAApplication 404 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Security firewall network configured traffic blocked threat.
+                    request_id: 709c60bb-8234-4bc4-938b-d0835224c350
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3_2'
+              examples:
+                GetZtnaapplication500Example:
+                  summary: Default getZTNAApplication 500 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Security firewall network configured traffic blocked threat.
+                    request_id: 709c60bb-8234-4bc4-938b-d0835224c350
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    put:
+      operationId: updateZTNAApplication
+      summary: Palo Alto Networks Update ZTNA Application
+      description: Updates an existing ZTNA-protected application definition.
+      tags:
+      - Applications
+      parameters:
+      - name: app_id
+        in: path
+        required: true
+        description: Unique identifier of the ZTNA application to update.
+        schema:
+          type: string
+        example: '711163'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZTNAApplicationRequest'
+            examples:
+              UpdateZtnaapplicationRequestExample:
+                summary: Default updateZTNAApplication request
+                x-microcks-default: true
+                value:
+                  name: Branch Agent 75
+                  description: Incident suspicious firewall Security suspicious policy threat suspicious.
+                  group_id: '376339'
+                  fqdn: login.test-corp.net
+                  ports:
+                  - 28
+                  protocols:
+                  - TCP
+                  - UDP
+                  enabled: true
+      responses:
+        '200':
+          description: ZTNA application updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZTNAApplication'
+              examples:
+                UpdateZtnaapplication200Example:
+                  summary: Default updateZTNAApplication 200 response
+                  x-microcks-default: true
+                  value:
+                    app_id: '768496'
+                    name: Corporate Sensor 20
+                    description: On investigation rule violation threat monitoring.
+                    group_id: '907399'
+                    fqdn: api.acme-systems.org
+                    ports:
+                    - 603
+                    - 3
+                    protocols:
+                    - TCP
+                    enabled: true
+                    created_at: '2024-05-17T06:02:30Z'
+        '400':
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3_2'
+              examples:
+                UpdateZtnaapplication400Example:
+                  summary: Default updateZTNAApplication 400 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Security firewall network configured traffic blocked threat.
+                    request_id: 709c60bb-8234-4bc4-938b-d0835224c350
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3_2'
+              examples:
+                UpdateZtnaapplication401Example:
+                  summary: Default updateZTNAApplication 401 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Security firewall network configured traffic blocked threat.
+                    request_id: 709c60bb-8234-4bc4-938b-d0835224c350
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3_2'
+              examples:
+                UpdateZtnaapplication403Example:
+                  summary: Default updateZTNAApplication 403 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Security firewall network configured traffic blocked threat.
+                    request_id: 709c60bb-8234-4bc4-938b-d0835224c350
+        '404':
+          description: ZTNA application not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3_2'
+              examples:
+                UpdateZtnaapplication404Example:
+                  summary: Default updateZTNAApplication 404 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Security firewall network configured traffic blocked threat.
+                    request_id: 709c60bb-8234-4bc4-938b-d0835224c350
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3_2'
+              examples:
+                UpdateZtnaapplication500Example:
+                  summary: Default updateZTNAApplication 500 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Security firewall network configured traffic blocked threat.
+                    request_id: 709c60bb-8234-4bc4-938b-d0835224c350
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    delete:
+      operationId: deleteZTNAApplication
+      summary: Palo Alto Networks Delete ZTNA Application
+      description: Deletes a ZTNA-protected application definition.
+      tags:
+      - Applications
+      parameters:
+      - name: app_id
+        in: path
+        required: true
+        description: Unique identifier of the ZTNA application to delete.
+        schema:
+          type: string
+        example: '845602'
+      responses:
+        '204':
+          description: ZTNA application deleted successfully.
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3_2'
+              examples:
+                DeleteZtnaapplication401Example:
+                  summary: Default deleteZTNAApplication 401 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Security firewall network configured traffic blocked threat.
+                    request_id: 709c60bb-8234-4bc4-938b-d0835224c350
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3_2'
+              examples:
+                DeleteZtnaapplication403Example:
+                  summary: Default deleteZTNAApplication 403 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Security firewall network configured traffic blocked threat.
+                    request_id: 709c60bb-8234-4bc4-938b-d0835224c350
+        '404':
+          description: ZTNA application not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3_2'
+              examples:
+                DeleteZtnaapplication404Example:
+                  summary: Default deleteZTNAApplication 404 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Security firewall network configured traffic blocked threat.
+                    request_id: 709c60bb-8234-4bc4-938b-d0835224c350
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_3_2'
+              examples:
+                DeleteZtnaapplication500Example:
+                  summary: Default deleteZTNAApplication 500 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Security firewall network configured traffic blocked threat.
+                    request_id: 709c60bb-8234-4bc4-938b-d0835224c350
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
   /applications:
     get:
       tags:
@@ -2399,52 +3094,129 @@ paths:
       description: Legacy
 components:
   schemas:
-    PatchAppInput:
-      oneOf:
-      - $ref: '#/components/schemas/CustomPatchApplicationInput'
-      - $ref: '#/components/schemas/PrivatePatchApplicationInput'
-      - $ref: '#/components/schemas/NonWebPatchApplicationInput'
-      - $ref: '#/components/schemas/LocalDesktopPatchApplicationInput'
-      discriminator:
-        propertyName: type
-        mapping:
-          custom: '#/components/schemas/CustomPatchApplicationInput'
-          private: '#/components/schemas/PrivatePatchApplicationInput'
-          non-web: '#/components/schemas/NonWebPatchApplicationInput'
-          localdesktopcustom: '#/components/schemas/LocalDesktopPatchApplicationInput'
-    BaseApplication:
+    BaseApplicationWithUrls:
+      description: Base Application with URLs (for URL-based application types)
+      allOf:
+      - $ref: '#/components/schemas/BaseApplication'
+      - type: object
+        properties:
+          urls:
+            type: array
+            description: URL patterns for the application
+            items:
+              type: string
+        required:
+        - urls
+    metadata:
       type: object
       properties:
-        id:
+        createdTime:
           type: string
-          format: string
-          description: Unique identifier
-        name:
+          format: date-time
+          description: Creation time
+        lastUpdatedTime:
           type: string
-          format: string
-          description: Name of the application
-        description:
+          format: date-time
+          description: Last update time
+        createdBy:
           type: string
-          format: string
-          description: Description of the application
-        type:
+          description: Created by user
+        lastUpdatedBy:
           type: string
-          enum:
-          - custom
-          - private
-          - non-web
-          - catalog
-          - localdesktopcustom
-        category:
-          type: string
-          format: string
-        metadata:
-          $ref: '#/components/schemas/metadata'
+          description: Updated by user
+        configurationVersion:
+          $ref: '#/components/schemas/MetadataConfigurationVersion'
       required:
-      - id
-      - name
-      - type
-      - metadata
+      - createdTime
+      - lastUpdatedTime
+    LocalDesktopTypeInput:
+      type: string
+      description: Discriminator field, must be 'localdesktopcustom'.
+      enum:
+      - localdesktopcustom
+    AddRemoveUrls:
+      type: object
+      description: Add or remove URLs from an application. The total URL count after modification cannot exceed 100.
+      properties:
+        add:
+          type: array
+          items:
+            $ref: '#/components/schemas/UrlInput'
+          maxItems: 100
+        remove:
+          type: array
+          items:
+            $ref: '#/components/schemas/UrlInput'
+    NonWebPatchApplicationInput:
+      allOf:
+      - $ref: '#/components/schemas/BasePatchApplicationInput'
+      - type: object
+        properties:
+          type:
+            $ref: '#/components/schemas/NonwebTypeInput'
+          address:
+            type: string
+            format: string
+          protocol:
+            type: string
+            format: string
+          port:
+            type: string
+          routeToPrisma:
+            type: boolean
+        required:
+        - type
+    PrivateApplicationInput:
+      allOf:
+      - $ref: '#/components/schemas/BaseApplicationInput'
+      - type: object
+        properties:
+          urls:
+            $ref: '#/components/schemas/UrlsInput'
+          type:
+            $ref: '#/components/schemas/PrivateTypeInput'
+          primaryUrl:
+            type: string
+            format: string
+          routeToPrisma:
+            type: boolean
+          category:
+            type: string
+            format: string
+        required:
+        - primaryUrl
+        - routeToPrisma
+        - type
+    PrivateApplication:
+      description: Private Application
+      type: object
+      allOf:
+      - $ref: '#/components/schemas/BaseApplicationWithUrls'
+      - type: object
+        properties:
+          primaryUrl:
+            type: string
+            format: string
+          routeToPrisma:
+            type: boolean
+          type:
+            type: string
+            description: Discriminator field, must be 'private'.
+            enum:
+            - private
+    ApplicationTypeInput:
+      type: string
+      enum:
+      - custom
+      - private
+      - non-web
+      - localdesktopcustom
+    ResponseMetadata:
+      type: object
+      description: Response-level metadata
+      properties:
+        configurationVersion:
+          $ref: '#/components/schemas/MetadataConfigurationVersion'
     CustomApplication:
       description: Custom Application
       type: object
@@ -2457,36 +3229,179 @@ components:
             description: Discriminator field, must be 'custom'.
             enum:
             - custom
-    CreateOrReplaceAppInput:
-      oneOf:
-      - $ref: '#/components/schemas/CustomApplicationInput'
-      - $ref: '#/components/schemas/PrivateApplicationInput'
-      - $ref: '#/components/schemas/NonWebApplicationInput'
-      - $ref: '#/components/schemas/LocalDesktopApplicationInput'
-      discriminator:
-        propertyName: type
-        mapping:
-          custom: '#/components/schemas/CustomApplicationInput'
-          private: '#/components/schemas/PrivateApplicationInput'
-          non-web: '#/components/schemas/NonWebApplicationInput'
-          localdesktopcustom: '#/components/schemas/LocalDesktopApplicationInput'
-    CatalogApplication:
-      description: Catalog Application
+    PageInfo:
+      type: object
+      properties:
+        hasNextPage:
+          type: boolean
+          description: When paginating forwards, are there more items?
+        cursor:
+          type:
+          - string
+          - 'null'
+          description: When paginating forwards, the cursor to continue.
+      required:
+      - hasNextPage
+    BaseApplicationInput:
+      type: object
+      properties:
+        name:
+          type: string
+          format: string
+          description: Name of the application
+        description:
+          type: string
+          format: string
+          description: Description of the application
+          maxLength: 2500
+        type:
+          $ref: '#/components/schemas/ApplicationTypeInput'
+      required:
+      - name
+      - urls
+      - type
+    BulkCreatedItem:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The ID of the newly created resource
+        name:
+          type: string
+          description: The name of the newly created resource
+      required:
+      - id
+      - name
+    PrivatePatchApplicationInput:
+      allOf:
+      - $ref: '#/components/schemas/BasePatchApplicationInput'
+      - type: object
+        properties:
+          urls:
+            $ref: '#/components/schemas/PatchUrls'
+          type:
+            $ref: '#/components/schemas/PrivateTypeInput'
+          primaryUrl:
+            type: string
+            format: string
+          routeToPrisma:
+            type: boolean
+          category:
+            type: string
+            format: string
+        required:
+        - type
+    ErrorResponse:
+      type: object
+      required:
+      - message
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        missingDeviceIds:
+          type: array
+          items:
+            type: string
+          description: List of device IDs that were not found (only present for device not found errors)
+        missingUserIds:
+          type: array
+          items:
+            type: string
+          description: List of user IDs that were not found (only present for user not found errors)
+    MetadataConfigurationVersion:
+      type:
+      - object
+      - 'null'
+      description: Configuration version information
+      required:
+      - id
+      - status
+      - number
+      properties:
+        id:
+          type: string
+          description: Configuration version identifier
+          minLength: 29
+          maxLength: 29
+          pattern: ^0[A-Z]{2}[0-9A-Z]{26}$
+        status:
+          type: string
+          enum:
+          - active
+          - inactive
+          - draft
+          description: Configuration version status
+        number:
+          type: integer
+          format: int32
+          description: Configuration version number
+    UrlsInput:
+      type: array
+      description: URL patterns for the application. Maximum 100 URLs allowed.
+      items:
+        $ref: '#/components/schemas/UrlInput'
+      maxItems: 100
+      minItems: 1
+    LocalDesktopApplication:
+      description: Local Desktop Application
       type: object
       allOf:
-      - $ref: '#/components/schemas/BaseApplicationWithUrls'
+      - $ref: '#/components/schemas/BaseApplication'
+      - type: object
+        properties:
+          executables:
+            type: object
+            description: Local Desktop Application Executables
+            properties:
+              data:
+                type: array
+                description: List of executables for the local desktop application
+                items:
+                  type: object
+                  description: Local Desktop Application Executable
+                  properties:
+                    originalFileName:
+                      type: string
+                      description: The original executable file name
+                  required:
+                  - originalFileName
+            required:
+            - data
+          type:
+            type: string
+            description: Discriminator field, must be 'localdesktopcustom'.
+            enum:
+            - localdesktopcustom
+        required:
+        - executables
+    NonWebApplicationInput:
+      allOf:
+      - $ref: '#/components/schemas/BaseApplicationInput'
       - type: object
         properties:
           type:
+            $ref: '#/components/schemas/NonwebTypeInput'
+          address:
             type: string
-            description: Discriminator field, must be 'catalog'.
-            enum:
-            - catalog
-          catalog_name:
+            format: string
+          protocol:
             type: string
-            description: The name in the application catalog
-          catalog_attributes:
-            $ref: '#/components/schemas/CatalogAttributes'
+            format: string
+          port:
+            type: string
+          routeToPrisma:
+            type: boolean
+        required:
+        - protocol
+        - port
+        - address
+    PrivateTypeInput:
+      type: string
+      description: Discriminator field, must be 'private'.
+      enum:
+      - private
     LocalDesktopPatchApplicationInput:
       type: object
       properties:
@@ -2508,19 +3423,18 @@ components:
           format: string
       required:
       - type
-    BaseApplicationWithUrls:
-      description: Base Application with URLs (for URL-based application types)
-      allOf:
-      - $ref: '#/components/schemas/BaseApplication'
-      - type: object
-        properties:
-          urls:
-            type: array
-            description: URL patterns for the application
-            items:
-              type: string
-        required:
-        - urls
+    UrlInput:
+      type: object
+      properties:
+        url:
+          type: string
+          description: URL pattern expression
+        strict_mode:
+          type: boolean
+          default: false
+          description: "If `true`, the URL is saved exactly as entered. \nIf `false` (default), the system automatically normalizes the URL based on the App Type:\n\n**Custom Apps:**\n* **Protocol:** Defaults to `*://` if omitted.\n* **Subdomain:** Defaults to `www` logic (hidden).\n* **Path:** Appends `/*` if no path is specified.\n\n**Private Apps:**\n* **Protocol:** Defaults to `https://`. Wildcards (`*`) are **NOT** allowed.\n* **Subdomain:** No automatic `www` handling; `www` is treated as a unique prefix.\n* **Domain:** Supports IPv4 and Port numbers (e.g., `:8080`).\n* **Path:** Automatically adds a trailing `*` to all paths.\n"
+      required:
+      - url
     CustomTypeInput:
       type: string
       description: Discriminator field, must be 'custom'.
@@ -2534,6 +3448,79 @@ components:
           description: The original executable file name
       required:
       - originalFileName
+    CatalogApplication:
+      description: Catalog Application
+      type: object
+      allOf:
+      - $ref: '#/components/schemas/BaseApplicationWithUrls'
+      - type: object
+        properties:
+          type:
+            type: string
+            description: Discriminator field, must be 'catalog'.
+            enum:
+            - catalog
+          catalog_name:
+            type: string
+            description: The name in the application catalog
+          catalog_attributes:
+            $ref: '#/components/schemas/CatalogAttributes'
+    CreateOrReplaceAppInput:
+      oneOf:
+      - $ref: '#/components/schemas/CustomApplicationInput'
+      - $ref: '#/components/schemas/PrivateApplicationInput'
+      - $ref: '#/components/schemas/NonWebApplicationInput'
+      - $ref: '#/components/schemas/LocalDesktopApplicationInput'
+      discriminator:
+        propertyName: type
+        mapping:
+          custom: '#/components/schemas/CustomApplicationInput'
+          private: '#/components/schemas/PrivateApplicationInput'
+          non-web: '#/components/schemas/NonWebApplicationInput'
+          localdesktopcustom: '#/components/schemas/LocalDesktopApplicationInput'
+    BulkCreatedResponse:
+      type: array
+      items:
+        $ref: '#/components/schemas/BulkCreatedItem'
+    LocalDesktopAppExecutablesInput:
+      type: object
+      properties:
+        data:
+          type: array
+          description: List of executables for the local desktop application
+          items:
+            $ref: '#/components/schemas/LocalDesktopAppExecutableInput'
+          minItems: 1
+      required:
+      - data
+    CustomApplicationInput:
+      allOf:
+      - $ref: '#/components/schemas/BaseApplicationInput'
+      - type: object
+        properties:
+          urls:
+            $ref: '#/components/schemas/UrlsInput'
+          type:
+            $ref: '#/components/schemas/CustomTypeInput'
+          category:
+            type: string
+            format: string
+    BasePatchApplicationInput:
+      type: object
+      properties:
+        name:
+          type: string
+          format: string
+          description: Name of the application
+        description:
+          type: string
+          format: string
+          description: Description of the application
+          maxLength: 2500
+        type:
+          $ref: '#/components/schemas/ApplicationTypeInput'
+      required:
+      - type
     LocalDesktopApplicationInput:
       type: object
       properties:
@@ -2557,28 +3544,6 @@ components:
       - name
       - type
       - executables
-    metadata:
-      type: object
-      properties:
-        createdTime:
-          type: string
-          format: date-time
-          description: Creation time
-        lastUpdatedTime:
-          type: string
-          format: date-time
-          description: Last update time
-        createdBy:
-          type: string
-          description: Created by user
-        lastUpdatedBy:
-          type: string
-          description: Updated by user
-        configurationVersion:
-          $ref: '#/components/schemas/MetadataConfigurationVersion'
-      required:
-      - createdTime
-      - lastUpdatedTime
     ApplicationItem:
       type: object
       oneOf:
@@ -2595,18 +3560,48 @@ components:
           non-web: '#/components/schemas/NonWebApplication'
           catalog: '#/components/schemas/CatalogApplication'
           localdesktopcustom: '#/components/schemas/LocalDesktopApplication'
-    UrlInput:
+    NonWebApplication:
+      description: Non-Web Application
       type: object
-      properties:
-        url:
-          type: string
-          description: URL pattern expression
-        strict_mode:
-          type: boolean
-          default: false
-          description: "If `true`, the URL is saved exactly as entered. \nIf `false` (default), the system automatically normalizes the URL based on the App Type:\n\n**Custom Apps:**\n* **Protocol:** Defaults to `*://` if omitted.\n* **Subdomain:** Defaults to `www` logic (hidden).\n* **Path:** Appends `/*` if no path is specified.\n\n**Private Apps:**\n* **Protocol:** Defaults to `https://`. Wildcards (`*`) are **NOT** allowed.\n* **Subdomain:** No automatic `www` handling; `www` is treated as a unique prefix.\n* **Domain:** Supports IPv4 and Port numbers (e.g., `:8080`).\n* **Path:** Automatically adds a trailing `*` to all paths.\n"
-      required:
-      - url
+      allOf:
+      - $ref: '#/components/schemas/BaseApplicationWithUrls'
+      - type: object
+        properties:
+          protocol:
+            type: string
+            format: string
+          port:
+            type: string
+          routeToPrisma:
+            type: boolean
+          type:
+            type: string
+            description: Discriminator field, must be 'non-web'.
+            enum:
+            - non-web
+    PatchAppInput:
+      oneOf:
+      - $ref: '#/components/schemas/CustomPatchApplicationInput'
+      - $ref: '#/components/schemas/PrivatePatchApplicationInput'
+      - $ref: '#/components/schemas/NonWebPatchApplicationInput'
+      - $ref: '#/components/schemas/LocalDesktopPatchApplicationInput'
+      discriminator:
+        propertyName: type
+        mapping:
+          custom: '#/components/schemas/CustomPatchApplicationInput'
+          private: '#/components/schemas/PrivatePatchApplicationInput'
+          non-web: '#/components/schemas/NonWebPatchApplicationInput'
+          localdesktopcustom: '#/components/schemas/LocalDesktopPatchApplicationInput'
+    Order:
+      type: string
+      description: The sort order
+      enum:
+      - asc
+      - desc
+    PatchUrls:
+      oneOf:
+      - $ref: '#/components/schemas/UrlsInput'
+      - $ref: '#/components/schemas/AddRemoveUrls'
     CatalogAttributes:
       description: Catalog application attributes sourced from the Universal Application Directory (UAD)
       type: object
@@ -2891,141 +3886,6 @@ components:
           - 'null'
           items:
             type: string
-    NonwebTypeInput:
-      type: string
-      description: Discriminator field, must be 'non-web'.
-      enum:
-      - non-web
-    PrivateApplicationInput:
-      allOf:
-      - $ref: '#/components/schemas/BaseApplicationInput'
-      - type: object
-        properties:
-          urls:
-            $ref: '#/components/schemas/UrlsInput'
-          type:
-            $ref: '#/components/schemas/PrivateTypeInput'
-          primaryUrl:
-            type: string
-            format: string
-          routeToPrisma:
-            type: boolean
-          category:
-            type: string
-            format: string
-        required:
-        - primaryUrl
-        - routeToPrisma
-        - type
-    BasePatchApplicationInput:
-      type: object
-      properties:
-        name:
-          type: string
-          format: string
-          description: Name of the application
-        description:
-          type: string
-          format: string
-          description: Description of the application
-          maxLength: 2500
-        type:
-          $ref: '#/components/schemas/ApplicationTypeInput'
-      required:
-      - type
-    CustomApplicationInput:
-      allOf:
-      - $ref: '#/components/schemas/BaseApplicationInput'
-      - type: object
-        properties:
-          urls:
-            $ref: '#/components/schemas/UrlsInput'
-          type:
-            $ref: '#/components/schemas/CustomTypeInput'
-          category:
-            type: string
-            format: string
-    LocalDesktopAppExecutablesInput:
-      type: object
-      properties:
-        data:
-          type: array
-          description: List of executables for the local desktop application
-          items:
-            $ref: '#/components/schemas/LocalDesktopAppExecutableInput'
-          minItems: 1
-      required:
-      - data
-    BulkCreatedItem:
-      type: object
-      properties:
-        id:
-          type: string
-          description: The ID of the newly created resource
-        name:
-          type: string
-          description: The name of the newly created resource
-      required:
-      - id
-      - name
-    PageInfo:
-      type: object
-      properties:
-        hasNextPage:
-          type: boolean
-          description: When paginating forwards, are there more items?
-        cursor:
-          type:
-          - string
-          - 'null'
-          description: When paginating forwards, the cursor to continue.
-      required:
-      - hasNextPage
-    NonWebApplication:
-      description: Non-Web Application
-      type: object
-      allOf:
-      - $ref: '#/components/schemas/BaseApplicationWithUrls'
-      - type: object
-        properties:
-          protocol:
-            type: string
-            format: string
-          port:
-            type: string
-          routeToPrisma:
-            type: boolean
-          type:
-            type: string
-            description: Discriminator field, must be 'non-web'.
-            enum:
-            - non-web
-    UrlsInput:
-      type: array
-      description: URL patterns for the application. Maximum 100 URLs allowed.
-      items:
-        $ref: '#/components/schemas/UrlInput'
-      maxItems: 100
-      minItems: 1
-    Order:
-      type: string
-      description: The sort order
-      enum:
-      - asc
-      - desc
-    AddRemoveUrls:
-      type: object
-      description: Add or remove URLs from an application. The total URL count after modification cannot exceed 100.
-      properties:
-        add:
-          type: array
-          items:
-            $ref: '#/components/schemas/UrlInput'
-          maxItems: 100
-        remove:
-          type: array
-          items:
-            $ref: '#/components/schemas/UrlInput'
     CustomPatchApplicationInput:
       allOf:
       - $ref: '#/components/schemas/BasePatchApplicationInput'
@@ -3038,165 +3898,13 @@ components:
           category:
             type: string
             format: string
-    MetadataConfigurationVersion:
-      type:
-      - object
-      - 'null'
-      description: Configuration version information
-      required:
-      - id
-      - status
-      - number
+    BaseApplication:
+      type: object
       properties:
         id:
           type: string
-          description: Configuration version identifier
-          minLength: 29
-          maxLength: 29
-          pattern: ^0[A-Z]{2}[0-9A-Z]{26}$
-        status:
-          type: string
-          enum:
-          - active
-          - inactive
-          - draft
-          description: Configuration version status
-        number:
-          type: integer
-          format: int32
-          description: Configuration version number
-    PatchUrls:
-      oneOf:
-      - $ref: '#/components/schemas/UrlsInput'
-      - $ref: '#/components/schemas/AddRemoveUrls'
-    LocalDesktopTypeInput:
-      type: string
-      description: Discriminator field, must be 'localdesktopcustom'.
-      enum:
-      - localdesktopcustom
-    PrivateApplication:
-      description: Private Application
-      type: object
-      allOf:
-      - $ref: '#/components/schemas/BaseApplicationWithUrls'
-      - type: object
-        properties:
-          primaryUrl:
-            type: string
-            format: string
-          routeToPrisma:
-            type: boolean
-          type:
-            type: string
-            description: Discriminator field, must be 'private'.
-            enum:
-            - private
-    NonWebPatchApplicationInput:
-      allOf:
-      - $ref: '#/components/schemas/BasePatchApplicationInput'
-      - type: object
-        properties:
-          type:
-            $ref: '#/components/schemas/NonwebTypeInput'
-          address:
-            type: string
-            format: string
-          protocol:
-            type: string
-            format: string
-          port:
-            type: string
-          routeToPrisma:
-            type: boolean
-        required:
-        - type
-    PrivatePatchApplicationInput:
-      allOf:
-      - $ref: '#/components/schemas/BasePatchApplicationInput'
-      - type: object
-        properties:
-          urls:
-            $ref: '#/components/schemas/PatchUrls'
-          type:
-            $ref: '#/components/schemas/PrivateTypeInput'
-          primaryUrl:
-            type: string
-            format: string
-          routeToPrisma:
-            type: boolean
-          category:
-            type: string
-            format: string
-        required:
-        - type
-    LocalDesktopApplication:
-      description: Local Desktop Application
-      type: object
-      allOf:
-      - $ref: '#/components/schemas/BaseApplication'
-      - type: object
-        properties:
-          executables:
-            type: object
-            description: Local Desktop Application Executables
-            properties:
-              data:
-                type: array
-                description: List of executables for the local desktop application
-                items:
-                  type: object
-                  description: Local Desktop Application Executable
-                  properties:
-                    originalFileName:
-                      type: string
-                      description: The original executable file name
-                  required:
-                  - originalFileName
-            required:
-            - data
-          type:
-            type: string
-            description: Discriminator field, must be 'localdesktopcustom'.
-            enum:
-            - localdesktopcustom
-        required:
-        - executables
-    PrivateTypeInput:
-      type: string
-      description: Discriminator field, must be 'private'.
-      enum:
-      - private
-    NonWebApplicationInput:
-      allOf:
-      - $ref: '#/components/schemas/BaseApplicationInput'
-      - type: object
-        properties:
-          type:
-            $ref: '#/components/schemas/NonwebTypeInput'
-          address:
-            type: string
-            format: string
-          protocol:
-            type: string
-            format: string
-          port:
-            type: string
-          routeToPrisma:
-            type: boolean
-        required:
-        - protocol
-        - port
-        - address
-    ApplicationTypeInput:
-      type: string
-      enum:
-      - custom
-      - private
-      - non-web
-      - localdesktopcustom
-    BaseApplicationInput:
-      type: object
-      properties:
+          format: string
+          description: Unique identifier
         name:
           type: string
           format: string
@@ -3205,42 +3913,29 @@ components:
           type: string
           format: string
           description: Description of the application
-          maxLength: 2500
         type:
-          $ref: '#/components/schemas/ApplicationTypeInput'
+          type: string
+          enum:
+          - custom
+          - private
+          - non-web
+          - catalog
+          - localdesktopcustom
+        category:
+          type: string
+          format: string
+        metadata:
+          $ref: '#/components/schemas/metadata'
       required:
+      - id
       - name
-      - urls
       - type
-    ErrorResponse:
-      type: object
-      required:
-      - message
-      properties:
-        error:
-          type: string
-        message:
-          type: string
-        missingDeviceIds:
-          type: array
-          items:
-            type: string
-          description: List of device IDs that were not found (only present for device not found errors)
-        missingUserIds:
-          type: array
-          items:
-            type: string
-          description: List of user IDs that were not found (only present for user not found errors)
-    ResponseMetadata:
-      type: object
-      description: Response-level metadata
-      properties:
-        configurationVersion:
-          $ref: '#/components/schemas/MetadataConfigurationVersion'
-    BulkCreatedResponse:
-      type: array
-      items:
-        $ref: '#/components/schemas/BulkCreatedItem'
+      - metadata
+    NonwebTypeInput:
+      type: string
+      description: Discriminator field, must be 'non-web'.
+      enum:
+      - non-web
     generic_error:
       properties:
         _errors:
@@ -3248,22 +3943,6 @@ components:
         _request_id:
           type: string
       type: object
-    error_detail_cause_info:
-      properties:
-        code:
-          type: string
-        details:
-          type: object
-        help:
-          type: string
-        message:
-          type: string
-      title: Cause Info
-      type: object
-    error_detail_cause_infos:
-      items:
-        $ref: '#/components/schemas/error_detail_cause_info'
-      type: array
     objects-applications:
       properties:
         able_to_transfer_file:
@@ -3595,11 +4274,85 @@ components:
       - technology
       - risk
       type: object
+    error_detail_cause_infos:
+      items:
+        $ref: '#/components/schemas/error_detail_cause_info'
+      type: array
+    error_detail_cause_info:
+      properties:
+        code:
+          type: string
+        details:
+          type: object
+        help:
+          type: string
+        message:
+          type: string
+      title: Cause Info
+      type: object
     ErrorResponse_2:
       type: object
       properties:
-        error:
-          $ref: '#/components/schemas/Error'
+        _errors:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+                example: example-code
+              message:
+                type: string
+                example: Firewall incident blocked blocked firewall configured firewall.
+              details:
+                type: object
+                example: {}
+          example:
+          - code: example-code
+            message: Security detected monitoring activity firewall violation activity.
+            details: {}
+        _request_id:
+          type: string
+          example: '921009'
+    MonitoredApplication:
+      type: object
+      properties:
+        app_id:
+          type: string
+          description: Unique application identifier.
+          example: '100488'
+        name:
+          type: string
+          description: Application name.
+          example: Production Firewall 97
+        category:
+          type: string
+          description: Application category (e.g., Collaboration, Productivity, Security).
+          example: custom
+        type:
+          type: string
+          enum:
+          - saas
+          - internal
+          description: Whether the application is a SaaS or internal application.
+          example: saas
+        url:
+          type: string
+          description: Primary URL for the application.
+          example: https://vpn.acme-systems.org/a5d006
+        test_count:
+          type: integer
+          description: Number of synthetic tests configured for this application.
+          example: 241
+        monitored_users:
+          type: integer
+          description: Number of users with active monitoring for this application.
+          example: 122
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the application was added to monitoring.
+          example: '2026-02-02T08:43:53Z'
     AppCriteriaRequest:
       required:
       - app
@@ -3628,6 +4381,11 @@ components:
           type: string
         environment:
           type: string
+    ErrorResponse_3:
+      type: object
+      properties:
+        error:
+          $ref: '#/components/schemas/Error'
     Error:
       required:
       - code
@@ -3638,17 +4396,24 @@ components:
           type: string
         message:
           type: string
-    ListAppsRequest:
+    CountByKey:
       type: object
       properties:
-        businessCriticality:
+        type:
           type: string
-        owner:
+        value:
+          type: integer
+    Vulnerability:
+      type: object
+      properties:
+        id:
           type: string
-        displayName:
+        score:
+          type: number
+        severity:
           type: string
-        environment:
-          type: string
+      required:
+      - id
     AssetWithRisks:
       type: object
       properties:
@@ -3687,26 +4452,6 @@ components:
       required:
       - unifiedId
       - type
-    Vulnerability:
-      type: object
-      properties:
-        id:
-          type: string
-        score:
-          type: number
-        severity:
-          type: string
-      required:
-      - id
-    AssetCount:
-      type: object
-      properties:
-        total:
-          type: integer
-        byAlertSeverity:
-          $ref: '#/components/schemas/AlertCountBySeverity'
-        byVulnSeverity:
-          $ref: '#/components/schemas/VulnCountBySeverity'
     V2ApplicationWithAssets:
       type: object
       properties:
@@ -3726,20 +4471,6 @@ components:
             $ref: '#/components/schemas/AssetWithRisks'
         summary:
           $ref: '#/components/schemas/V2ApplicationSummary'
-    SearchRequestGroupedCount:
-      type: object
-      properties:
-        filters:
-          type: array
-          items:
-            $ref: '#/components/schemas/Filter'
-    SearchRequestRisk:
-      type: object
-      properties:
-        query:
-          type: string
-        applicationId:
-          type: string
     Filter:
       type: object
       properties:
@@ -3751,41 +4482,37 @@ components:
         value:
           type: object
           example: string, int
-    V2ApplicationWithoutAssets:
+    AssetCount:
+      type: object
+      properties:
+        total:
+          type: integer
+        byAlertSeverity:
+          $ref: '#/components/schemas/AlertCountBySeverity'
+        byVulnSeverity:
+          $ref: '#/components/schemas/VulnCountBySeverity'
+    Finding:
       type: object
       properties:
         id:
           type: string
-        createdAt:
-          type: integer
-        metadata:
-          type: object
-          additionalProperties:
-            type: array
-            items:
-              type: string
-        summary:
-          $ref: '#/components/schemas/V2ApplicationSummary'
-    SummaryOfApps:
-      type: object
-      properties:
-        totalAssets:
-          type: integer
-        totalApps:
-          type: integer
-        appsWithVuln:
-          type: integer
-        appsWithCriticalAlerts:
-          type: integer
-        newlyDiscoveredApps:
-          type: integer
-    CountByKey:
-      type: object
-      properties:
-        type:
+        name:
           type: string
-        value:
-          type: integer
+        findingTypes:
+          type: array
+          items:
+            type: string
+    ListAppsRequest:
+      type: object
+      properties:
+        businessCriticality:
+          type: string
+        owner:
+          type: string
+        displayName:
+          type: string
+        environment:
+          type: string
     SearchRequest:
       type: object
       properties:
@@ -3795,17 +4522,23 @@ components:
             $ref: '#/components/schemas/Filter'
         nextPageToken:
           type: string
-    GetTagsResponse:
+    V2ApplicationSummary:
       type: object
       properties:
-        tags:
+        cloudTypes:
           type: array
           items:
             type: string
-    CountsByKey:
-      type: array
-      items:
-        $ref: '#/components/schemas/CountByKey'
+        assetCount:
+          $ref: '#/components/schemas/AssetCount'
+        alertCountByPolicyType:
+          $ref: '#/components/schemas/CountsByKey'
+        alertCountBySeverity:
+          $ref: '#/components/schemas/AlertCountBySeverity'
+        vulnCountBySeverity:
+          $ref: '#/components/schemas/VulnCountBySeverity'
+        findingCountByType:
+          $ref: '#/components/schemas/CountsByKey'
     Alert:
       type: object
       properties:
@@ -3824,14 +4557,61 @@ components:
               type: string
             policyType:
               type: string
-    Finding:
+    SearchRequestRisk:
+      type: object
+      properties:
+        query:
+          type: string
+        applicationId:
+          type: string
+    CountsByKey:
+      type: array
+      items:
+        $ref: '#/components/schemas/CountByKey'
+    V2ApplicationWithoutAssets:
       type: object
       properties:
         id:
           type: string
-        name:
-          type: string
-        findingTypes:
+        createdAt:
+          type: integer
+        metadata:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        summary:
+          $ref: '#/components/schemas/V2ApplicationSummary'
+    VulnCountBySeverity:
+      type: object
+      properties:
+        critical:
+          type: integer
+        high:
+          type: integer
+        medium:
+          type: integer
+        low:
+          type: integer
+    SearchRequestGroupedCount:
+      type: object
+      properties:
+        filters:
+          type: array
+          items:
+            $ref: '#/components/schemas/Filter'
+    ListAppsResponseV2:
+      type: object
+      properties:
+        apps:
+          type: array
+          items:
+            $ref: '#/components/schemas/V2ApplicationWithoutAssets'
+    GetTagsResponse:
+      type: object
+      properties:
+        tags:
           type: array
           items:
             type: string
@@ -3850,16 +4630,18 @@ components:
               type: string
             cardinalityField:
               type: string
-    VulnCountBySeverity:
+    SummaryOfApps:
       type: object
       properties:
-        critical:
+        totalAssets:
           type: integer
-        high:
+        totalApps:
           type: integer
-        medium:
+        appsWithVuln:
           type: integer
-        low:
+        appsWithCriticalAlerts:
+          type: integer
+        newlyDiscoveredApps:
           type: integer
     AlertCountBySeverity:
       type: object
@@ -3874,57 +4656,206 @@ components:
           type: integer
         informational:
           type: integer
-    ListAppsResponseV2:
+    ZTNAApplication:
       type: object
       properties:
-        apps:
+        app_id:
+          type: string
+          description: Unique identifier of the ZTNA application.
+          example: '768496'
+        name:
+          type: string
+          description: Display name of the application.
+          example: Corporate Sensor 20
+        description:
+          type: string
+          description: Description of the application.
+          example: On investigation rule violation threat monitoring.
+        group_id:
+          type: string
+          description: Connector group ID used to access this application.
+          example: '907399'
+        fqdn:
+          type: string
+          description: Fully qualified domain name of the private application.
+          example: api.acme-systems.org
+        ports:
           type: array
           items:
-            $ref: '#/components/schemas/V2ApplicationWithoutAssets'
-    V2ApplicationSummary:
-      type: object
-      properties:
-        cloudTypes:
+            type: integer
+          description: TCP/UDP ports accessible through ZTNA.
+          example:
+          - 603
+          - 3
+        protocols:
           type: array
           items:
             type: string
-        assetCount:
-          $ref: '#/components/schemas/AssetCount'
-        alertCountByPolicyType:
-          $ref: '#/components/schemas/CountsByKey'
-        alertCountBySeverity:
-          $ref: '#/components/schemas/AlertCountBySeverity'
-        vulnCountBySeverity:
-          $ref: '#/components/schemas/VulnCountBySeverity'
-        findingCountByType:
-          $ref: '#/components/schemas/CountsByKey'
-    generic_error_2:
+            enum:
+            - TCP
+            - UDP
+          description: Network protocols allowed for this application.
+          example:
+          - TCP
+        enabled:
+          type: boolean
+          description: Whether ZTNA access for this application is enabled.
+          example: true
+        created_at:
+          type: string
+          format: date-time
+          example: '2024-05-17T06:02:30Z'
+    Application:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique application identifier.
+          example: example-id
+        name:
+          type: string
+          description: SaaS application name (e.g., Google Drive, Microsoft SharePoint).
+          example: Primary Agent 80
+        type:
+          type: string
+          description: Application type or category.
+          example: advanced
+        status:
+          type: string
+          enum:
+          - connected
+          - disconnected
+          - error
+          description: Current connection status.
+          example: connected
+        asset_count:
+          type: integer
+          description: Number of assets scanned for this application.
+          example: 752
+        incident_count:
+          type: integer
+          description: Number of active incidents for this application.
+          example: 54
+        connected_at:
+          type: string
+          format: date-time
+          description: Timestamp when the application was connected.
+          example: '2025-07-22T17:44:41Z'
+    ErrorResponse_2_2:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code identifying the error type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable description of the error.
+          example: Configured monitoring network blocked investigation applied activity.
+        request_id:
+          type: string
+          description: Request identifier for support correlation.
+          example: 5cc3d66e-5479-4e15-bd64-849adde3cb60
+    ZTNAApplicationRequest:
+      type: object
+      required:
+      - name
+      - group_id
+      - fqdn
+      properties:
+        name:
+          type: string
+          description: Display name for the ZTNA application.
+          example: Branch Agent 75
+        description:
+          type: string
+          description: Optional description of the application.
+          example: Incident suspicious firewall Security suspicious policy threat suspicious.
+        group_id:
+          type: string
+          description: Connector group ID to use for accessing the application.
+          example: '376339'
+        fqdn:
+          type: string
+          description: Fully qualified domain name of the private application.
+          example: login.test-corp.net
+        ports:
+          type: array
+          items:
+            type: integer
+          description: TCP/UDP ports to expose through ZTNA.
+          example:
+          - 28
+        protocols:
+          type: array
+          items:
+            type: string
+            enum:
+            - TCP
+            - UDP
+          description: Network protocols to allow.
+          example:
+          - TCP
+          - UDP
+        enabled:
+          type: boolean
+          default: true
+          description: Whether to enable ZTNA access immediately after creation.
+          example: true
+    ErrorResponse_4:
       type: object
       properties:
         _errors:
-          $ref: '#/components/schemas/error_detail_cause_infos_2'
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+                example: example-code
+              message:
+                type: string
+                example: Firewall incident blocked blocked firewall configured firewall.
+              details:
+                type: object
+                example: {}
+          example:
+          - code: example-code
+            message: Security detected monitoring activity firewall violation activity.
+            details: {}
         _request_id:
           type: string
-      x-examples: {}
-    error_detail_cause_info_2:
+          example: '921009'
+    ErrorResponse_3_2:
       type: object
-      title: Cause Info
       properties:
-        code:
+        error:
           type: string
+          description: Error code identifying the error type.
+          example: example-error
         message:
           type: string
-        details:
-          oneOf:
-          - type: string
-          - type: object
-        help:
+          description: Human-readable description of the error.
+          example: Security firewall network configured traffic blocked threat.
+        request_id:
           type: string
-    error_detail_cause_infos_2:
-      type: array
-      items:
-        $ref: '#/components/schemas/error_detail_cause_info_2'
-      x-examples: {}
+          description: Request identifier for support correlation.
+          example: 709c60bb-8234-4bc4-938b-d0835224c350
+    ErrorResponse_5:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code identifying the error type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable description of the error.
+          example: Configured monitoring network blocked investigation applied activity.
+        request_id:
+          type: string
+          description: Request identifier for support correlation.
+          example: 5cc3d66e-5479-4e15-bd64-849adde3cb60
     applications:
       type: object
       required:
@@ -4294,46 +5225,56 @@ components:
             example: My Device
         required:
         - device
+    generic_error_2:
+      type: object
+      properties:
+        _errors:
+          $ref: '#/components/schemas/error_detail_cause_infos_2'
+        _request_id:
+          type: string
+      x-examples: {}
+    error_detail_cause_infos_2:
+      type: array
+      items:
+        $ref: '#/components/schemas/error_detail_cause_info_2'
+      x-examples: {}
+    error_detail_cause_info_2:
+      type: object
+      title: Cause Info
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          oneOf:
+          - type: string
+          - type: object
+        help:
+          type: string
+    ErrorResponse_6:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code identifying the error type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable description of the error.
+          example: Security firewall network configured traffic blocked threat.
+        request_id:
+          type: string
+          description: Request identifier for support correlation.
+          example: 709c60bb-8234-4bc4-938b-d0835224c350
   examples:
-    json_401_panui_auth_key_expired:
-      summary: Key Expired
-      value:
-        _errors:
-        - code: E016
-          details: {}
-          message: Key Expired
-        _request_id: abcd-1234
-    json_501_panui_restapi_method_not_supported:
-      summary: Method Not Supported
-      value:
-        _errors:
-        - code: E012
-          details: {}
-          message: Method Not Supported
-        _request_id: abcd-1234
-    json_400_panui_restapi_input_format_mismatch:
-      summary: Input Format Mismatch
+    json_400_panui_mgmt_invalid_object:
+      summary: Invalid Object
       value:
         _errors:
         - code: E003
           details: {}
-          message: 'Input Format Mismatch: input-format=json'
-        _request_id: abcd-1234
-    json_501_panui_restapi_version_not_supported:
-      summary: Version Not Supported
-      value:
-        _errors:
-        - code: E012
-          details: {}
-          message: Version Not Supported
-        _request_id: abcd-1234
-    json_409_panui_mgmt_name_not_unique:
-      summary: Name Not Unique
-      value:
-        _errors:
-        - code: E006
-          details: {}
-          message: Name Not Unique
+          message: Invalid Object
         _request_id: abcd-1234
     json_409_panui_mgmt_object_not_unique:
       summary: Object Not Unique
@@ -4343,77 +5284,13 @@ components:
           details: {}
           message: Object Not Unique
         _request_id: abcd-1234
-    json_404_panui_mgmt_object_not_present:
-      summary: Object Not Present
-      value:
-        _errors:
-        - code: E005
-          details: {}
-          message: Object Not Present
-        _request_id: abcd-1234
-    json_400_panui_restapi_missing_body:
-      summary: Missing Body
+    json_400_panui_restapi_input_format_mismatch:
+      summary: Input Format Mismatch
       value:
         _errors:
         - code: E003
           details: {}
-          message: Missing Body
-        _request_id: abcd-1234
-    json_409_panui_mgmt_reference_not_zero:
-      summary: Reference Not Zero
-      value:
-        _errors:
-        - code: E009
-          details: {}
-          message: Reference Not Zero
-        _request_id: abcd-1234
-    json_400_panui_mgmt_invalid_command:
-      summary: Invalid Command
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: Invalid Command
-        _request_id: abcd-1234
-    json_400_panui_restapi_output_format_mismatch:
-      summary: Output Format Mismatch
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: 'Output Format Mismatch: output-format=json Accept=xml'
-        _request_id: abcd-1234
-    json_401_panui_auth_not_authenticated:
-      summary: Not Authenticated
-      value:
-        _errors:
-        - code: E016
-          details: {}
-          message: Not Authenticated
-        _request_id: abcd-1234
-    json_401_panui_auth_invalid_credential:
-      summary: Invalid Credential
-      value:
-        _errors:
-        - code: E016
-          details: {}
-          message: Invalid Credential
-        _request_id: abcd-1234
-    json_403_panui_auth_unauthorized:
-      summary: Unauthorized
-      value:
-        _errors:
-        - code: E007
-          details: {}
-          message: Unauthorized
-        _request_id: abcd-1234
-    json_400_panui_restapi_missing_query_parameter:
-      summary: Missing Query Parameter
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: 'Missing Query Parameter: name'
+          message: 'Input Format Mismatch: input-format=json'
         _request_id: abcd-1234
     json_405_panui_restapi_action_not_supported:
       summary: Action Not Supported
@@ -4423,53 +5300,13 @@ components:
           details: {}
           message: 'Action Not Supported: move'
         _request_id: abcd-1234
-    json_400_panui_restapi_invalid_query_parameter:
-      summary: Invalid Query Parameter
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: 'Invalid Query Parameter: location=invalid'
-        _request_id: abcd-1234
-    json_401_panui_auth_key_too_long:
-      summary: Key Too Long
+    json_401_panui_auth_key_expired:
+      summary: Key Expired
       value:
         _errors:
         - code: E016
           details: {}
-          message: Key Too Long
-        _request_id: abcd-1234
-    json_400_panui_mgmt_invalid_object:
-      summary: Invalid Object
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: Invalid Object
-        _request_id: abcd-1234
-    json_400_panui_mgmt_malformed_command:
-      summary: Malformed Command
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: Malformed Command
-        _request_id: abcd-1234
-    json_504_panui_mgmt_session_timeout:
-      summary: Session Timeout
-      value:
-        _errors:
-        - code: 4
-          details: {}
-          message: Session Timeout
-        _request_id: abcd-1234
-    json_401_panui_auth_need_password_change:
-      summary: Need Password Change
-      value:
-        _errors:
-        - code: E016
-          details: {}
-          message: The password needs to be changed.
+          message: Key Expired
         _request_id: abcd-1234
     json_400_panui_mgmt_bad_xpath:
       summary: Bad XPath
@@ -4479,44 +5316,148 @@ components:
           details: {}
           message: Bad XPath
         _request_id: abcd-1234
-    json_401_panui_auth_key_expired_2:
-      summary: Key Expired
-      value:
-        _errors:
-        - code: E016
-          message: Key Expired
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_501_panui_restapi_method_not_supported_2:
-      summary: Method Not Supported
-      value:
-        _errors:
-        - code: E012
-          message: Method Not Supported
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_restapi_input_format_mismatch_2:
-      summary: Input Format Mismatch
+    json_400_panui_restapi_missing_body:
+      summary: Missing Body
       value:
         _errors:
         - code: E003
-          message: 'Input Format Mismatch: input-format=json'
           details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_501_panui_restapi_version_not_supported_2:
-      summary: Version Not Supported
+          message: Missing Body
+        _request_id: abcd-1234
+    json_403_panui_auth_unauthorized:
+      summary: Unauthorized
       value:
         _errors:
-        - code: E012
-          message: Version Not Supported
+        - code: E007
           details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_409_panui_mgmt_name_not_unique_2:
+          message: Unauthorized
+        _request_id: abcd-1234
+    json_401_panui_auth_invalid_credential:
+      summary: Invalid Credential
+      value:
+        _errors:
+        - code: E016
+          details: {}
+          message: Invalid Credential
+        _request_id: abcd-1234
+    json_504_panui_mgmt_session_timeout:
+      summary: Session Timeout
+      value:
+        _errors:
+        - code: 4
+          details: {}
+          message: Session Timeout
+        _request_id: abcd-1234
+    json_401_panui_auth_not_authenticated:
+      summary: Not Authenticated
+      value:
+        _errors:
+        - code: E016
+          details: {}
+          message: Not Authenticated
+        _request_id: abcd-1234
+    json_400_panui_mgmt_invalid_command:
+      summary: Invalid Command
+      value:
+        _errors:
+        - code: E003
+          details: {}
+          message: Invalid Command
+        _request_id: abcd-1234
+    json_401_panui_auth_key_too_long:
+      summary: Key Too Long
+      value:
+        _errors:
+        - code: E016
+          details: {}
+          message: Key Too Long
+        _request_id: abcd-1234
+    json_409_panui_mgmt_name_not_unique:
       summary: Name Not Unique
       value:
         _errors:
         - code: E006
+          details: {}
           message: Name Not Unique
+        _request_id: abcd-1234
+    json_401_panui_auth_need_password_change:
+      summary: Need Password Change
+      value:
+        _errors:
+        - code: E016
+          details: {}
+          message: The password needs to be changed.
+        _request_id: abcd-1234
+    json_501_panui_restapi_method_not_supported:
+      summary: Method Not Supported
+      value:
+        _errors:
+        - code: E012
+          details: {}
+          message: Method Not Supported
+        _request_id: abcd-1234
+    json_400_panui_mgmt_malformed_command:
+      summary: Malformed Command
+      value:
+        _errors:
+        - code: E003
+          details: {}
+          message: Malformed Command
+        _request_id: abcd-1234
+    json_409_panui_mgmt_reference_not_zero:
+      summary: Reference Not Zero
+      value:
+        _errors:
+        - code: E009
+          details: {}
+          message: Reference Not Zero
+        _request_id: abcd-1234
+    json_400_panui_restapi_invalid_query_parameter:
+      summary: Invalid Query Parameter
+      value:
+        _errors:
+        - code: E003
+          details: {}
+          message: 'Invalid Query Parameter: location=invalid'
+        _request_id: abcd-1234
+    json_501_panui_restapi_version_not_supported:
+      summary: Version Not Supported
+      value:
+        _errors:
+        - code: E012
+          details: {}
+          message: Version Not Supported
+        _request_id: abcd-1234
+    json_400_panui_restapi_missing_query_parameter:
+      summary: Missing Query Parameter
+      value:
+        _errors:
+        - code: E003
+          details: {}
+          message: 'Missing Query Parameter: name'
+        _request_id: abcd-1234
+    json_400_panui_restapi_output_format_mismatch:
+      summary: Output Format Mismatch
+      value:
+        _errors:
+        - code: E003
+          details: {}
+          message: 'Output Format Mismatch: output-format=json Accept=xml'
+        _request_id: abcd-1234
+    json_404_panui_mgmt_object_not_present:
+      summary: Object Not Present
+      value:
+        _errors:
+        - code: E005
+          details: {}
+          message: Object Not Present
+        _request_id: abcd-1234
+    json_400_panui_mgmt_invalid_object_2:
+      summary: Invalid Object
+      value:
+        _errors:
+        - code: E003
+          message: Invalid Object
           details: {}
         _request_id: 123e4567-e89b-12d3-a456-426655440000
     json_409_panui_mgmt_object_not_unique_2:
@@ -4527,76 +5468,12 @@ components:
           message: Object Not Unique
           details: {}
         _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_404_panui_mgmt_object_not_present_2:
-      summary: Object Not Present
-      value:
-        _errors:
-        - code: E005
-          message: Object Not Present
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_restapi_missing_body_2:
-      summary: Missing Body
+    json_400_panui_restapi_input_format_mismatch_2:
+      summary: Input Format Mismatch
       value:
         _errors:
         - code: E003
-          message: Missing Body
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_409_panui_mgmt_reference_not_zero_2:
-      summary: Reference Not Zero
-      value:
-        _errors:
-        - code: E009
-          message: Reference Not Zero
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_mgmt_invalid_command_2:
-      summary: Invalid Command
-      value:
-        _errors:
-        - code: E003
-          message: Invalid Command
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_restapi_output_format_mismatch_2:
-      summary: Output Format Mismatch
-      value:
-        _errors:
-        - code: E003
-          message: 'Output Format Mismatch: output-format=json Accept=xml'
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_401_panui_auth_not_authenticated_2:
-      summary: Not Authenticated
-      value:
-        _errors:
-        - code: E016
-          message: Not Authenticated
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_401_panui_auth_invalid_credential_2:
-      summary: Invalid Credential
-      value:
-        _errors:
-        - code: E016
-          message: Invalid Credential
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_403_panui_auth_unauthorized_2:
-      summary: Unauthorized
-      value:
-        _errors:
-        - code: E007
-          message: Unauthorized
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_restapi_missing_query_parameter_2:
-      summary: Missing Query Parameter
-      value:
-        _errors:
-        - code: E003
-          message: 'Missing Query Parameter: name'
+          message: 'Input Format Mismatch: input-format=json'
           details: {}
         _request_id: 123e4567-e89b-12d3-a456-426655440000
     json_405_panui_restapi_action_not_supported_2:
@@ -4607,52 +5484,12 @@ components:
           message: 'Action Not Supported: move'
           details: {}
         _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_restapi_invalid_query_parameter_2:
-      summary: Invalid Query Parameter
-      value:
-        _errors:
-        - code: E003
-          message: 'Invalid Query Parameter: location=invalid'
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_401_panui_auth_key_too_long_2:
-      summary: Key Too Long
+    json_401_panui_auth_key_expired_2:
+      summary: Key Expired
       value:
         _errors:
         - code: E016
-          message: Key Too Long
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_mgmt_invalid_object_2:
-      summary: Invalid Object
-      value:
-        _errors:
-        - code: E003
-          message: Invalid Object
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_mgmt_malformed_command_2:
-      summary: Malformed Command
-      value:
-        _errors:
-        - code: E003
-          message: Malformed Command
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_504_panui_mgmt_session_timeout_2:
-      summary: Session Timeout
-      value:
-        _errors:
-        - code: '4'
-          message: Session Timeout
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_401_panui_auth_need_password_change_2:
-      summary: Need Password Change
-      value:
-        _errors:
-        - code: E016
-          message: The password needs to be changed.
+          message: Key Expired
           details: {}
         _request_id: 123e4567-e89b-12d3-a456-426655440000
     json_400_panui_mgmt_bad_xpath_2:
@@ -4663,9 +5500,152 @@ components:
           message: Bad XPath
           details: {}
         _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_400_panui_restapi_missing_body_2:
+      summary: Missing Body
+      value:
+        _errors:
+        - code: E003
+          message: Missing Body
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_403_panui_auth_unauthorized_2:
+      summary: Unauthorized
+      value:
+        _errors:
+        - code: E007
+          message: Unauthorized
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_401_panui_auth_invalid_credential_2:
+      summary: Invalid Credential
+      value:
+        _errors:
+        - code: E016
+          message: Invalid Credential
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_504_panui_mgmt_session_timeout_2:
+      summary: Session Timeout
+      value:
+        _errors:
+        - code: '4'
+          message: Session Timeout
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_401_panui_auth_not_authenticated_2:
+      summary: Not Authenticated
+      value:
+        _errors:
+        - code: E016
+          message: Not Authenticated
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_400_panui_mgmt_invalid_command_2:
+      summary: Invalid Command
+      value:
+        _errors:
+        - code: E003
+          message: Invalid Command
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_401_panui_auth_key_too_long_2:
+      summary: Key Too Long
+      value:
+        _errors:
+        - code: E016
+          message: Key Too Long
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_409_panui_mgmt_name_not_unique_2:
+      summary: Name Not Unique
+      value:
+        _errors:
+        - code: E006
+          message: Name Not Unique
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_401_panui_auth_need_password_change_2:
+      summary: Need Password Change
+      value:
+        _errors:
+        - code: E016
+          message: The password needs to be changed.
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_501_panui_restapi_method_not_supported_2:
+      summary: Method Not Supported
+      value:
+        _errors:
+        - code: E012
+          message: Method Not Supported
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_400_panui_mgmt_malformed_command_2:
+      summary: Malformed Command
+      value:
+        _errors:
+        - code: E003
+          message: Malformed Command
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_409_panui_mgmt_reference_not_zero_2:
+      summary: Reference Not Zero
+      value:
+        _errors:
+        - code: E009
+          message: Reference Not Zero
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_400_panui_restapi_invalid_query_parameter_2:
+      summary: Invalid Query Parameter
+      value:
+        _errors:
+        - code: E003
+          message: 'Invalid Query Parameter: location=invalid'
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_501_panui_restapi_version_not_supported_2:
+      summary: Version Not Supported
+      value:
+        _errors:
+        - code: E012
+          message: Version Not Supported
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_400_panui_restapi_missing_query_parameter_2:
+      summary: Missing Query Parameter
+      value:
+        _errors:
+        - code: E003
+          message: 'Missing Query Parameter: name'
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_400_panui_restapi_output_format_mismatch_2:
+      summary: Output Format Mismatch
+      value:
+        _errors:
+        - code: E003
+          message: 'Output Format Mismatch: output-format=json Accept=xml'
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_404_panui_mgmt_object_not_present_2:
+      summary: Object Not Present
+      value:
+        _errors:
+        - code: E005
+          message: Object Not Present
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
   responses:
-    http_ok:
-      description: Ok
+    access_errors:
+      content:
+        application/json:
+          examples:
+            auth_unauthorized:
+              $ref: '#/components/examples/json_403_panui_auth_unauthorized'
+          schema:
+            $ref: '#/components/schemas/generic_error'
+      description: Forbidden
     not_found:
       content:
         application/json:
@@ -4675,6 +5655,36 @@ components:
           schema:
             $ref: '#/components/schemas/generic_error'
       description: Not Found
+    conflict_errors:
+      content:
+        application/json:
+          examples:
+            name_not_unique:
+              $ref: '#/components/examples/json_409_panui_mgmt_name_not_unique'
+            object_not_unique:
+              $ref: '#/components/examples/json_409_panui_mgmt_object_not_unique'
+            reference_not_zero:
+              $ref: '#/components/examples/json_409_panui_mgmt_reference_not_zero'
+          schema:
+            $ref: '#/components/schemas/generic_error'
+      description: Conflict
+    http_created:
+      description: Created
+    bad_request_errors_basic:
+      content:
+        application/json:
+          examples:
+            input_format_mismatch:
+              $ref: '#/components/examples/json_400_panui_restapi_input_format_mismatch'
+            invalid_query_parameter:
+              $ref: '#/components/examples/json_400_panui_restapi_invalid_query_parameter'
+            missing_query_parameter:
+              $ref: '#/components/examples/json_400_panui_restapi_missing_query_parameter'
+            output_format_mismatch:
+              $ref: '#/components/examples/json_400_panui_restapi_output_format_mismatch'
+          schema:
+            $ref: '#/components/schemas/generic_error'
+      description: Bad Request
     default_errors:
       content:
         application/json:
@@ -4696,6 +5706,23 @@ components:
           schema:
             $ref: '#/components/schemas/generic_error'
       description: General Errors
+    auth_errors:
+      content:
+        application/json:
+          examples:
+            auth_not_authenticated:
+              $ref: '#/components/examples/json_401_panui_auth_not_authenticated'
+            invalid_credential:
+              $ref: '#/components/examples/json_401_panui_auth_invalid_credential'
+            key_expired:
+              $ref: '#/components/examples/json_401_panui_auth_key_expired'
+            key_too_long:
+              $ref: '#/components/examples/json_401_panui_auth_key_too_long'
+            need_password_change:
+              $ref: '#/components/examples/json_401_panui_auth_need_password_change'
+          schema:
+            $ref: '#/components/schemas/generic_error'
+      description: Unauthorized
     bad_request_errors_basic_with_body:
       content:
         application/json:
@@ -4715,80 +5742,62 @@ components:
           schema:
             $ref: '#/components/schemas/generic_error'
       description: Bad Request
-    bad_request_errors_basic:
+    http_ok:
+      description: Ok
+    Forbidden:
+      description: Insufficient permissions for this operation.
       content:
         application/json:
-          examples:
-            input_format_mismatch:
-              $ref: '#/components/examples/json_400_panui_restapi_input_format_mismatch'
-            invalid_query_parameter:
-              $ref: '#/components/examples/json_400_panui_restapi_invalid_query_parameter'
-            missing_query_parameter:
-              $ref: '#/components/examples/json_400_panui_restapi_missing_query_parameter'
-            output_format_mismatch:
-              $ref: '#/components/examples/json_400_panui_restapi_output_format_mismatch'
           schema:
-            $ref: '#/components/schemas/generic_error'
-      description: Bad Request
-    auth_errors:
+            $ref: '#/components/schemas/ErrorResponse_2'
+    InternalServerError:
+      description: Internal server error.
       content:
         application/json:
-          examples:
-            auth_not_authenticated:
-              $ref: '#/components/examples/json_401_panui_auth_not_authenticated'
-            invalid_credential:
-              $ref: '#/components/examples/json_401_panui_auth_invalid_credential'
-            key_expired:
-              $ref: '#/components/examples/json_401_panui_auth_key_expired'
-            key_too_long:
-              $ref: '#/components/examples/json_401_panui_auth_key_too_long'
-            need_password_change:
-              $ref: '#/components/examples/json_401_panui_auth_need_password_change'
           schema:
-            $ref: '#/components/schemas/generic_error'
-      description: Unauthorized
-    http_created:
-      description: Created
-    conflict_errors:
+            $ref: '#/components/schemas/ErrorResponse_2'
+    Unauthorized:
+      description: Missing or invalid OAuth2 access token.
       content:
         application/json:
-          examples:
-            name_not_unique:
-              $ref: '#/components/examples/json_409_panui_mgmt_name_not_unique'
-            object_not_unique:
-              $ref: '#/components/examples/json_409_panui_mgmt_object_not_unique'
-            reference_not_zero:
-              $ref: '#/components/examples/json_409_panui_mgmt_reference_not_zero'
           schema:
-            $ref: '#/components/schemas/generic_error'
-      description: Conflict
-    access_errors:
+            $ref: '#/components/schemas/ErrorResponse_2'
+    Forbidden_2:
+      description: Insufficient permissions for this operation.
       content:
         application/json:
-          examples:
-            auth_unauthorized:
-              $ref: '#/components/examples/json_403_panui_auth_unauthorized'
           schema:
-            $ref: '#/components/schemas/generic_error'
-      description: Forbidden
+            $ref: '#/components/schemas/ErrorResponse_4'
+    InternalServerError_2:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_4'
+    Unauthorized_2:
+      description: Missing or invalid OAuth2 access token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_4'
     http_ok_2:
       description: OK
   parameters:
-    uuid-required:
-      description: 'The resource''s unique identifier.
-
-        '
-      in: path
-      name: id
-      required: true
-      schema:
-        type: string
     offset-optional:
       description: 'The offset of the result entry.
 
         '
       in: query
       name: offset
+      required: false
+      schema:
+        type: number
+    limit-optional:
+      description: 'The maximum number of result objects to return per page.
+
+        '
+      in: query
+      name: limit
       required: false
       schema:
         type: number
@@ -4809,21 +5818,37 @@ components:
         - Mobile Users Explicit Proxy
         pattern: ^[0-9a-zA-Z._-\s]{1,}$
         type: string
-    limit-optional:
-      description: 'The maximum number of result objects to return per page.
+    uuid-required:
+      description: 'The resource''s unique identifier.
 
         '
-      in: query
-      name: limit
-      required: false
+      in: path
+      name: id
+      required: true
       schema:
-        type: number
+        type: string
     name-optional:
       description: 'The name of the entry.
 
         '
       in: query
       name: name
+      required: false
+      schema:
+        type: string
+    device:
+      name: device
+      in: query
+      description: 'The device in which the resource is defined
+
+        '
+      required: false
+      schema:
+        type: string
+    name:
+      name: name
+      in: query
+      description: The name of the configuration resource
       required: false
       schema:
         type: string
@@ -4836,21 +5861,6 @@ components:
         type: string
         format: uuid
         example: 123e4567-e89b-12d3-a456-426655440000
-    name:
-      name: name
-      in: query
-      description: The name of the configuration resource
-      required: false
-      schema:
-        type: string
-    limit:
-      name: limit
-      in: query
-      description: The maximum number of results per page
-      required: false
-      schema:
-        type: integer
-        default: 200
     folder_2:
       name: folder
       in: query
@@ -4877,15 +5887,14 @@ components:
       schema:
         type: integer
         default: 0
-    device:
-      name: device
+    limit:
+      name: limit
       in: query
-      description: 'The device in which the resource is defined
-
-        '
+      description: The maximum number of results per page
       required: false
       schema:
-        type: string
+        type: integer
+        default: 200
   securitySchemes:
     BearerAuth:
       type: http
@@ -4895,11 +5904,28 @@ components:
     Bearer:
       scheme: bearer
       type: http
+    oauth2:
+      type: oauth2
+      description: OAuth 2.0 client credentials flow for obtaining an access token. Requires a client ID and client secret from the Palo Alto Networks SASE identity provider.
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
+          scopes: {}
     x-redlock-auth:
       description: The x-redlock-auth value is a JSON Web Token (JWT).
       in: header
       name: x-redlock-auth
       type: apiKey
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token. Obtain by authenticating with the SaaS Security API token endpoint using your service account credentials.
     scmOAuth:
       type: oauth2
       description: "Strata Cloud Manager APIs authenticate client requests using the \nOAuth 2.0 Client Credentials flow.  Please use the `client_id`, \n`client_secret` values associated with an IAM service account along \nwith a scope value of `tsg_id:XXXXXXXXXX`, where `XXXXXXXXXX` is the \nTenant Service Group (TSG) ID.  The resulting JWT access token should \nbe attached to all API calls as a `Bearer` token in the `Authorization` \nheader (ex. `Authorization: Bearer tokenstring`).\n"
@@ -4915,6 +5941,10 @@ components:
 x-refined-from:
 - palo-alto-access-browser-mgmt-prismaaccess-browser-management-latest-openapi.yaml
 - palo-alto-access-prisma-access-config-applications-openapi.yaml
+- palo-alto-autonomous-dem-api-openapi-original.yml
 - palo-alto-cspm-applicationconfigmicroservice-openapi.json
 - palo-alto-cspm-applicationsearchmicroservice-openapi.json
+- palo-alto-networks-applications-api-openapi.yml
+- palo-alto-saas-security-api-openapi-original.yml
 - palo-alto-scm-config-cloudngfw-objects-objects-june-openapi.yaml
+- palo-alto-ztna-connector-api-openapi-original.yml

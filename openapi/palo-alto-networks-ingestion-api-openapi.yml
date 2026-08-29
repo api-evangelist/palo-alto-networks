@@ -1,0 +1,196 @@
+openapi: 3.2.0
+info:
+  title: Palo Alto Networks Ingestion API
+  version: '1.0'
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+  description: 'Operations tagged Ingestion across 2 of this provider''s published API definitions: palo-alto-cortex-xsiam-api-openapi-original.yml, palo-alto-networks-ingestion-api-openapi.yml. Each path carries the servers of the definition it was published in.'
+servers:
+- url: https://api-{fqdn}/public_api/v1
+  description: Cortex XSIAM tenant API endpoint.
+  variables:
+    fqdn:
+      description: Tenant FQDN from the XSIAM settings page (e.g., example.xsiam.paloaltonetworks.com).
+      default: example.xsiam.paloaltonetworks.com
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+tags:
+- name: Ingestion
+  description: Data source configuration for log ingestion.
+paths:
+  /ingestion/datasources:
+    post:
+      operationId: configureDatasource
+      summary: Palo Alto Networks Configure Data Source
+      description: Configures a new data source for log ingestion into XSIAM. Data sources define the schema, parsing rules, and normalization mappings for third-party log formats. Enables XSIAM to ingest and correlate data from firewalls, cloud platforms, SaaS applications, and custom sources.
+      tags:
+      - Ingestion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - request_data
+              properties:
+                request_data:
+                  type: object
+                  required:
+                  - name
+                  - vendor
+                  - product
+                  properties:
+                    name:
+                      type: string
+                      description: Unique name for this data source configuration.
+                    vendor:
+                      type: string
+                      description: Vendor name of the data source (e.g., Palo Alto Networks).
+                    product:
+                      type: string
+                      description: Product name (e.g., PAN-OS, Prisma Access).
+                    type:
+                      type: string
+                      enum:
+                      - syslog
+                      - https
+                      - api
+                      - file
+                      description: Ingestion method for this data source.
+                    parsing_rule:
+                      type: string
+                      description: XDL (XSIAM Definition Language) parsing rule for extracting fields from raw log data.
+                    mapping_fields:
+                      type: object
+                      description: Field name mapping from source fields to XSIAM schema fields.
+                      additionalProperties:
+                        type: string
+                    enabled:
+                      type: boolean
+                      default: true
+            examples:
+              ConfigureDatasourceRequestExample:
+                summary: Default configureDatasource request
+                x-microcks-default: true
+                value:
+                  request_data:
+                    name: Staging Policy 70
+                    vendor: Palo Alto Networks
+                    product: example-product
+                    type: syslog
+                    parsing_rule: example-parsing_rule
+                    mapping_fields: {}
+                    enabled: true
+      responses:
+        '200':
+          description: Data source configured successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      datasource_id:
+                        type: string
+                        description: Unique identifier assigned to the new data source.
+                      name:
+                        type: string
+                      status:
+                        type: string
+                        enum:
+                        - ACTIVE
+                        - PENDING
+                        - ERROR
+              examples:
+                ConfigureDatasource200Example:
+                  summary: Default configureDatasource 200 response
+                  x-microcks-default: true
+                  value:
+                    reply:
+                      datasource_id: '995974'
+                      name: Corporate Policy 49
+                      status: PENDING
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - xsiamAuth: []
+    servers:
+    - url: https://api-{fqdn}/public_api/v1
+      description: Cortex XSIAM tenant API endpoint.
+      variables:
+        fqdn:
+          description: Tenant FQDN from the XSIAM settings page (e.g., example.xsiam.paloaltonetworks.com).
+          default: example.xsiam.paloaltonetworks.com
+components:
+  responses:
+    Forbidden:
+      description: Insufficient permissions for the requested operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Malformed request body or invalid parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid authentication headers.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: A resource with the specified name already exists.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        reply:
+          type: object
+          properties:
+            err_code:
+              type: integer
+              example: 140
+            err_msg:
+              type: string
+              example: example-err_msg
+            err_extra:
+              type: string
+              example: example-err_extra
+          example:
+            err_code: 33
+            err_msg: example-err_msg
+            err_extra: example-err_extra
+  securitySchemes:
+    xsiamAuth:
+      type: apiKey
+      in: header
+      name: x-xdr-hmac-v2
+      description: 'Cortex XSIAM uses a custom HMAC-SHA256 authentication scheme. Include four headers on each request: x-xdr-auth-id (API key ID number), x-xdr-nonce (64-character random string), x-xdr-timestamp (Unix epoch milliseconds as a string), and x-xdr-hmac-v2 (SHA-256 hash of api_key + nonce + timestamp). Standard and Advanced API key types are supported; Advanced keys provide additional security through IP allowlisting. Generate API keys from XSIAM Settings > Configurations > API Keys.'
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
+x-refined-from:
+- palo-alto-cortex-xsiam-api-openapi-original.yml
+- palo-alto-networks-ingestion-api-openapi.yml

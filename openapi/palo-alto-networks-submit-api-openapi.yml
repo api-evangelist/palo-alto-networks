@@ -1,0 +1,306 @@
+openapi: 3.2.0
+info:
+  title: Palo Alto Networks Submit API
+  version: '1.0'
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+  description: 'Operations tagged Submit across 2 of this provider''s published API definitions: palo-alto-networks-submit-api-openapi.yml, palo-alto-wildfire-api-openapi-original.yml. Each path carries the servers of the definition it was published in.'
+servers:
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+- url: https://wildfire.paloaltonetworks.com/publicapi
+  description: WildFire global cloud (US).
+- url: https://wildfire.{region}.paloaltonetworks.com/publicapi
+  description: WildFire regional cloud endpoint.
+  variables:
+    region:
+      description: Regional deployment (e.g., eu, jp).
+      default: eu
+tags:
+- name: Submit
+  description: File, URL, and link submission for malware analysis.
+paths:
+  /submit/file:
+    post:
+      operationId: submitFile
+      summary: Palo Alto Networks Submit File for Analysis
+      description: Submits a file to WildFire for malware analysis. The file is executed in an isolated sandbox environment and analyzed for malicious behavior. Supported file types include PE executables, DLLs, Office documents, PDFs, APKs, and scripts. Returns a SHA-256 hash and upload status. Poll /get/verdict for the analysis result.
+      tags:
+      - Submit
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - apikey
+              - file
+              properties:
+                apikey:
+                  type: string
+                  description: WildFire API key for authentication.
+                file:
+                  type: string
+                  format: binary
+                  description: The file to submit for analysis (max 100 MB).
+            examples:
+              SubmitFileRequestExample:
+                summary: Default submitFile request
+                x-microcks-default: true
+                value:
+                  apikey: example-apikey
+                  file: example-file
+      responses:
+        '200':
+          description: File submitted successfully.
+          content:
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/SubmitResponse'
+              examples:
+                SubmitFile200Example:
+                  summary: Default submitFile 200 response
+                  x-microcks-default: true
+                  value:
+                    upload-file-info:
+                      filename: Primary Firewall 60
+                      filetype: standard
+                      fileurl: example-fileurl
+                      md5: e80837f90fb511c2a14570a6acc47263
+                      sha256: b4ed4912613bb347504a26b57f498c5ea2364a7174f06253e7336aeac148a038
+                      size: 806
+                      url: https://mail.acme-systems.org/3910a3
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
+  /submit/url:
+    post:
+      operationId: submitUrl
+      summary: Palo Alto Networks Submit URL for Analysis
+      description: Submits a URL to WildFire for phishing and malware analysis. WildFire visits the URL in an isolated browser environment and analyzes the page content and any downloaded files for malicious behavior.
+      tags:
+      - Submit
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - apikey
+              - url
+              properties:
+                apikey:
+                  type: string
+                  description: WildFire API key for authentication.
+                url:
+                  type: string
+                  description: URL to submit for analysis (must be a valid HTTP or HTTPS URL).
+            examples:
+              SubmitUrlRequestExample:
+                summary: Default submitUrl request
+                x-microcks-default: true
+                value:
+                  apikey: example-apikey
+                  url: https://mail.example.com/063e82
+      responses:
+        '200':
+          description: URL submitted successfully.
+          content:
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/SubmitResponse'
+              examples:
+                SubmitUrl200Example:
+                  summary: Default submitUrl 200 response
+                  x-microcks-default: true
+                  value:
+                    upload-file-info:
+                      filename: Primary Firewall 60
+                      filetype: standard
+                      fileurl: example-fileurl
+                      md5: e80837f90fb511c2a14570a6acc47263
+                      sha256: b4ed4912613bb347504a26b57f498c5ea2364a7174f06253e7336aeac148a038
+                      size: 806
+                      url: https://mail.acme-systems.org/3910a3
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
+  /submit/link:
+    post:
+      operationId: submitLink
+      summary: Palo Alto Networks Submit Link for Analysis
+      description: Submits a hyperlink for WildFire analysis. Similar to URL submission but intended for links extracted from email bodies or documents.
+      tags:
+      - Submit
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - apikey
+              - link
+              properties:
+                apikey:
+                  type: string
+                  description: WildFire API key for authentication.
+                link:
+                  type: string
+                  description: Link to submit for analysis.
+            examples:
+              SubmitLinkRequestExample:
+                summary: Default submitLink request
+                x-microcks-default: true
+                value:
+                  apikey: example-apikey
+                  link: https://portal.acme-systems.org/87b216
+      responses:
+        '200':
+          description: Link submitted successfully.
+          content:
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/SubmitResponse'
+              examples:
+                SubmitLink200Example:
+                  summary: Default submitLink 200 response
+                  x-microcks-default: true
+                  value:
+                    upload-file-info:
+                      filename: Primary Firewall 60
+                      filetype: standard
+                      fileurl: example-fileurl
+                      md5: e80837f90fb511c2a14570a6acc47263
+                      sha256: b4ed4912613bb347504a26b57f498c5ea2364a7174f06253e7336aeac148a038
+                      size: 806
+                      url: https://mail.acme-systems.org/3910a3
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
+components:
+  responses:
+    Forbidden:
+      description: Valid API key but insufficient permissions for the requested operation (e.g., sample download requires elevated permissions).
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: An internal server error occurred.
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Malformed request, missing required parameters, or invalid API key format.
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing API key or API key is invalid.
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    ErrorResponse:
+      type: object
+      description: Error response returned when a request fails.
+      properties:
+        error:
+          type: object
+          properties:
+            error-message:
+              type: string
+              description: Human-readable error message.
+              example: example-error-message
+          example:
+            error-message: example-error-message
+    SubmitResponse:
+      type: object
+      description: Response returned after successfully submitting a file, URL, or link.
+      properties:
+        upload-file-info:
+          type: object
+          properties:
+            filename:
+              type: string
+              description: Original filename of the submitted file.
+              example: Staging Agent 09
+            filetype:
+              type: string
+              description: Detected file type.
+              example: advanced
+            fileurl:
+              type: string
+              description: URL of the submitted link or URL sample.
+              example: example-fileurl
+            md5:
+              type: string
+              description: MD5 hash of the submitted file.
+              example: c3b5353b5e324afe11011c986fdff25e
+            sha256:
+              type: string
+              description: SHA-256 hash of the submitted file.
+              example: 6e459dbe581619c17119c4b6902f58ba424ef03b271bedcfdbc0431b7912882c
+            size:
+              type: integer
+              description: File size in bytes.
+              example: 334
+            url:
+              type: string
+              description: Submitted URL value.
+              example: https://login.example.com/8d2a5c
+          example:
+            filename: Primary Firewall 60
+            filetype: standard
+            fileurl: example-fileurl
+            md5: e80837f90fb511c2a14570a6acc47263
+            sha256: b4ed4912613bb347504a26b57f498c5ea2364a7174f06253e7336aeac148a038
+            size: 806
+            url: https://mail.acme-systems.org/3910a3
+  securitySchemes:
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
+x-refined-from:
+- palo-alto-networks-submit-api-openapi.yml
+- palo-alto-wildfire-api-openapi-original.yml

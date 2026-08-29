@@ -1,0 +1,179 @@
+openapi: 3.2.0
+info:
+  title: Palo Alto Networks Recipients API
+  version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+  description: 'Operations tagged Recipients across 2 of this provider''s published API definitions: palo-alto-email-dlp-api-openapi-original.yml, palo-alto-networks-recipients-api-openapi.yml. Each path carries the servers of the definition it was published in.'
+servers:
+- url: https://api.{region}.dlp.paloaltonetworks.com/v1
+  description: Email DLP API production server.
+  variables:
+    region:
+      description: Deployment region for the Email DLP service. Choose the region matching your tenant data residency.
+      default: us
+      enum:
+      - us
+      - eu
+      - in
+      - apac
+      - uk
+      - jp
+      - au
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+tags:
+- name: Recipients
+  description: Email recipient retrieval operations.
+paths:
+  /email-incidents/{id}/recipients:
+    get:
+      operationId: getEmailIncidentRecipients
+      summary: Palo Alto Networks Get Email Incident Recipients
+      description: Returns the list of recipients for the email message associated with a specific DLP incident. Includes To, CC, and BCC recipients along with their delivery status.
+      tags:
+      - Recipients
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Unique incident identifier.
+        schema:
+          type: string
+        example: example-id
+      responses:
+        '200':
+          description: Email recipients returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  incident_id:
+                    type: string
+                    description: Identifier of the parent incident.
+                  recipients:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EmailRecipient'
+              examples:
+                GetEmailIncidentRecipients200Example:
+                  summary: Default getEmailIncidentRecipients 200 response
+                  x-microcks-default: true
+                  value:
+                    incident_id: '965151'
+                    recipients:
+                    - email: security-ops@example.com
+                      type: cc
+                      delivery_status: pending
+                    - email: security-ops@example.com
+                      type: cc
+                      delivery_status: pending
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - bearerAuth: []
+    servers:
+    - url: https://api.{region}.dlp.paloaltonetworks.com/v1
+      description: Email DLP API production server.
+      variables:
+        region:
+          description: Deployment region for the Email DLP service. Choose the region matching your tenant data residency.
+          default: us
+          enum:
+          - us
+          - eu
+          - in
+          - apac
+          - uk
+          - jp
+          - au
+components:
+  responses:
+    Forbidden:
+      description: Insufficient role permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Invalid or expired bearer token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code or type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable error message.
+          example: Policy network malware on detected configured on incident blocked violation.
+    EmailRecipient:
+      type: object
+      properties:
+        email:
+          type: string
+          description: Recipient email address.
+          example: security-ops@example.com
+        type:
+          type: string
+          enum:
+          - to
+          - cc
+          - bcc
+          description: Recipient type indicating address field.
+          example: cc
+        delivery_status:
+          type: string
+          enum:
+          - delivered
+          - blocked
+          - quarantined
+          - pending
+          description: Delivery status of the message to this recipient.
+          example: pending
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Bearer token for authentication. Requires SOC_Admin, Superuser, or Data_Security_Admin role assigned in the Palo Alto Networks tenant.
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
+x-refined-from:
+- palo-alto-email-dlp-api-openapi-original.yml
+- palo-alto-networks-recipients-api-openapi.yml

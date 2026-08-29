@@ -1,11 +1,24 @@
 openapi: 3.2.0
 info:
-  contact: {}
-  description: "The Suppressions endpoints are listed below. \n"
-  title: Prisma Cloud API Overview Suppressions API
-  version: Latest
+  title: Palo Alto Networks Suppressions API
+  version: '1.0'
+  description: 'Operations tagged Suppressions across 3 of this provider''s published API definitions: palo-alto-code-suppressions-openapi.json, palo-alto-networks-suppressions-api-openapi.yml, palo-alto-prisma-cloud-code-security-api-openapi-original.yml. Each path carries the servers of the definition it was published in.'
 servers:
 - url: https://api.prismacloud.io
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+- url: https://api.prismacloud.io/code/api/v1
+  description: Prisma Cloud Code Security API (US region 1).
+- url: https://api2.prismacloud.io/code/api/v1
+  description: Prisma Cloud Code Security API (US region 2).
+- url: https://api.eu.prismacloud.io/code/api/v1
+  description: Prisma Cloud Code Security API (EU).
+- url: https://api.anz.prismacloud.io/code/api/v1
+  description: Prisma Cloud Code Security API (ANZ).
+- url: https://api.sg.prismacloud.io/code/api/v1
+  description: Prisma Cloud Code Security API (Singapore).
+- url: https://api.ca.prismacloud.io/code/api/v1
+  description: Prisma Cloud Code Security API (Canada).
 tags:
 - name: Suppressions
 paths:
@@ -84,6 +97,8 @@ paths:
           print(response.text)'
       - lang: Shell + Curl
         source: "curl --request GET \\\n  --url https://api.prismacloud.io/code/api/v1/suppressions \\\n  --header 'authorization: REPLACE_KEY_VALUE'"
+    servers:
+    - url: https://api.prismacloud.io
   /code/api/v1/suppressions/{policyId}:
     post:
       description: 'Prisma Cloud Application Security supports advanced Suppression rule settings in order to make policy management easier by dismissing or snoozing errors
@@ -176,6 +191,8 @@ paths:
         source: "import requests\n\nurl = \"https://api.prismacloud.io/code/api/v1/suppressions/{policyId}\"\n\npayload = {\n    \"comment\": \"string\",\n    \"expirationTime\": 0,\n    \"origin\": \"string\",\n    \"resources\": [\n        {\n            \"accountId\": \"string\",\n            \"id\": \"string\"\n        }\n    ],\n    \"suppressionType\": \"Resources\"\n}\nheaders = {\n    \"content-type\": \"application/json\",\n    \"authorization\": \"REPLACE_KEY_VALUE\"\n}\n\nresponse = requests.request(\"POST\", url, json=payload, headers=headers)\n\nprint(response.text)"
       - lang: Shell + Curl
         source: "curl --request POST \\\n  --url https://api.prismacloud.io/code/api/v1/suppressions/{policyId} \\\n  --header 'authorization: REPLACE_KEY_VALUE' \\\n  --header 'content-type: application/json' \\\n  --data '{\"comment\":\"string\",\"expirationTime\":0,\"origin\":\"string\",\"resources\":[{\"accountId\":\"string\",\"id\":\"string\"}],\"suppressionType\":\"Resources\"}'"
+    servers:
+    - url: https://api.prismacloud.io
   /code/api/v1/suppressions/{policyId}/justifications/{suppressionId}:
     put:
       description: 'Prisma Cloud Application Security supports advanced Suppression rule settings in order to make policy management easier by dismissing or snoozing errors
@@ -344,6 +361,8 @@ paths:
           print(response.text)'
       - lang: Shell + Curl
         source: "curl --request DELETE \\\n  --url https://api.prismacloud.io/code/api/v1/suppressions/{policyId}/justifications/{suppressionId} \\\n  --header 'authorization: REPLACE_KEY_VALUE'"
+    servers:
+    - url: https://api.prismacloud.io
   /code/api/v1/suppressions/{policyId}/justifications:
     get:
       description: 'Prisma Cloud Application Security supports advanced Suppression rule settings in order to make policy management easier by dismissing or snoozing errors
@@ -450,63 +469,230 @@ paths:
           print(response.text)'
       - lang: Shell + Curl
         source: "curl --request GET \\\n  --url 'https://api.prismacloud.io/code/api/v1/suppressions/{policyId}/justifications?accounts=SOME_ARRAY_VALUE' \\\n  --header 'authorization: REPLACE_KEY_VALUE'"
-components:
-  schemas:
-    CommonSuppressionFields:
-      additionalProperties: false
-      properties:
-        comment:
+    servers:
+    - url: https://api.prismacloud.io
+  /suppressions:
+    get:
+      operationId: listSuppressions
+      summary: Palo Alto Networks List Suppressions
+      description: Returns a list of suppression rules for policy violations. Suppressions can be scoped to a specific resource, file, repository, or applied globally for a policy.
+      tags:
+      - Suppressions
+      parameters:
+      - name: offset
+        in: query
+        description: Number of records to skip for pagination.
+        schema:
+          type: integer
+          default: 0
+        example: 0
+      - name: limit
+        in: query
+        description: Maximum number of records to return.
+        schema:
+          type: integer
+          default: 25
+        example: 25
+      - name: policyId
+        in: query
+        description: Filter suppressions by Checkov policy ID.
+        schema:
           type: string
-        creationDate:
+        example: '981710'
+      - name: suppressionType
+        in: query
+        description: Filter by suppression scope.
+        schema:
           type: string
-        id:
-          type: string
-      required:
-      - id
-      - comment
-      type: object
-    TagsSuppressionCreate:
-      additionalProperties: false
-      properties:
-        comment:
-          type: string
-        expirationTime:
-          format: double
-          type: number
-        origin:
-          type: string
-        suppressionType:
-          enum:
-          - Tags
-          type: string
-        tags:
-          items:
-            properties:
-              key:
-                type: string
-              value:
-                type: string
-            required:
-            - value
-            - key
-            type: object
-          type: array
-      required:
-      - comment
-      - origin
-      - suppressionType
-      - tags
-      type: object
-    PolicySuppression:
-      additionalProperties: false
-      properties:
-        suppressionType:
           enum:
           - Policy
+          - Resources
+          - Accounts
+          - Tags
+        example: Policy
+      responses:
+        '200':
+          description: Suppressions returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalCount:
+                    type: integer
+                    description: Total number of suppression rules.
+                  suppressions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Suppression'
+              examples:
+                ListSuppressions200Example:
+                  summary: Default listSuppressions 200 response
+                  x-microcks-default: true
+                  value:
+                    totalCount: 663
+                    suppressions:
+                    - suppressionId: '518567'
+                      policyId: '162253'
+                      policyName: Branch Policy 92
+                      suppressionType: Resources
+                      justification: example-justification
+                      createdBy: example-createdBy
+                      createdAt: '2026-05-28T01:52:46Z'
+                      expirationDate: '2025-01-22T20:00:21Z'
+                      suppressedErrorCount: 194
+                    - suppressionId: '518567'
+                      policyId: '162253'
+                      policyName: Branch Policy 92
+                      suppressionType: Resources
+                      justification: example-justification
+                      createdBy: example-createdBy
+                      createdAt: '2026-05-28T01:52:46Z'
+                      expirationDate: '2025-01-22T20:00:21Z'
+                      suppressedErrorCount: 194
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    post:
+      operationId: createSuppression
+      summary: Palo Alto Networks Create a Suppression
+      description: Creates a suppression rule to suppress specific code security policy violations. Use suppressions to manage accepted risks, false positives, or findings addressed through compensating controls.
+      tags:
+      - Suppressions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - policyId
+              - suppressionType
+              properties:
+                policyId:
+                  type: string
+                  description: Checkov policy ID to suppress (e.g., CKV_AWS_18).
+                suppressionType:
+                  type: string
+                  enum:
+                  - Policy
+                  - Resources
+                  - Accounts
+                  - Tags
+                  description: Scope of the suppression rule.
+                justification:
+                  type: string
+                  description: Reason for creating the suppression.
+                expirationDate:
+                  type: string
+                  format: date-time
+                  description: Optional expiration date for the suppression.
+                resources:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      repositoryId:
+                        type: string
+                      filePath:
+                        type: string
+                      resourceId:
+                        type: string
+                  description: Specific resources to suppress. Required when suppressionType is Resources.
+            examples:
+              CreateSuppressionRequestExample:
+                summary: Default createSuppression request
+                x-microcks-default: true
+                value:
+                  policyId: '694864'
+                  suppressionType: Resources
+                  justification: example-justification
+                  expirationDate: '2024-03-12T16:44:56Z'
+                  resources:
+                  - repositoryId: '321691'
+                    filePath: /api/v1/c851d2
+                    resourceId: '717744'
+      responses:
+        '200':
+          description: Suppression created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Suppression'
+              examples:
+                CreateSuppression200Example:
+                  summary: Default createSuppression 200 response
+                  x-microcks-default: true
+                  value:
+                    suppressionId: '518567'
+                    policyId: '162253'
+                    policyName: Branch Policy 92
+                    suppressionType: Resources
+                    justification: example-justification
+                    createdBy: example-createdBy
+                    createdAt: '2026-05-28T01:52:46Z'
+                    expirationDate: '2025-01-22T20:00:21Z'
+                    suppressedErrorCount: 194
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
+  /suppressions/{suppression_id}:
+    delete:
+      operationId: deleteSuppression
+      summary: Palo Alto Networks Delete a Suppression
+      description: Deletes a specific suppression rule. The suppressed policy violations will resume being reported.
+      tags:
+      - Suppressions
+      parameters:
+      - name: suppression_id
+        in: path
+        required: true
+        description: Unique suppression identifier.
+        schema:
           type: string
-      required:
-      - suppressionType
-      type: object
+        example: '985961'
+      responses:
+        '200':
+          description: Suppression deleted successfully.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
+components:
+  schemas:
     AccountsSuppressionData:
       additionalProperties: false
       properties:
@@ -532,6 +718,103 @@ components:
       - comment
       - suppressionType
       - accountIds
+      type: object
+    SuppressionCreate:
+      anyOf:
+      - $ref: '#/components/schemas/ResourcesSuppressionCreate'
+      - $ref: '#/components/schemas/PolicySuppressionCreate'
+      - $ref: '#/components/schemas/AccountsSuppressionCreate'
+      - $ref: '#/components/schemas/TagsSuppressionCreate'
+      - $ref: '#/components/schemas/LicenseSuppressionCreate'
+      - $ref: '#/components/schemas/PackageSuppressionCreate'
+    ResourcesSuppressionLegacy:
+      additionalProperties: false
+      properties:
+        resources:
+          items:
+            properties:
+              accountId:
+                type: string
+              resourceId:
+                type: string
+            required:
+            - resourceId
+            - accountId
+            type: object
+          type: array
+        suppressionType:
+          enum:
+          - Resources
+          type: string
+      required:
+      - suppressionType
+      - resources
+      type: object
+    PolicySuppressionData:
+      additionalProperties: false
+      properties:
+        comment:
+          type: string
+        creationDate:
+          type: string
+        id:
+          type: string
+        policyId:
+          type: string
+        suppressionType:
+          enum:
+          - Policy
+          type: string
+      required:
+      - id
+      - policyId
+      - comment
+      - suppressionType
+      type: object
+    PackageSuppressionCreate:
+      additionalProperties: false
+      properties:
+        comment:
+          type: string
+        expirationTime:
+          format: double
+          type: number
+        origin:
+          type: string
+        packages:
+          items:
+            properties:
+              language:
+                $ref: '#/components/schemas/PackageLang'
+              packageName:
+                type: string
+              version:
+                type: string
+            required:
+            - language
+            - version
+            - packageName
+            type: object
+          type: array
+        suppressionType:
+          enum:
+          - PackageLicense
+          type: string
+      required:
+      - comment
+      - origin
+      - suppressionType
+      - packages
+      type: object
+    PolicySuppression:
+      additionalProperties: false
+      properties:
+        suppressionType:
+          enum:
+          - Policy
+          type: string
+      required:
+      - suppressionType
       type: object
     LegacySuppression:
       allOf:
@@ -571,234 +854,6 @@ components:
       - origin
       - suppressionType
       - licenseTypes
-      type: object
-    AccountsSuppressionCreate:
-      additionalProperties: false
-      properties:
-        accountIds:
-          items:
-            type: string
-          type: array
-        comment:
-          type: string
-        expirationTime:
-          format: double
-          type: number
-        origin:
-          type: string
-        suppressionType:
-          enum:
-          - Accounts
-          type: string
-      required:
-      - comment
-      - origin
-      - suppressionType
-      - accountIds
-      type: object
-    PolicySuppressionCreate:
-      additionalProperties: false
-      properties:
-        comment:
-          type: string
-        expirationTime:
-          format: double
-          type: number
-        origin:
-          type: string
-        suppressionType:
-          enum:
-          - Policy
-          type: string
-      required:
-      - comment
-      - origin
-      - suppressionType
-      type: object
-    AccountsSuppression:
-      additionalProperties: false
-      properties:
-        accountIds:
-          items:
-            type: string
-          type: array
-        suppressionType:
-          enum:
-          - Accounts
-          type: string
-      required:
-      - suppressionType
-      - accountIds
-      type: object
-    SuppressionsJustifications:
-      allOf:
-      - anyOf:
-        - $ref: '#/components/schemas/ResourcesSuppressionJustificationData'
-        - $ref: '#/components/schemas/AccountsSuppressionData'
-        - $ref: '#/components/schemas/PolicySuppressionData'
-        - $ref: '#/components/schemas/TagsSuppressionData'
-      - properties:
-          type:
-            type: string
-        required:
-        - type
-        type: object
-    SuppressionCreate:
-      anyOf:
-      - $ref: '#/components/schemas/ResourcesSuppressionCreate'
-      - $ref: '#/components/schemas/PolicySuppressionCreate'
-      - $ref: '#/components/schemas/AccountsSuppressionCreate'
-      - $ref: '#/components/schemas/TagsSuppressionCreate'
-      - $ref: '#/components/schemas/LicenseSuppressionCreate'
-      - $ref: '#/components/schemas/PackageSuppressionCreate'
-    PackageLang:
-      enum:
-      - nodejs
-      - ruby
-      - python
-      - jar
-      - dotNet
-      - go
-      - os
-      type: string
-    TagsSuppressionData:
-      additionalProperties: false
-      properties:
-        comment:
-          type: string
-        creationDate:
-          type: string
-        id:
-          type: string
-        policyId:
-          type: string
-        suppressionType:
-          enum:
-          - Tags
-          type: string
-        tags:
-          items:
-            properties:
-              key:
-                type: string
-              value:
-                type: string
-            required:
-            - value
-            - key
-            type: object
-          type: array
-      required:
-      - id
-      - policyId
-      - comment
-      - suppressionType
-      - tags
-      type: object
-    ResourcesSuppressionJustificationData:
-      additionalProperties: false
-      properties:
-        comment:
-          type: string
-        creationDate:
-          type: string
-        id:
-          type: string
-        policyId:
-          type: string
-        resources:
-          items:
-            type: string
-          type: array
-        suppressionType:
-          enum:
-          - Resources
-          type: string
-      required:
-      - id
-      - policyId
-      - comment
-      - suppressionType
-      - resources
-      type: object
-    PackageSuppressionCreate:
-      additionalProperties: false
-      properties:
-        comment:
-          type: string
-        expirationTime:
-          format: double
-          type: number
-        origin:
-          type: string
-        packages:
-          items:
-            properties:
-              language:
-                $ref: '#/components/schemas/PackageLang'
-              packageName:
-                type: string
-              version:
-                type: string
-            required:
-            - language
-            - version
-            - packageName
-            type: object
-          type: array
-        suppressionType:
-          enum:
-          - PackageLicense
-          type: string
-      required:
-      - comment
-      - origin
-      - suppressionType
-      - packages
-      type: object
-    PolicySuppressionData:
-      additionalProperties: false
-      properties:
-        comment:
-          type: string
-        creationDate:
-          type: string
-        id:
-          type: string
-        policyId:
-          type: string
-        suppressionType:
-          enum:
-          - Policy
-          type: string
-      required:
-      - id
-      - policyId
-      - comment
-      - suppressionType
-      type: object
-    ResourcesSuppressionLegacy:
-      additionalProperties: false
-      properties:
-        resources:
-          items:
-            properties:
-              accountId:
-                type: string
-              resourceId:
-                type: string
-            required:
-            - resourceId
-            - accountId
-            type: object
-          type: array
-        suppressionType:
-          enum:
-          - Resources
-          type: string
-      required:
-      - suppressionType
-      - resources
       type: object
     ResourcesSuppressionCreate:
       additionalProperties: false
@@ -855,6 +910,284 @@ components:
       - suppressionType
       - tags
       type: object
+    AccountsSuppressionCreate:
+      additionalProperties: false
+      properties:
+        accountIds:
+          items:
+            type: string
+          type: array
+        comment:
+          type: string
+        expirationTime:
+          format: double
+          type: number
+        origin:
+          type: string
+        suppressionType:
+          enum:
+          - Accounts
+          type: string
+      required:
+      - comment
+      - origin
+      - suppressionType
+      - accountIds
+      type: object
+    TagsSuppressionData:
+      additionalProperties: false
+      properties:
+        comment:
+          type: string
+        creationDate:
+          type: string
+        id:
+          type: string
+        policyId:
+          type: string
+        suppressionType:
+          enum:
+          - Tags
+          type: string
+        tags:
+          items:
+            properties:
+              key:
+                type: string
+              value:
+                type: string
+            required:
+            - value
+            - key
+            type: object
+          type: array
+      required:
+      - id
+      - policyId
+      - comment
+      - suppressionType
+      - tags
+      type: object
+    CommonSuppressionFields:
+      additionalProperties: false
+      properties:
+        comment:
+          type: string
+        creationDate:
+          type: string
+        id:
+          type: string
+      required:
+      - id
+      - comment
+      type: object
+    ResourcesSuppressionJustificationData:
+      additionalProperties: false
+      properties:
+        comment:
+          type: string
+        creationDate:
+          type: string
+        id:
+          type: string
+        policyId:
+          type: string
+        resources:
+          items:
+            type: string
+          type: array
+        suppressionType:
+          enum:
+          - Resources
+          type: string
+      required:
+      - id
+      - policyId
+      - comment
+      - suppressionType
+      - resources
+      type: object
+    AccountsSuppression:
+      additionalProperties: false
+      properties:
+        accountIds:
+          items:
+            type: string
+          type: array
+        suppressionType:
+          enum:
+          - Accounts
+          type: string
+      required:
+      - suppressionType
+      - accountIds
+      type: object
+    PolicySuppressionCreate:
+      additionalProperties: false
+      properties:
+        comment:
+          type: string
+        expirationTime:
+          format: double
+          type: number
+        origin:
+          type: string
+        suppressionType:
+          enum:
+          - Policy
+          type: string
+      required:
+      - comment
+      - origin
+      - suppressionType
+      type: object
+    SuppressionsJustifications:
+      allOf:
+      - anyOf:
+        - $ref: '#/components/schemas/ResourcesSuppressionJustificationData'
+        - $ref: '#/components/schemas/AccountsSuppressionData'
+        - $ref: '#/components/schemas/PolicySuppressionData'
+        - $ref: '#/components/schemas/TagsSuppressionData'
+      - properties:
+          type:
+            type: string
+        required:
+        - type
+        type: object
+    TagsSuppressionCreate:
+      additionalProperties: false
+      properties:
+        comment:
+          type: string
+        expirationTime:
+          format: double
+          type: number
+        origin:
+          type: string
+        suppressionType:
+          enum:
+          - Tags
+          type: string
+        tags:
+          items:
+            properties:
+              key:
+                type: string
+              value:
+                type: string
+            required:
+            - value
+            - key
+            type: object
+          type: array
+      required:
+      - comment
+      - origin
+      - suppressionType
+      - tags
+      type: object
+    PackageLang:
+      enum:
+      - nodejs
+      - ruby
+      - python
+      - jar
+      - dotNet
+      - go
+      - os
+      type: string
+    Suppression:
+      type: object
+      properties:
+        suppressionId:
+          type: string
+          description: Unique suppression rule identifier.
+          example: '518567'
+        policyId:
+          type: string
+          description: Checkov policy ID being suppressed.
+          example: '162253'
+        policyName:
+          type: string
+          description: Human-readable policy name.
+          example: Branch Policy 92
+        suppressionType:
+          type: string
+          enum:
+          - Policy
+          - Resources
+          - Accounts
+          - Tags
+          description: Scope of the suppression.
+          example: Resources
+        justification:
+          type: string
+          description: Reason provided for the suppression.
+          example: example-justification
+        createdBy:
+          type: string
+          description: Email address of the user who created the suppression.
+          example: example-createdBy
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when the suppression was created.
+          example: '2026-05-28T01:52:46Z'
+        expirationDate:
+          type: string
+          format: date-time
+          description: Expiration date. Null if the suppression does not expire.
+          example: '2025-01-22T20:00:21Z'
+        suppressedErrorCount:
+          type: integer
+          description: Number of errors currently suppressed by this rule.
+          example: 194
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          description: HTTP status code.
+          example: 602
+        message:
+          type: string
+          description: Human-readable error message.
+          example: Traffic activity investigation malware violation policy Security monitoring.
+        error:
+          type: string
+          description: Error code.
+          example: example-error
+  responses:
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Invalid request parameters or body.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Invalid or expired authentication token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   securitySchemes:
     CustomAuthorizer:
       in: header
@@ -866,3 +1199,17 @@ components:
         identitySource: method.request.header.authorization
         type: request
       x-amazon-apigateway-authtype: custom
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
+    redlockAuth:
+      type: apiKey
+      in: header
+      name: x-redlock-auth
+      description: JWT token obtained from the Prisma Cloud /login endpoint. Pass the token value in the x-redlock-auth header. Tokens are valid for 10 minutes.
+x-refined-from:
+- palo-alto-code-suppressions-openapi.json
+- palo-alto-networks-suppressions-api-openapi.yml
+- palo-alto-prisma-cloud-code-security-api-openapi-original.yml

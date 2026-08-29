@@ -984,90 +984,53 @@ paths:
           description: Server related error response
 components:
   schemas:
-    VulnerabilitySignature:
+    CVECoverageInfo:
       type: object
       properties:
-        id:
+        cve_id:
           type: string
-          description: Unique identifier for the vulnerability signature
-          example: '90207'
-        name:
+          description: The CVE identifier
+          example: CVE-2021-1647
+        nvd_link:
           type: string
-          description: Name of the vulnerability
-          example: Microsoft Windows Defender Remote Code Execution Vulnerability
-        description:
+          description: Link to the NVD database entry for this CVE
+          example: https://nvd.nist.gov/vuln/detail/CVE-2021-1647
+        cve_status:
           type: string
-          description: Detailed description of the vulnerability
-          example: Microsoft Windows Defender is prone to a remote code execution vulnerability while parsing certain crafted PE files.
-        category:
+          description: Status of coverage for this CVE
+          enum:
+          - cve_not_reviewed
+          - cve_being_monitored
+          - cve_assigned
+          - cve_under_testing
+          - cve_pending_release
+          - cve_cannot_cover
+        release_week:
+          type:
+          - string
+          - 'null'
+          format: date
+          description: Expected release date for pending coverage
+          example: 2025-04-15
+        not_cover_reason:
+          type:
+          - string
+          - 'null'
+          enum:
+          - encrypted_traffic_limitations
+          - risk_of_high_false_positives
+          - threat_detection_limitations
+          - performance_considerations
+          description: Reason why the CVE cannot be covered. This field will only be available when ```cve_status``` is ```cve_cannot_cover```
+        response_text:
           type: string
-          description: Category of the vulnerability
-          example: code-execution
-        min_version:
-          type: string
-          description: Minimum version affected
-          example: 8.1.0
-        max_version:
-          type: string
-          description: Maximum version affected, empty if no upper bound
-          example: ''
-        severity:
-          type: string
-          description: Severity level of the vulnerability
-          example: high
-        default_action:
-          type: string
-          description: Default action to take when detected
-          example: reset-both
-        cve:
-          type: array
-          items:
-            type: string
-          description: List of related CVE IDs
-          example:
-          - CVE-2021-1647
-        vendor:
-          type: array
-          items:
-            type: string
-          description: List of vendors affected
-          example: []
-        reference:
-          type: array
-          items:
-            type: string
-          description: List of reference URLs
-          example:
-          - https://portal.msrc.microsoft.com/en-us/security-guidance/advisory/CVE-2021-1647
-        status:
-          type: string
-          description: Current status of the signature
-          example: released
-        details:
-          type: object
-          properties:
-            change_data:
-              type: string
-              description: Information about changes
-              example: new coverage
-        ori_release_version:
-          type: string
-          description: Original release version
-          example: '8364'
-        latest_release_version:
-          type: string
-          description: Latest release version
-          example: '8364'
-        ori_release_time:
-          type: string
-          format: date-time
-          description: Original release timestamp
-          example: 2021-01-12 10:40:13+00:00
-        latest_release_time:
-          type: string
-          format: date-time
-          description: Latest release timestamp
-          example: 2021-01-12 10:40:13+00:00
+          description: Human-readable response explaining the status
+          example: We have not looked into this CVE. Contact Customer Support if you want us to consider this CVE.
+      required:
+      - cve_id
+      - nvd_link
+      - cve_status
+      - response_text
     CVECoverageErrorResponse:
       type: object
       properties:
@@ -1081,6 +1044,60 @@ components:
       required:
       - success
       - message
+    Pagination:
+      type: object
+      properties:
+        next:
+          type: string
+          description: The URL of previous page with results.
+        previous:
+          type: string
+          description: The URL of next page with results.
+    CoveredCVEResponse:
+      type: object
+      properties:
+        cve_id:
+          type: string
+          description: The CVE identifier
+          example: CVE-2021-1647
+        cve_status:
+          type: string
+          enum:
+          - cve_covered
+          description: Status of coverage for this CVE
+        nvd_link:
+          type: string
+          description: Link to the NVD database entry for this CVE
+          example: https://nvd.nist.gov/vuln/detail/CVE-2021-1647
+        antivirus:
+          type: array
+          items:
+            $ref: '#/components/schemas/AntivirusSignature'
+          description: Antivirus signatures related to this CVE
+        vulnerability:
+          type: array
+          items:
+            $ref: '#/components/schemas/VulnerabilitySignature'
+          description: Vulnerability protection signatures related to this CVE
+      required:
+      - cve_id
+      - cve_status
+      - nvd_link
+    ThreatHistoryDataList:
+      type: object
+      properties:
+        version:
+          type: string
+          description: The version of the release.
+          example: 4020-4531
+        build_time:
+          type: string
+          description: The time when the package was built.
+          example: '2022-03-12T22:23:38Z'
+        release_time:
+          type: string
+          description: The time when the package was released externally.
+          example: '2022-03-13T03:02:24Z'
     ReleaseNotesDataList:
       type: object
       properties:
@@ -1338,73 +1355,6 @@ components:
                   type: boolean
                   description: Whether this signature is in the current WildFire release
                   example: false
-    CVECoverageAPIKeyErrorResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-          example: false
-        message:
-          type: string
-          description: Error message
-          example: 'X-API-KEY: Value is invalid.'
-      required:
-      - success
-      - message
-    EdlDataList:
-      type: object
-      properties:
-        version:
-          type: string
-          description: The version of the release.
-          example: '4030'
-        name:
-          type: string
-          description: The name of the predefined EDL.
-          example: panw-known-ip-list
-        ipaddr:
-          type: string
-          description: The IP address.
-          example: 192.0.2.0
-    CoveredCVEResponse:
-      type: object
-      properties:
-        cve_id:
-          type: string
-          description: The CVE identifier
-          example: CVE-2021-1647
-        cve_status:
-          type: string
-          enum:
-          - cve_covered
-          description: Status of coverage for this CVE
-        nvd_link:
-          type: string
-          description: Link to the NVD database entry for this CVE
-          example: https://nvd.nist.gov/vuln/detail/CVE-2021-1647
-        antivirus:
-          type: array
-          items:
-            $ref: '#/components/schemas/AntivirusSignature'
-          description: Antivirus signatures related to this CVE
-        vulnerability:
-          type: array
-          items:
-            $ref: '#/components/schemas/VulnerabilitySignature'
-          description: Vulnerability protection signatures related to this CVE
-      required:
-      - cve_id
-      - cve_status
-      - nvd_link
-    Pagination:
-      type: object
-      properties:
-        next:
-          type: string
-          description: The URL of previous page with results.
-        previous:
-          type: string
-          description: The URL of next page with results.
     GetIpFeedSuccessResponse:
       type: object
       properties:
@@ -1430,190 +1380,6 @@ components:
           type: string
           description: Generic response message.
           example: Successful
-    IpFeedDataList:
-      type: object
-      properties:
-        ipaddr:
-          type: string
-          description: The IP address.
-          example: 2.59.154.102
-        name:
-          type: string
-          description: The name of the IP Feed entry.
-          example: High Risk IP Feed
-        status:
-          type: string
-          description: The status of the IP Feed entry.
-          example: released
-        release:
-          type: object
-          description: The release information.
-          properties:
-            first_release_version:
-              type: string
-              description: The release version when the IP Feed was released.
-              example: '3566'
-            first_release_time:
-              type: string
-              description: The release time when the IP Feed was released.
-              example: '2020-12-16T23:40:24Z'
-      geo:
-        type: string
-        description: The geolocation information of the IP address.
-        example: JP (Japan)
-      asn:
-        type: string
-        description: The Autonomous System information of the IP address.
-        example: 136526 (ALLCLOUD-AS-AP ALLCLOUD LIMITED, HK)
-        geo:
-          type: string
-          description: The geolocation information of the IP address.
-          example: JP (Japan)
-        asn:
-          type: string
-          description: The Autonomous System information IP address.
-          example: 136526 (ALLCLOUD-AS-AP ALLCLOUD LIMITED, HK)
-    ThreatDataList:
-      type: object
-      properties:
-        fileformat:
-          type: array
-          description: List of File-Format signatures.
-        spyware:
-          type: array
-          description: List of Anti-Spyware signatures.
-        vulnerability:
-          type: array
-          description: List of Vulnerability Protection signatures.
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-                description: The unique id of the signature.
-                example: '30135'
-              name:
-                type: string
-                description: The name of the signature.
-                example: Name of the threat
-              description:
-                type: string
-                description: The description of the signature.
-                example: Description of the threat ...
-              category:
-                type: string
-                description: The threat category of the signature.
-                example: code-execution
-              min_version:
-                type: string
-                description: The PAN-OS minimum version.
-                example: 8.1.0
-              max_version:
-                type: string
-                description: The PAN-OS maximum version.
-                example: 11.1.0
-              severity:
-                type: string
-                description: The severity of the threat.
-                example: high
-              default_action:
-                type: string
-                description: The default action when the signature is triggered.
-                example: alert
-              cve:
-                type: array
-                description: The CVE (Common Vulnerabilities and Exposures) of the threat.
-                example:
-                - CVE-2007-1204
-                - CVE-2021-35393
-              vendor:
-                type: array
-                description: The vulnerability identifier issued by vendor on advisories.
-                example:
-                - MS07-019
-              reference:
-                type: array
-                description: The public reference of the threat.
-                example:
-                - Url1
-                - Url2
-              status:
-                type: string
-                description: The status of the signature.
-                example: released
-              details:
-                type: object
-                description: Any additional details of the signature.
-                example: {}
-              ori_release_version:
-                type: string
-                description: The original release version of the signature.
-                example: '8451'
-              latest_release_version:
-                type: string
-                description: The latest release version of the signature.
-                example: '8451'
-              ori_release_time:
-                type: string
-                description: The original release time of the signature.
-                example: '2021-08-31 01:25:04'
-              latest_release_time:
-                type: string
-                description: The latest release time of the signature.
-                example: '2021-08-31 01:25:04'
-    ThreatHistoryDataList:
-      type: object
-      properties:
-        version:
-          type: string
-          description: The version of the release.
-          example: 4020-4531
-        build_time:
-          type: string
-          description: The time when the package was built.
-          example: '2022-03-12T22:23:38Z'
-        release_time:
-          type: string
-          description: The time when the package was released externally.
-          example: '2022-03-13T03:02:24Z'
-    GetEdlSuccessResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-          description: The response status.
-          example: true
-        link:
-          type: array
-          description: The pagination information of the results.
-          items:
-            $ref: '#/components/schemas/Pagination'
-        count:
-          type: integer
-          description: The total number of entries found.
-          example: 1
-        data:
-          type: array
-          description: The data of the response.
-          items:
-            $ref: '#/components/schemas/EdlDataList'
-        message:
-          type: string
-          description: Generic response message.
-          example: Successful
-    CVECoverageServerErrorResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-          example: false
-        message:
-          type: string
-          description: Error message
-          example: Failed to query Threat Vault API
-      required:
-      - success
-      - message
     GetThreatBatchList:
       type: object
       properties:
@@ -1719,53 +1485,287 @@ components:
                         type: string
                         description: The release time when the threat signature was last released with WildFire package.
                         example: '2022-06-14T16:56:15Z'
-    CVECoverageInfo:
+    EdlDataList:
       type: object
       properties:
-        cve_id:
+        version:
           type: string
-          description: The CVE identifier
-          example: CVE-2021-1647
-        nvd_link:
+          description: The version of the release.
+          example: '4030'
+        name:
           type: string
-          description: Link to the NVD database entry for this CVE
-          example: https://nvd.nist.gov/vuln/detail/CVE-2021-1647
-        cve_status:
+          description: The name of the predefined EDL.
+          example: panw-known-ip-list
+        ipaddr:
           type: string
-          description: Status of coverage for this CVE
-          enum:
-          - cve_not_reviewed
-          - cve_being_monitored
-          - cve_assigned
-          - cve_under_testing
-          - cve_pending_release
-          - cve_cannot_cover
-        release_week:
-          type:
-          - string
-          - 'null'
-          format: date
-          description: Expected release date for pending coverage
-          example: 2025-04-15
-        not_cover_reason:
-          type:
-          - string
-          - 'null'
-          enum:
-          - encrypted_traffic_limitations
-          - risk_of_high_false_positives
-          - threat_detection_limitations
-          - performance_considerations
-          description: Reason why the CVE cannot be covered. This field will only be available when ```cve_status``` is ```cve_cannot_cover```
-        response_text:
+          description: The IP address.
+          example: 192.0.2.0
+    GetEdlSuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: The response status.
+          example: true
+        link:
+          type: array
+          description: The pagination information of the results.
+          items:
+            $ref: '#/components/schemas/Pagination'
+        count:
+          type: integer
+          description: The total number of entries found.
+          example: 1
+        data:
+          type: array
+          description: The data of the response.
+          items:
+            $ref: '#/components/schemas/EdlDataList'
+        message:
           type: string
-          description: Human-readable response explaining the status
-          example: We have not looked into this CVE. Contact Customer Support if you want us to consider this CVE.
+          description: Generic response message.
+          example: Successful
+    IpFeedDataList:
+      type: object
+      properties:
+        ipaddr:
+          type: string
+          description: The IP address.
+          example: 2.59.154.102
+        name:
+          type: string
+          description: The name of the IP Feed entry.
+          example: High Risk IP Feed
+        status:
+          type: string
+          description: The status of the IP Feed entry.
+          example: released
+        release:
+          type: object
+          description: The release information.
+          properties:
+            first_release_version:
+              type: string
+              description: The release version when the IP Feed was released.
+              example: '3566'
+            first_release_time:
+              type: string
+              description: The release time when the IP Feed was released.
+              example: '2020-12-16T23:40:24Z'
+      geo:
+        type: string
+        description: The geolocation information of the IP address.
+        example: JP (Japan)
+      asn:
+        type: string
+        description: The Autonomous System information of the IP address.
+        example: 136526 (ALLCLOUD-AS-AP ALLCLOUD LIMITED, HK)
+        geo:
+          type: string
+          description: The geolocation information of the IP address.
+          example: JP (Japan)
+        asn:
+          type: string
+          description: The Autonomous System information IP address.
+          example: 136526 (ALLCLOUD-AS-AP ALLCLOUD LIMITED, HK)
+    VulnerabilitySignature:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the vulnerability signature
+          example: '90207'
+        name:
+          type: string
+          description: Name of the vulnerability
+          example: Microsoft Windows Defender Remote Code Execution Vulnerability
+        description:
+          type: string
+          description: Detailed description of the vulnerability
+          example: Microsoft Windows Defender is prone to a remote code execution vulnerability while parsing certain crafted PE files.
+        category:
+          type: string
+          description: Category of the vulnerability
+          example: code-execution
+        min_version:
+          type: string
+          description: Minimum version affected
+          example: 8.1.0
+        max_version:
+          type: string
+          description: Maximum version affected, empty if no upper bound
+          example: ''
+        severity:
+          type: string
+          description: Severity level of the vulnerability
+          example: high
+        default_action:
+          type: string
+          description: Default action to take when detected
+          example: reset-both
+        cve:
+          type: array
+          items:
+            type: string
+          description: List of related CVE IDs
+          example:
+          - CVE-2021-1647
+        vendor:
+          type: array
+          items:
+            type: string
+          description: List of vendors affected
+          example: []
+        reference:
+          type: array
+          items:
+            type: string
+          description: List of reference URLs
+          example:
+          - https://portal.msrc.microsoft.com/en-us/security-guidance/advisory/CVE-2021-1647
+        status:
+          type: string
+          description: Current status of the signature
+          example: released
+        details:
+          type: object
+          properties:
+            change_data:
+              type: string
+              description: Information about changes
+              example: new coverage
+        ori_release_version:
+          type: string
+          description: Original release version
+          example: '8364'
+        latest_release_version:
+          type: string
+          description: Latest release version
+          example: '8364'
+        ori_release_time:
+          type: string
+          format: date-time
+          description: Original release timestamp
+          example: 2021-01-12 10:40:13+00:00
+        latest_release_time:
+          type: string
+          format: date-time
+          description: Latest release timestamp
+          example: 2021-01-12 10:40:13+00:00
+    CVECoverageAPIKeyErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          description: Error message
+          example: 'X-API-KEY: Value is invalid.'
       required:
-      - cve_id
-      - nvd_link
-      - cve_status
-      - response_text
+      - success
+      - message
+    CVECoverageServerErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          description: Error message
+          example: Failed to query Threat Vault API
+      required:
+      - success
+      - message
+    ThreatDataList:
+      type: object
+      properties:
+        fileformat:
+          type: array
+          description: List of File-Format signatures.
+        spyware:
+          type: array
+          description: List of Anti-Spyware signatures.
+        vulnerability:
+          type: array
+          description: List of Vulnerability Protection signatures.
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                description: The unique id of the signature.
+                example: '30135'
+              name:
+                type: string
+                description: The name of the signature.
+                example: Name of the threat
+              description:
+                type: string
+                description: The description of the signature.
+                example: Description of the threat ...
+              category:
+                type: string
+                description: The threat category of the signature.
+                example: code-execution
+              min_version:
+                type: string
+                description: The PAN-OS minimum version.
+                example: 8.1.0
+              max_version:
+                type: string
+                description: The PAN-OS maximum version.
+                example: 11.1.0
+              severity:
+                type: string
+                description: The severity of the threat.
+                example: high
+              default_action:
+                type: string
+                description: The default action when the signature is triggered.
+                example: alert
+              cve:
+                type: array
+                description: The CVE (Common Vulnerabilities and Exposures) of the threat.
+                example:
+                - CVE-2007-1204
+                - CVE-2021-35393
+              vendor:
+                type: array
+                description: The vulnerability identifier issued by vendor on advisories.
+                example:
+                - MS07-019
+              reference:
+                type: array
+                description: The public reference of the threat.
+                example:
+                - Url1
+                - Url2
+              status:
+                type: string
+                description: The status of the signature.
+                example: released
+              details:
+                type: object
+                description: Any additional details of the signature.
+                example: {}
+              ori_release_version:
+                type: string
+                description: The original release version of the signature.
+                example: '8451'
+              latest_release_version:
+                type: string
+                description: The latest release version of the signature.
+                example: '8451'
+              ori_release_time:
+                type: string
+                description: The original release time of the signature.
+                example: '2021-08-31 01:25:04'
+              latest_release_time:
+                type: string
+                description: The latest release time of the signature.
+                example: '2021-08-31 01:25:04'
   securitySchemes:
     X-API-KEY:
       description: API key to query https://api.threatvault.paloaltonetworks.com/service/v1

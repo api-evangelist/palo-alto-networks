@@ -337,8 +337,201 @@ paths:
       - Certificate Approvals
 components:
   schemas:
-    AnyValue2:
-      description: Can be any value - string, number, boolean, array or object.
+    EncryptionDetails:
+      properties:
+        encryptionType:
+          enum:
+          - RSA
+          - DSA
+          - EC
+          - GOST3410
+          - ECGOST3410
+          - RESERVED3
+          - UNKNOWN
+          type: string
+        value:
+          $ref: '#/components/schemas/AnyValue2'
+      type: object
+    ApprovalDecisionRequest:
+      properties:
+        reason:
+          description: Reason for user's decision
+          example: I reject this request because the certificate won't be needed anymore.
+          maxLength: 1024
+          type: string
+      type: object
+    CertificateRequestApprovalRuleOpenApi:
+      properties:
+        approvers:
+          description: A collection of approvers specified by type and id
+          items:
+            $ref: '#/components/schemas/ApproverProperty'
+          type: array
+          uniqueItems: true
+        atLeast:
+          description: If the type of the approval is AT_LEAST then specify how many people have to approve
+          format: int32
+          type: integer
+        autoApproveOnRenew:
+          default: false
+          description: Automatically approve when renew a certificate
+          type: boolean
+        autoRejectionThreshold:
+          description: Auto rejection threshold. After the defined number of days since request creation, the request is automatically rejected, if it is not approved
+          example: 5
+          maximum: 99
+          minimum: 1
+          type: number
+        conditions:
+          $ref: '#/components/schemas/CertificateRequestApprovalConditionsFilterRuleInformation'
+        creationDate:
+          description: The date a approval rule was created
+          example: '2023-01-10T09:12:28Z'
+          format: date-time
+          type: string
+        exceptions:
+          $ref: '#/components/schemas/CertificateRequestApprovalExceptionsFilterRuleInformation'
+        finalApprover:
+          $ref: '#/components/schemas/ApproverPropertyOpenApi'
+        id:
+          description: Approval rule `id`
+          format: uuid
+          type: string
+        modificationDate:
+          description: The date a approval rule was modified
+          example: '2023-01-11T09:12:28Z'
+          format: date-time
+          type: string
+        name:
+          description: Approval rule name
+          type: string
+        priority:
+          description: Priority of the rule
+          format: int32
+          type: integer
+        type:
+          description: The type of the approval rule
+          type: string
+      type: object
+    CertificateRequestApprovalRulesUpdateRequest:
+      properties:
+        approvers:
+          description: A collection of approvers specified by type and id
+          items:
+            $ref: '#/components/schemas/ApproverProperty'
+          minItems: 1
+          type: array
+          uniqueItems: true
+        atLeast:
+          description: If the type of the approval is AT_LEAST then specify how many people have to approve
+          example: 2
+          format: int32
+          minimum: 1
+          type: integer
+        autoApproveOnRenew:
+          default: false
+          description: Automatically approve when renew a certificate
+          type: boolean
+        autoRejectionThreshold:
+          description: Auto rejection threshold. After the defined number of days since request creation, the request is automatically rejected, if it is not approved
+          example: 5
+          maximum: 99
+          minimum: 1
+          type: number
+        conditions:
+          $ref: '#/components/schemas/CertificateRequestApprovalConditionsFilterRuleInformation'
+        continueProcessingOnException:
+          default: false
+          description: Continue with next approval rules when match an approval rule exception condition
+          type: boolean
+        exceptions:
+          $ref: '#/components/schemas/CertificateRequestApprovalExceptionsFilterRuleInformation'
+        finalApprover:
+          description: UUID of the final approver
+          example: 8268d820-a08d-11ed-bbc0-252385d6d390
+          format: uuid
+          type: string
+        name:
+          description: Approval rule name
+          example: Approval rule for built in CA
+          maxLength: 64
+          type: string
+        priority:
+          description: Rule priority. The order in which the rules will be executed. Starts from 1 (highest priority).
+          example: 5
+          minimum: 1
+          type: number
+        type:
+          description: The type of the approval rule
+          enum:
+          - ALL
+          - AT_LEAST
+          example: AT_LEAST
+          type: string
+      required:
+      - approvers
+      - conditions
+      - name
+      - type
+      type: object
+    CertificateRequestApprovalConditionsFilterRuleInformation:
+      properties:
+        applicationIds:
+          description: A collection of application ids the rule will be applicable to
+          format: uuid
+          items:
+            format: uuid
+            type: string
+          type: array
+        certificateAuthorityAccountIds:
+          description: A collection of certificate authority account ids the rule will be applicable to
+          format: uuid
+          items:
+            format: uuid
+            type: string
+          type: array
+        certificateIssuingTemplateIds:
+          description: A collection of certificate issuing template ids the rule will be applicable to
+          format: uuid
+          items:
+            format: uuid
+            type: string
+          type: array
+      type: object
+    ApproverOutcomeInformation:
+      properties:
+        companyId:
+          description: UUID of a company
+          example: 03eb6e61-9806-11ed-84f2-c747fb71e467
+          format: uuid
+          type: string
+        creationDate:
+          description: The date a approver outcome was created
+          example: '2023-01-10T09:12:28Z'
+          format: date-time
+          type: string
+        id:
+          description: UUID of an approver outcome
+          example: 5ece3180-b1e0-11ed-862d-ad36b18e787c
+          format: uuid
+          type: string
+        reason:
+          description: Reason of an outcome
+          example: Not needed
+          type: string
+        status:
+          description: Status of an approval request
+          enum:
+          - APPROVED
+          - REJECTED
+          example: APPROVED
+          type: string
+        userId:
+          description: UUID of a user
+          example: 8268d820-a08d-11ed-bbc0-252385d6d389
+          format: uuid
+          type: string
+      type: object
     CertificateRequestInformation1:
       properties:
         caOrderId:
@@ -469,28 +662,90 @@ components:
           example: P10M
           type: string
       type: object
-    CertificateRequestApprovalConditionsFilterRuleInformation:
+    GeneralNamesData1:
+      description: A certificate request subject alternative name (SAN) type
+      example:
+        dNSName:
+        - www.venafi.com
+        - venafi.com
+      properties:
+        dNSName:
+          items:
+            type: string
+          type: array
+        directoryName:
+          items:
+            type: string
+          type: array
+        ediPartyName:
+          items:
+            type: string
+          type: array
+        iPAddress:
+          items:
+            type: string
+          type: array
+        otherName:
+          items:
+            type: string
+          type: array
+        registeredID:
+          items:
+            type: string
+          type: array
+        rfc822Name:
+          items:
+            type: string
+          type: array
+        uniformResourceIdentifier:
+          items:
+            type: string
+          type: array
+        x400Address:
+          items:
+            type: string
+          type: array
+      type: object
+    ErrorInformation2:
+      properties:
+        args:
+          items:
+            $ref: '#/components/schemas/AnyValue2'
+          type: array
+        code:
+          format: int32
+          type: integer
+        message:
+          type: string
+      type: object
+    AnyValue2:
+      description: Can be any value - string, number, boolean, array or object.
+    BulkApprovalResponse:
+      properties:
+        operationId:
+          type: string
+      type: object
+    CertificateRequestApprovalExceptionsFilterRuleInformation:
       properties:
         applicationIds:
-          description: A collection of application ids the rule will be applicable to
+          description: A collection of application ids the rule won't be applied to
           format: uuid
           items:
             format: uuid
             type: string
           type: array
-        certificateAuthorityAccountIds:
-          description: A collection of certificate authority account ids the rule will be applicable to
-          format: uuid
+        requestors:
+          description: A collection of approvers, specified by type and id, for which the rule won't be applied
           items:
-            format: uuid
-            type: string
+            $ref: '#/components/schemas/ApproverProperty'
           type: array
-        certificateIssuingTemplateIds:
-          description: A collection of certificate issuing template ids the rule will be applicable to
-          format: uuid
+          uniqueItems: true
+      type: object
+    CertificateRequestApprovalRulesResponseOpenApi:
+      properties:
+        approvalRules:
           items:
-            format: uuid
-            type: string
+            $ref: '#/components/schemas/CertificateRequestApprovalRuleOpenApi'
           type: array
       type: object
     CertificateRequestApprovalRulesRequest:
@@ -549,100 +804,15 @@ components:
       - name
       - type
       type: object
-    CertificateRequestApprovalRuleOpenApi:
+    CertificateRequestApprovalRuleDeleteResponseOpenApi:
       properties:
-        approvers:
-          description: A collection of approvers specified by type and id
-          items:
-            $ref: '#/components/schemas/ApproverProperty'
-          type: array
-          uniqueItems: true
-        atLeast:
-          description: If the type of the approval is AT_LEAST then specify how many people have to approve
-          format: int32
-          type: integer
-        autoApproveOnRenew:
-          default: false
-          description: Automatically approve when renew a certificate
-          type: boolean
-        autoRejectionThreshold:
-          description: Auto rejection threshold. After the defined number of days since request creation, the request is automatically rejected, if it is not approved
-          example: 5
-          maximum: 99
-          minimum: 1
-          type: number
-        conditions:
-          $ref: '#/components/schemas/CertificateRequestApprovalConditionsFilterRuleInformation'
-        creationDate:
-          description: The date a approval rule was created
-          example: '2023-01-10T09:12:28Z'
-          format: date-time
-          type: string
-        exceptions:
-          $ref: '#/components/schemas/CertificateRequestApprovalExceptionsFilterRuleInformation'
-        finalApprover:
-          $ref: '#/components/schemas/ApproverPropertyOpenApi'
         id:
           description: Approval rule `id`
           format: uuid
           type: string
-        modificationDate:
-          description: The date a approval rule was modified
-          example: '2023-01-11T09:12:28Z'
-          format: date-time
-          type: string
         name:
           description: Approval rule name
           type: string
-        priority:
-          description: Priority of the rule
-          format: int32
-          type: integer
-        type:
-          description: The type of the approval rule
-          type: string
-      type: object
-    ApprovalDecisionRequest:
-      properties:
-        reason:
-          description: Reason for user's decision
-          example: I reject this request because the certificate won't be needed anymore.
-          maxLength: 1024
-          type: string
-      type: object
-    ErrorInformation2:
-      properties:
-        args:
-          items:
-            $ref: '#/components/schemas/AnyValue2'
-          type: array
-        code:
-          format: int32
-          type: integer
-        message:
-          type: string
-      type: object
-    CertificateRequestApprovalRulesResponseOpenApi:
-      properties:
-        approvalRules:
-          items:
-            $ref: '#/components/schemas/CertificateRequestApprovalRuleOpenApi'
-          type: array
-      type: object
-    CustomAttributes1:
-      description: A certificate request custom attributes
-      example:
-        dnsNames:
-        - www.venafi.com
-        - venafi.com
-      properties:
-        dnsNames:
-          items:
-            type: string
-          type: array
-          uniqueItems: true
-        overwriteSans:
-          type: boolean
       type: object
     ApproverPropertyOpenApi:
       description: Approver with id that can be only user type
@@ -740,131 +910,37 @@ components:
           - TEAM
           type: string
       type: object
-    CertificateRequestApprovalRulesUpdateRequest:
+    BulkApprovalRequest:
       properties:
-        approvers:
-          description: A collection of approvers specified by type and id
+        ids:
+          description: Set of UUIDs of the certificate requests
+          example:
+          - 265f6d30-a0bb-11ed-aee0-89fe7e5f5d0c
           items:
-            $ref: '#/components/schemas/ApproverProperty'
-          minItems: 1
-          type: array
-          uniqueItems: true
-        atLeast:
-          description: If the type of the approval is AT_LEAST then specify how many people have to approve
-          example: 2
-          format: int32
-          minimum: 1
-          type: integer
-        autoApproveOnRenew:
-          default: false
-          description: Automatically approve when renew a certificate
-          type: boolean
-        autoRejectionThreshold:
-          description: Auto rejection threshold. After the defined number of days since request creation, the request is automatically rejected, if it is not approved
-          example: 5
-          maximum: 99
-          minimum: 1
-          type: number
-        conditions:
-          $ref: '#/components/schemas/CertificateRequestApprovalConditionsFilterRuleInformation'
-        continueProcessingOnException:
-          default: false
-          description: Continue with next approval rules when match an approval rule exception condition
-          type: boolean
-        exceptions:
-          $ref: '#/components/schemas/CertificateRequestApprovalExceptionsFilterRuleInformation'
-        finalApprover:
-          description: UUID of the final approver
-          example: 8268d820-a08d-11ed-bbc0-252385d6d390
-          format: uuid
-          type: string
-        name:
-          description: Approval rule name
-          example: Approval rule for built in CA
-          maxLength: 64
-          type: string
-        priority:
-          description: Rule priority. The order in which the rules will be executed. Starts from 1 (highest priority).
-          example: 5
-          minimum: 1
-          type: number
-        type:
-          description: The type of the approval rule
-          enum:
-          - ALL
-          - AT_LEAST
-          example: AT_LEAST
-          type: string
-      required:
-      - approvers
-      - conditions
-      - name
-      - type
-      type: object
-    CertificateRequestApprovalExceptionsFilterRuleInformation:
-      properties:
-        applicationIds:
-          description: A collection of application ids the rule won't be applied to
-          format: uuid
-          items:
+            description: Set of UUIDs of the certificate requests
             format: uuid
             type: string
-          type: array
-        requestors:
-          description: A collection of approvers, specified by type and id, for which the rule won't be applied
-          items:
-            $ref: '#/components/schemas/ApproverProperty'
+          maxItems: 100
           type: array
           uniqueItems: true
-      type: object
-    ApproverOutcomeInformation:
-      properties:
-        companyId:
-          description: UUID of a company
-          example: 03eb6e61-9806-11ed-84f2-c747fb71e467
-          format: uuid
-          type: string
-        creationDate:
-          description: The date a approver outcome was created
-          example: '2023-01-10T09:12:28Z'
-          format: date-time
-          type: string
-        id:
-          description: UUID of an approver outcome
-          example: 5ece3180-b1e0-11ed-862d-ad36b18e787c
-          format: uuid
-          type: string
         reason:
-          description: Reason of an outcome
-          example: Not needed
+          description: Reason for user's decision
+          example: I reject this request because the certificate won't be needed anymore.
+          maxLength: 1024
           type: string
-        status:
-          description: Status of an approval request
-          enum:
-          - APPROVED
-          - REJECTED
-          example: APPROVED
+        wsClientId:
+          description: The ws client id, that will be used when the execution finishes
+          example: someid
           type: string
-        userId:
-          description: UUID of a user
-          example: 8268d820-a08d-11ed-bbc0-252385d6d389
-          format: uuid
-          type: string
+      required:
+      - ids
       type: object
-    EncryptionDetails:
+    ErrorResponse2:
       properties:
-        encryptionType:
-          enum:
-          - RSA
-          - DSA
-          - EC
-          - GOST3410
-          - ECGOST3410
-          - RESERVED3
-          - UNKNOWN
-          type: string
-        value:
-          $ref: '#/components/schemas/AnyValue2'
+        errors:
+          items:
+            $ref: '#/components/schemas/ErrorInformation2'
+          type: array
       type: object
     CertificateAuthorityProductInformation:
       description: Product specific for external certificate authority
@@ -921,96 +997,20 @@ components:
       required:
       - certificateAuthority
       type: object
-    GeneralNamesData1:
-      description: A certificate request subject alternative name (SAN) type
+    CustomAttributes1:
+      description: A certificate request custom attributes
       example:
-        dNSName:
+        dnsNames:
         - www.venafi.com
         - venafi.com
       properties:
-        dNSName:
+        dnsNames:
           items:
             type: string
-          type: array
-        directoryName:
-          items:
-            type: string
-          type: array
-        ediPartyName:
-          items:
-            type: string
-          type: array
-        iPAddress:
-          items:
-            type: string
-          type: array
-        otherName:
-          items:
-            type: string
-          type: array
-        registeredID:
-          items:
-            type: string
-          type: array
-        rfc822Name:
-          items:
-            type: string
-          type: array
-        uniformResourceIdentifier:
-          items:
-            type: string
-          type: array
-        x400Address:
-          items:
-            type: string
-          type: array
-      type: object
-    ErrorResponse2:
-      properties:
-        errors:
-          items:
-            $ref: '#/components/schemas/ErrorInformation2'
-          type: array
-      type: object
-    BulkApprovalResponse:
-      properties:
-        operationId:
-          type: string
-      type: object
-    CertificateRequestApprovalRuleDeleteResponseOpenApi:
-      properties:
-        id:
-          description: Approval rule `id`
-          format: uuid
-          type: string
-        name:
-          description: Approval rule name
-          type: string
-      type: object
-    BulkApprovalRequest:
-      properties:
-        ids:
-          description: Set of UUIDs of the certificate requests
-          example:
-          - 265f6d30-a0bb-11ed-aee0-89fe7e5f5d0c
-          items:
-            description: Set of UUIDs of the certificate requests
-            format: uuid
-            type: string
-          maxItems: 100
           type: array
           uniqueItems: true
-        reason:
-          description: Reason for user's decision
-          example: I reject this request because the certificate won't be needed anymore.
-          maxLength: 1024
-          type: string
-        wsClientId:
-          description: The ws client id, that will be used when the execution finishes
-          example: someid
-          type: string
-      required:
-      - ids
+        overwriteSans:
+          type: boolean
       type: object
   securitySchemes:
     scmOAuth:

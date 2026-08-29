@@ -1,16 +1,12 @@
 openapi: 3.2.0
 info:
-  title: 'Prisma Cloud: Managed Security Service Provider (MSSP) MSSP Managed Tenant Lifecycle Endpoints API'
-  description: 'APIs to interact with the MSSP Backend Service
-
-
-    # Authentication
-
-
-    '
+  title: Palo Alto Networks MSSP Managed Tenant Lifecycle Endpoints API
   version: '1.0'
+  description: 'Operations tagged MSSP Managed Tenant Lifecycle Endpoints across 3 of this provider''s published API definitions: palo-alto-mssp-mssp-spec-openapi.json, palo-alto-networks-mssp-managed-tenant-lifecycle-endpoints-api-openapi.yml, palo-alto-prisma-cloud-mssp-api-openapi-original.json. Each path carries the servers of the definition it was published in.'
 servers:
 - url: https://mssp-api.prismacloud.io
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
 tags:
 - name: MSSP Managed Tenant Lifecycle Endpoints
 paths:
@@ -133,6 +129,8 @@ paths:
       security:
       - UserJwt: []
       x-public: 'true'
+    servers:
+    - url: https://mssp-api.prismacloud.io
   /api/v1/mssp/{mssp-id}/managed-tenant/{tenant-id}:
     get:
       tags:
@@ -271,6 +269,8 @@ paths:
       security:
       - UserJwt: []
       x-public: 'true'
+    servers:
+    - url: https://mssp-api.prismacloud.io
   /api/v1/mssp/{mssp-id}/managed-tenant/{tenant-id}/login:
     get:
       tags:
@@ -331,8 +331,99 @@ paths:
       security:
       - UserJwt: []
       x-public: 'true'
+    servers:
+    - url: https://mssp-api.prismacloud.io
 components:
   schemas:
+    UpdateManagedTenantRequest:
+      type: object
+      properties:
+        tenantGroupId:
+          type: string
+          format: uuid
+        companyName:
+          maxLength: 63
+          minLength: 3
+          type: string
+        licenseInfo:
+          $ref: '#/components/schemas/LicenseInfo'
+        modules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModuleInfoRequest'
+    ManagedTenantLicenseResponse:
+      type: object
+      properties:
+        tenantLicenseId:
+          type: string
+        serialNumber:
+          type: string
+        licensePoolId:
+          type: string
+        allocatedCredits:
+          type: integer
+          format: int32
+        startDate:
+          type: integer
+          format: int64
+        endDate:
+          type: integer
+          format: int64
+    ModuleInfoRequest:
+      required:
+      - enabled
+      - featureName
+      type: object
+      properties:
+        featureName:
+          pattern: iam-security
+          type: string
+        enabled:
+          type: boolean
+        additionalData:
+          type: object
+          additionalProperties:
+            type: object
+    ManagedTenantsResponse:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/ManagedTenantResponse'
+        nextPageToken:
+          type: string
+    ErrorResponse:
+      required:
+      - error
+      type: object
+      properties:
+        error:
+          $ref: '#/components/schemas/Error'
+    ModuleInfo:
+      required:
+      - feature_name
+      type: object
+      properties:
+        feature_name:
+          type: string
+        enabled:
+          type: boolean
+        billing_type:
+          type: string
+          enum:
+          - TRIAL
+          - BUY
+        state:
+          type: string
+          enum:
+          - PROVISION_STARTED
+          - PROVISION_SUCCESSFUL
+          - PROVISION_FAILED
+        additional_data:
+          type: object
+          additionalProperties:
+            type: object
     ManagedTenantResponse:
       type: object
       properties:
@@ -391,6 +482,92 @@ components:
         erroredBy:
           type: string
           format: uuid
+    CreateManagedTenantRequest:
+      required:
+      - companyName
+      - contactInfo
+      - licenseInfo
+      - name
+      - planType
+      - region
+      type: object
+      properties:
+        name:
+          maxLength: 63
+          minLength: 3
+          type: string
+        companyName:
+          maxLength: 63
+          minLength: 3
+          type: string
+        region:
+          type: string
+        tenantGroupId:
+          type: string
+          format: uuid
+        planType:
+          type: string
+          enum:
+          - RS_STANDARD
+          - RS_FOUNDATION
+          - RS_ADVANCED
+        contactInfo:
+          $ref: '#/components/schemas/ContactInfo'
+        licenseInfo:
+          $ref: '#/components/schemas/LicenseInfo'
+        modules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModuleInfoRequest'
+    LicenseInfo:
+      required:
+      - allocatedCredits
+      - licensePoolId
+      type: object
+      properties:
+        licensePoolId:
+          type: string
+        allocatedCredits:
+          minimum: 1
+          type: integer
+          format: int32
+    ContactInfo:
+      required:
+      - email
+      - firstName
+      - lastName
+      type: object
+      properties:
+        firstName:
+          maxLength: 63
+          minLength: 1
+          type: string
+        lastName:
+          maxLength: 63
+          minLength: 1
+          type: string
+        email:
+          maxLength: 128
+          minLength: 1
+          type: string
+    SeamlessLoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        location:
+          type: string
+    PolicyGroupInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        policyCount:
+          type: integer
+          format: int32
     ManagedTenantDetailedResponse:
       type: object
       properties:
@@ -453,119 +630,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PolicyGroupInfo'
-    ModuleInfoRequest:
-      required:
-      - enabled
-      - featureName
-      type: object
-      properties:
-        featureName:
-          pattern: iam-security
-          type: string
-        enabled:
-          type: boolean
-        additionalData:
-          type: object
-          additionalProperties:
-            type: object
-    ModuleInfo:
-      required:
-      - feature_name
-      type: object
-      properties:
-        feature_name:
-          type: string
-        enabled:
-          type: boolean
-        billing_type:
-          type: string
-          enum:
-          - TRIAL
-          - BUY
-        state:
-          type: string
-          enum:
-          - PROVISION_STARTED
-          - PROVISION_SUCCESSFUL
-          - PROVISION_FAILED
-        additional_data:
-          type: object
-          additionalProperties:
-            type: object
-    ManagedTenantLicenseResponse:
-      type: object
-      properties:
-        tenantLicenseId:
-          type: string
-        serialNumber:
-          type: string
-        licensePoolId:
-          type: string
-        allocatedCredits:
-          type: integer
-          format: int32
-        startDate:
-          type: integer
-          format: int64
-        endDate:
-          type: integer
-          format: int64
-    ContactInfo:
-      required:
-      - email
-      - firstName
-      - lastName
-      type: object
-      properties:
-        firstName:
-          maxLength: 63
-          minLength: 1
-          type: string
-        lastName:
-          maxLength: 63
-          minLength: 1
-          type: string
-        email:
-          maxLength: 128
-          minLength: 1
-          type: string
-    ErrorResponse:
-      required:
-      - error
-      type: object
-      properties:
-        error:
-          $ref: '#/components/schemas/Error'
-    PolicyGroupInfo:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        policyCount:
-          type: integer
-          format: int32
-    SeamlessLoginResponse:
-      type: object
-      properties:
-        token:
-          type: string
-        location:
-          type: string
-    LicenseInfo:
-      required:
-      - allocatedCredits
-      - licensePoolId
-      type: object
-      properties:
-        licensePoolId:
-          type: string
-        allocatedCredits:
-          minimum: 1
-          type: integer
-          format: int32
     Error:
       required:
       - code
@@ -582,32 +646,257 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Error'
-    UpdateManagedTenantRequest:
+    UpdateManagedTenantRequest_2:
       type: object
       properties:
         tenantGroupId:
           type: string
           format: uuid
+          example: 4bf4541a-4d22-4119-b6ae-0617c59ea86c
         companyName:
           maxLength: 63
           minLength: 3
           type: string
+          example: Staging Policy 81
         licenseInfo:
-          $ref: '#/components/schemas/LicenseInfo'
+          $ref: '#/components/schemas/LicenseInfo_2'
         modules:
           type: array
           items:
-            $ref: '#/components/schemas/ModuleInfoRequest'
-    ManagedTenantsResponse:
+            $ref: '#/components/schemas/ModuleInfoRequest_2'
+          example:
+          - featureName: Corporate Firewall 42
+            enabled: true
+            additionalData: {}
+    ManagedTenantLicenseResponse_2:
+      type: object
+      properties:
+        tenantLicenseId:
+          type: string
+          example: '109663'
+        serialNumber:
+          type: string
+          example: example-serialNumber
+        licensePoolId:
+          type: string
+          example: '997200'
+        allocatedCredits:
+          type: integer
+          format: int32
+          example: 456
+        startDate:
+          type: integer
+          format: int64
+          example: 589
+        endDate:
+          type: integer
+          format: int64
+          example: 255
+    ModuleInfoRequest_2:
+      required:
+      - enabled
+      - featureName
+      type: object
+      properties:
+        featureName:
+          pattern: iam-security
+          type: string
+          example: Corporate Firewall 42
+        enabled:
+          type: boolean
+          example: true
+        additionalData:
+          type: object
+          additionalProperties:
+            type: object
+          example: {}
+    ManagedTenantsResponse_2:
       type: object
       properties:
         value:
           type: array
           items:
-            $ref: '#/components/schemas/ManagedTenantResponse'
+            $ref: '#/components/schemas/ManagedTenantResponse_2'
+          example:
+          - prismaId: '181916'
+            externalTenantId: '666088'
+            customerName: Branch Sensor 23
+            companyName: Production Sensor 74
+            status: DELETING
+            isSynthetic: false
+            wasMigrated: true
+            msspId: '581159'
+            tenantGroupId: d97478e0-2164-432c-a1dc-ee53918a7fb3
+            planType: RS_FOUNDATION
+            contactInfo:
+              firstName: Branch Sensor 70
+              lastName: Staging Policy 31
+              email: analyst1@example.com
+            stack: example-stack
+            region: us-east-1
+            baseApiUrl: example-baseApiUrl
+            tenantLicense:
+              tenantLicenseId: '109663'
+              serialNumber: example-serialNumber
+              licensePoolId: '997200'
+              allocatedCredits: 456
+              startDate: 589
+              endDate: 255
+            createdBy: example-createdBy
+            createdAt: 530
+            modules:
+            - feature_name: Branch Agent 34
+              enabled: true
+              billing_type: TRIAL
+              state: PROVISION_STARTED
+              additional_data: {}
+            erroredBy: b1bef040-d3dc-4eac-ba7f-ee158ca14f1c
+          - prismaId: '181916'
+            externalTenantId: '666088'
+            customerName: Branch Sensor 23
+            companyName: Production Sensor 74
+            status: DELETING
+            isSynthetic: false
+            wasMigrated: true
+            msspId: '581159'
+            tenantGroupId: d97478e0-2164-432c-a1dc-ee53918a7fb3
+            planType: RS_FOUNDATION
+            contactInfo:
+              firstName: Branch Sensor 70
+              lastName: Staging Policy 31
+              email: analyst1@example.com
+            stack: example-stack
+            region: us-east-1
+            baseApiUrl: example-baseApiUrl
+            tenantLicense:
+              tenantLicenseId: '109663'
+              serialNumber: example-serialNumber
+              licensePoolId: '997200'
+              allocatedCredits: 456
+              startDate: 589
+              endDate: 255
+            createdBy: example-createdBy
+            createdAt: 530
+            modules:
+            - feature_name: Branch Agent 34
+              enabled: true
+              billing_type: TRIAL
+              state: PROVISION_STARTED
+              additional_data: {}
+            erroredBy: b1bef040-d3dc-4eac-ba7f-ee158ca14f1c
         nextPageToken:
           type: string
-    CreateManagedTenantRequest:
+          example: example-nextPageToken
+    ModuleInfo_2:
+      required:
+      - feature_name
+      type: object
+      properties:
+        feature_name:
+          type: string
+          example: Branch Policy 59
+        enabled:
+          type: boolean
+          example: true
+        billing_type:
+          type: string
+          enum:
+          - TRIAL
+          - BUY
+          example: BUY
+        state:
+          type: string
+          enum:
+          - PROVISION_STARTED
+          - PROVISION_SUCCESSFUL
+          - PROVISION_FAILED
+          example: PROVISION_FAILED
+        additional_data:
+          type: object
+          additionalProperties:
+            type: object
+          example: {}
+    ManagedTenantResponse_2:
+      type: object
+      properties:
+        prismaId:
+          type: string
+          example: '181916'
+        externalTenantId:
+          type: string
+          example: '666088'
+        customerName:
+          type: string
+          example: Branch Sensor 23
+        companyName:
+          type: string
+          example: Production Sensor 74
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - PROVISIONING
+          - UPDATING
+          - DELETING
+          - DELETED
+          - OFFBOARDING
+          - ERRORED
+          example: DELETING
+        isSynthetic:
+          type: boolean
+          example: false
+        wasMigrated:
+          type: boolean
+          example: true
+        msspId:
+          type: string
+          example: '581159'
+        tenantGroupId:
+          type: string
+          format: uuid
+          example: d97478e0-2164-432c-a1dc-ee53918a7fb3
+        planType:
+          type: string
+          enum:
+          - RS_STANDARD
+          - RS_FOUNDATION
+          - RS_ADVANCED
+          example: RS_FOUNDATION
+        contactInfo:
+          $ref: '#/components/schemas/ContactInfo_2'
+        stack:
+          type: string
+          example: example-stack
+        region:
+          type: string
+          example: us-east-1
+        baseApiUrl:
+          type: string
+          example: example-baseApiUrl
+        tenantLicense:
+          $ref: '#/components/schemas/ManagedTenantLicenseResponse_2'
+        createdBy:
+          type: string
+          example: example-createdBy
+        createdAt:
+          type: integer
+          format: int64
+          example: 530
+        modules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModuleInfo_2'
+          example:
+          - feature_name: Branch Agent 34
+            enabled: true
+            billing_type: TRIAL
+            state: PROVISION_STARTED
+            additional_data: {}
+        erroredBy:
+          type: string
+          format: uuid
+          example: b1bef040-d3dc-4eac-ba7f-ee158ca14f1c
+    CreateManagedTenantRequest_2:
       required:
       - companyName
       - contactInfo
@@ -621,29 +910,710 @@ components:
           maxLength: 63
           minLength: 3
           type: string
+          example: Branch Agent 28
         companyName:
           maxLength: 63
           minLength: 3
           type: string
+          example: Production Policy 50
         region:
           type: string
+          example: eu-west-1
         tenantGroupId:
           type: string
           format: uuid
+          example: fedb2e94-6200-4f20-b7a9-78b393f82cb6
         planType:
           type: string
           enum:
           - RS_STANDARD
           - RS_FOUNDATION
           - RS_ADVANCED
+          example: RS_ADVANCED
         contactInfo:
-          $ref: '#/components/schemas/ContactInfo'
+          $ref: '#/components/schemas/ContactInfo_2'
         licenseInfo:
-          $ref: '#/components/schemas/LicenseInfo'
+          $ref: '#/components/schemas/LicenseInfo_2'
         modules:
           type: array
           items:
-            $ref: '#/components/schemas/ModuleInfoRequest'
+            $ref: '#/components/schemas/ModuleInfoRequest_2'
+          example:
+          - featureName: Corporate Agent 22
+            enabled: true
+            additionalData: {}
+    LicenseInfo_2:
+      required:
+      - allocatedCredits
+      - licensePoolId
+      type: object
+      properties:
+        licensePoolId:
+          type: string
+          example: '891733'
+        allocatedCredits:
+          minimum: 1
+          type: integer
+          format: int32
+          example: 729
+    ContactInfo_2:
+      required:
+      - email
+      - firstName
+      - lastName
+      type: object
+      properties:
+        firstName:
+          maxLength: 63
+          minLength: 1
+          type: string
+          example: Branch Sensor 70
+        lastName:
+          maxLength: 63
+          minLength: 1
+          type: string
+          example: Staging Policy 31
+        email:
+          maxLength: 128
+          minLength: 1
+          type: string
+          example: analyst1@example.com
+    SeamlessLoginResponse_2:
+      type: object
+      properties:
+        token:
+          type: string
+          example: 5e67f1fc069f5a0d9a48bcf34c02304d
+        location:
+          type: string
+          example: example-location
+    PolicyGroupInfo_2:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 55be82da-9c54-4a91-a816-db48bb33f550
+        name:
+          type: string
+          example: Corporate Firewall 35
+        policyCount:
+          type: integer
+          format: int32
+          example: 452
+    ManagedTenantDetailedResponse_2:
+      type: object
+      properties:
+        prismaId:
+          type: string
+          example: '222478'
+        externalTenantId:
+          type: string
+          example: '895934'
+        customerName:
+          type: string
+          example: Staging Policy 84
+        companyName:
+          type: string
+          example: Branch Firewall 61
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - PROVISIONING
+          - UPDATING
+          - DELETING
+          - DELETED
+          - OFFBOARDING
+          - ERRORED
+          example: ERRORED
+        isSynthetic:
+          type: boolean
+          example: true
+        wasMigrated:
+          type: boolean
+          example: true
+        msspId:
+          type: string
+          example: '442187'
+        tenantGroupId:
+          type: string
+          format: uuid
+          example: aa8a8ae2-ba70-450a-b7df-423ed6589a61
+        planType:
+          type: string
+          enum:
+          - RS_STANDARD
+          - RS_FOUNDATION
+          - RS_ADVANCED
+          example: RS_STANDARD
+        contactInfo:
+          $ref: '#/components/schemas/ContactInfo_2'
+        stack:
+          type: string
+          example: example-stack
+        region:
+          type: string
+          example: eu-west-1
+        baseApiUrl:
+          type: string
+          example: example-baseApiUrl
+        tenantLicense:
+          $ref: '#/components/schemas/ManagedTenantLicenseResponse_2'
+        createdBy:
+          type: string
+          example: example-createdBy
+        createdAt:
+          type: integer
+          format: int64
+          example: 372
+        modules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModuleInfo_2'
+          example:
+          - feature_name: Branch Policy 59
+            enabled: true
+            billing_type: BUY
+            state: PROVISION_FAILED
+            additional_data: {}
+          - feature_name: Branch Policy 59
+            enabled: true
+            billing_type: BUY
+            state: PROVISION_FAILED
+            additional_data: {}
+        erroredBy:
+          type: string
+          format: uuid
+          example: 62275c4f-4c58-4c7a-a21d-e31bd07cf940
+        policyGroups:
+          type: array
+          items:
+            $ref: '#/components/schemas/PolicyGroupInfo_2'
+          example:
+          - id: 318094fe-783b-4bdc-aeae-b9f2831c2d35
+            name: Staging Policy 69
+            policyCount: 26
+    Error_2:
+      required:
+      - code
+      - message
+      type: object
+      properties:
+        code:
+          type: string
+          example: example-code
+        message:
+          type: string
+          example: Incident malware violation firewall endpoint investigation firewall network rule blocked activity rule.
+        target:
+          type: string
+          example: example-target
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/Error_2'
+          example:
+          - code: example-code
+            message: Incident malware violation firewall endpoint investigation firewall network rule blocked activity rule.
+            target: example-target
+            details:
+            - code: example-code
+              message: Incident malware violation firewall endpoint investigation firewall network rule blocked activity rule.
+              target: example-target
+              details:
+              - {}
+              - {}
+            - code: example-code
+              message: Incident malware violation firewall endpoint investigation firewall network rule blocked activity rule.
+              target: example-target
+              details:
+              - {}
+              - {}
+    UpdateManagedTenantRequest_3:
+      type: object
+      properties:
+        tenantGroupId:
+          type: string
+          format: uuid
+          example: 4bf4541a-4d22-4119-b6ae-0617c59ea86c
+        companyName:
+          maxLength: 63
+          minLength: 3
+          type: string
+          example: Staging Policy 81
+        licenseInfo:
+          $ref: '#/components/schemas/LicenseInfo_3'
+        modules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModuleInfoRequest_3'
+          example:
+          - featureName: Corporate Firewall 42
+            enabled: true
+            additionalData: {}
+    ManagedTenantLicenseResponse_3:
+      type: object
+      properties:
+        tenantLicenseId:
+          type: string
+          example: '109663'
+        serialNumber:
+          type: string
+          example: example-serialNumber
+        licensePoolId:
+          type: string
+          example: '997200'
+        allocatedCredits:
+          type: integer
+          format: int32
+          example: 456
+        startDate:
+          type: integer
+          format: int64
+          example: 589
+        endDate:
+          type: integer
+          format: int64
+          example: 255
+    ModuleInfoRequest_3:
+      required:
+      - enabled
+      - featureName
+      type: object
+      properties:
+        featureName:
+          pattern: iam-security
+          type: string
+          example: Corporate Firewall 42
+        enabled:
+          type: boolean
+          example: true
+        additionalData:
+          type: object
+          additionalProperties:
+            type: object
+          example: {}
+    ManagedTenantsResponse_3:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/ManagedTenantResponse_3'
+          example:
+          - prismaId: '181916'
+            externalTenantId: '666088'
+            customerName: Branch Sensor 23
+            companyName: Production Sensor 74
+            status: DELETING
+            isSynthetic: false
+            wasMigrated: true
+            msspId: '581159'
+            tenantGroupId: d97478e0-2164-432c-a1dc-ee53918a7fb3
+            planType: RS_FOUNDATION
+            contactInfo:
+              firstName: Branch Sensor 70
+              lastName: Staging Policy 31
+              email: analyst1@example.com
+            stack: example-stack
+            region: us-east-1
+            baseApiUrl: example-baseApiUrl
+            tenantLicense:
+              tenantLicenseId: '109663'
+              serialNumber: example-serialNumber
+              licensePoolId: '997200'
+              allocatedCredits: 456
+              startDate: 589
+              endDate: 255
+            createdBy: example-createdBy
+            createdAt: 530
+            modules:
+            - feature_name: Branch Agent 34
+              enabled: true
+              billing_type: TRIAL
+              state: PROVISION_STARTED
+              additional_data: {}
+            erroredBy: b1bef040-d3dc-4eac-ba7f-ee158ca14f1c
+          - prismaId: '181916'
+            externalTenantId: '666088'
+            customerName: Branch Sensor 23
+            companyName: Production Sensor 74
+            status: DELETING
+            isSynthetic: false
+            wasMigrated: true
+            msspId: '581159'
+            tenantGroupId: d97478e0-2164-432c-a1dc-ee53918a7fb3
+            planType: RS_FOUNDATION
+            contactInfo:
+              firstName: Branch Sensor 70
+              lastName: Staging Policy 31
+              email: analyst1@example.com
+            stack: example-stack
+            region: us-east-1
+            baseApiUrl: example-baseApiUrl
+            tenantLicense:
+              tenantLicenseId: '109663'
+              serialNumber: example-serialNumber
+              licensePoolId: '997200'
+              allocatedCredits: 456
+              startDate: 589
+              endDate: 255
+            createdBy: example-createdBy
+            createdAt: 530
+            modules:
+            - feature_name: Branch Agent 34
+              enabled: true
+              billing_type: TRIAL
+              state: PROVISION_STARTED
+              additional_data: {}
+            erroredBy: b1bef040-d3dc-4eac-ba7f-ee158ca14f1c
+        nextPageToken:
+          type: string
+          example: example-nextPageToken
+    ModuleInfo_3:
+      required:
+      - feature_name
+      type: object
+      properties:
+        feature_name:
+          type: string
+          example: Branch Policy 59
+        enabled:
+          type: boolean
+          example: true
+        billing_type:
+          type: string
+          enum:
+          - TRIAL
+          - BUY
+          example: BUY
+        state:
+          type: string
+          enum:
+          - PROVISION_STARTED
+          - PROVISION_SUCCESSFUL
+          - PROVISION_FAILED
+          example: PROVISION_FAILED
+        additional_data:
+          type: object
+          additionalProperties:
+            type: object
+          example: {}
+    ManagedTenantResponse_3:
+      type: object
+      properties:
+        prismaId:
+          type: string
+          example: '181916'
+        externalTenantId:
+          type: string
+          example: '666088'
+        customerName:
+          type: string
+          example: Branch Sensor 23
+        companyName:
+          type: string
+          example: Production Sensor 74
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - PROVISIONING
+          - UPDATING
+          - DELETING
+          - DELETED
+          - OFFBOARDING
+          - ERRORED
+          example: DELETING
+        isSynthetic:
+          type: boolean
+          example: false
+        wasMigrated:
+          type: boolean
+          example: true
+        msspId:
+          type: string
+          example: '581159'
+        tenantGroupId:
+          type: string
+          format: uuid
+          example: d97478e0-2164-432c-a1dc-ee53918a7fb3
+        planType:
+          type: string
+          enum:
+          - RS_STANDARD
+          - RS_FOUNDATION
+          - RS_ADVANCED
+          example: RS_FOUNDATION
+        contactInfo:
+          $ref: '#/components/schemas/ContactInfo_3'
+        stack:
+          type: string
+          example: example-stack
+        region:
+          type: string
+          example: us-east-1
+        baseApiUrl:
+          type: string
+          example: example-baseApiUrl
+        tenantLicense:
+          $ref: '#/components/schemas/ManagedTenantLicenseResponse_3'
+        createdBy:
+          type: string
+          example: example-createdBy
+        createdAt:
+          type: integer
+          format: int64
+          example: 530
+        modules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModuleInfo_3'
+          example:
+          - feature_name: Branch Agent 34
+            enabled: true
+            billing_type: TRIAL
+            state: PROVISION_STARTED
+            additional_data: {}
+        erroredBy:
+          type: string
+          format: uuid
+          example: b1bef040-d3dc-4eac-ba7f-ee158ca14f1c
+    CreateManagedTenantRequest_3:
+      required:
+      - companyName
+      - contactInfo
+      - licenseInfo
+      - name
+      - planType
+      - region
+      type: object
+      properties:
+        name:
+          maxLength: 63
+          minLength: 3
+          type: string
+          example: Branch Agent 28
+        companyName:
+          maxLength: 63
+          minLength: 3
+          type: string
+          example: Production Policy 50
+        region:
+          type: string
+          example: eu-west-1
+        tenantGroupId:
+          type: string
+          format: uuid
+          example: fedb2e94-6200-4f20-b7a9-78b393f82cb6
+        planType:
+          type: string
+          enum:
+          - RS_STANDARD
+          - RS_FOUNDATION
+          - RS_ADVANCED
+          example: RS_ADVANCED
+        contactInfo:
+          $ref: '#/components/schemas/ContactInfo_3'
+        licenseInfo:
+          $ref: '#/components/schemas/LicenseInfo_3'
+        modules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModuleInfoRequest_3'
+          example:
+          - featureName: Corporate Agent 22
+            enabled: true
+            additionalData: {}
+    LicenseInfo_3:
+      required:
+      - allocatedCredits
+      - licensePoolId
+      type: object
+      properties:
+        licensePoolId:
+          type: string
+          example: '891733'
+        allocatedCredits:
+          minimum: 1
+          type: integer
+          format: int32
+          example: 729
+    ContactInfo_3:
+      required:
+      - email
+      - firstName
+      - lastName
+      type: object
+      properties:
+        firstName:
+          maxLength: 63
+          minLength: 1
+          type: string
+          example: Branch Sensor 70
+        lastName:
+          maxLength: 63
+          minLength: 1
+          type: string
+          example: Staging Policy 31
+        email:
+          maxLength: 128
+          minLength: 1
+          type: string
+          example: analyst1@example.com
+    SeamlessLoginResponse_3:
+      type: object
+      properties:
+        token:
+          type: string
+          example: 5e67f1fc069f5a0d9a48bcf34c02304d
+        location:
+          type: string
+          example: example-location
+    PolicyGroupInfo_3:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 55be82da-9c54-4a91-a816-db48bb33f550
+        name:
+          type: string
+          example: Corporate Firewall 35
+        policyCount:
+          type: integer
+          format: int32
+          example: 452
+    ManagedTenantDetailedResponse_3:
+      type: object
+      properties:
+        prismaId:
+          type: string
+          example: '222478'
+        externalTenantId:
+          type: string
+          example: '895934'
+        customerName:
+          type: string
+          example: Staging Policy 84
+        companyName:
+          type: string
+          example: Branch Firewall 61
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - PROVISIONING
+          - UPDATING
+          - DELETING
+          - DELETED
+          - OFFBOARDING
+          - ERRORED
+          example: ERRORED
+        isSynthetic:
+          type: boolean
+          example: true
+        wasMigrated:
+          type: boolean
+          example: true
+        msspId:
+          type: string
+          example: '442187'
+        tenantGroupId:
+          type: string
+          format: uuid
+          example: aa8a8ae2-ba70-450a-b7df-423ed6589a61
+        planType:
+          type: string
+          enum:
+          - RS_STANDARD
+          - RS_FOUNDATION
+          - RS_ADVANCED
+          example: RS_STANDARD
+        contactInfo:
+          $ref: '#/components/schemas/ContactInfo_3'
+        stack:
+          type: string
+          example: example-stack
+        region:
+          type: string
+          example: eu-west-1
+        baseApiUrl:
+          type: string
+          example: example-baseApiUrl
+        tenantLicense:
+          $ref: '#/components/schemas/ManagedTenantLicenseResponse_3'
+        createdBy:
+          type: string
+          example: example-createdBy
+        createdAt:
+          type: integer
+          format: int64
+          example: 372
+        modules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModuleInfo_3'
+          example:
+          - feature_name: Branch Policy 59
+            enabled: true
+            billing_type: BUY
+            state: PROVISION_FAILED
+            additional_data: {}
+          - feature_name: Branch Policy 59
+            enabled: true
+            billing_type: BUY
+            state: PROVISION_FAILED
+            additional_data: {}
+        erroredBy:
+          type: string
+          format: uuid
+          example: 62275c4f-4c58-4c7a-a21d-e31bd07cf940
+        policyGroups:
+          type: array
+          items:
+            $ref: '#/components/schemas/PolicyGroupInfo_3'
+          example:
+          - id: 318094fe-783b-4bdc-aeae-b9f2831c2d35
+            name: Staging Policy 69
+            policyCount: 26
+    Error_3:
+      required:
+      - code
+      - message
+      type: object
+      properties:
+        code:
+          type: string
+          example: example-code
+        message:
+          type: string
+          example: Incident malware violation firewall endpoint investigation firewall network rule blocked activity rule.
+        target:
+          type: string
+          example: example-target
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/Error_3'
+          example:
+          - code: example-code
+            message: Incident malware violation firewall endpoint investigation firewall network rule blocked activity rule.
+            target: example-target
+            details:
+            - code: example-code
+              message: Incident malware violation firewall endpoint investigation firewall network rule blocked activity rule.
+              target: example-target
+              details:
+              - {}
+              - {}
+            - code: example-code
+              message: Incident malware violation firewall endpoint investigation firewall network rule blocked activity rule.
+              target: example-target
+              details:
+              - {}
+              - {}
   securitySchemes:
     ServiceJwt:
       type: http
@@ -655,27 +1625,12 @@ components:
       description: JWT for User to Service communication. Such tokens are available to MSSP account users
       scheme: bearer
       bearerFormat: JWT
-x-tagGroups:
-- tags:
-  - User Authentication
-  - MSSP Account Management
-  - User Management
-  - MSSP Managed Tenant Lifecycle Endpoints
-  - Tenant Group Lifecycle Endpoints
-  - Policy Group Lifecycle Endpoints
-  - Policy Group to Tenant Group Management
-  - MSSP Operations Retry
-  - Mssp License Endpoints
-  - Stack Details Endpoint
-  - Proxy Endpoint Provider
-  name: public
-- tags:
-  - Managed Tenant Management Service
-  - MSSP Async Change Management
-  - Licensing Job Schedule Management
-  - OIDC Discovery Endpoint
-  - MSSP Account Management Service Endpoint
-  name: service
-- tags:
-  - Hard Delete Managed Tenant
-  name: support
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
+x-refined-from:
+- palo-alto-mssp-mssp-spec-openapi.json
+- palo-alto-networks-mssp-managed-tenant-lifecycle-endpoints-api-openapi.yml
+- palo-alto-prisma-cloud-mssp-api-openapi-original.json

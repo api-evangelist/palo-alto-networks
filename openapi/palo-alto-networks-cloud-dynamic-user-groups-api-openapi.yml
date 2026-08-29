@@ -677,102 +677,6 @@ paths:
       - Cloud Dynamic User Groups
 components:
   schemas:
-    CategoryWithAttributes:
-      type: object
-      description: Category definition with available context attributes
-      properties:
-        category:
-          type: string
-          description: Category name
-          example: Attribute Based
-        context attributes:
-          type: array
-          description: List of user attributes that can be used to create groups in this category
-          items:
-            type: string
-          example:
-          - UserAccountControl
-          - Department
-          - Location
-          - Country
-          - Title
-        description:
-          type: string
-          description: Description of what this category is used for
-          example: Grouping based on the common user attributes
-    GroupCreateRequest:
-      type: object
-      required:
-      - domain
-      - value
-      - useNormalizedAttrs
-      properties:
-        domain:
-          type: string
-          description: Domain name (e.g., okta-directory, uppercasedss.onmicrosoft.com)
-          example: okta-directory
-        useNormalizedAttrs:
-          type: string
-          enum:
-          - 'true'
-          description: Must be set to "true" for external API calls (SCM integration)
-          example: 'true'
-        value:
-          type: object
-          required:
-          - category
-          - groups
-          properties:
-            category:
-              type: string
-              description: Category name obtained from GET /cloud-dug-definition/category endpoint
-              example: Attribute Based
-            groups:
-              type: array
-              description: Array of groups to create (can create multiple groups in a single request)
-              items:
-                type: object
-                required:
-                - Name
-                - user_attribute_constrain
-                properties:
-                  Name:
-                    type: string
-                    description: Base name for the group (system automatically appends "_cdug" suffix)
-                    example: test_123
-                  description:
-                    type: string
-                    description: Optional description for the group
-                    example: Active users with standard account control
-                  user_attribute_constrain:
-                    type: object
-                    description: 'Defines the criteria for dynamic group membership.
-
-                      Use $and when ALL conditions must match, or $or when ANY condition must match.
-
-                      Attribute names must be from the context attributes list from GET /category endpoint.
-
-                      Attribute values must match values from GET /user-attr-values endpoint.
-
-                      '
-                    properties:
-                      $and:
-                        type: array
-                        description: All conditions must be true for a user to be included in the group
-                        items:
-                          type: object
-                          additionalProperties:
-                            type: string
-                      $or:
-                        type: array
-                        description: Any condition must be true for a user to be included in the group
-                        items:
-                          type: object
-                          additionalProperties:
-                            type: string
-                    example:
-                      $and:
-                      - UserAccountControl: '512'
     GroupDeleteResponse:
       type: object
       description: 'Response from deleting Cloud Dynamic User Group(s).
@@ -820,67 +724,96 @@ components:
 
                 '
               example: Data sync in-progress for customer 4231344437556610560, Please reschedule later
-    GroupUpdateRequest:
+    GroupCreateResponse:
       type: object
-      required:
-      - domain
-      - value
-      - useNormalizedAttrs
+      description: Response from creating Cloud Dynamic User Groups
       properties:
-        domain:
-          type: string
-          description: Domain name (same as used when creating the group)
-          example: okta-directory
-        useNormalizedAttrs:
-          type: string
-          enum:
-          - 'true'
-          description: Must be set to "true" for external API calls (SCM integration)
-          example: 'true'
-        value:
+        success:
+          type: boolean
+          description: Indicates if the creation was successful
+          example: true
+        result:
           type: object
-          required:
-          - objectGUID
           properties:
-            objectGUID:
+            category:
               type: string
-              description: '**Required.** Unique identifier of the group to update.
-
-                This identifies which group to update and is obtained from:
-
-                - POST /cloud-dug-definition response (when creating a group)
-
-                - GET /cloud-dug-definition/group response (when listing groups)
-
-                '
-              example: 72bbc29c-2703-11f1-b839-22edd0e18ff6
-            user_attribute_constrain:
-              type: object
-              description: 'Optional. Updated attribute constraints defining group membership.
-
-                Use $and when ALL conditions must match, or $or when ANY condition must match.
-
-                If provided, this replaces the existing constraints entirely.
-
-                '
-              properties:
-                $and:
-                  type: array
-                  description: All conditions must be true for a user to be included
-                  items:
-                    type: object
-                    additionalProperties:
+              description: The category name the groups were created in
+              example: Attribute Based
+            groups:
+              type: array
+              description: Array of created group objects with full details
+              items:
+                type: object
+                properties:
+                  objectGUID:
+                    type: string
+                    description: Unique identifier for the created group
+                    example: 83a1cf1a-2709-11f1-b6ac-22edd0e18ff6
+                  Name:
+                    type: string
+                    description: Group name (with _cdug suffix)
+                    example: test_123_cdug
+                  name:
+                    type: string
+                    description: Group name (lowercase field)
+                    example: test_123_cdug
+                  Common-Name:
+                    type: string
+                    description: Common name of the group
+                    example: test_123_cdug
+                  Distinguished Name:
+                    type: string
+                    description: LDAP distinguished name path
+                    example: CN=test_123_cdug,CN=Attribute Based,CN=CDUG,DC=okta-directory
+                  Object Class:
+                    type: array
+                    description: LDAP object class
+                    items:
                       type: string
-                $or:
-                  type: array
-                  description: Any condition must be true for a user to be included
-                  items:
+                    example:
+                    - group
+                  description:
+                    type: string
+                    description: Group description
+                    example: ''
+                  groupTypes:
+                    type: string
+                    description: Type of group
+                    example: CloudDUG
+                  cdug_status:
+                    type: string
+                    description: Status of the CDUG operation
+                    example: created
+                  created:
+                    type: string
+                    description: Creation timestamp in LDAP format
+                    example: 20260323224204.0Z
+                  createdDateTime:
+                    type: string
+                    description: Creation timestamp
+                    example: 20260323224204.0Z
+                  WhenChanged:
+                    type: string
+                    description: Last modification timestamp
+                    example: 20260323224204.0Z
+                  ext_gtype:
+                    type: integer
+                    description: Extended group type identifier
+                    example: 20
+                  ext_type:
+                    type: integer
+                    description: Extended type identifier
+                    example: 3
+                  ext_lastmod:
+                    type: number
+                    description: Last modification timestamp (Unix epoch with decimals)
+                    example: 1774305724.180538
+                  user_attribute_constrain:
                     type: object
-                    additionalProperties:
-                      type: string
-              example:
-                $and:
-                - State: CA
+                    description: The attribute constraints used to define group membership
+                    example:
+                      $and:
+                      - UserAccountControl: '512'
     GroupListResponse:
       type: object
       description: Response from GET Cloud Dynamic User Groups with pagination
@@ -999,93 +932,99 @@ components:
                 type: string
                 description: Update timestamp (optional field)
                 example: Timestamp(1773871026, 1)
-    GroupCreateResponse:
+    CategoryWithAttributes:
       type: object
-      description: Response from creating Cloud Dynamic User Groups
+      description: Category definition with available context attributes
       properties:
-        success:
-          type: boolean
-          description: Indicates if the creation was successful
-          example: true
-        result:
+        category:
+          type: string
+          description: Category name
+          example: Attribute Based
+        context attributes:
+          type: array
+          description: List of user attributes that can be used to create groups in this category
+          items:
+            type: string
+          example:
+          - UserAccountControl
+          - Department
+          - Location
+          - Country
+          - Title
+        description:
+          type: string
+          description: Description of what this category is used for
+          example: Grouping based on the common user attributes
+    GroupCreateRequest:
+      type: object
+      required:
+      - domain
+      - value
+      - useNormalizedAttrs
+      properties:
+        domain:
+          type: string
+          description: Domain name (e.g., okta-directory, uppercasedss.onmicrosoft.com)
+          example: okta-directory
+        useNormalizedAttrs:
+          type: string
+          enum:
+          - 'true'
+          description: Must be set to "true" for external API calls (SCM integration)
+          example: 'true'
+        value:
           type: object
+          required:
+          - category
+          - groups
           properties:
             category:
               type: string
-              description: The category name the groups were created in
+              description: Category name obtained from GET /cloud-dug-definition/category endpoint
               example: Attribute Based
             groups:
               type: array
-              description: Array of created group objects with full details
+              description: Array of groups to create (can create multiple groups in a single request)
               items:
                 type: object
+                required:
+                - Name
+                - user_attribute_constrain
                 properties:
-                  objectGUID:
-                    type: string
-                    description: Unique identifier for the created group
-                    example: 83a1cf1a-2709-11f1-b6ac-22edd0e18ff6
                   Name:
                     type: string
-                    description: Group name (with _cdug suffix)
-                    example: test_123_cdug
-                  name:
-                    type: string
-                    description: Group name (lowercase field)
-                    example: test_123_cdug
-                  Common-Name:
-                    type: string
-                    description: Common name of the group
-                    example: test_123_cdug
-                  Distinguished Name:
-                    type: string
-                    description: LDAP distinguished name path
-                    example: CN=test_123_cdug,CN=Attribute Based,CN=CDUG,DC=okta-directory
-                  Object Class:
-                    type: array
-                    description: LDAP object class
-                    items:
-                      type: string
-                    example:
-                    - group
+                    description: Base name for the group (system automatically appends "_cdug" suffix)
+                    example: test_123
                   description:
                     type: string
-                    description: Group description
-                    example: ''
-                  groupTypes:
-                    type: string
-                    description: Type of group
-                    example: CloudDUG
-                  cdug_status:
-                    type: string
-                    description: Status of the CDUG operation
-                    example: created
-                  created:
-                    type: string
-                    description: Creation timestamp in LDAP format
-                    example: 20260323224204.0Z
-                  createdDateTime:
-                    type: string
-                    description: Creation timestamp
-                    example: 20260323224204.0Z
-                  WhenChanged:
-                    type: string
-                    description: Last modification timestamp
-                    example: 20260323224204.0Z
-                  ext_gtype:
-                    type: integer
-                    description: Extended group type identifier
-                    example: 20
-                  ext_type:
-                    type: integer
-                    description: Extended type identifier
-                    example: 3
-                  ext_lastmod:
-                    type: number
-                    description: Last modification timestamp (Unix epoch with decimals)
-                    example: 1774305724.180538
+                    description: Optional description for the group
+                    example: Active users with standard account control
                   user_attribute_constrain:
                     type: object
-                    description: The attribute constraints used to define group membership
+                    description: 'Defines the criteria for dynamic group membership.
+
+                      Use $and when ALL conditions must match, or $or when ANY condition must match.
+
+                      Attribute names must be from the context attributes list from GET /category endpoint.
+
+                      Attribute values must match values from GET /user-attr-values endpoint.
+
+                      '
+                    properties:
+                      $and:
+                        type: array
+                        description: All conditions must be true for a user to be included in the group
+                        items:
+                          type: object
+                          additionalProperties:
+                            type: string
+                      $or:
+                        type: array
+                        description: Any condition must be true for a user to be included in the group
+                        items:
+                          type: object
+                          additionalProperties:
+                            type: string
                     example:
                       $and:
                       - UserAccountControl: '512'
@@ -1170,6 +1109,67 @@ components:
               type: string
               description: Empty string when objectGUID is not found
               example: ''
+    GroupUpdateRequest:
+      type: object
+      required:
+      - domain
+      - value
+      - useNormalizedAttrs
+      properties:
+        domain:
+          type: string
+          description: Domain name (same as used when creating the group)
+          example: okta-directory
+        useNormalizedAttrs:
+          type: string
+          enum:
+          - 'true'
+          description: Must be set to "true" for external API calls (SCM integration)
+          example: 'true'
+        value:
+          type: object
+          required:
+          - objectGUID
+          properties:
+            objectGUID:
+              type: string
+              description: '**Required.** Unique identifier of the group to update.
+
+                This identifies which group to update and is obtained from:
+
+                - POST /cloud-dug-definition response (when creating a group)
+
+                - GET /cloud-dug-definition/group response (when listing groups)
+
+                '
+              example: 72bbc29c-2703-11f1-b839-22edd0e18ff6
+            user_attribute_constrain:
+              type: object
+              description: 'Optional. Updated attribute constraints defining group membership.
+
+                Use $and when ALL conditions must match, or $or when ANY condition must match.
+
+                If provided, this replaces the existing constraints entirely.
+
+                '
+              properties:
+                $and:
+                  type: array
+                  description: All conditions must be true for a user to be included
+                  items:
+                    type: object
+                    additionalProperties:
+                      type: string
+                $or:
+                  type: array
+                  description: Any condition must be true for a user to be included
+                  items:
+                    type: object
+                    additionalProperties:
+                      type: string
+              example:
+                $and:
+                - State: CA
   responses:
     500_internal_error:
       description: Internal service error
@@ -1193,23 +1193,6 @@ components:
             result:
               error:
                 error-message: Internal Server Error
-    401_unauthorized:
-      description: Unauthorized - Invalid or missing authentication
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              statusCode:
-                type: integer
-              error:
-                type: string
-              message:
-                type: string
-          example:
-            statusCode: 401
-            error: Unauthorized
-            message: Invalid JWT token
     400_bad_request:
       description: Invalid request parameters
       content:
@@ -1248,3 +1231,20 @@ components:
                 statusCode: 400
                 error: Bad Request
                 message: pageSz must be less than or equal to 1000
+    401_unauthorized:
+      description: Unauthorized - Invalid or missing authentication
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              statusCode:
+                type: integer
+              error:
+                type: string
+              message:
+                type: string
+          example:
+            statusCode: 401
+            error: Unauthorized
+            message: Invalid JWT token

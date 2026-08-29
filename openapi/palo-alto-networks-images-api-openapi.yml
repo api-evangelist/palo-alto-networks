@@ -1,10 +1,20 @@
 openapi: 3.2.0
 info:
   title: Palo Alto Networks Images API
+  x-refined-note:
+  - x-description-source differs across the merged source definitions and was not carried
   version: '1.0'
-  description: 'Operations tagged Images across 4 of this provider''s published API definitions: palo-alto-compute-34-03-openapi-34-03-138-sh-openapi.json, palo-alto-compute-openapi-34-04-145-sh-openapi.json, palo-alto-cwpp-34-03-openapi-34-03-138-saas-openapi.json, palo-alto-cwpp-openapi-34-04-145-saas-openapi.json. Each path carries the servers of the definition it was published in.'
+  description: 'Operations tagged Images across 6 of this provider''s published API definitions: palo-alto-compute-34-03-openapi-34-03-138-sh-openapi.json, palo-alto-compute-openapi-34-04-145-sh-openapi.json, palo-alto-cwpp-34-03-openapi-34-03-138-saas-openapi.json, palo-alto-cwpp-openapi-34-04-145-saas-openapi.json, palo-alto-networks-images-api-openapi.yml, palo-alto-prisma-cloud-compute-api-openapi-original.yml. Each path carries the servers of the definition it was published in.'
 servers:
 - url: PATH_TO_CONSOLE
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+- url: https://{console}/api/v1
+  description: Prisma Cloud Compute Console API.
+  variables:
+    console:
+      default: console.example.com
+      description: Address of the Prisma Cloud Compute Console. For SaaS deployments, use the address provided in Prisma Cloud under Compute > Manage > System > Utilities.
 tags:
 - name: Images
   description: Images. 7 operations in this definition.
@@ -1642,62 +1652,229 @@ paths:
       operationId: post-images-twistlock_defender_layer.zip
       summary: Download Serverless Layer Bundle
       x-description-source: desc/images/twistlock_defender_layer_zip_post.md
+  /images:
+    get:
+      operationId: getImages
+      summary: Palo Alto Networks List Image Scan Results
+      description: Returns vulnerability and compliance scan results for all container images known to Prisma Cloud Compute. Results include images from deployed containers on hosts with Defenders and from registry scans. Supports filtering by search term, cluster, and collection.
+      tags:
+      - Images
+      parameters:
+      - name: offset
+        in: query
+        description: Number of records to skip for pagination.
+        schema:
+          type: integer
+          default: 0
+        example: 0
+      - name: limit
+        in: query
+        description: Maximum number of records to return.
+        schema:
+          type: integer
+          default: 50
+        example: 50
+      - name: search
+        in: query
+        description: Search term to filter images by repository name or tag.
+        schema:
+          type: string
+        example: example-search
+      - name: sort
+        in: query
+        description: Field to sort results by.
+        schema:
+          type: string
+          enum:
+          - vulnerabilities
+          - compliance
+          - scanTime
+        example: compliance
+      - name: reverse
+        in: query
+        description: Sort in reverse order.
+        schema:
+          type: boolean
+          default: false
+        example: false
+      - name: collections
+        in: query
+        description: Filter by collection name.
+        schema:
+          type: string
+        example: example-collections
+      - name: clusters
+        in: query
+        description: Filter by cluster name.
+        schema:
+          type: string
+        example: example-clusters
+      - name: compact
+        in: query
+        description: Return compact results without full vulnerability details.
+        schema:
+          type: boolean
+          default: false
+        example: false
+      responses:
+        '200':
+          description: Image scan results returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Image'
+              examples:
+                GetImages200Example:
+                  summary: Default getImages 200 response
+                  x-microcks-default: true
+                  value:
+                  - _id: '856694'
+                    hostname: host-9c7b
+                    scanTime: '2024-03-20T05:38:38Z'
+                    repoTag:
+                      registry: example-registry
+                      repo: example-repo
+                      tag: critical-asset
+                    repoDigests:
+                    - example-repoDigests_item
+                    - example-repoDigests_item
+                    osDistro: example-osDistro
+                    osDistroVersion: 10.9.7
+                    vulnerabilities:
+                    - id: example-id
+                      status: deferred
+                      cvss: 12.51
+                      severity: high
+                      packageName: Corporate Firewall 45
+                      packageVersion: 5.1.8
+                      fixedVersion: 5.4.9
+                      link: https://portal.test-corp.net/0da215
+                      description: Configured applied endpoint threat network Security.
+                      publishedDate: '2026-05-18T00:03:03Z'
+                    - id: example-id
+                      status: fixed in
+                      cvss: 68.07
+                      severity: low
+                      packageName: Primary Policy 76
+                      packageVersion: 8.5.1
+                      fixedVersion: 6.7.4
+                      link: https://vpn.example.com/3f4797
+                      description: Incident network violation rule incident blocked activity applied endpoint policy incident.
+                      publishedDate: '2024-05-26T07:45:57Z'
+                    vulnerabilitiesCount: 554
+                    vulnerabilityDistribution:
+                      critical: 813
+                      high: 64
+                      medium: 396
+                      low: 795
+                    complianceIssues:
+                    - id: 915
+                      title: Branch Policy 90
+                      severity: medium
+                      cause: example-cause
+                      description: Network applied activity rule applied suspicious activity suspicious firewall.
+                    - id: 165
+                      title: Primary Gateway 48
+                      severity: medium
+                      cause: example-cause
+                      description: Malware malware configured suspicious threat suspicious network violation.
+                    complianceIssuesCount: 705
+                    clusters:
+                    - example-clusters_item
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
+  /images/download:
+    get:
+      operationId: downloadImageScanResults
+      summary: Palo Alto Networks Download Image Scan Results
+      description: Downloads image scan results as a CSV file. Supports the same filtering parameters as the GET /images endpoint. Useful for bulk export and integration with external vulnerability management systems.
+      tags:
+      - Images
+      parameters:
+      - name: search
+        in: query
+        description: Search term to filter images by repository name or tag.
+        schema:
+          type: string
+        example: example-search
+      - name: collections
+        in: query
+        description: Filter by collection name.
+        schema:
+          type: string
+        example: example-collections
+      - name: clusters
+        in: query
+        description: Filter by cluster name.
+        schema:
+          type: string
+        example: example-clusters
+      responses:
+        '200':
+          description: Image scan results CSV file returned.
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
 components:
   schemas:
-    vuln.Application:
-      description: Application represents a detected application
+    shared.CompressedLayerTimes:
+      description: CompressedLayerTimes represent the compressed layer times of the image apps and pkgs
       properties:
-        installedFromPackage:
-          description: 'Indicates that the app was installed as an OS package.
+        appTimes:
+          description: '.
 
             '
-          type: boolean
-        knownVulnerabilities:
-          description: 'Total number of vulnerabilities for this application.
+          items:
+            $ref: '#/components/schemas/int64'
+          type: array
+        pkgsTimes:
+          description: '.
 
             '
-          type: integer
-        layerTime:
-          description: 'Image layer to which the application belongs - layer creation time.
-
-            '
-          format: int64
-          type: integer
-        md5:
-          description: 'MD5 is the md5sum of the app.
-
-            '
-          type: string
-        name:
-          description: 'Name of the application.
+          items:
+            $ref: '#/components/schemas/shared.PkgsTimes'
+          type: array
+      type: object
+    trust.HostStatus:
+      description: HostStatus represents an image trust status on a host
+      properties:
+        host:
+          description: 'Host name.
 
             '
           type: string
-        originPackageName:
-          description: 'OriginPackageName is the name of the app origin package.
-
-            '
-          type: string
-        path:
-          description: 'Path of the detected application.
-
-            '
-          type: string
-        rpmModule:
-          description: 'RPMModule represents the RPM module in which this application is included.
-
-            '
-          type: string
-        service:
-          description: 'Service indicates whether the application is installed as a service.
-
-            '
-          type: boolean
-        version:
-          description: 'Version of the application.
-
-            '
-          type: string
+        status:
+          $ref: '#/components/schemas/trust.Status'
       type: object
     vulnerability.ExploitType:
       description: ExploitType represents the source of an exploit
@@ -1707,38 +1884,150 @@ components:
         - exploit-windows
         - cisa-kev
       type: string
-    wildfire.Usage:
-      description: Usage holds wildfire usage stats, period for the usage varies with context
+    common.ExternalLabelSourceType:
+      description: ExternalLabelSourceType indicates the source of the labels
+      enum:
+      - - namespace
+        - deployment
+        - pod
+        - aws
+        - azure
+        - gcp
+        - oci
+      type: string
+    -_shared.ImageScanResult:
+      items:
+        $ref: '#/components/schemas/shared.ImageScanResult'
+      type: array
+    shared.ImageHost:
+      description: ImageHost holds information about image scan result per host
       properties:
-        bytes:
-          description: 'Bytes is the total number of bytes uploaded to the WildFire API.
-
-            '
-          format: int64
-          type: integer
-        queries:
-          description: 'Queries is the number of queries to the WildFire API.
-
-            '
-          format: int64
-          type: integer
-        uploads:
-          description: 'Uploads is the number of uploads to the WildFire API.
-
-            '
-          format: int64
-          type: integer
-      type: object
-    types.ImageScanOptions:
-      description: ImageScanOptions holds the options for image scanning
-      properties:
-        hostname:
-          description: 'Hostname is the optional host name to scan.
+        accountID:
+          description: 'AccountID is the cloud account ID the image is associated with.
 
             '
           type: string
-        imageTag:
-          $ref: '#/components/schemas/shared.ImageTag'
+        agentless:
+          description: 'Agentless indicates if the image was scanned as part of an agentless scan.
+
+            '
+          type: boolean
+        agentlessScanID:
+          description: 'AgentlessScanID is the ID of the agentless scan in which the result was received.
+
+            '
+          type: integer
+        ais:
+          description: 'AIS indicates the scan was performed by AIS.
+
+            '
+          type: boolean
+        appEmbedded:
+          description: 'AppEmbedded indicates if the host is an app embedded host.
+
+            '
+          type: boolean
+        cluster:
+          description: 'Cluster is the cluster on which the image is deployed.
+
+            '
+          type: string
+        csa:
+          description: 'CSA indicates if the image was scanned by CSA.
+
+            '
+          type: boolean
+        modified:
+          description: 'Modified is the last scan time.
+
+            '
+          format: date-time
+          type: string
+        namespaces:
+          description: 'Namespaces are the namespaces on which the image is deployed.
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+      type: object
+    vuln.ComplianceTemplate:
+      description: ComplianceTemplate represents the compliance template
+      enum:
+      - - PCI
+        - HIPAA
+        - NIST SP 800-190
+        - GDPR
+        - DISA STIG
+      type: string
+    int:
+      type: integer
+    trust.Status:
+      description: Status is the trust status for an image
+      enum:
+      - - trusted
+        - untrusted
+      type: string
+    agentless.ImageScanResultErrCode:
+      description: ImageScanResultErrCode represents the asset status error
+      type: integer
+    shared.PkgsTimes:
+      description: PkgsTimes are the compressed layer times for pkgs of the specific type
+      properties:
+        pkgTimes:
+          description: '.
+
+            '
+          items:
+            $ref: '#/components/schemas/int64'
+          type: array
+        pkgsType:
+          $ref: '#/components/schemas/packages.Type'
+      type: object
+    vulnerability.Type:
+      description: Type represents the vulnerability type
+      enum:
+      - - container
+        - image
+        - host_config
+        - daemon_config
+        - daemon_config_files
+        - security_operations
+        - k8s_master
+        - k8s_worker
+        - k8s_federation
+        - linux
+        - windows
+        - istio
+        - serverless
+        - custom
+        - docker_stig
+        - openshift_master
+        - openshift_worker
+        - application_control_linux
+        - gke_worker
+        - image_malware
+        - host_malware
+        - aks_worker
+        - eks_worker
+        - image_secret
+        - host_secret
+      type: string
+    vuln.TagInfo:
+      description: TagInfo is the tag info in a specific vulnerability context
+      properties:
+        color:
+          $ref: '#/components/schemas/common.Color'
+        comment:
+          description: 'Tag comment in a specific vulnerability context.
+
+            '
+          type: string
+        name:
+          description: 'Name of the tag.
+
+            '
+          type: string
       type: object
     shared.ImageTag:
       description: ImageTag represents an image repository and its associated tag or registry digest
@@ -1783,251 +2072,140 @@ components:
             '
           type: string
       type: object
-    common.CloudMetadata:
-      description: CloudMetadata is the metadata for a cloud provider managed asset (e.g., as part of AWS/GCP/Azure/OCI)
+    common.CloudProvider:
+      description: CloudProvider specifies the cloud provider name
+      enum:
+      - - aws
+        - azure
+        - gcp
+        - alibaba
+        - oci
+        - others
+      type: string
+    shared.ImageHosts:
+      additionalProperties:
+        $ref: '#/components/schemas/shared.ImageHost'
+      description: ImageHosts is a fast index for image scan results metadata per host
+      type: object
+    shared.Package:
+      description: Package stores relevant package information
       properties:
-        accountID:
-          description: 'Cloud account ID.
+        author:
+          description: 'Author is the package''s author.
 
             '
           type: string
-        awsExecutionEnv:
-          description: 'AWS execution environment (e.g. EC2/Fargate).
-
-            '
-          type: string
-        azure:
-          $ref: '#/components/schemas/common.AzureMetadata'
-        gcp:
-          $ref: '#/components/schemas/common.GCPCloudMetadata'
-        image:
-          description: 'The name of the image the cloud managed host or container is based on.
-
-            '
-          type: string
-        labels:
-          description: 'Cloud provider metadata labels.
+        binaryIdx:
+          description: 'Indexes of the top binaries which use the package.
 
             '
           items:
-            $ref: '#/components/schemas/common.ExternalLabel'
+            $ref: '#/components/schemas/int16'
           type: array
-        name:
-          description: 'Resource name.
+        binaryPkgs:
+          description: 'Names of the distro binary packages (packages which are built on the source of the package).
 
             '
-          type: string
-        ociTenantID:
-          description: 'OCI Tenant ID.
-
-            '
-          type: string
-        provider:
-          $ref: '#/components/schemas/common.CloudProvider'
-        region:
-          description: 'Resource''s region.
-
-            '
-          type: string
-        resourceID:
-          description: 'Unique ID of the resource.
-
-            '
-          type: string
-        resourceURL:
-          description: 'Server-defined URL for the resource.
-
-            '
-          type: string
-        type:
-          description: 'Instance type.
-
-            '
-          type: string
-        vmID:
-          description: 'Azure unique vm ID.
-
-            '
-          type: string
-        vmImageID:
-          description: 'VMImageID holds the VM instance''s image ID.
-
-            '
-          type: string
-      type: object
-    waas.UnprotectedProcess:
-      description: UnprotectedProcess holds unprotected processes alongside the port
-      properties:
-        port:
-          description: 'Port is the process port.
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        cveCount:
+          description: 'Total number of CVEs for this specific package.
 
             '
           type: integer
-        process:
-          description: 'Process is the process name.
-
-            '
-          type: string
-        tls:
-          description: 'TLS is the port TLS indication.
+        defaultGem:
+          description: 'DefaultGem indicates this is a gem default package (and not a bundled package).
 
             '
           type: boolean
-      type: object
-    shared.ScanResultType:
-      description: ScanResultType represents a cloud scan result type
-      enum:
-      - - aws-ecr
-        - aws-lambda
-        - aws-ecs-task-definition
-        - aws-ec2
-        - aws-eks
-        - aws-eks-fargate-container
-        - aws-ecs
-        - aws-s3
-        - aws-config
-        - aws-cloud-trail
-        - aws-kms
-        - aws-cloud-watch
-        - aws-sns
-        - aws-security-hub
-        - aws-secrets-manager
-        - aws-parameter-store
-        - azure-acr
-        - azure-functions
-        - azure-aks
-        - azure-aci
-        - azure-vm
-        - gcp-gcr
-        - gcp-gcf
-        - gcp-gke
-        - gcp-vm
-        - gcp-artifact
-        - gcp-cloud-run-service
-        - oci-instance
-      type: string
-    common.Color:
-      description: Color is a hexadecimal representation of color code value
-      type: string
-    common.ACIMetadata:
-      properties:
-        containerGroup:
-          description: '.
-
-            '
-          type: string
-      type: object
-    secrets.SecretScanMetrics:
-      description: SecretScanMetrics represents metrics collected during secret scan
-      properties:
-        failedScans:
-          description: 'FailedScans represents number of failed scans caused by scanner errors.
-
-            '
-          format: int64
-          type: integer
-        foundSecrets:
-          description: 'FoundSecrets represents number of detected secrets.
-
-            '
-          type: integer
-        scanTime:
-          description: 'ScanTime represents cumulative secret scan time in microseconds.
-
-            '
-          format: int64
-          type: integer
-        scanTimeouts:
-          description: 'ScanTimeouts represents number of failed scans caused by timeout.
-
-            '
-          format: int64
-          type: integer
-        scannedFileSize:
-          description: 'ScannedFileSize represents accumulated size of scanned files.
-
-            '
-          format: int64
-          type: integer
-        scannedFiles:
-          description: 'ScannedFiles represents number of text files scanned for secrets.
-
-            '
-          format: int64
-          type: integer
-        totalBytes:
-          description: 'TotalBytes represents accumulated file size.
-
-            '
-          format: int64
-          type: integer
-        totalFiles:
-          description: 'TotalFiles represents number of files read for secrets.
-
-            '
-          format: int64
-          type: integer
-        totalTime:
-          description: 'TotalTime represents the total time in microseconds.
-
-            '
-          format: int64
-          type: integer
-        typesCount:
-          additionalProperties:
-            $ref: '#/components/schemas/int'
-          description: 'TypesCount represents distribution of secrets by its type.
-
-            '
-          type: object
-      type: object
-    shared.Packages:
-      description: Packages is a collection of packages
-      properties:
-        pkgs:
-          description: 'List of packages.
+        files:
+          description: 'List of package-related files and their hashes. Only included when the appropriate scan option is set.
 
             '
           items:
-            $ref: '#/components/schemas/shared.Package'
+            $ref: '#/components/schemas/shared.FileDetails'
           type: array
-        pkgsType:
-          $ref: '#/components/schemas/packages.Type'
-      type: object
-    vuln.ComplianceTemplate:
-      description: ComplianceTemplate represents the compliance template
-      enum:
-      - - PCI
-        - HIPAA
-        - NIST SP 800-190
-        - GDPR
-        - DISA STIG
-      type: string
-    shared.FileDetails:
-      description: FileDetails contains file details as the file path, hash checksum
-      properties:
+        functionLayer:
+          description: 'ID of the serverless layer in which the package was discovered.
+
+            '
+          type: string
+        goPkg:
+          description: 'GoPkg indicates this is a Go package (and not module).
+
+            '
+          type: boolean
+        isRPMModule:
+          description: 'IsRPMModule indicates whether this package data represents an RPM module.
+
+            '
+          type: boolean
+        jarIdentifier:
+          description: 'JarIdentifier holds an additional identification detail of a JAR package.
+
+            '
+          type: string
+        layerTime:
+          description: 'Image layer to which the package belongs (layer creation time).
+
+            '
+          format: int64
+          type: integer
+        license:
+          description: 'License information for the package.
+
+            '
+          type: string
         md5:
-          description: 'Hash sum of the file using md5.
+          description: 'MD5SUM is the md5sum of the package - currently only relevant for go main modules.
 
             '
           type: string
-        original_file_location:
-          description: 'Path of the original file in a case of archive analysis.
+        name:
+          description: 'Name of the package.
 
             '
           type: string
+        originPackageName:
+          description: 'OriginPackageName is the name of the third-party origin package.
+
+            '
+          type: string
+        osPackage:
+          description: 'OSPackage indicates that a python/java package was installed as an OS package.
+
+            '
+          type: boolean
         path:
-          description: 'Path of the file.
+          description: 'Full package path (e.g., JAR or Node.js package path).
 
             '
           type: string
-        sha1:
-          description: 'Hash sum of the file using SHA-1.
+        purl:
+          description: 'PURL is a package URL identifier for this package.
 
             '
           type: string
-        sha256:
-          description: 'Hash sum of the file using SHA256.
+        rpmModule:
+          description: 'RPMModule represents the RPM module in which this package is included.
+
+            '
+          type: string
+        securityRepoPkg:
+          description: 'SecurityRepoPkg determines if this package is available in a security repository.
+
+            '
+          type: boolean
+        symbols:
+          description: 'Symbols contains names of vulnerable functions that are linked in the executable binary, empty if the entire package is vulnerable.
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        version:
+          description: 'Package version.
 
             '
           type: string
@@ -2076,538 +2254,30 @@ components:
         - MongoDB
         - .Net SQL Server
       type: string
-    common.CloudRunMetadata:
-      properties:
-        revision:
-          description: '.
-
-            '
-          type: string
-        service:
-          description: '.
-
-            '
-          type: string
-      type: object
-    vulnerability.RiskFactors:
-      additionalProperties:
-        $ref: '#/components/schemas/string'
-      description: RiskFactors maps the existence of vulnerability risk factors
-      type: object
-    vulnerability.Type:
-      description: Type represents the vulnerability type
-      enum:
-      - - container
-        - image
-        - host_config
-        - daemon_config
-        - daemon_config_files
-        - security_operations
-        - k8s_master
-        - k8s_worker
-        - k8s_federation
-        - linux
-        - windows
-        - istio
-        - serverless
-        - custom
-        - docker_stig
-        - openshift_master
-        - openshift_worker
-        - application_control_linux
-        - gke_worker
-        - image_malware
-        - host_malware
-        - aks_worker
-        - eks_worker
-        - image_secret
-        - host_secret
+    common.Color:
+      description: Color is a hexadecimal representation of color code value
       type: string
-    common.CloudProvider:
-      description: CloudProvider specifies the cloud provider name
-      enum:
-      - - aws
-        - azure
-        - gcp
-        - alibaba
-        - oci
-        - others
-      type: string
-    shared.ImageInstance:
-      description: ImageInstance represents an image on a single host
+    wildfire.Usage:
+      description: Usage holds wildfire usage stats, period for the usage varies with context
       properties:
-        host:
-          description: '.
-
-            '
-          type: string
-        image:
-          description: '.
-
-            '
-          type: string
-        modified:
-          description: '.
-
-            '
-          format: date-time
-          type: string
-        registry:
-          description: '.
-
-            '
-          type: string
-        repo:
-          description: '.
-
-            '
-          type: string
-        tag:
-          description: '.
-
-            '
-          type: string
-      type: object
-    vuln.AllCompliance:
-      description: AllCompliance contains data regarding passed compliance checks
-      properties:
-        compliance:
-          description: 'Compliance are all the passed compliance checks.
-
-            '
-          items:
-            $ref: '#/components/schemas/vuln.Vulnerability'
-          type: array
-        enabled:
-          description: 'Enabled indicates whether passed compliance checks is enabled by policy.
-
-            '
-          type: boolean
-      type: object
-    common.ExternalLabel:
-      description: ExternalLabel holds an external label with a source and timestamp
-      properties:
-        key:
-          description: 'Label key.
-
-            '
-          type: string
-        sourceName:
-          description: 'Source name (e.g., for a namespace, the source name can be ''twistlock'').
-
-            '
-          type: string
-        sourceType:
-          $ref: '#/components/schemas/common.ExternalLabelSourceType'
-        timestamp:
-          description: 'Time when the label was fetched.
-
-            '
-          format: date-time
-          type: string
-        value:
-          description: 'Value of the label.
-
-            '
-          type: string
-      type: object
-    trust.Status:
-      description: Status is the trust status for an image
-      enum:
-      - - trusted
-        - untrusted
-      type: string
-    vulnerability.ExploitData:
-      description: ExploitData holds information about an exploit
-      properties:
-        kind:
-          $ref: '#/components/schemas/vulnerability.ExploitKind'
-        link:
-          description: 'Link is a link to information about the exploit.
-
-            '
-          type: string
-        source:
-          $ref: '#/components/schemas/vulnerability.ExploitType'
-      type: object
-    string:
-      type: string
-    shared.PkgsTimes:
-      description: PkgsTimes are the compressed layer times for pkgs of the specific type
-      properties:
-        pkgTimes:
-          description: '.
-
-            '
-          items:
-            $ref: '#/components/schemas/int64'
-          type: array
-        pkgsType:
-          $ref: '#/components/schemas/packages.Type'
-      type: object
-    common.GCPCloudMetadata:
-      properties:
-        cloudRun:
-          $ref: '#/components/schemas/common.CloudRunMetadata'
-      type: object
-    vuln.Secret:
-      description: Secret represents a secret found on the scanned workload
-      properties:
-        group:
-          description: 'Group is a group name or ID of owner the file metadata containing the secret.
-
-            '
-          type: string
-        locationInFile:
-          description: 'LocationInFile is the line and offset in the file where the secret was found.
-
-            '
-          type: string
-        metadataModifiedTime:
-          description: 'MetadataModifiedTime is the modification time of the file metadata containing the secret.
+        bytes:
+          description: 'Bytes is the total number of bytes uploaded to the WildFire API.
 
             '
           format: int64
           type: integer
-        modifiedTime:
-          description: 'ModifiedTime is the modification time of the file containing the secret.
+        queries:
+          description: 'Queries is the number of queries to the WildFire API.
 
             '
           format: int64
           type: integer
-        originalFileLocation:
-          description: '.
-
-            '
-          type: string
-        path:
-          description: 'Path is the path of the file in which the secret was found.
-
-            '
-          type: string
-        permissions:
-          description: 'Permissions are permission bits of the file metadata containing the secret.
-
-            '
-          type: string
-        secretID:
-          description: 'SecretID is the SHA1 of the secret content.
-
-            '
-          type: string
-        size:
-          description: 'Size is the size in bytes of the file in which the secret was found.
+        uploads:
+          description: 'Uploads is the number of uploads to the WildFire API.
 
             '
           format: int64
           type: integer
-        snippet:
-          description: 'Snippet is the partial plain secret.
-
-            '
-          type: string
-        type:
-          $ref: '#/components/schemas/vuln.SecretType'
-        user:
-          description: 'User is a username or ID of owner the file metadata containing the secret.
-
-            '
-          type: string
-      type: object
-    agentless.ImageScanResultErrCode:
-      description: ImageScanResultErrCode represents the asset status error
-      type: integer
-    vuln.WildFireMalware:
-      description: WildFireMalware holds the data for WildFire malicious MD5
-      properties:
-        md5:
-          description: 'MD5 is the hash of the malicious binary.
-
-            '
-          type: string
-        path:
-          description: 'Path is the path to malicious binary.
-
-            '
-          type: string
-        verdict:
-          description: 'Verdict is the malicious source like grayware, malware and phishing.
-
-            '
-          type: string
-      type: object
-    vuln.Vulnerability:
-      description: Vulnerability is a general schema for vulnerabilities (e.g., for compliance or packages)
-      properties:
-        applicableRules:
-          description: 'Rules applied on the package.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        binaryPkgs:
-          description: 'Names of the distro binary package names (packages which are built from the source of the package).
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        block:
-          description: 'Indicates if the vulnerability has a block effect (true) or not (false).
-
-            '
-          type: boolean
-        cause:
-          description: 'Additional information regarding the root cause for the vulnerability.
-
-            '
-          type: string
-        cri:
-          description: 'Indicates if this is a CRI-specific vulnerability (true) or not (false).
-
-            '
-          type: boolean
-        custom:
-          description: 'Indicates if the vulnerability is a custom vulnerability (e.g., openscap, sandbox) (true) or not (false).
-
-            '
-          type: boolean
-        cve:
-          description: 'CVE ID of the vulnerability (if applied).
-
-            '
-          type: string
-        cvss:
-          description: 'CVSS score of the vulnerability.
-
-            '
-          format: float
-          type: number
-        description:
-          description: 'Description of the vulnerability.
-
-            '
-          type: string
-        discovered:
-          description: 'Specifies the time of discovery for the vulnerability.
-
-            '
-          format: date-time
-          type: string
-        exploit:
-          $ref: '#/components/schemas/vulnerability.ExploitType'
-        exploits:
-          $ref: '#/components/schemas/vulnerability.Exploits'
-        fixDate:
-          description: 'Date/time when the vulnerability was fixed (in Unix time).
-
-            '
-          format: int64
-          type: integer
-        fixLink:
-          description: 'Link to the vendor''s fixed-version information.
-
-            '
-          type: string
-        functionLayer:
-          description: 'Specifies the serverless layer ID in which the vulnerability was discovered.
-
-            '
-          type: string
-        gracePeriodDays:
-          description: 'Number of grace days left for a vulnerability, based on the configured grace period. Nil if no block vulnerability rule applies.
-
-            '
-          type: integer
-        id:
-          description: 'ID of the violation.
-
-            '
-          type: integer
-        isRPMModule:
-          description: 'IsRPMModule indicates whether this vulnerability is specific to an RPM module.
-
-            '
-          type: boolean
-        layerTime:
-          description: 'Date/time of the image layer to which the CVE belongs.
-
-            '
-          format: int64
-          type: integer
-        link:
-          description: 'Vendor link to the CVE.
-
-            '
-          type: string
-        packageName:
-          description: 'Name of the package that caused the vulnerability.
-
-            '
-          type: string
-        packageType:
-          $ref: '#/components/schemas/packages.Type'
-        packageVersion:
-          description: 'Version of the package that caused the vulnerability (or null).
-
-            '
-          type: string
-        published:
-          description: 'Date/time when the vulnerability was published (in Unix time).
-
-            '
-          format: int64
-          type: integer
-        riskFactors:
-          $ref: '#/components/schemas/vulnerability.RiskFactors'
-        rpmModule:
-          description: 'RPMModule specifies the RPM module containing the package affected by this vulnerability.
-
-            '
-          type: string
-        secret:
-          $ref: '#/components/schemas/vuln.Secret'
-        severity:
-          description: 'Textual representation of the vulnerability''s severity.
-
-            '
-          type: string
-        status:
-          description: 'Vendor status for the vulnerability.
-
-            '
-          type: string
-        templates:
-          description: 'List of templates with which the vulnerability is associated.
-
-            '
-          items:
-            $ref: '#/components/schemas/vuln.ComplianceTemplate'
-          type: array
-        text:
-          description: 'Description of the violation.
-
-            '
-          type: string
-        title:
-          description: 'Compliance title.
-
-            '
-          type: string
-        twistlock:
-          description: 'Indicates if this is a Twistlock-specific vulnerability (true) or not (false).
-
-            '
-          type: boolean
-        type:
-          $ref: '#/components/schemas/vulnerability.Type'
-        vecStr:
-          description: 'Textual representation of the metric values used to score the vulnerability.
-
-            '
-          type: string
-        vulnTagInfos:
-          description: 'Tag information for the vulnerability.
-
-            '
-          items:
-            $ref: '#/components/schemas/vuln.TagInfo'
-          type: array
-        wildfireMalware:
-          $ref: '#/components/schemas/vuln.WildFireMalware'
-      type: object
-    vuln.Distribution:
-      description: Distribution counts the number of vulnerabilities per type
-      properties:
-        critical:
-          description: '.
-
-            '
-          type: integer
-        high:
-          description: '.
-
-            '
-          type: integer
-        low:
-          description: '.
-
-            '
-          type: integer
-        medium:
-          description: '.
-
-            '
-          type: integer
-        total:
-          description: '.
-
-            '
-          type: integer
-      type: object
-    shared.LambdaRuntimeType:
-      description: 'LambdaRuntimeType represents the runtime type of the serverless function
-
-        The constants used are taken from: https://docs.aws.amazon.com/lambda/latest/dg/API_CreateFunction.html#SSS-CreateFunction-request-Runtime'
-      enum:
-      - - python
-        - python3.9
-        - python3.10
-        - python3.11
-        - python3.12
-        - python3.13
-        - nodejs
-        - nodejs18.x
-        - nodejs20.x
-        - nodejs22.x
-        - dotnet
-        - dotnetcore2.1
-        - dotnetcore3.1
-        - dotnet6
-        - java
-        - java8
-        - java11
-        - java17
-        - java21
-        - ruby
-      type: string
-    shared.ScanType:
-      description: ScanType displays the components for an ongoing scan
-      enum:
-      - - image
-        - ciImage
-        - container
-        - host
-        - agentlessHost
-        - registry
-        - serverlessScan
-        - ciServerless
-        - vm
-        - tas
-        - ciTas
-        - cloudDiscovery
-        - serverlessRadar
-        - serverlessAutoDeploy
-        - hostAutoDeploy
-        - codeRepo
-        - ciCodeRepo
-      type: string
-    shared.ImageHosts:
-      additionalProperties:
-        $ref: '#/components/schemas/shared.ImageHost'
-      description: ImageHosts is a fast index for image scan results metadata per host
-      type: object
-    trust.HostStatus:
-      description: HostStatus represents an image trust status on a host
-      properties:
-        host:
-          description: 'Host name.
-
-            '
-          type: string
-        status:
-          $ref: '#/components/schemas/trust.Status'
       type: object
     shared.ImageScanResult:
       description: ImageScanResult holds the result of an image scan
@@ -3061,263 +2731,6 @@ components:
         wildFireUsage:
           $ref: '#/components/schemas/wildfire.Usage'
       type: object
-    common.ExternalLabelSourceType:
-      description: ExternalLabelSourceType indicates the source of the labels
-      enum:
-      - - namespace
-        - deployment
-        - pod
-        - aws
-        - azure
-        - gcp
-        - oci
-      type: string
-    shared.Binary:
-      description: Binary represents a detected binary file (ELF)
-      properties:
-        altered:
-          description: 'Indicates if the binary was installed from a package manager and modified/replaced (true) or not (false).
-
-            '
-          type: boolean
-        cveCount:
-          description: 'Total number of CVEs for this specific binary.
-
-            '
-          type: integer
-        deps:
-          description: 'Third-party package files which are used by the binary.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        fileMode:
-          description: 'Represents the file''s mode and permission bits.
-
-            '
-          type: integer
-        functionLayer:
-          description: 'ID of the serverless layer in which the package was discovered.
-
-            '
-          type: string
-        md5:
-          description: 'Md5 hashset of the binary.
-
-            '
-          type: string
-        missingPkg:
-          description: 'Indicates if this binary is not related to any package (true) or not (false).
-
-            '
-          type: boolean
-        name:
-          description: 'Name of the binary.
-
-            '
-          type: string
-        path:
-          description: 'Path is the path of the binary.
-
-            '
-          type: string
-        pkgRootDir:
-          description: 'Path for searching packages used by the binary.
-
-            '
-          type: string
-        services:
-          description: 'Names of services which use the binary.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        version:
-          description: 'Version of the binary.
-
-            '
-          type: string
-      type: object
-    waas.ProtectionStatus:
-      description: ProtectionStatus describes the status of the WAAS protection
-      properties:
-        enabled:
-          description: 'Enabled indicates if WAAS proxy protection is enabled (true) or not (false).
-
-            '
-          type: boolean
-        outOfBandMode:
-          $ref: '#/components/schemas/waas.OutOfBandMode'
-        ports:
-          description: 'Ports indicates http open ports associated with the container.
-
-            '
-          items:
-            $ref: '#/components/schemas/int'
-          type: array
-        supported:
-          description: 'Supported indicates if WAAS protection is supported (true) or not (false).
-
-            '
-          type: boolean
-        tlsPorts:
-          description: 'TLSPorts indicates https open ports associated with the container.
-
-            '
-          items:
-            $ref: '#/components/schemas/int'
-          type: array
-        unprotectedProcesses:
-          description: 'UnprotectedProcesses holds the processes that support HTTP/HTTPS without WAAS protection.
-
-            '
-          items:
-            $ref: '#/components/schemas/waas.UnprotectedProcess'
-          type: array
-      type: object
-    common.ClusterType:
-      description: ClusterType is the cluster type
-      enum:
-      - - AKS
-        - ECS
-        - EKS
-        - GKE
-        - Kubernetes
-      type: string
-    -_string:
-      items:
-        $ref: '#/components/schemas/string'
-      type: array
-    shared.NodeJSModuleType:
-      description: NodeJSModuleType is the type of a NodeJS module
-      enum:
-      - - commonjs
-        - ecmascript
-      type: string
-    shared.CompressedLayerTimes:
-      description: CompressedLayerTimes represent the compressed layer times of the image apps and pkgs
-      properties:
-        appTimes:
-          description: '.
-
-            '
-          items:
-            $ref: '#/components/schemas/int64'
-          type: array
-        pkgsTimes:
-          description: '.
-
-            '
-          items:
-            $ref: '#/components/schemas/shared.PkgsTimes'
-          type: array
-      type: object
-    shared.ImageHistory:
-      description: ImageHistory represent a layer in the image's history
-      properties:
-        baseLayer:
-          description: 'Indicates if this layer originated from the base image (true) or not (false).
-
-            '
-          type: boolean
-        created:
-          description: 'Date/time when the image layer was created.
-
-            '
-          format: int64
-          type: integer
-        emptyLayer:
-          description: 'Indicates if this instruction didn''t create a separate layer (true) or not (false).
-
-            '
-          type: boolean
-        id:
-          description: 'ID of the layer.
-
-            '
-          type: string
-        instruction:
-          description: 'Docker file instruction and arguments used to create this layer.
-
-            '
-          type: string
-        sizeBytes:
-          description: 'Size of the layer (in bytes).
-
-            '
-          format: int64
-          type: integer
-        tags:
-          description: 'Holds the image tags.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        vulnerabilities:
-          description: 'Vulnerabilities which originated from this layer.
-
-            '
-          items:
-            $ref: '#/components/schemas/vuln.Vulnerability'
-          type: array
-      type: object
-    trust.Group:
-      description: Group represents a group of images
-      properties:
-        _id:
-          description: 'Name of the group.
-
-            '
-          type: string
-        disabled:
-          description: 'Indicates whether the rule is currently disabled. Values: true (disabled) or false (enabled).
-
-            '
-          type: boolean
-        images:
-          description: 'Image names or IDs (e.g., docker.io/library/ubuntu:16.04 / SHA264@...).
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        layers:
-          description: 'Filesystem layers. The image is trusted if its layers have a prefix of the trusted groups layer in the same order.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        modified:
-          description: 'Specifies the date and time when the rule was last modified.
-
-            '
-          format: date-time
-          type: string
-        name:
-          description: 'Name of the rule.
-
-            '
-          type: string
-        notes:
-          description: 'Describes any noteworthy points for a rule. You can include any text.
-
-            '
-          type: string
-        owner:
-          description: 'User who created or last modified the rule.
-
-            '
-          type: string
-        previousName:
-          description: 'Previous name of the rule. Required for rule renaming.
-
-            '
-          type: string
-      type: object
     packages.Type:
       description: Type describes the package type
       enum:
@@ -3333,17 +2746,386 @@ components:
         - app
         - unknown
       type: string
-    api.ResolveImagesResp:
-      description: ResolveImagesResp represents the images resolution API output
+    shared.ImageInstance:
+      description: ImageInstance represents an image on a single host
       properties:
-        images:
-          description: 'Images is the list of images that were resolved.
+        host:
+          description: '.
+
+            '
+          type: string
+        image:
+          description: '.
+
+            '
+          type: string
+        modified:
+          description: '.
+
+            '
+          format: date-time
+          type: string
+        registry:
+          description: '.
+
+            '
+          type: string
+        repo:
+          description: '.
+
+            '
+          type: string
+        tag:
+          description: '.
+
+            '
+          type: string
+      type: object
+    vuln.Application:
+      description: Application represents a detected application
+      properties:
+        installedFromPackage:
+          description: 'Indicates that the app was installed as an OS package.
+
+            '
+          type: boolean
+        knownVulnerabilities:
+          description: 'Total number of vulnerabilities for this application.
+
+            '
+          type: integer
+        layerTime:
+          description: 'Image layer to which the application belongs - layer creation time.
+
+            '
+          format: int64
+          type: integer
+        md5:
+          description: 'MD5 is the md5sum of the app.
+
+            '
+          type: string
+        name:
+          description: 'Name of the application.
+
+            '
+          type: string
+        originPackageName:
+          description: 'OriginPackageName is the name of the app origin package.
+
+            '
+          type: string
+        path:
+          description: 'Path of the detected application.
+
+            '
+          type: string
+        rpmModule:
+          description: 'RPMModule represents the RPM module in which this application is included.
+
+            '
+          type: string
+        service:
+          description: 'Service indicates whether the application is installed as a service.
+
+            '
+          type: boolean
+        version:
+          description: 'Version of the application.
+
+            '
+          type: string
+      type: object
+    shared.FileDetails:
+      description: FileDetails contains file details as the file path, hash checksum
+      properties:
+        md5:
+          description: 'Hash sum of the file using md5.
+
+            '
+          type: string
+        original_file_location:
+          description: 'Path of the original file in a case of archive analysis.
+
+            '
+          type: string
+        path:
+          description: 'Path of the file.
+
+            '
+          type: string
+        sha1:
+          description: 'Hash sum of the file using SHA-1.
+
+            '
+          type: string
+        sha256:
+          description: 'Hash sum of the file using SHA256.
+
+            '
+          type: string
+      type: object
+    vuln.Vulnerability:
+      description: Vulnerability is a general schema for vulnerabilities (e.g., for compliance or packages)
+      properties:
+        applicableRules:
+          description: 'Rules applied on the package.
 
             '
           items:
-            $ref: '#/components/schemas/shared.ImageScanResult'
+            $ref: '#/components/schemas/string'
           type: array
+        binaryPkgs:
+          description: 'Names of the distro binary package names (packages which are built from the source of the package).
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        block:
+          description: 'Indicates if the vulnerability has a block effect (true) or not (false).
+
+            '
+          type: boolean
+        cause:
+          description: 'Additional information regarding the root cause for the vulnerability.
+
+            '
+          type: string
+        cri:
+          description: 'Indicates if this is a CRI-specific vulnerability (true) or not (false).
+
+            '
+          type: boolean
+        custom:
+          description: 'Indicates if the vulnerability is a custom vulnerability (e.g., openscap, sandbox) (true) or not (false).
+
+            '
+          type: boolean
+        cve:
+          description: 'CVE ID of the vulnerability (if applied).
+
+            '
+          type: string
+        cvss:
+          description: 'CVSS score of the vulnerability.
+
+            '
+          format: float
+          type: number
+        description:
+          description: 'Description of the vulnerability.
+
+            '
+          type: string
+        discovered:
+          description: 'Specifies the time of discovery for the vulnerability.
+
+            '
+          format: date-time
+          type: string
+        exploit:
+          $ref: '#/components/schemas/vulnerability.ExploitType'
+        exploits:
+          $ref: '#/components/schemas/vulnerability.Exploits'
+        fixDate:
+          description: 'Date/time when the vulnerability was fixed (in Unix time).
+
+            '
+          format: int64
+          type: integer
+        fixLink:
+          description: 'Link to the vendor''s fixed-version information.
+
+            '
+          type: string
+        functionLayer:
+          description: 'Specifies the serverless layer ID in which the vulnerability was discovered.
+
+            '
+          type: string
+        gracePeriodDays:
+          description: 'Number of grace days left for a vulnerability, based on the configured grace period. Nil if no block vulnerability rule applies.
+
+            '
+          type: integer
+        id:
+          description: 'ID of the violation.
+
+            '
+          type: integer
+        isRPMModule:
+          description: 'IsRPMModule indicates whether this vulnerability is specific to an RPM module.
+
+            '
+          type: boolean
+        layerTime:
+          description: 'Date/time of the image layer to which the CVE belongs.
+
+            '
+          format: int64
+          type: integer
+        link:
+          description: 'Vendor link to the CVE.
+
+            '
+          type: string
+        packageName:
+          description: 'Name of the package that caused the vulnerability.
+
+            '
+          type: string
+        packageType:
+          $ref: '#/components/schemas/packages.Type'
+        packageVersion:
+          description: 'Version of the package that caused the vulnerability (or null).
+
+            '
+          type: string
+        published:
+          description: 'Date/time when the vulnerability was published (in Unix time).
+
+            '
+          format: int64
+          type: integer
+        riskFactors:
+          $ref: '#/components/schemas/vulnerability.RiskFactors'
+        rpmModule:
+          description: 'RPMModule specifies the RPM module containing the package affected by this vulnerability.
+
+            '
+          type: string
+        secret:
+          $ref: '#/components/schemas/vuln.Secret'
+        severity:
+          description: 'Textual representation of the vulnerability''s severity.
+
+            '
+          type: string
+        status:
+          description: 'Vendor status for the vulnerability.
+
+            '
+          type: string
+        templates:
+          description: 'List of templates with which the vulnerability is associated.
+
+            '
+          items:
+            $ref: '#/components/schemas/vuln.ComplianceTemplate'
+          type: array
+        text:
+          description: 'Description of the violation.
+
+            '
+          type: string
+        title:
+          description: 'Compliance title.
+
+            '
+          type: string
+        twistlock:
+          description: 'Indicates if this is a Twistlock-specific vulnerability (true) or not (false).
+
+            '
+          type: boolean
+        type:
+          $ref: '#/components/schemas/vulnerability.Type'
+        vecStr:
+          description: 'Textual representation of the metric values used to score the vulnerability.
+
+            '
+          type: string
+        vulnTagInfos:
+          description: 'Tag information for the vulnerability.
+
+            '
+          items:
+            $ref: '#/components/schemas/vuln.TagInfo'
+          type: array
+        wildfireMalware:
+          $ref: '#/components/schemas/vuln.WildFireMalware'
       type: object
+    common.ExternalLabel:
+      description: ExternalLabel holds an external label with a source and timestamp
+      properties:
+        key:
+          description: 'Label key.
+
+            '
+          type: string
+        sourceName:
+          description: 'Source name (e.g., for a namespace, the source name can be ''twistlock'').
+
+            '
+          type: string
+        sourceType:
+          $ref: '#/components/schemas/common.ExternalLabelSourceType'
+        timestamp:
+          description: 'Time when the label was fetched.
+
+            '
+          format: date-time
+          type: string
+        value:
+          description: 'Value of the label.
+
+            '
+          type: string
+      type: object
+    common.AzureMetadata:
+      properties:
+        aci:
+          $ref: '#/components/schemas/common.ACIMetadata'
+        resourceGroup:
+          description: '.
+
+            '
+          type: string
+      type: object
+    common.CloudRunMetadata:
+      properties:
+        revision:
+          description: '.
+
+            '
+          type: string
+        service:
+          description: '.
+
+            '
+          type: string
+      type: object
+    shared.ScanType:
+      description: ScanType displays the components for an ongoing scan
+      enum:
+      - - image
+        - ciImage
+        - container
+        - host
+        - agentlessHost
+        - registry
+        - serverlessScan
+        - ciServerless
+        - vm
+        - tas
+        - ciTas
+        - cloudDiscovery
+        - serverlessRadar
+        - serverlessAutoDeploy
+        - hostAutoDeploy
+        - codeRepo
+        - ciCodeRepo
+      type: string
+    common.ClusterType:
+      description: ClusterType is the cluster type
+      enum:
+      - - AKS
+        - ECS
+        - EKS
+        - GKE
+        - Kubernetes
+      type: string
     waas.OutOfBandMode:
       description: OutOfBandMode holds the app firewall out-of-band mode
       enum:
@@ -3351,24 +3133,6 @@ components:
         - Observation
         - Protection
       type: string
-    vuln.TagInfo:
-      description: TagInfo is the tag info in a specific vulnerability context
-      properties:
-        color:
-          $ref: '#/components/schemas/common.Color'
-        comment:
-          description: 'Tag comment in a specific vulnerability context.
-
-            '
-          type: string
-        name:
-          description: 'Name of the tag.
-
-            '
-          type: string
-      type: object
-    int:
-      type: integer
     shared.Image:
       description: Image represents a container image
       properties:
@@ -3453,8 +3217,218 @@ components:
             '
           type: string
       type: object
-    int16:
-      type: integer
+    shared.ImageHistory:
+      description: ImageHistory represent a layer in the image's history
+      properties:
+        baseLayer:
+          description: 'Indicates if this layer originated from the base image (true) or not (false).
+
+            '
+          type: boolean
+        created:
+          description: 'Date/time when the image layer was created.
+
+            '
+          format: int64
+          type: integer
+        emptyLayer:
+          description: 'Indicates if this instruction didn''t create a separate layer (true) or not (false).
+
+            '
+          type: boolean
+        id:
+          description: 'ID of the layer.
+
+            '
+          type: string
+        instruction:
+          description: 'Docker file instruction and arguments used to create this layer.
+
+            '
+          type: string
+        sizeBytes:
+          description: 'Size of the layer (in bytes).
+
+            '
+          format: int64
+          type: integer
+        tags:
+          description: 'Holds the image tags.
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        vulnerabilities:
+          description: 'Vulnerabilities which originated from this layer.
+
+            '
+          items:
+            $ref: '#/components/schemas/vuln.Vulnerability'
+          type: array
+      type: object
+    -_string:
+      items:
+        $ref: '#/components/schemas/string'
+      type: array
+    shared.Packages:
+      description: Packages is a collection of packages
+      properties:
+        pkgs:
+          description: 'List of packages.
+
+            '
+          items:
+            $ref: '#/components/schemas/shared.Package'
+          type: array
+        pkgsType:
+          $ref: '#/components/schemas/packages.Type'
+      type: object
+    common.CloudMetadata:
+      description: CloudMetadata is the metadata for a cloud provider managed asset (e.g., as part of AWS/GCP/Azure/OCI)
+      properties:
+        accountID:
+          description: 'Cloud account ID.
+
+            '
+          type: string
+        awsExecutionEnv:
+          description: 'AWS execution environment (e.g. EC2/Fargate).
+
+            '
+          type: string
+        azure:
+          $ref: '#/components/schemas/common.AzureMetadata'
+        gcp:
+          $ref: '#/components/schemas/common.GCPCloudMetadata'
+        image:
+          description: 'The name of the image the cloud managed host or container is based on.
+
+            '
+          type: string
+        labels:
+          description: 'Cloud provider metadata labels.
+
+            '
+          items:
+            $ref: '#/components/schemas/common.ExternalLabel'
+          type: array
+        name:
+          description: 'Resource name.
+
+            '
+          type: string
+        ociTenantID:
+          description: 'OCI Tenant ID.
+
+            '
+          type: string
+        provider:
+          $ref: '#/components/schemas/common.CloudProvider'
+        region:
+          description: 'Resource''s region.
+
+            '
+          type: string
+        resourceID:
+          description: 'Unique ID of the resource.
+
+            '
+          type: string
+        resourceURL:
+          description: 'Server-defined URL for the resource.
+
+            '
+          type: string
+        type:
+          description: 'Instance type.
+
+            '
+          type: string
+        vmID:
+          description: 'Azure unique vm ID.
+
+            '
+          type: string
+        vmImageID:
+          description: 'VMImageID holds the VM instance''s image ID.
+
+            '
+          type: string
+      type: object
+    shared.Binary:
+      description: Binary represents a detected binary file (ELF)
+      properties:
+        altered:
+          description: 'Indicates if the binary was installed from a package manager and modified/replaced (true) or not (false).
+
+            '
+          type: boolean
+        cveCount:
+          description: 'Total number of CVEs for this specific binary.
+
+            '
+          type: integer
+        deps:
+          description: 'Third-party package files which are used by the binary.
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        fileMode:
+          description: 'Represents the file''s mode and permission bits.
+
+            '
+          type: integer
+        functionLayer:
+          description: 'ID of the serverless layer in which the package was discovered.
+
+            '
+          type: string
+        md5:
+          description: 'Md5 hashset of the binary.
+
+            '
+          type: string
+        missingPkg:
+          description: 'Indicates if this binary is not related to any package (true) or not (false).
+
+            '
+          type: boolean
+        name:
+          description: 'Name of the binary.
+
+            '
+          type: string
+        path:
+          description: 'Path is the path of the binary.
+
+            '
+          type: string
+        pkgRootDir:
+          description: 'Path for searching packages used by the binary.
+
+            '
+          type: string
+        services:
+          description: 'Names of services which use the binary.
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        version:
+          description: 'Version of the binary.
+
+            '
+          type: string
+      type: object
+    vulnerability.RiskFactors:
+      additionalProperties:
+        $ref: '#/components/schemas/string'
+      description: RiskFactors maps the existence of vulnerability risk factors
+      type: object
     shared.ServerlessLayerBundleRequest:
       description: ServerlessLayerBundleRequest represents the arguments to a serverless layer bundle request
       properties:
@@ -3593,9 +3567,157 @@ components:
             '
           type: boolean
       type: object
+    trust.ImageResult:
+      description: ImageResult represents an aggregated image trust result
+      properties:
+        groups:
+          description: 'Trust groups which apply to the image.
+
+            '
+          items:
+            $ref: '#/components/schemas/trust.Group'
+          type: array
+        hostsStatuses:
+          description: 'Image trust status on each host. Can be set to "trusted" or "untrusted".
+
+            '
+          items:
+            $ref: '#/components/schemas/trust.HostStatus'
+          type: array
+      type: object
+    shared.LambdaRuntimeType:
+      description: 'LambdaRuntimeType represents the runtime type of the serverless function
+
+        The constants used are taken from: https://docs.aws.amazon.com/lambda/latest/dg/API_CreateFunction.html#SSS-CreateFunction-request-Runtime'
+      enum:
+      - - python
+        - python3.9
+        - python3.10
+        - python3.11
+        - python3.12
+        - python3.13
+        - nodejs
+        - nodejs18.x
+        - nodejs20.x
+        - nodejs22.x
+        - dotnet
+        - dotnetcore2.1
+        - dotnetcore3.1
+        - dotnet6
+        - java
+        - java8
+        - java11
+        - java17
+        - java21
+        - ruby
+      type: string
+    vuln.AllCompliance:
+      description: AllCompliance contains data regarding passed compliance checks
+      properties:
+        compliance:
+          description: 'Compliance are all the passed compliance checks.
+
+            '
+          items:
+            $ref: '#/components/schemas/vuln.Vulnerability'
+          type: array
+        enabled:
+          description: 'Enabled indicates whether passed compliance checks is enabled by policy.
+
+            '
+          type: boolean
+      type: object
     int64:
       format: int64
       type: integer
+    vulnerability.ExploitData:
+      description: ExploitData holds information about an exploit
+      properties:
+        kind:
+          $ref: '#/components/schemas/vulnerability.ExploitKind'
+        link:
+          description: 'Link is a link to information about the exploit.
+
+            '
+          type: string
+        source:
+          $ref: '#/components/schemas/vulnerability.ExploitType'
+      type: object
+    vulnerability.Exploits:
+      description: Exploits represents the exploits data found for a CVE
+      items:
+        $ref: '#/components/schemas/vulnerability.ExploitData'
+      type: array
+    vuln.Secret:
+      description: Secret represents a secret found on the scanned workload
+      properties:
+        group:
+          description: 'Group is a group name or ID of owner the file metadata containing the secret.
+
+            '
+          type: string
+        locationInFile:
+          description: 'LocationInFile is the line and offset in the file where the secret was found.
+
+            '
+          type: string
+        metadataModifiedTime:
+          description: 'MetadataModifiedTime is the modification time of the file metadata containing the secret.
+
+            '
+          format: int64
+          type: integer
+        modifiedTime:
+          description: 'ModifiedTime is the modification time of the file containing the secret.
+
+            '
+          format: int64
+          type: integer
+        originalFileLocation:
+          description: '.
+
+            '
+          type: string
+        path:
+          description: 'Path is the path of the file in which the secret was found.
+
+            '
+          type: string
+        permissions:
+          description: 'Permissions are permission bits of the file metadata containing the secret.
+
+            '
+          type: string
+        secretID:
+          description: 'SecretID is the SHA1 of the secret content.
+
+            '
+          type: string
+        size:
+          description: 'Size is the size in bytes of the file in which the secret was found.
+
+            '
+          format: int64
+          type: integer
+        snippet:
+          description: 'Snippet is the partial plain secret.
+
+            '
+          type: string
+        type:
+          $ref: '#/components/schemas/vuln.SecretType'
+        user:
+          description: 'User is a username or ID of owner the file metadata containing the secret.
+
+            '
+          type: string
+      type: object
+    vulnerability.ExploitKind:
+      description: ExploitKind represents the kind of the exploit
+      enum:
+      - - poc
+        - in-the-wild
+      type: string
     api.ResolveImagesReq:
       description: ResolveImagesReq represents the parameters supported by the images resolution API
       properties:
@@ -3607,7 +3729,327 @@ components:
             $ref: '#/components/schemas/shared.ImageScanResult'
           type: array
       type: object
-    shared.Package:
+    common.GCPCloudMetadata:
+      properties:
+        cloudRun:
+          $ref: '#/components/schemas/common.CloudRunMetadata'
+      type: object
+    trust.Group:
+      description: Group represents a group of images
+      properties:
+        _id:
+          description: 'Name of the group.
+
+            '
+          type: string
+        disabled:
+          description: 'Indicates whether the rule is currently disabled. Values: true (disabled) or false (enabled).
+
+            '
+          type: boolean
+        images:
+          description: 'Image names or IDs (e.g., docker.io/library/ubuntu:16.04 / SHA264@...).
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        layers:
+          description: 'Filesystem layers. The image is trusted if its layers have a prefix of the trusted groups layer in the same order.
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        modified:
+          description: 'Specifies the date and time when the rule was last modified.
+
+            '
+          format: date-time
+          type: string
+        name:
+          description: 'Name of the rule.
+
+            '
+          type: string
+        notes:
+          description: 'Describes any noteworthy points for a rule. You can include any text.
+
+            '
+          type: string
+        owner:
+          description: 'User who created or last modified the rule.
+
+            '
+          type: string
+        previousName:
+          description: 'Previous name of the rule. Required for rule renaming.
+
+            '
+          type: string
+      type: object
+    common.ACIMetadata:
+      properties:
+        containerGroup:
+          description: '.
+
+            '
+          type: string
+      type: object
+    api.ResolveImagesResp:
+      description: ResolveImagesResp represents the images resolution API output
+      properties:
+        images:
+          description: 'Images is the list of images that were resolved.
+
+            '
+          items:
+            $ref: '#/components/schemas/shared.ImageScanResult'
+          type: array
+      type: object
+    secrets.SecretScanMetrics:
+      description: SecretScanMetrics represents metrics collected during secret scan
+      properties:
+        failedScans:
+          description: 'FailedScans represents number of failed scans caused by scanner errors.
+
+            '
+          format: int64
+          type: integer
+        foundSecrets:
+          description: 'FoundSecrets represents number of detected secrets.
+
+            '
+          type: integer
+        scanTime:
+          description: 'ScanTime represents cumulative secret scan time in microseconds.
+
+            '
+          format: int64
+          type: integer
+        scanTimeouts:
+          description: 'ScanTimeouts represents number of failed scans caused by timeout.
+
+            '
+          format: int64
+          type: integer
+        scannedFileSize:
+          description: 'ScannedFileSize represents accumulated size of scanned files.
+
+            '
+          format: int64
+          type: integer
+        scannedFiles:
+          description: 'ScannedFiles represents number of text files scanned for secrets.
+
+            '
+          format: int64
+          type: integer
+        totalBytes:
+          description: 'TotalBytes represents accumulated file size.
+
+            '
+          format: int64
+          type: integer
+        totalFiles:
+          description: 'TotalFiles represents number of files read for secrets.
+
+            '
+          format: int64
+          type: integer
+        totalTime:
+          description: 'TotalTime represents the total time in microseconds.
+
+            '
+          format: int64
+          type: integer
+        typesCount:
+          additionalProperties:
+            $ref: '#/components/schemas/int'
+          description: 'TypesCount represents distribution of secrets by its type.
+
+            '
+          type: object
+      type: object
+    int16:
+      type: integer
+    shared.NodeJSModuleType:
+      description: NodeJSModuleType is the type of a NodeJS module
+      enum:
+      - - commonjs
+        - ecmascript
+      type: string
+    vuln.Distribution:
+      description: Distribution counts the number of vulnerabilities per type
+      properties:
+        critical:
+          description: '.
+
+            '
+          type: integer
+        high:
+          description: '.
+
+            '
+          type: integer
+        low:
+          description: '.
+
+            '
+          type: integer
+        medium:
+          description: '.
+
+            '
+          type: integer
+        total:
+          description: '.
+
+            '
+          type: integer
+      type: object
+    vuln.WildFireMalware:
+      description: WildFireMalware holds the data for WildFire malicious MD5
+      properties:
+        md5:
+          description: 'MD5 is the hash of the malicious binary.
+
+            '
+          type: string
+        path:
+          description: 'Path is the path to malicious binary.
+
+            '
+          type: string
+        verdict:
+          description: 'Verdict is the malicious source like grayware, malware and phishing.
+
+            '
+          type: string
+      type: object
+    waas.UnprotectedProcess:
+      description: UnprotectedProcess holds unprotected processes alongside the port
+      properties:
+        port:
+          description: 'Port is the process port.
+
+            '
+          type: integer
+        process:
+          description: 'Process is the process name.
+
+            '
+          type: string
+        tls:
+          description: 'TLS is the port TLS indication.
+
+            '
+          type: boolean
+      type: object
+    waas.ProtectionStatus:
+      description: ProtectionStatus describes the status of the WAAS protection
+      properties:
+        enabled:
+          description: 'Enabled indicates if WAAS proxy protection is enabled (true) or not (false).
+
+            '
+          type: boolean
+        outOfBandMode:
+          $ref: '#/components/schemas/waas.OutOfBandMode'
+        ports:
+          description: 'Ports indicates http open ports associated with the container.
+
+            '
+          items:
+            $ref: '#/components/schemas/int'
+          type: array
+        supported:
+          description: 'Supported indicates if WAAS protection is supported (true) or not (false).
+
+            '
+          type: boolean
+        tlsPorts:
+          description: 'TLSPorts indicates https open ports associated with the container.
+
+            '
+          items:
+            $ref: '#/components/schemas/int'
+          type: array
+        unprotectedProcesses:
+          description: 'UnprotectedProcesses holds the processes that support HTTP/HTTPS without WAAS protection.
+
+            '
+          items:
+            $ref: '#/components/schemas/waas.UnprotectedProcess'
+          type: array
+      type: object
+    types.ImageScanOptions:
+      description: ImageScanOptions holds the options for image scanning
+      properties:
+        hostname:
+          description: 'Hostname is the optional host name to scan.
+
+            '
+          type: string
+        imageTag:
+          $ref: '#/components/schemas/shared.ImageTag'
+      type: object
+    string:
+      type: string
+    shared.ScanResultType:
+      description: ScanResultType represents a cloud scan result type
+      enum:
+      - - aws-ecr
+        - aws-lambda
+        - aws-ecs-task-definition
+        - aws-ec2
+        - aws-eks
+        - aws-eks-fargate-container
+        - aws-ecs
+        - aws-s3
+        - aws-config
+        - aws-cloud-trail
+        - aws-kms
+        - aws-cloud-watch
+        - aws-sns
+        - aws-security-hub
+        - aws-secrets-manager
+        - aws-parameter-store
+        - azure-acr
+        - azure-functions
+        - azure-aks
+        - azure-aci
+        - azure-vm
+        - gcp-gcr
+        - gcp-gcf
+        - gcp-gke
+        - gcp-vm
+        - gcp-artifact
+        - gcp-cloud-run-service
+        - oci-instance
+      type: string
+    vulnerability.VulnerabilityDataSource:
+      description: 'VulnerabilityDataSource identifies the source of a specific vulnerability attribute.
+
+        Example: CVSS from NVD, Severity from RedHat.'
+      properties:
+        attribute:
+          $ref: '#/components/schemas/vulnerability.VulnerabilityAttribute'
+        source:
+          $ref: '#/components/schemas/vulnerability.VulnerabilitySource'
+      type: object
+    vulnerability.VulnerabilitySource:
+      description: VulnerabilitySource represents the authority that provided vulnerability-related data (severity, CVSS, links).
+      type: integer
+    vulnerability.VulnerabilityDataSources:
+      description: VulnerabilityDataSources is a slice of VulnerabilityDataSource that implements the sql.Scanner and driver.Valuer interfaces
+      items:
+        $ref: '#/components/schemas/vulnerability.VulnerabilityDataSource'
+      type: array
+    vulnerability.VulnerabilityAttribute:
+      description: VulnerabilityAttribute represents a specific vulnerability property whose value may come from different sources
+      type: integer
+    shared.Package_2:
       description: Package stores relevant package information
       properties:
         author:
@@ -3656,11 +4098,6 @@ components:
 
             '
           type: boolean
-        isRPMModule:
-          description: 'IsRPMModule indicates whether this package data represents an RPM module.
-
-            '
-          type: boolean
         jarIdentifier:
           description: 'JarIdentifier holds an additional identification detail of a JAR package.
 
@@ -3678,7 +4115,7 @@ components:
             '
           type: string
         md5:
-          description: 'MD5SUM is the md5sum of the package - currently only relevant for go main modules.
+          description: 'MD5SUM is the md5sum of the package - currently only relevant for go main modules and python packages.
 
             '
           type: string
@@ -3729,282 +4166,6 @@ components:
 
             '
           type: string
-      type: object
-    trust.ImageResult:
-      description: ImageResult represents an aggregated image trust result
-      properties:
-        groups:
-          description: 'Trust groups which apply to the image.
-
-            '
-          items:
-            $ref: '#/components/schemas/trust.Group'
-          type: array
-        hostsStatuses:
-          description: 'Image trust status on each host. Can be set to "trusted" or "untrusted".
-
-            '
-          items:
-            $ref: '#/components/schemas/trust.HostStatus'
-          type: array
-      type: object
-    common.AzureMetadata:
-      properties:
-        aci:
-          $ref: '#/components/schemas/common.ACIMetadata'
-        resourceGroup:
-          description: '.
-
-            '
-          type: string
-      type: object
-    -_shared.ImageScanResult:
-      items:
-        $ref: '#/components/schemas/shared.ImageScanResult'
-      type: array
-    shared.ImageHost:
-      description: ImageHost holds information about image scan result per host
-      properties:
-        accountID:
-          description: 'AccountID is the cloud account ID the image is associated with.
-
-            '
-          type: string
-        agentless:
-          description: 'Agentless indicates if the image was scanned as part of an agentless scan.
-
-            '
-          type: boolean
-        agentlessScanID:
-          description: 'AgentlessScanID is the ID of the agentless scan in which the result was received.
-
-            '
-          type: integer
-        ais:
-          description: 'AIS indicates the scan was performed by AIS.
-
-            '
-          type: boolean
-        appEmbedded:
-          description: 'AppEmbedded indicates if the host is an app embedded host.
-
-            '
-          type: boolean
-        cluster:
-          description: 'Cluster is the cluster on which the image is deployed.
-
-            '
-          type: string
-        csa:
-          description: 'CSA indicates if the image was scanned by CSA.
-
-            '
-          type: boolean
-        modified:
-          description: 'Modified is the last scan time.
-
-            '
-          format: date-time
-          type: string
-        namespaces:
-          description: 'Namespaces are the namespaces on which the image is deployed.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-      type: object
-    vulnerability.ExploitKind:
-      description: ExploitKind represents the kind of the exploit
-      enum:
-      - - poc
-        - in-the-wild
-      type: string
-    vulnerability.Exploits:
-      description: Exploits represents the exploits data found for a CVE
-      items:
-        $ref: '#/components/schemas/vulnerability.ExploitData'
-      type: array
-    vulnerability.VulnerabilityAttribute:
-      description: VulnerabilityAttribute represents a specific vulnerability property whose value may come from different sources
-      type: integer
-    vuln.Vulnerability_2:
-      description: Vulnerability is a general schema for vulnerabilities (e.g., for compliance or packages)
-      properties:
-        applicableRules:
-          description: 'Rules applied on the package.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        binaryPkgs:
-          description: 'Names of the distro binary package names (packages which are built from the source of the package).
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        block:
-          description: 'Indicates if the vulnerability has a block effect (true) or not (false).
-
-            '
-          type: boolean
-        cause:
-          description: 'Additional information regarding the root cause for the vulnerability.
-
-            '
-          type: string
-        cri:
-          description: 'Indicates if this is a CRI-specific vulnerability (true) or not (false).
-
-            '
-          type: boolean
-        custom:
-          description: 'Indicates if the vulnerability is a custom vulnerability (e.g., openscap, sandbox) (true) or not (false).
-
-            '
-          type: boolean
-        cve:
-          description: 'CVE ID of the vulnerability (if applied).
-
-            '
-          type: string
-        cvss:
-          description: 'CVSS score of the vulnerability.
-
-            '
-          format: float
-          type: number
-        description:
-          description: 'Description of the vulnerability.
-
-            '
-          type: string
-        discovered:
-          description: 'Specifies the time of discovery for the vulnerability.
-
-            '
-          format: date-time
-          type: string
-        exploit:
-          $ref: '#/components/schemas/vulnerability.ExploitType'
-        exploits:
-          $ref: '#/components/schemas/vulnerability.Exploits'
-        fixDate:
-          description: 'Date/time when the vulnerability was fixed (in Unix time).
-
-            '
-          format: int64
-          type: integer
-        fixLink:
-          description: 'Link to the vendor''s fixed-version information.
-
-            '
-          type: string
-        functionLayer:
-          description: 'Specifies the serverless layer ID in which the vulnerability was discovered.
-
-            '
-          type: string
-        gracePeriodDays:
-          description: 'Number of grace days left for a vulnerability, based on the configured grace period. Nil if no block vulnerability rule applies.
-
-            '
-          type: integer
-        id:
-          description: 'ID of the violation.
-
-            '
-          type: integer
-        layerTime:
-          description: 'Date/time of the image layer to which the CVE belongs.
-
-            '
-          format: int64
-          type: integer
-        link:
-          description: 'Vendor link to the CVE.
-
-            '
-          type: string
-        packageName:
-          description: 'Name of the package that caused the vulnerability.
-
-            '
-          type: string
-        packageType:
-          $ref: '#/components/schemas/packages.Type'
-        packageVersion:
-          description: 'Version of the package that caused the vulnerability (or null).
-
-            '
-          type: string
-        published:
-          description: 'Date/time when the vulnerability was published (in Unix time).
-
-            '
-          format: int64
-          type: integer
-        riskFactors:
-          $ref: '#/components/schemas/vulnerability.RiskFactors'
-        rpmModule:
-          description: 'RPMModule specifies the RPM module containing the package affected by this vulnerability.
-
-            '
-          type: string
-        secret:
-          $ref: '#/components/schemas/vuln.Secret'
-        severity:
-          description: 'Textual representation of the vulnerability''s severity.
-
-            '
-          type: string
-        status:
-          description: 'Vendor status for the vulnerability.
-
-            '
-          type: string
-        templates:
-          description: 'List of templates with which the vulnerability is associated.
-
-            '
-          items:
-            $ref: '#/components/schemas/vuln.ComplianceTemplate'
-          type: array
-        text:
-          description: 'Description of the violation.
-
-            '
-          type: string
-        title:
-          description: 'Compliance title.
-
-            '
-          type: string
-        twistlock:
-          description: 'Indicates if this is a Twistlock-specific vulnerability (true) or not (false).
-
-            '
-          type: boolean
-        type:
-          $ref: '#/components/schemas/vulnerability.Type'
-        vecStr:
-          description: 'Textual representation of the metric values used to score the vulnerability.
-
-            '
-          type: string
-        vulnTagInfos:
-          description: 'Tag information for the vulnerability.
-
-            '
-          items:
-            $ref: '#/components/schemas/vuln.TagInfo'
-          type: array
-        vulnerabilityDataSources:
-          $ref: '#/components/schemas/vulnerability.VulnerabilityDataSources'
-        wildfireMalware:
-          $ref: '#/components/schemas/vuln.WildFireMalware'
       type: object
     shared.ImageScanResult_2:
       description: ImageScanResult holds the result of an image scan
@@ -4468,271 +4629,7 @@ components:
         wildFireUsage:
           $ref: '#/components/schemas/wildfire.Usage'
       type: object
-    vulnerability.VulnerabilityDataSource:
-      description: 'VulnerabilityDataSource identifies the source of a specific vulnerability attribute.
-
-        Example: CVSS from NVD, Severity from RedHat.'
-      properties:
-        attribute:
-          $ref: '#/components/schemas/vulnerability.VulnerabilityAttribute'
-        source:
-          $ref: '#/components/schemas/vulnerability.VulnerabilitySource'
-      type: object
-    vulnerability.VulnerabilityDataSources:
-      description: VulnerabilityDataSources is a slice of VulnerabilityDataSource that implements the sql.Scanner and driver.Valuer interfaces
-      items:
-        $ref: '#/components/schemas/vulnerability.VulnerabilityDataSource'
-      type: array
-    vulnerability.VulnerabilitySource:
-      description: VulnerabilitySource represents the authority that provided vulnerability-related data (severity, CVSS, links).
-      type: integer
-    shared.InstalledProducts_2:
-      description: 'InstalledProducts contains data regarding products running in environment
-
-        TODO #34713: Swarm support was deprecated in Joule, remove swarm node/manager boolean (and related compliance) in Lagrange'
-      properties:
-        agentless:
-          description: 'Agentless indicates whether the scan was performed with agentless approach.
-
-            '
-          type: boolean
-        apache:
-          description: 'Apache indicates the apache server version, empty in case apache not running.
-
-            '
-          type: string
-        awsCloud:
-          description: 'AWSCloud indicates whether AWS cloud is used.
-
-            '
-          type: boolean
-        clusterType:
-          $ref: '#/components/schemas/common.ClusterType'
-        crio:
-          description: 'CRI indicates whether the container runtime is CRI (and not docker).
-
-            '
-          type: boolean
-        distroName:
-          description: 'DistroName specifies the distribution name.
-
-            '
-          type: string
-        docker:
-          description: 'Docker represents the docker daemon version.
-
-            '
-          type: string
-        dockerEnterprise:
-          description: 'DockerEnterprise indicates whether the enterprise version of Docker is installed.
-
-            '
-          type: boolean
-        hasPackageManager:
-          description: 'HasPackageManager indicates whether package manager is installed on the OS.
-
-            '
-          type: boolean
-        k8sApiServer:
-          description: 'K8sAPIServer indicates whether a kubernetes API server is running.
-
-            '
-          type: boolean
-        k8sControllerManager:
-          description: 'K8sControllerManager indicates whether a kubernetes controller manager is running.
-
-            '
-          type: boolean
-        k8sEtcd:
-          description: 'K8sEtcd indicates whether etcd is running.
-
-            '
-          type: boolean
-        k8sFederationApiServer:
-          description: 'K8sFederationAPIServer indicates whether a federation API server is running.
-
-            '
-          type: boolean
-        k8sFederationControllerManager:
-          description: 'K8sFederationControllerManager indicates whether a federation controller manager is running.
-
-            '
-          type: boolean
-        k8sKubelet:
-          description: 'K8sKubelet indicates whether kubelet is running.
-
-            '
-          type: boolean
-        k8sProxy:
-          description: 'K8sProxy indicates whether a kubernetes proxy is running.
-
-            '
-          type: boolean
-        k8sScheduler:
-          description: 'K8sScheduler indicates whether the kubernetes scheduler is running.
-
-            '
-          type: boolean
-        kubernetes:
-          description: 'Kubernetes represents the kubernetes version.
-
-            '
-          type: string
-        managedClusterVersion:
-          description: 'ManagedClusterVersion is the version of the managed Kubernetes service, e.g. AKS/EKS/GKE/etc.
-
-            '
-          type: string
-        openshift:
-          description: 'Openshift indicates whether openshift is deployed.
-
-            '
-          type: boolean
-        openshiftVersion:
-          description: 'OpenshiftVersion represents the running openshift version.
-
-            '
-          type: string
-        osDistro:
-          description: 'OSDistro specifies the os distribution.
-
-            '
-          type: string
-        serverless:
-          description: 'Serverless indicates whether evaluated on a serverless environment.
-
-            '
-          type: boolean
-        swarmManager:
-          description: 'SwarmManager indicates whether a swarm manager is running.
-
-            '
-          type: boolean
-        swarmNode:
-          description: 'SwarmNode indicates whether the node is part of an active swarm.
-
-            '
-          type: boolean
-      type: object
-    shared.Package_2:
-      description: Package stores relevant package information
-      properties:
-        author:
-          description: 'Author is the package''s author.
-
-            '
-          type: string
-        binaryIdx:
-          description: 'Indexes of the top binaries which use the package.
-
-            '
-          items:
-            $ref: '#/components/schemas/int16'
-          type: array
-        binaryPkgs:
-          description: 'Names of the distro binary packages (packages which are built on the source of the package).
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        cveCount:
-          description: 'Total number of CVEs for this specific package.
-
-            '
-          type: integer
-        defaultGem:
-          description: 'DefaultGem indicates this is a gem default package (and not a bundled package).
-
-            '
-          type: boolean
-        files:
-          description: 'List of package-related files and their hashes. Only included when the appropriate scan option is set.
-
-            '
-          items:
-            $ref: '#/components/schemas/shared.FileDetails'
-          type: array
-        functionLayer:
-          description: 'ID of the serverless layer in which the package was discovered.
-
-            '
-          type: string
-        goPkg:
-          description: 'GoPkg indicates this is a Go package (and not module).
-
-            '
-          type: boolean
-        jarIdentifier:
-          description: 'JarIdentifier holds an additional identification detail of a JAR package.
-
-            '
-          type: string
-        layerTime:
-          description: 'Image layer to which the package belongs (layer creation time).
-
-            '
-          format: int64
-          type: integer
-        license:
-          description: 'License information for the package.
-
-            '
-          type: string
-        md5:
-          description: 'MD5SUM is the md5sum of the package - currently only relevant for go main modules and python packages.
-
-            '
-          type: string
-        name:
-          description: 'Name of the package.
-
-            '
-          type: string
-        originPackageName:
-          description: 'OriginPackageName is the name of the third-party origin package.
-
-            '
-          type: string
-        osPackage:
-          description: 'OSPackage indicates that a python/java package was installed as an OS package.
-
-            '
-          type: boolean
-        path:
-          description: 'Full package path (e.g., JAR or Node.js package path).
-
-            '
-          type: string
-        purl:
-          description: 'PURL is a package URL identifier for this package.
-
-            '
-          type: string
-        rpmModule:
-          description: 'RPMModule represents the RPM module in which this package is included.
-
-            '
-          type: string
-        securityRepoPkg:
-          description: 'SecurityRepoPkg determines if this package is available in a security repository.
-
-            '
-          type: boolean
-        symbols:
-          description: 'Symbols contains names of vulnerable functions that are linked in the executable binary, empty if the entire package is vulnerable.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        version:
-          description: 'Package version.
-
-            '
-          type: string
-      type: object
-    vuln.Vulnerability_3:
+    vuln.Vulnerability_2:
       description: Vulnerability is a general schema for vulnerabilities (e.g., for compliance or packages)
       properties:
         applicableRules:
@@ -4909,6 +4806,252 @@ components:
           $ref: '#/components/schemas/vulnerability.VulnerabilityDataSources'
         wildfireMalware:
           $ref: '#/components/schemas/vuln.WildFireMalware'
+      type: object
+    shared.InstalledProducts_2:
+      description: 'InstalledProducts contains data regarding products running in environment
+
+        TODO #34713: Swarm support was deprecated in Joule, remove swarm node/manager boolean (and related compliance) in Lagrange'
+      properties:
+        agentless:
+          description: 'Agentless indicates whether the scan was performed with agentless approach.
+
+            '
+          type: boolean
+        apache:
+          description: 'Apache indicates the apache server version, empty in case apache not running.
+
+            '
+          type: string
+        awsCloud:
+          description: 'AWSCloud indicates whether AWS cloud is used.
+
+            '
+          type: boolean
+        clusterType:
+          $ref: '#/components/schemas/common.ClusterType'
+        crio:
+          description: 'CRI indicates whether the container runtime is CRI (and not docker).
+
+            '
+          type: boolean
+        distroName:
+          description: 'DistroName specifies the distribution name.
+
+            '
+          type: string
+        docker:
+          description: 'Docker represents the docker daemon version.
+
+            '
+          type: string
+        dockerEnterprise:
+          description: 'DockerEnterprise indicates whether the enterprise version of Docker is installed.
+
+            '
+          type: boolean
+        hasPackageManager:
+          description: 'HasPackageManager indicates whether package manager is installed on the OS.
+
+            '
+          type: boolean
+        k8sApiServer:
+          description: 'K8sAPIServer indicates whether a kubernetes API server is running.
+
+            '
+          type: boolean
+        k8sControllerManager:
+          description: 'K8sControllerManager indicates whether a kubernetes controller manager is running.
+
+            '
+          type: boolean
+        k8sEtcd:
+          description: 'K8sEtcd indicates whether etcd is running.
+
+            '
+          type: boolean
+        k8sFederationApiServer:
+          description: 'K8sFederationAPIServer indicates whether a federation API server is running.
+
+            '
+          type: boolean
+        k8sFederationControllerManager:
+          description: 'K8sFederationControllerManager indicates whether a federation controller manager is running.
+
+            '
+          type: boolean
+        k8sKubelet:
+          description: 'K8sKubelet indicates whether kubelet is running.
+
+            '
+          type: boolean
+        k8sProxy:
+          description: 'K8sProxy indicates whether a kubernetes proxy is running.
+
+            '
+          type: boolean
+        k8sScheduler:
+          description: 'K8sScheduler indicates whether the kubernetes scheduler is running.
+
+            '
+          type: boolean
+        kubernetes:
+          description: 'Kubernetes represents the kubernetes version.
+
+            '
+          type: string
+        managedClusterVersion:
+          description: 'ManagedClusterVersion is the version of the managed Kubernetes service, e.g. AKS/EKS/GKE/etc.
+
+            '
+          type: string
+        openshift:
+          description: 'Openshift indicates whether openshift is deployed.
+
+            '
+          type: boolean
+        openshiftVersion:
+          description: 'OpenshiftVersion represents the running openshift version.
+
+            '
+          type: string
+        osDistro:
+          description: 'OSDistro specifies the os distribution.
+
+            '
+          type: string
+        serverless:
+          description: 'Serverless indicates whether evaluated on a serverless environment.
+
+            '
+          type: boolean
+        swarmManager:
+          description: 'SwarmManager indicates whether a swarm manager is running.
+
+            '
+          type: boolean
+        swarmNode:
+          description: 'SwarmNode indicates whether the node is part of an active swarm.
+
+            '
+          type: boolean
+      type: object
+    shared.Package_3:
+      description: Package stores relevant package information
+      properties:
+        author:
+          description: 'Author is the package''s author.
+
+            '
+          type: string
+        binaryIdx:
+          description: 'Indexes of the top binaries which use the package.
+
+            '
+          items:
+            $ref: '#/components/schemas/int16'
+          type: array
+        binaryPkgs:
+          description: 'Names of the distro binary packages (packages which are built on the source of the package).
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        cveCount:
+          description: 'Total number of CVEs for this specific package.
+
+            '
+          type: integer
+        defaultGem:
+          description: 'DefaultGem indicates this is a gem default package (and not a bundled package).
+
+            '
+          type: boolean
+        files:
+          description: 'List of package-related files and their hashes. Only included when the appropriate scan option is set.
+
+            '
+          items:
+            $ref: '#/components/schemas/shared.FileDetails'
+          type: array
+        functionLayer:
+          description: 'ID of the serverless layer in which the package was discovered.
+
+            '
+          type: string
+        goPkg:
+          description: 'GoPkg indicates this is a Go package (and not module).
+
+            '
+          type: boolean
+        jarIdentifier:
+          description: 'JarIdentifier holds an additional identification detail of a JAR package.
+
+            '
+          type: string
+        layerTime:
+          description: 'Image layer to which the package belongs (layer creation time).
+
+            '
+          format: int64
+          type: integer
+        license:
+          description: 'License information for the package.
+
+            '
+          type: string
+        md5:
+          description: 'MD5SUM is the md5sum of the package - currently only relevant for go main modules and python packages.
+
+            '
+          type: string
+        name:
+          description: 'Name of the package.
+
+            '
+          type: string
+        originPackageName:
+          description: 'OriginPackageName is the name of the third-party origin package.
+
+            '
+          type: string
+        osPackage:
+          description: 'OSPackage indicates that a python/java package was installed as an OS package.
+
+            '
+          type: boolean
+        path:
+          description: 'Full package path (e.g., JAR or Node.js package path).
+
+            '
+          type: string
+        purl:
+          description: 'PURL is a package URL identifier for this package.
+
+            '
+          type: string
+        rpmModule:
+          description: 'RPMModule represents the RPM module in which this package is included.
+
+            '
+          type: string
+        securityRepoPkg:
+          description: 'SecurityRepoPkg determines if this package is available in a security repository.
+
+            '
+          type: boolean
+        symbols:
+          description: 'Symbols contains names of vulnerable functions that are linked in the executable binary, empty if the entire package is vulnerable.
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        version:
+          description: 'Package version.
+
+            '
+          type: string
       type: object
     shared.ImageScanResult_3:
       description: ImageScanResult holds the result of an image scan
@@ -5372,6 +5515,184 @@ components:
         wildFireUsage:
           $ref: '#/components/schemas/wildfire.Usage'
       type: object
+    vuln.Vulnerability_3:
+      description: Vulnerability is a general schema for vulnerabilities (e.g., for compliance or packages)
+      properties:
+        applicableRules:
+          description: 'Rules applied on the package.
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        binaryPkgs:
+          description: 'Names of the distro binary package names (packages which are built from the source of the package).
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        block:
+          description: 'Indicates if the vulnerability has a block effect (true) or not (false).
+
+            '
+          type: boolean
+        cause:
+          description: 'Additional information regarding the root cause for the vulnerability.
+
+            '
+          type: string
+        cri:
+          description: 'Indicates if this is a CRI-specific vulnerability (true) or not (false).
+
+            '
+          type: boolean
+        custom:
+          description: 'Indicates if the vulnerability is a custom vulnerability (e.g., openscap, sandbox) (true) or not (false).
+
+            '
+          type: boolean
+        cve:
+          description: 'CVE ID of the vulnerability (if applied).
+
+            '
+          type: string
+        cvss:
+          description: 'CVSS score of the vulnerability.
+
+            '
+          format: float
+          type: number
+        description:
+          description: 'Description of the vulnerability.
+
+            '
+          type: string
+        discovered:
+          description: 'Specifies the time of discovery for the vulnerability.
+
+            '
+          format: date-time
+          type: string
+        exploit:
+          $ref: '#/components/schemas/vulnerability.ExploitType'
+        exploits:
+          $ref: '#/components/schemas/vulnerability.Exploits'
+        fixDate:
+          description: 'Date/time when the vulnerability was fixed (in Unix time).
+
+            '
+          format: int64
+          type: integer
+        fixLink:
+          description: 'Link to the vendor''s fixed-version information.
+
+            '
+          type: string
+        functionLayer:
+          description: 'Specifies the serverless layer ID in which the vulnerability was discovered.
+
+            '
+          type: string
+        gracePeriodDays:
+          description: 'Number of grace days left for a vulnerability, based on the configured grace period. Nil if no block vulnerability rule applies.
+
+            '
+          type: integer
+        id:
+          description: 'ID of the violation.
+
+            '
+          type: integer
+        layerTime:
+          description: 'Date/time of the image layer to which the CVE belongs.
+
+            '
+          format: int64
+          type: integer
+        link:
+          description: 'Vendor link to the CVE.
+
+            '
+          type: string
+        packageName:
+          description: 'Name of the package that caused the vulnerability.
+
+            '
+          type: string
+        packageType:
+          $ref: '#/components/schemas/packages.Type'
+        packageVersion:
+          description: 'Version of the package that caused the vulnerability (or null).
+
+            '
+          type: string
+        published:
+          description: 'Date/time when the vulnerability was published (in Unix time).
+
+            '
+          format: int64
+          type: integer
+        riskFactors:
+          $ref: '#/components/schemas/vulnerability.RiskFactors'
+        rpmModule:
+          description: 'RPMModule specifies the RPM module containing the package affected by this vulnerability.
+
+            '
+          type: string
+        secret:
+          $ref: '#/components/schemas/vuln.Secret'
+        severity:
+          description: 'Textual representation of the vulnerability''s severity.
+
+            '
+          type: string
+        status:
+          description: 'Vendor status for the vulnerability.
+
+            '
+          type: string
+        templates:
+          description: 'List of templates with which the vulnerability is associated.
+
+            '
+          items:
+            $ref: '#/components/schemas/vuln.ComplianceTemplate'
+          type: array
+        text:
+          description: 'Description of the violation.
+
+            '
+          type: string
+        title:
+          description: 'Compliance title.
+
+            '
+          type: string
+        twistlock:
+          description: 'Indicates if this is a Twistlock-specific vulnerability (true) or not (false).
+
+            '
+          type: boolean
+        type:
+          $ref: '#/components/schemas/vulnerability.Type'
+        vecStr:
+          description: 'Textual representation of the metric values used to score the vulnerability.
+
+            '
+          type: string
+        vulnTagInfos:
+          description: 'Tag information for the vulnerability.
+
+            '
+          items:
+            $ref: '#/components/schemas/vuln.TagInfo'
+          type: array
+        vulnerabilityDataSources:
+          $ref: '#/components/schemas/vulnerability.VulnerabilityDataSources'
+        wildfireMalware:
+          $ref: '#/components/schemas/vuln.WildFireMalware'
+      type: object
     shared.InstalledProducts_3:
       description: 'InstalledProducts contains data regarding products running in environment
 
@@ -5500,126 +5821,264 @@ components:
             '
           type: boolean
       type: object
-    shared.Package_3:
-      description: Package stores relevant package information
-      properties:
-        author:
-          description: 'Author is the package''s author.
-
-            '
-          type: string
-        binaryIdx:
-          description: 'Indexes of the top binaries which use the package.
-
-            '
-          items:
-            $ref: '#/components/schemas/int16'
-          type: array
-        binaryPkgs:
-          description: 'Names of the distro binary packages (packages which are built on the source of the package).
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        cveCount:
-          description: 'Total number of CVEs for this specific package.
-
-            '
-          type: integer
-        defaultGem:
-          description: 'DefaultGem indicates this is a gem default package (and not a bundled package).
-
-            '
-          type: boolean
-        files:
-          description: 'List of package-related files and their hashes. Only included when the appropriate scan option is set.
-
-            '
-          items:
-            $ref: '#/components/schemas/shared.FileDetails'
-          type: array
-        functionLayer:
-          description: 'ID of the serverless layer in which the package was discovered.
-
-            '
-          type: string
-        goPkg:
-          description: 'GoPkg indicates this is a Go package (and not module).
-
-            '
-          type: boolean
-        jarIdentifier:
-          description: 'JarIdentifier holds an additional identification detail of a JAR package.
-
-            '
-          type: string
-        layerTime:
-          description: 'Image layer to which the package belongs (layer creation time).
-
-            '
-          format: int64
-          type: integer
-        license:
-          description: 'License information for the package.
-
-            '
-          type: string
-        md5:
-          description: 'MD5SUM is the md5sum of the package - currently only relevant for go main modules and python packages.
-
-            '
-          type: string
-        name:
-          description: 'Name of the package.
-
-            '
-          type: string
-        originPackageName:
-          description: 'OriginPackageName is the name of the third-party origin package.
-
-            '
-          type: string
-        osPackage:
-          description: 'OSPackage indicates that a python/java package was installed as an OS package.
-
-            '
-          type: boolean
-        path:
-          description: 'Full package path (e.g., JAR or Node.js package path).
-
-            '
-          type: string
-        purl:
-          description: 'PURL is a package URL identifier for this package.
-
-            '
-          type: string
-        rpmModule:
-          description: 'RPMModule represents the RPM module in which this package is included.
-
-            '
-          type: string
-        securityRepoPkg:
-          description: 'SecurityRepoPkg determines if this package is available in a security repository.
-
-            '
-          type: boolean
-        symbols:
-          description: 'Symbols contains names of vulnerable functions that are linked in the executable binary, empty if the entire package is vulnerable.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        version:
-          description: 'Package version.
-
-            '
-          type: string
+    ComplianceIssue:
       type: object
+      properties:
+        id:
+          type: integer
+          description: Compliance check ID.
+          example: 668
+        title:
+          type: string
+          description: Title of the compliance check.
+          example: Primary Firewall 38
+        severity:
+          type: string
+          enum:
+          - critical
+          - high
+          - medium
+          - low
+          description: Severity of the compliance issue.
+          example: high
+        cause:
+          type: string
+          description: Explanation of why the resource failed the check.
+          example: example-cause
+        description:
+          type: string
+          description: Detailed description of the compliance requirement.
+          example: Detected on policy monitoring detected alert.
+    Vulnerability:
+      type: object
+      properties:
+        id:
+          type: string
+          description: CVE identifier (e.g., CVE-2024-1234).
+          example: example-id
+        status:
+          type: string
+          enum:
+          - fixed in
+          - needed
+          - will not fix
+          - deferred
+          description: Fix availability status.
+          example: deferred
+        cvss:
+          type: number
+          format: float
+          description: CVSS v3 base score.
+          example: 13.89
+        severity:
+          type: string
+          enum:
+          - critical
+          - high
+          - medium
+          - low
+          description: Severity level derived from CVSS score.
+          example: critical
+        packageName:
+          type: string
+          description: Name of the affected package.
+          example: Branch Policy 65
+        packageVersion:
+          type: string
+          description: Installed version of the affected package.
+          example: 2.9.1
+        fixedVersion:
+          type: string
+          description: Version that contains the fix, if available.
+          example: 9.6.0
+        link:
+          type: string
+          description: URL to the CVE advisory or details page.
+          example: https://api.example.com/9c88b4
+        description:
+          type: string
+          description: Brief description of the vulnerability.
+          example: Monitoring blocked suspicious activity malware traffic Security policy rule configured.
+        publishedDate:
+          type: string
+          format: date-time
+          description: Date the vulnerability was publicly disclosed.
+          example: '2026-07-04T20:08:13Z'
+    ErrorResponse:
+      type: object
+      properties:
+        err:
+          type: string
+          description: Error message.
+          example: example-err
+    Image:
+      type: object
+      properties:
+        _id:
+          type: string
+          description: Unique image identifier composed of registry, repository, and tag.
+          example: '856694'
+        hostname:
+          type: string
+          description: Hostname of the machine where the image was scanned.
+          example: host-9c7b
+        scanTime:
+          type: string
+          format: date-time
+          description: Timestamp of the most recent scan.
+          example: '2024-03-20T05:38:38Z'
+        repoTag:
+          type: object
+          description: Repository and tag information for the image.
+          properties:
+            registry:
+              type: string
+              description: Container registry URL.
+              example: example-registry
+            repo:
+              type: string
+              description: Repository name.
+              example: example-repo
+            tag:
+              type: string
+              description: Image tag.
+              example: pci-scope
+          example:
+            registry: example-registry
+            repo: example-repo
+            tag: critical-asset
+        repoDigests:
+          type: array
+          description: Content-addressable image digests.
+          items:
+            type: string
+          example:
+          - example-repoDigests_item
+          - example-repoDigests_item
+        osDistro:
+          type: string
+          description: Operating system distribution of the image.
+          example: example-osDistro
+        osDistroVersion:
+          type: string
+          description: Operating system distribution version.
+          example: 10.9.7
+        vulnerabilities:
+          type: array
+          description: Vulnerabilities discovered in the image.
+          items:
+            $ref: '#/components/schemas/Vulnerability'
+          example:
+          - id: example-id
+            status: deferred
+            cvss: 12.51
+            severity: high
+            packageName: Corporate Firewall 45
+            packageVersion: 5.1.8
+            fixedVersion: 5.4.9
+            link: https://portal.test-corp.net/0da215
+            description: Configured applied endpoint threat network Security.
+            publishedDate: '2026-05-18T00:03:03Z'
+          - id: example-id
+            status: fixed in
+            cvss: 68.07
+            severity: low
+            packageName: Primary Policy 76
+            packageVersion: 8.5.1
+            fixedVersion: 6.7.4
+            link: https://vpn.example.com/3f4797
+            description: Incident network violation rule incident blocked activity applied endpoint policy incident.
+            publishedDate: '2024-05-26T07:45:57Z'
+        vulnerabilitiesCount:
+          type: integer
+          description: Total number of vulnerabilities found.
+          example: 554
+        vulnerabilityDistribution:
+          type: object
+          description: Vulnerability count by severity level.
+          properties:
+            critical:
+              type: integer
+              example: 62
+            high:
+              type: integer
+              example: 107
+            medium:
+              type: integer
+              example: 509
+            low:
+              type: integer
+              example: 687
+          example:
+            critical: 813
+            high: 64
+            medium: 396
+            low: 795
+        complianceIssues:
+          type: array
+          description: Compliance check failures for the image.
+          items:
+            $ref: '#/components/schemas/ComplianceIssue'
+          example:
+          - id: 915
+            title: Branch Policy 90
+            severity: medium
+            cause: example-cause
+            description: Network applied activity rule applied suspicious activity suspicious firewall.
+          - id: 165
+            title: Primary Gateway 48
+            severity: medium
+            cause: example-cause
+            description: Malware malware configured suspicious threat suspicious network violation.
+        complianceIssuesCount:
+          type: integer
+          description: Total number of compliance issues found.
+          example: 705
+        clusters:
+          type: array
+          description: Kubernetes clusters where this image is deployed.
+          items:
+            type: string
+          example:
+          - example-clusters_item
+  responses:
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Invalid or expired authentication credentials.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  securitySchemes:
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from the /api/v1/authenticate endpoint. Valid for 30 minutes.
+    basicAuth:
+      type: http
+      scheme: basic
+      description: HTTP Basic authentication using Prisma Cloud Compute credentials.
 x-refined-from:
 - palo-alto-compute-34-03-openapi-34-03-138-sh-openapi.json
 - palo-alto-compute-openapi-34-04-145-sh-openapi.json
 - palo-alto-cwpp-34-03-openapi-34-03-138-saas-openapi.json
 - palo-alto-cwpp-openapi-34-04-145-saas-openapi.json
+- palo-alto-networks-images-api-openapi.yml
+- palo-alto-prisma-cloud-compute-api-openapi-original.yml

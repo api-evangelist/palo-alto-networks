@@ -1,0 +1,214 @@
+openapi: 3.2.0
+info:
+  title: Palo Alto Networks Agents API
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+  version: '1.0'
+  description: 'Operations tagged Agents across 2 of this provider''s published API definitions: palo-alto-autonomous-dem-api-openapi-original.yml, palo-alto-networks-agents-api-openapi.yml. Each path carries the servers of the definition it was published in.'
+servers:
+- url: https://api.sase.paloaltonetworks.com/adem/telemetry/v2
+  description: Autonomous DEM telemetry API server.
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+tags:
+- name: Agents
+  description: Monitored agent and endpoint inventory management.
+paths:
+  /mt/monitor/adem/v1/agents:
+    get:
+      operationId: listMonitoredAgents
+      summary: Palo Alto Networks List Monitored Agents
+      description: Returns a list of all ADEM agents deployed on user endpoints that are registered for monitoring. Each entry includes the agent version, endpoint device details, user association, and current connection status.
+      tags:
+      - Agents
+      parameters:
+      - name: user_id
+        in: query
+        description: Filter agents by user email or identifier.
+        schema:
+          type: string
+        example: '331600'
+      - name: site_name
+        in: query
+        description: Filter agents by site name.
+        schema:
+          type: string
+        example: Production Firewall 26
+      - name: offset
+        in: query
+        schema:
+          type: integer
+          default: 0
+        example: 0
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 100
+          maximum: 1000
+        example: 100
+      responses:
+        '200':
+          description: Monitored agents returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MonitoredAgent'
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+              examples:
+                ListMonitoredAgents200Example:
+                  summary: Default listMonitoredAgents 200 response
+                  x-microcks-default: true
+                  value:
+                    data:
+                    - agent_id: '421837'
+                      user_id: '318842'
+                      device_name: Primary Policy 11
+                      os: linux
+                      os_version: 7.8.5
+                      agent_version: 1.2.6
+                      site_name: Staging Sensor 98
+                      status: degraded
+                      last_seen: '2026-05-19T18:55:52Z'
+                    total: 809
+                    offset: 561
+                    limit: 299
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2: []
+    servers:
+    - url: https://api.sase.paloaltonetworks.com/adem/telemetry/v2
+      description: Autonomous DEM telemetry API server.
+components:
+  responses:
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid OAuth2 access token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    MonitoredAgent:
+      type: object
+      properties:
+        agent_id:
+          type: string
+          description: Unique ADEM agent identifier.
+          example: '421837'
+        user_id:
+          type: string
+          description: User email or identifier associated with this agent.
+          example: '318842'
+        device_name:
+          type: string
+          description: Hostname of the endpoint device.
+          example: Primary Policy 11
+        os:
+          type: string
+          enum:
+          - windows
+          - macos
+          - linux
+          - ios
+          - android
+          description: Operating system of the endpoint.
+          example: linux
+        os_version:
+          type: string
+          description: Operating system version string.
+          example: 7.8.5
+        agent_version:
+          type: string
+          description: ADEM agent software version.
+          example: 1.2.6
+        site_name:
+          type: string
+          description: Site name where the agent is located.
+          example: Staging Sensor 98
+        status:
+          type: string
+          enum:
+          - connected
+          - disconnected
+          - degraded
+          description: Current agent connectivity status.
+          example: degraded
+        last_seen:
+          type: string
+          format: date-time
+          description: Timestamp of the last agent heartbeat.
+          example: '2026-05-19T18:55:52Z'
+    ErrorResponse:
+      type: object
+      properties:
+        _errors:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+                example: example-code
+              message:
+                type: string
+                example: Firewall incident blocked blocked firewall configured firewall.
+              details:
+                type: object
+                example: {}
+          example:
+          - code: example-code
+            message: Security detected monitoring activity firewall violation activity.
+            details: {}
+        _request_id:
+          type: string
+          example: '921009'
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      description: OAuth 2.0 client credentials flow for obtaining an access token. Requires a client ID and client secret from the Palo Alto Networks SASE identity provider.
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
+          scopes: {}
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
+x-refined-from:
+- palo-alto-autonomous-dem-api-openapi-original.yml
+- palo-alto-networks-agents-api-openapi.yml

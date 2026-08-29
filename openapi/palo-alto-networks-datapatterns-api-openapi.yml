@@ -1,0 +1,273 @@
+openapi: 3.2.0
+info:
+  title: Palo Alto Networks Data Patterns API
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+  version: '1.0'
+  description: 'Operations tagged DataPatterns across 2 of this provider''s published API definitions: palo-alto-dlp-api-openapi-original.yml, palo-alto-networks-datapatterns-api-openapi.yml. Each path carries the servers of the definition it was published in.'
+servers:
+- url: https://api.dlp.paloaltonetworks.com/v4
+  description: Enterprise DLP API production server.
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+tags:
+- name: DataPatterns
+  description: Data pattern configuration and lookup operations.
+paths:
+  /data-patterns:
+    get:
+      operationId: listDataPatterns
+      summary: Palo Alto Networks List Data Patterns
+      description: Returns a list of configured data patterns used for DLP detection. Includes both predefined system patterns (such as credit card numbers, social security numbers, and HIPAA identifiers) and custom patterns defined by the organization. Each pattern includes its detection rules, confidence thresholds, and associated data profile assignments.
+      tags:
+      - DataPatterns
+      parameters:
+      - name: offset
+        in: query
+        description: Pagination offset.
+        schema:
+          type: integer
+          default: 0
+        example: 0
+      - name: limit
+        in: query
+        description: Maximum number of patterns to return.
+        schema:
+          type: integer
+          default: 100
+          maximum: 500
+        example: 100
+      responses:
+        '200':
+          description: Data patterns returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of data patterns.
+                  data_patterns:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DataPattern'
+              examples:
+                ListDataPatterns200Example:
+                  summary: Default listDataPatterns 200 response
+                  x-microcks-default: true
+                  value:
+                    total: 693
+                    data_patterns:
+                    - id: example-id
+                      name: Production Gateway 48
+                      description: Monitoring violation on alert network activity applied incident monitoring.
+                      type: custom
+                      category: custom
+                      confidence: medium
+                      detection_rules:
+                      - rule_type: regex
+                        value: example-value
+                        proximity: 380
+                      - rule_type: keyword
+                        value: example-value
+                        proximity: 94
+                      enabled: true
+                      incident_count: 23
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - bearerAuth: []
+    servers:
+    - url: https://api.dlp.paloaltonetworks.com/v4
+      description: Enterprise DLP API production server.
+  /data-patterns/{id}:
+    get:
+      operationId: getDataPattern
+      summary: Palo Alto Networks Get Data Pattern Details
+      description: Returns detailed configuration for a specific data pattern including its detection rules, regular expressions or keyword lists, proximity settings, and confidence scoring parameters.
+      tags:
+      - DataPatterns
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Unique data pattern identifier.
+        schema:
+          type: string
+        example: example-id
+      responses:
+        '200':
+          description: Data pattern details returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataPattern'
+              examples:
+                GetDataPattern200Example:
+                  summary: Default getDataPattern 200 response
+                  x-microcks-default: true
+                  value:
+                    id: example-id
+                    name: Production Gateway 48
+                    description: Monitoring violation on alert network activity applied incident monitoring.
+                    type: custom
+                    category: custom
+                    confidence: medium
+                    detection_rules:
+                    - rule_type: regex
+                      value: example-value
+                      proximity: 380
+                    - rule_type: keyword
+                      value: example-value
+                      proximity: 94
+                    enabled: true
+                    incident_count: 23
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - bearerAuth: []
+    servers:
+    - url: https://api.dlp.paloaltonetworks.com/v4
+      description: Enterprise DLP API production server.
+components:
+  responses:
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Invalid or expired bearer token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code or type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable error message.
+          example: Policy blocked rule alert configured traffic Security activity.
+    DataPattern:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique data pattern identifier.
+          example: example-id
+        name:
+          type: string
+          description: Display name of the data pattern.
+          example: Production Gateway 48
+        description:
+          type: string
+          description: Human-readable description of what the pattern detects.
+          example: Monitoring violation on alert network activity applied incident monitoring.
+        type:
+          type: string
+          enum:
+          - predefined
+          - custom
+          description: Whether the pattern is predefined or custom.
+          example: custom
+        category:
+          type: string
+          description: Pattern category (e.g., PII, PCI, HIPAA, Financial).
+          example: custom
+        confidence:
+          type: string
+          enum:
+          - high
+          - medium
+          - low
+          description: Confidence threshold for the pattern.
+          example: medium
+        detection_rules:
+          type: array
+          items:
+            type: object
+            properties:
+              rule_type:
+                type: string
+                enum:
+                - regex
+                - keyword
+                - dictionary
+                - file_property
+                example: dictionary
+              value:
+                type: string
+                example: example-value
+              proximity:
+                type: integer
+                example: 398
+          description: Detection rule definitions for the pattern.
+          example:
+          - rule_type: regex
+            value: example-value
+            proximity: 380
+          - rule_type: keyword
+            value: example-value
+            proximity: 94
+        enabled:
+          type: boolean
+          description: Whether the data pattern is active.
+          example: true
+        incident_count:
+          type: integer
+          description: Total number of incidents triggered by this pattern.
+          example: 23
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 bearer token obtained from the Palo Alto Networks SASE authentication service using the client credentials flow.
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
+x-refined-from:
+- palo-alto-dlp-api-openapi-original.yml
+- palo-alto-networks-datapatterns-api-openapi.yml

@@ -184,67 +184,6 @@ paths:
       - Data Profiles
 components:
   schemas:
-    DataProfilePatchRequest:
-      description: Request payload for partially updating a data profile (JSON Merge Patch)
-      properties:
-        description:
-          $ref: '#/components/schemas/JsonNullableString'
-        detection_rules:
-          $ref: '#/components/schemas/JsonNullableListDetectionRule'
-        name:
-          $ref: '#/components/schemas/JsonNullableString'
-        profile_type:
-          $ref: '#/components/schemas/JsonNullableDataProfileType'
-      required:
-      - name
-      - profile_type
-      type: object
-    ExpressionTreeNode:
-      properties:
-        operator_type:
-          enum:
-          - and
-          - or
-          - not
-          - and_not
-          - or_not
-          type: string
-        rule_item:
-          oneOf:
-          - $ref: '#/components/schemas/DataPatternRuleItem'
-          - $ref: '#/components/schemas/DictionaryRuleItem'
-          - $ref: '#/components/schemas/DocumentTypeRuleItem'
-          - $ref: '#/components/schemas/EdmRuleItem'
-        sub_expressions:
-          items:
-            $ref: '#/components/schemas/ExpressionTreeNode'
-          type: array
-      type: object
-    AdvancedDataProfileRequest:
-      description: Advanced data profile request. Use profile_type='advanced'.
-      properties:
-        description:
-          description: Optional human-readable description
-          type: string
-        detection_rules:
-          description: Detection rules (at least one required)
-          items:
-            oneOf:
-            - $ref: '#/components/schemas/DefaultTreeDetectionRule'
-            - $ref: '#/components/schemas/MultiProfileDetectionRule'
-          type: array
-        is_granular_data_profile:
-          description: Whether this is a granular data profile
-          type: boolean
-        name:
-          description: Display name
-          maxLength: 64
-          minLength: 1
-          type: string
-      required:
-      - detection_rules
-      - name
-      type: object
     EdmRuleItem:
       allOf:
       - $ref: '#/components/schemas/DetectionRuleItem'
@@ -320,6 +259,119 @@ components:
       - edm_dataset_id
       - primary_fields
       type: object
+    AdvancedDataProfileRequest:
+      description: Advanced data profile request. Use profile_type='advanced'.
+      properties:
+        description:
+          description: Optional human-readable description
+          type: string
+        detection_rules:
+          description: Detection rules (at least one required)
+          items:
+            oneOf:
+            - $ref: '#/components/schemas/DefaultTreeDetectionRule'
+            - $ref: '#/components/schemas/MultiProfileDetectionRule'
+          type: array
+        is_granular_data_profile:
+          description: Whether this is a granular data profile
+          type: boolean
+        name:
+          description: Display name
+          maxLength: 64
+          minLength: 1
+          type: string
+      required:
+      - detection_rules
+      - name
+      type: object
+    DetectionRuleItem:
+      discriminator:
+        propertyName: detection_technique
+      properties:
+        byUniqueCount:
+          type: boolean
+        confidenceLevel:
+          enum:
+          - low
+          - medium
+          - high
+          type: string
+        detectionTechnique:
+          enum:
+          - edm
+          - document_fingerprint
+          - trainable_classifier
+          - ml_document
+          - regex
+          - weighted_regex
+          - ml
+          - titus_tag
+          - wildfire
+          - file_property
+          - dictionary
+          - pab
+          - document_classifier
+          type: string
+        detection_technique:
+          type: string
+        id:
+          type: string
+        matchType:
+          enum:
+          - include
+          - exclude
+          type: string
+        name:
+          type: string
+        occurrenceCount:
+          format: int32
+          type: integer
+        occurrenceHigh:
+          format: int32
+          type: integer
+        occurrenceLow:
+          format: int32
+          type: integer
+        occurrenceOperatorType:
+          enum:
+          - any
+          - less_than_equal_to
+          - more_than_equal_to
+          - between
+          type: string
+        version:
+          format: int32
+          type: integer
+      required:
+      - detection_technique
+      type: object
+    AuditResponse:
+      description: Audit metadata tracking creation and last-update information
+      properties:
+        created_at:
+          description: Timestamp when the resource was created
+          format: date-time
+          type: string
+        created_by:
+          description: Username or service that created the resource
+          type: string
+        updated_at:
+          description: Timestamp when the resource was last updated
+          format: date-time
+          type: string
+        updated_by:
+          description: Username or service that last updated the resource
+          type: string
+      type: object
+    SortObject:
+      properties:
+        empty:
+          type: boolean
+        sorted:
+          type: boolean
+        unsorted:
+          type: boolean
+      type: object
     PageableObject:
       properties:
         offset:
@@ -338,85 +390,40 @@ components:
         unpaged:
           type: boolean
       type: object
-    DataProfileResponse:
-      description: Data profile resource returned by the API
+    PageDataProfileResponse:
       properties:
-        advance_data_patterns_rule_request:
-          description: List of advanced data pattern rule identifiers
+        content:
           items:
-            description: List of advanced data pattern rule identifiers
-            type: string
+            $ref: '#/components/schemas/DataProfileResponse'
           type: array
-        audit_metadata:
-          $ref: '#/components/schemas/AuditResponse'
-        description:
-          description: Optional human-readable description
-          type: string
-        detection_rules:
-          description: Detection rules that define sensitive data criteria
-          items:
-            oneOf:
-            - $ref: '#/components/schemas/DefaultTreeDetectionRule'
-            - $ref: '#/components/schemas/MultiProfileDetectionRule'
-          type: array
-        id:
-          description: Unique identifier of the data profile
-          type: string
-        is_granular_data_profile:
-          description: Whether this is a granular profile
+        empty:
           type: boolean
-        is_parent_managed:
-          description: Whether the profile is managed by a parent tenant
+        first:
           type: boolean
-        name:
-          description: Display name of the data profile
-          type: string
-        profile_status:
-          description: Current lifecycle status
-          enum:
-          - active
-          - disabled
-          - deleted
-          type: string
-        profile_type:
-          description: Profile type
-          enum:
-          - basic
-          - advanced
-          type: string
-        tenant_id:
-          description: Tenant identifier that owns this profile
-          type: string
-        type:
-          description: Profile subtype classification
-          enum:
-          - custom
-          - predefined
-          type: string
-        version:
-          description: Version number, incremented on each update
+        last:
+          type: boolean
+        number:
+          format: int32
+          type: integer
+        numberOfElements:
+          format: int32
+          type: integer
+        pageable:
+          $ref: '#/components/schemas/PageableObject'
+        size:
+          format: int32
+          type: integer
+        sort:
+          $ref: '#/components/schemas/SortObject'
+        totalElements:
+          format: int64
+          type: integer
+        totalPages:
           format: int32
           type: integer
       type: object
-    SortObject:
-      properties:
-        empty:
-          type: boolean
-        sorted:
-          type: boolean
-        unsorted:
-          type: boolean
-      type: object
     JsonNullableListDetectionRule:
       description: New detection rules
-      properties:
-        present:
-          type: boolean
-        undefined:
-          type: boolean
-      type: object
-    JsonNullableString:
-      description: New description (set to null to clear)
       properties:
         present:
           type: boolean
@@ -429,19 +436,6 @@ components:
       - properties:
           expression_tree:
             $ref: '#/components/schemas/ExpressionTreeNode'
-          rule_type:
-            enum:
-            - expression_tree
-            - multi_profile
-            type: string
-        type: object
-      type: object
-    MultiProfileDetectionRule:
-      allOf:
-      - $ref: '#/components/schemas/DetectionRule'
-      - properties:
-          multi_profile:
-            $ref: '#/components/schemas/MultiProfileDataNode'
           rule_type:
             enum:
             - expression_tree
@@ -464,6 +458,22 @@ components:
           - and_not
           - or_not
           type: string
+      type: object
+    JsonNullableDataProfileType:
+      description: New profile type
+      properties:
+        present:
+          type: boolean
+        undefined:
+          type: boolean
+      type: object
+    JsonNullableString:
+      description: New description (set to null to clear)
+      properties:
+        present:
+          type: boolean
+        undefined:
+          type: boolean
       type: object
     DataPatternRuleItem:
       allOf:
@@ -530,81 +540,18 @@ components:
       required:
       - match_type
       type: object
-    DetectionRule:
-      description: Detection rules that define sensitive data criteria
-      discriminator:
-        propertyName: rule_type
-      properties:
-        detectionRuleType:
-          enum:
-          - expression_tree
-          - multi_profile
-          type: string
-        rule_type:
-          type: string
-      required:
-      - rule_type
-      type: object
-    DetectionRuleItem:
-      discriminator:
-        propertyName: detection_technique
-      properties:
-        byUniqueCount:
-          type: boolean
-        confidenceLevel:
-          enum:
-          - low
-          - medium
-          - high
-          type: string
-        detectionTechnique:
-          enum:
-          - edm
-          - document_fingerprint
-          - trainable_classifier
-          - ml_document
-          - regex
-          - weighted_regex
-          - ml
-          - titus_tag
-          - wildfire
-          - file_property
-          - dictionary
-          - pab
-          - document_classifier
-          type: string
-        detection_technique:
-          type: string
-        id:
-          type: string
-        matchType:
-          enum:
-          - include
-          - exclude
-          type: string
-        name:
-          type: string
-        occurrenceCount:
-          format: int32
-          type: integer
-        occurrenceHigh:
-          format: int32
-          type: integer
-        occurrenceLow:
-          format: int32
-          type: integer
-        occurrenceOperatorType:
-          enum:
-          - any
-          - less_than_equal_to
-          - more_than_equal_to
-          - between
-          type: string
-        version:
-          format: int32
-          type: integer
-      required:
-      - detection_technique
+    MultiProfileDetectionRule:
+      allOf:
+      - $ref: '#/components/schemas/DetectionRule'
+      - properties:
+          multi_profile:
+            $ref: '#/components/schemas/MultiProfileDataNode'
+          rule_type:
+            enum:
+            - expression_tree
+            - multi_profile
+            type: string
+        type: object
       type: object
     DocumentTypeRuleItem:
       allOf:
@@ -678,31 +625,95 @@ components:
       required:
       - match_type
       type: object
-    JsonNullableDataProfileType:
-      description: New profile type
+    DataProfileResponse:
+      description: Data profile resource returned by the API
       properties:
-        present:
+        advance_data_patterns_rule_request:
+          description: List of advanced data pattern rule identifiers
+          items:
+            description: List of advanced data pattern rule identifiers
+            type: string
+          type: array
+        audit_metadata:
+          $ref: '#/components/schemas/AuditResponse'
+        description:
+          description: Optional human-readable description
+          type: string
+        detection_rules:
+          description: Detection rules that define sensitive data criteria
+          items:
+            oneOf:
+            - $ref: '#/components/schemas/DefaultTreeDetectionRule'
+            - $ref: '#/components/schemas/MultiProfileDetectionRule'
+          type: array
+        id:
+          description: Unique identifier of the data profile
+          type: string
+        is_granular_data_profile:
+          description: Whether this is a granular profile
           type: boolean
-        undefined:
+        is_parent_managed:
+          description: Whether the profile is managed by a parent tenant
           type: boolean
+        name:
+          description: Display name of the data profile
+          type: string
+        profile_status:
+          description: Current lifecycle status
+          enum:
+          - active
+          - disabled
+          - deleted
+          type: string
+        profile_type:
+          description: Profile type
+          enum:
+          - basic
+          - advanced
+          type: string
+        tenant_id:
+          description: Tenant identifier that owns this profile
+          type: string
+        type:
+          description: Profile subtype classification
+          enum:
+          - custom
+          - predefined
+          type: string
+        version:
+          description: Version number, incremented on each update
+          format: int32
+          type: integer
       type: object
-    AuditResponse:
-      description: Audit metadata tracking creation and last-update information
+    DetectionRule:
+      description: Detection rules that define sensitive data criteria
+      discriminator:
+        propertyName: rule_type
       properties:
-        created_at:
-          description: Timestamp when the resource was created
-          format: date-time
+        detectionRuleType:
+          enum:
+          - expression_tree
+          - multi_profile
           type: string
-        created_by:
-          description: Username or service that created the resource
+        rule_type:
           type: string
-        updated_at:
-          description: Timestamp when the resource was last updated
-          format: date-time
-          type: string
-        updated_by:
-          description: Username or service that last updated the resource
-          type: string
+      required:
+      - rule_type
+      type: object
+    DataProfilePatchRequest:
+      description: Request payload for partially updating a data profile (JSON Merge Patch)
+      properties:
+        description:
+          $ref: '#/components/schemas/JsonNullableString'
+        detection_rules:
+          $ref: '#/components/schemas/JsonNullableListDetectionRule'
+        name:
+          $ref: '#/components/schemas/JsonNullableString'
+        profile_type:
+          $ref: '#/components/schemas/JsonNullableDataProfileType'
+      required:
+      - name
+      - profile_type
       type: object
     DictionaryRuleItem:
       allOf:
@@ -778,37 +789,26 @@ components:
       required:
       - match_type
       type: object
-    PageDataProfileResponse:
+    ExpressionTreeNode:
       properties:
-        content:
+        operator_type:
+          enum:
+          - and
+          - or
+          - not
+          - and_not
+          - or_not
+          type: string
+        rule_item:
+          oneOf:
+          - $ref: '#/components/schemas/DataPatternRuleItem'
+          - $ref: '#/components/schemas/DictionaryRuleItem'
+          - $ref: '#/components/schemas/DocumentTypeRuleItem'
+          - $ref: '#/components/schemas/EdmRuleItem'
+        sub_expressions:
           items:
-            $ref: '#/components/schemas/DataProfileResponse'
+            $ref: '#/components/schemas/ExpressionTreeNode'
           type: array
-        empty:
-          type: boolean
-        first:
-          type: boolean
-        last:
-          type: boolean
-        number:
-          format: int32
-          type: integer
-        numberOfElements:
-          format: int32
-          type: integer
-        pageable:
-          $ref: '#/components/schemas/PageableObject'
-        size:
-          format: int32
-          type: integer
-        sort:
-          $ref: '#/components/schemas/SortObject'
-        totalElements:
-          format: int64
-          type: integer
-        totalPages:
-          format: int32
-          type: integer
       type: object
   securitySchemes:
     Bearer:

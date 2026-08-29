@@ -250,26 +250,82 @@ paths:
         source: "curl --request GET \\\n  --url 'https://api.prismacloud.io/code/api/v1/development-pipeline/projects/prs/data?page=SOME_NUMBER_VALUE&sortBy=SOME_STRING_VALUE&sortDir=SOME_STRING_VALUE&search=SOME_STRING_VALUE&pageSize=SOME_NUMBER_VALUE&withTotal=SOME_BOOLEAN_VALUE' \\\n  --header 'authorization: REPLACE_KEY_VALUE'"
 components:
   schemas:
-    ScanResult:
+    SourceType:
+      enum:
+      - Github
+      - Bitbucket
+      - Gitlab
+      - AzureRepos
+      - cli
+      - AWS
+      - Azure
+      - GCP
+      - Docker
+      - githubEnterprise
+      - gitlabEnterprise
+      - bitbucketEnterprise
+      - terraformCloud
+      - githubActions
+      - circleci
+      - codebuild
+      - jenkins
+      - tfcRunTasks
+      - admissionController
+      - terraformEnterprise
+      type: string
+    CodeCategories:
       additionalProperties: false
       properties:
-        CRITICAL:
-          format: double
-          type: number
-        HIGH:
-          format: double
-          type: number
-        LOW:
-          format: double
-          type: number
-        MEDIUM:
-          format: double
-          type: number
+        IAC:
+          $ref: '#/components/schemas/CodeCategory'
+        IMAGES:
+          $ref: '#/components/schemas/CodeCategory'
+        OPEN_SOURCE:
+          $ref: '#/components/schemas/CodeCategory'
+        SECRETS:
+          $ref: '#/components/schemas/CodeCategory'
+        SUPPLY_CHAIN:
+          $ref: '#/components/schemas/CodeCategory'
       required:
-      - CRITICAL
-      - HIGH
-      - MEDIUM
-      - LOW
+      - OPEN_SOURCE
+      - IMAGES
+      - IAC
+      - SECRETS
+      - SUPPLY_CHAIN
+      type: object
+    CodeCategory:
+      additionalProperties: false
+      properties:
+        commentsBotThreshold:
+          $ref: '#/components/schemas/RuleThreshold'
+        hardFailThreshold:
+          $ref: '#/components/schemas/RuleThreshold'
+        softFailThreshold:
+          $ref: '#/components/schemas/RuleThreshold'
+      required:
+      - hardFailThreshold
+      - softFailThreshold
+      - commentsBotThreshold
+      type: object
+    ScanStatus:
+      enum:
+      - HARD_FAIL
+      - SOFT_FAIL
+      - PASS
+      - UNKNOWN
+      type: string
+    ProjectsResponse:
+      additionalProperties: false
+      properties:
+        data:
+          items:
+            $ref: '#/components/schemas/ProjectsData'
+          type: array
+        hasNext:
+          type: boolean
+      required:
+      - hasNext
+      - data
       type: object
     ProjectsData:
       additionalProperties: false
@@ -316,42 +372,6 @@ components:
       - pendingFixPrs
       - latestPR
       type: object
-    CodeReviewResponse:
-      additionalProperties: false
-      properties:
-        data:
-          items:
-            $ref: '#/components/schemas/CodeReviewData'
-          type: array
-        hasNext:
-          type: boolean
-      required:
-      - hasNext
-      - data
-      type: object
-    SourceType:
-      enum:
-      - Github
-      - Bitbucket
-      - Gitlab
-      - AzureRepos
-      - cli
-      - AWS
-      - Azure
-      - GCP
-      - Docker
-      - githubEnterprise
-      - gitlabEnterprise
-      - bitbucketEnterprise
-      - terraformCloud
-      - githubActions
-      - circleci
-      - codebuild
-      - jenkins
-      - tfcRunTasks
-      - admissionController
-      - terraformEnterprise
-      type: string
     CodeReviewData:
       additionalProperties: false
       properties:
@@ -398,39 +418,25 @@ components:
       - lastScanDate
       - creationDate
       type: object
-    CodeCategories:
+    RunStatus:
+      enum:
+      - COMPLETED
+      - IN_PROGRESS
+      - FAILED
+      - ARCHIVED
+      type: string
+    CodeReviewResponse:
       additionalProperties: false
       properties:
-        IAC:
-          $ref: '#/components/schemas/CodeCategory'
-        IMAGES:
-          $ref: '#/components/schemas/CodeCategory'
-        OPEN_SOURCE:
-          $ref: '#/components/schemas/CodeCategory'
-        SECRETS:
-          $ref: '#/components/schemas/CodeCategory'
-        SUPPLY_CHAIN:
-          $ref: '#/components/schemas/CodeCategory'
+        data:
+          items:
+            $ref: '#/components/schemas/CodeReviewData'
+          type: array
+        hasNext:
+          type: boolean
       required:
-      - OPEN_SOURCE
-      - IMAGES
-      - IAC
-      - SECRETS
-      - SUPPLY_CHAIN
-      type: object
-    CodeCategory:
-      additionalProperties: false
-      properties:
-        commentsBotThreshold:
-          $ref: '#/components/schemas/RuleThreshold'
-        hardFailThreshold:
-          $ref: '#/components/schemas/RuleThreshold'
-        softFailThreshold:
-          $ref: '#/components/schemas/RuleThreshold'
-      required:
-      - hardFailThreshold
-      - softFailThreshold
-      - commentsBotThreshold
+      - hasNext
+      - data
       type: object
     RuleThreshold:
       enum:
@@ -441,26 +447,6 @@ components:
       - HIGH
       - CRITICAL
       type: string
-    RunStatus:
-      enum:
-      - COMPLETED
-      - IN_PROGRESS
-      - FAILED
-      - ARCHIVED
-      type: string
-    ProjectsResponse:
-      additionalProperties: false
-      properties:
-        data:
-          items:
-            $ref: '#/components/schemas/ProjectsData'
-          type: array
-        hasNext:
-          type: boolean
-      required:
-      - hasNext
-      - data
-      type: object
     PR:
       additionalProperties: false
       properties:
@@ -481,13 +467,27 @@ components:
       - title
       - prNumber
       type: object
-    ScanStatus:
-      enum:
-      - HARD_FAIL
-      - SOFT_FAIL
-      - PASS
-      - UNKNOWN
-      type: string
+    ScanResult:
+      additionalProperties: false
+      properties:
+        CRITICAL:
+          format: double
+          type: number
+        HIGH:
+          format: double
+          type: number
+        LOW:
+          format: double
+          type: number
+        MEDIUM:
+          format: double
+          type: number
+      required:
+      - CRITICAL
+      - HIGH
+      - MEDIUM
+      - LOW
+      type: object
   securitySchemes:
     CustomAuthorizer:
       in: header

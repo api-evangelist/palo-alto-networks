@@ -1,10 +1,16 @@
 openapi: 3.2.0
 info:
   title: Palo Alto Networks Stats API
+  x-refined-note:
+  - x-description-source differs across the merged source definitions and was not carried
   version: '1.0'
-  description: 'Operations tagged Stats across 4 of this provider''s published API definitions: palo-alto-compute-34-03-openapi-34-03-138-sh-openapi.json, palo-alto-compute-openapi-34-04-145-sh-openapi.json, palo-alto-cwpp-34-03-openapi-34-03-138-saas-openapi.json, palo-alto-cwpp-openapi-34-04-145-saas-openapi.json. Each path carries the servers of the definition it was published in.'
+  description: 'Operations tagged Stats across 6 of this provider''s published API definitions: palo-alto-compute-34-03-openapi-34-03-138-sh-openapi.json, palo-alto-compute-openapi-34-04-145-sh-openapi.json, palo-alto-cwpp-34-03-openapi-34-03-138-saas-openapi.json, palo-alto-cwpp-openapi-34-04-145-saas-openapi.json, palo-alto-networks-stats-api-openapi.yml, palo-alto-threat-vault-api-openapi-original.yml. Each path carries the servers of the definition it was published in.'
 servers:
 - url: PATH_TO_CONSOLE
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+- url: https://api.threatvault.paloaltonetworks.com/service/v1
+  description: Threat Vault API production endpoint.
 tags:
 - name: Stats
   description: Stats. 13 operations in this definition.
@@ -2240,350 +2246,103 @@ paths:
       operationId: post-stats-vulnerabilities-refresh
       summary: Refresh Vulnerability Stats
       x-description-source: desc/stats/vulnerabilities_refresh_post.md
+  /stats:
+    get:
+      operationId: getStats
+      summary: Palo Alto Networks Get API Usage Statistics
+      description: Returns API usage statistics for the authenticated API key, including the number of requests made, quota limits, and usage breakdown by endpoint. Use this endpoint to monitor consumption against subscription limits.
+      tags:
+      - Stats
+      responses:
+        '200':
+          description: API usage statistics returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiStats'
+              examples:
+                GetStats200Example:
+                  summary: Default getStats 200 response
+                  x-microcks-default: true
+                  value:
+                    success: true
+                    data:
+                      api_key: c0132cd88805a182d0438741905d074c
+                      quota: 721
+                      remaining: 197
+                      used: 718
+                      reset_time: '2025-11-13T16:19:53Z'
+                      endpoint_usage: {}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
 components:
   schemas:
-    types.AccessStatsCount:
-      description: AccessStatsCount stores the total amount of access audits
+    types.VulnImpactedResources:
+      description: VulnImpactedResources holds details about the resources impacted by vulnerability
       properties:
-        allowed:
-          description: '.
-
-            '
-          type: integer
-        denied:
-          description: '.
-
-            '
-          type: integer
-      type: object
-    types.RuleComplianceStats:
-      description: RuleComplianceStats holds data regarding applied compliance rule
-      properties:
-        failed:
-          description: 'Failed is the count of the rule compliance IDs in resources.
-
-            '
-          type: integer
-        name:
-          description: 'Name is the name of the applied rule.
+        _id:
+          description: 'ID is the CVE ID (index for the impacted resources).
 
             '
           type: string
-        policyType:
-          $ref: '#/components/schemas/common.PolicyType'
-        total:
-          description: 'Total is the count of evaluations done by rule.
-
-            '
-          type: integer
-      type: object
-    vulnerability.ExploitType:
-      description: ExploitType represents the source of an exploit
-      enum:
-      - - ''
-        - exploit-db
-        - exploit-windows
-        - cisa-kev
-      type: string
-    types.AccessStats:
-      description: AccessStats are stats for the access flows
-      properties:
-        docker:
-          $ref: '#/components/schemas/types.AccessStatsCount'
-        sshd:
-          $ref: '#/components/schemas/types.AccessStatsCount'
-        sudo:
-          $ref: '#/components/schemas/types.AccessStatsCount'
-      type: object
-    types.ResourceVulnerabilityStats:
-      description: ResourceVulnerabilityStats holds vulnerability stats of a single resource type
-      properties:
-        count:
-          description: 'Count is the total number of vulnerabilities.
-
-            '
-          type: integer
-        cves:
-          $ref: '#/components/schemas/vuln.Distribution'
-        impacted:
-          $ref: '#/components/schemas/vuln.Distribution'
-        vulnerabilities:
-          description: 'All resource vulnerabilities.
+        functions:
+          description: 'Functions is a map between function id to its details.
 
             '
           items:
-            $ref: '#/components/schemas/types.VulnerabilityInfo'
+            $ref: '#/components/schemas/types.ImpactedResourceDetails'
           type: array
-      type: object
-    types.ComplianceCategoryStats:
-      description: ComplianceCategoryStats holds data regarding a compliance category
-      properties:
-        failed:
-          description: 'Failed is the count of impacted resources by the category IDs.
+        functionsCount:
+          description: 'FunctionsCount is the total impacted functions count.
 
             '
           type: integer
-        name:
-          $ref: '#/components/schemas/vuln.ComplianceCategory'
-        total:
-          description: 'Total is the count of evaluations of category IDs.
+        hosts:
+          description: 'Hosts is the list of impacted hosts.
+
+            '
+          items:
+            $ref: '#/components/schemas/types.ImpactedResourceDetails'
+          type: array
+        hostsCount:
+          description: 'HostsCount is the total impacted hosts count.
 
             '
           type: integer
-      type: object
-    types.RiskScoreFactors:
-      description: RiskScoreFactors holds factors used to calculate risk score
-      properties:
-        envVarSecrets:
-          description: 'EnvVarSecrets indicates whether a container has access to secrets via environment variables.
-
-            '
-          type: boolean
-        hostAccess:
-          description: 'HostAccess indicates whether a container has access to the host network or namespace.
-
-            '
-          type: boolean
-        internet:
-          description: 'Internet indicates whether a container has internet access.
-
-            '
-          type: boolean
-        network:
-          description: 'Network indicates whether a container is listening to ports.
-
-            '
-          type: boolean
-        noSecurityProfile:
-          description: 'NoSecurityProfile indicates whether a container has security profile issue.
-
-            '
-          type: boolean
-        privilegedContainer:
-          description: 'PrivilegedContainer indicates whether a container runs using the --privileged flag.
-
-            '
-          type: boolean
-        rootMount:
-          description: 'RootMount indicates whether a container has access to the host file system using a root mount.
-
-            '
-          type: boolean
-        rootPrivilege:
-          description: 'RootPrivilege indicates whether a container runs as root.
-
-            '
-          type: boolean
-        runtimeSocket:
-          description: 'RuntimeSocket indicates whether a container has the runtime socket mounted.
-
-            '
-          type: boolean
-      type: object
-    types.ImpactedResourceDetails:
-      description: ImpactedResourceDetails holds the vulnerability details for a specific impacted resource
-      properties:
-        containers:
-          description: 'Containers are the running containers of this image found in the environment.
+        images:
+          description: 'Images is the list of impacted hosts.
 
             '
           items:
-            $ref: '#/components/schemas/types.ImpactedContainer'
+            $ref: '#/components/schemas/types.ImpactedResourceDetails'
           type: array
-        functionDetails:
-          description: 'FunctionDetails is a formatted string holding function details.
-
-            '
-          type: string
-        packages:
-          description: 'Packages holds vulnerability details per impacted package found in this resource.
-
-            '
-          items:
-            $ref: '#/components/schemas/types.ImpactedPackage'
-          type: array
-        resourceID:
-          description: 'ResourceID is a resource identifier (e.g. image ID, hostname).
-
-            '
-          type: string
-      type: object
-    vuln.ComplianceTemplate:
-      description: ComplianceTemplate represents the compliance template
-      enum:
-      - - PCI
-        - HIPAA
-        - NIST SP 800-190
-        - GDPR
-        - DISA STIG
-      type: string
-    types.AllDefendersUsage:
-      description: AllDefendersUsage holds stats about the usage of different modules and the sample time
-      properties:
-        appEmbedded:
-          $ref: '#/components/schemas/types.DefenderUsage'
-        cloudSecurityAgent:
-          $ref: '#/components/schemas/types.DefenderUsage'
-        container:
-          $ref: '#/components/schemas/types.DefenderUsage'
-        containerAgentless:
-          $ref: '#/components/schemas/types.DefenderUsage'
-        host:
-          $ref: '#/components/schemas/types.DefenderUsage'
-        hostAgentless:
-          $ref: '#/components/schemas/types.DefenderUsage'
-        period:
-          description: 'Period is the date beginning of the usage period.
-
-            '
-          format: date-time
-          type: string
-        remainingCredits:
-          description: 'RemainingCredits is the amount of credits left at the beginning of the period.
+        imagesCount:
+          description: 'ImagesCount is the total impacted images count.
 
             '
           type: integer
-        serverless:
-          $ref: '#/components/schemas/types.ServerlessUsage'
-        waas:
-          $ref: '#/components/schemas/types.DefenderUsage'
-        waasOutOfBand:
-          $ref: '#/components/schemas/types.DefenderUsage'
-      type: object
-    vulnerability.RiskFactors:
-      additionalProperties:
-        $ref: '#/components/schemas/string'
-      description: RiskFactors maps the existence of vulnerability risk factors
-      type: object
-    types.ServerlessUsage:
-      description: ServerlessUsage holds the number of defenders, invocations and credits used for serverless defenders
-      properties:
-        creditCount:
-          description: 'CreditCount is credits that was used for this defender type.
+        registryImages:
+          description: 'RegistryImages is a list of impacted registry images.
 
             '
-          format: double
-          type: number
-        defendersCount:
-          description: 'DefendersCount is the number of defenders that was used for this defender type.
-
-            '
-          format: double
-          type: number
-        protectedFunctions:
-          description: 'ProtectedFunctions is the number of serverless functions that have a defender installed.
-
-            '
-          format: double
-          type: number
-        scannedFunctions:
-          description: 'ScannedFunctions is the number functions being scanned for vulnerabilities and compliance issues without a defender installed.
-
-            '
-          format: double
-          type: number
-      type: object
-    vulnerability.Type:
-      description: Type represents the vulnerability type
-      enum:
-      - - container
-        - image
-        - host_config
-        - daemon_config
-        - daemon_config_files
-        - security_operations
-        - k8s_master
-        - k8s_worker
-        - k8s_federation
-        - linux
-        - windows
-        - istio
-        - serverless
-        - custom
-        - docker_stig
-        - openshift_master
-        - openshift_worker
-        - application_control_linux
-        - gke_worker
-        - image_malware
-        - host_malware
-        - aks_worker
-        - eks_worker
-        - image_secret
-        - host_secret
-      type: string
-    types.VulnerabilitiesStats:
-      description: VulnerabilitiesStats are measures the total number of vulnerabilities in a specific images
-      properties:
-        containerCompliance:
-          description: 'ContainerCompliance is the sum of all compliance issues for all running containers.
+          items:
+            $ref: '#/components/schemas/types.ImpactedResourceDetails'
+          type: array
+        registryImagesCount:
+          description: 'RegistryImagesCount is the total impacted registry images count.
 
             '
           type: integer
-        imageCompliance:
-          description: 'ImageCompliance is the sum of all compliance issues of all running images.
-
-            '
-          type: integer
-        imageCve:
-          description: 'ImageCVE is the sum of cve vulnerabilities of all running images.
-
-            '
-          type: integer
-      type: object
-    vulnerability.ExploitData:
-      description: ExploitData holds information about an exploit
-      properties:
-        kind:
-          $ref: '#/components/schemas/vulnerability.ExploitKind'
-        link:
-          description: 'Link is a link to information about the exploit.
-
-            '
-          type: string
-        source:
-          $ref: '#/components/schemas/vulnerability.ExploitType'
-      type: object
-    string:
-      type: string
-    types.ComplianceStats:
-      description: ComplianceStats holds compliance data
-      properties:
-        categories:
-          description: 'Compliance stats by category.
-
-            '
-          items:
-            $ref: '#/components/schemas/types.ComplianceCategoryStats'
-          type: array
-        daily:
-          description: 'Daily compliance stats.
-
-            '
-          items:
-            $ref: '#/components/schemas/types.ComplianceDailyStats'
-          type: array
-        ids:
-          description: 'Compliance data by check ID.
-
-            '
-          items:
-            $ref: '#/components/schemas/types.ComplianceIDStats'
-          type: array
-        rules:
-          description: 'Compliance stats by policy rules.
-
-            '
-          items:
-            $ref: '#/components/schemas/types.RuleComplianceStats'
-          type: array
-        templates:
-          description: 'Compliance stats by template.
-
-            '
-          items:
-            $ref: '#/components/schemas/types.ComplianceTemplateStats'
-          type: array
       type: object
     types.ComplianceTemplateStats:
       description: ComplianceTemplateStats holds data regarding a compliance template
@@ -2601,6 +2360,114 @@ components:
             '
           type: integer
       type: object
+    types.VulnerabilityInfo:
+      description: VulnerabilityInfo holds information about vulnerability used for VulnerabilityExplorer
+      properties:
+        cve:
+          description: 'CVE ID.
+
+            '
+          type: string
+        description:
+          description: 'Vulnerability description.
+
+            '
+          type: string
+        exploits:
+          $ref: '#/components/schemas/vulnerability.Exploits'
+        highestCVSS:
+          description: 'HighestCVSS is the highest CVSS score of the vulnerability.
+
+            '
+          format: float
+          type: number
+        highestRiskFactors:
+          $ref: '#/components/schemas/types.RiskScoreFactors'
+        highestSeverity:
+          description: 'HighestSeverity is the highest severity of the vulnerability.
+
+            '
+          type: string
+        impactedPkgs:
+          description: 'Packages impacted by the vulnerability.
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        impactedResourceType:
+          $ref: '#/components/schemas/vuln.ResourceType'
+        impactedResourcesCnt:
+          description: 'Number of resources impacted by this vulnerability.
+
+            '
+          type: integer
+        link:
+          description: 'Link to CVE.
+
+            '
+          type: string
+        riskFactors:
+          $ref: '#/components/schemas/vulnerability.RiskFactors'
+        riskScore:
+          description: 'Risk score.
+
+            '
+          format: float
+          type: number
+        status:
+          description: 'CVE status.
+
+            '
+          type: string
+      type: object
+    types.AccessStatsCount:
+      description: AccessStatsCount stores the total amount of access audits
+      properties:
+        allowed:
+          description: '.
+
+            '
+          type: integer
+        denied:
+          description: '.
+
+            '
+          type: integer
+      type: object
+    types.VulnerabilityStats:
+      description: VulnerabilityStats holds statistics about vulnerabilities issues
+      properties:
+        _id:
+          description: 'ID of the vulnerability stats.
+
+            '
+          type: string
+        containers:
+          $ref: '#/components/schemas/types.ResourceVulnerabilityStats'
+        functions:
+          $ref: '#/components/schemas/types.ResourceVulnerabilityStats'
+        hosts:
+          $ref: '#/components/schemas/types.ResourceVulnerabilityStats'
+        images:
+          $ref: '#/components/schemas/types.ResourceVulnerabilityStats'
+        modified:
+          description: 'Date/time when the entity was modified.
+
+            '
+          format: date-time
+          type: string
+        registryImages:
+          $ref: '#/components/schemas/types.ResourceVulnerabilityStats'
+      type: object
+    vulnerability.ExploitType:
+      description: ExploitType represents the source of an exploit
+      enum:
+      - - ''
+        - exploit-db
+        - exploit-windows
+        - cisa-kev
+      type: string
     types.LicenseStats:
       description: LicenseStats holds the console license stats
       properties:
@@ -2691,202 +2558,86 @@ components:
             '
           type: integer
       type: object
-    float64:
-      format: double
-      type: number
-    types.VulnerabilityInfo:
-      description: VulnerabilityInfo holds information about vulnerability used for VulnerabilityExplorer
+    types.NetworkFirewallStats:
+      description: NetworkFirewallStats stores the total amount of network firewall audits
       properties:
-        cve:
-          description: 'CVE ID.
+        alerted:
+          description: '.
 
             '
-          type: string
-        description:
-          description: 'Vulnerability description.
+          type: integer
+        blocked:
+          description: '.
 
             '
-          type: string
-        exploits:
-          $ref: '#/components/schemas/vulnerability.Exploits'
-        highestCVSS:
-          description: 'HighestCVSS is the highest CVSS score of the vulnerability.
+          type: integer
+      type: object
+    vuln.ComplianceTemplate:
+      description: ComplianceTemplate represents the compliance template
+      enum:
+      - - PCI
+        - HIPAA
+        - NIST SP 800-190
+        - GDPR
+        - DISA STIG
+      type: string
+    types.ComplianceCategoryStats:
+      description: ComplianceCategoryStats holds data regarding a compliance category
+      properties:
+        failed:
+          description: 'Failed is the count of impacted resources by the category IDs.
 
             '
-          format: float
-          type: number
-        highestRiskFactors:
-          $ref: '#/components/schemas/types.RiskScoreFactors'
-        highestSeverity:
-          description: 'HighestSeverity is the highest severity of the vulnerability.
+          type: integer
+        name:
+          $ref: '#/components/schemas/vuln.ComplianceCategory'
+        total:
+          description: 'Total is the count of evaluations of category IDs.
 
             '
-          type: string
-        impactedPkgs:
-          description: 'Packages impacted by the vulnerability.
+          type: integer
+      type: object
+    int:
+      type: integer
+    types.ComplianceStats:
+      description: ComplianceStats holds compliance data
+      properties:
+        categories:
+          description: 'Compliance stats by category.
 
             '
           items:
-            $ref: '#/components/schemas/string'
+            $ref: '#/components/schemas/types.ComplianceCategoryStats'
           type: array
-        impactedResourceType:
-          $ref: '#/components/schemas/vuln.ResourceType'
-        impactedResourcesCnt:
-          description: 'Number of resources impacted by this vulnerability.
-
-            '
-          type: integer
-        link:
-          description: 'Link to CVE.
-
-            '
-          type: string
-        riskFactors:
-          $ref: '#/components/schemas/vulnerability.RiskFactors'
-        riskScore:
-          description: 'Risk score.
-
-            '
-          format: float
-          type: number
-        status:
-          description: 'CVE status.
-
-            '
-          type: string
-      type: object
-    vuln.Distribution:
-      description: Distribution counts the number of vulnerabilities per type
-      properties:
-        critical:
-          description: '.
-
-            '
-          type: integer
-        high:
-          description: '.
-
-            '
-          type: integer
-        low:
-          description: '.
-
-            '
-          type: integer
-        medium:
-          description: '.
-
-            '
-          type: integer
-        total:
-          description: '.
-
-            '
-          type: integer
-      type: object
-    types.Trends:
-      description: Trends contains data on global trends in the system
-      properties:
-        complianceTrend:
-          description: 'ComplianceTrend represents the compliance trend.
+        daily:
+          description: 'Daily compliance stats.
 
             '
           items:
             $ref: '#/components/schemas/types.ComplianceDailyStats'
           type: array
-        defendersSummary:
-          additionalProperties:
-            $ref: '#/components/schemas/int'
-          description: 'DefendersSummary represents the defenders count of each category.
+        ids:
+          description: 'Compliance data by check ID.
 
             '
-          type: object
-        vulnerabilitySummary:
-          $ref: '#/components/schemas/types.VulnerabilitySummary'
+          items:
+            $ref: '#/components/schemas/types.ComplianceIDStats'
+          type: array
+        rules:
+          description: 'Compliance stats by policy rules.
+
+            '
+          items:
+            $ref: '#/components/schemas/types.RuleComplianceStats'
+          type: array
+        templates:
+          description: 'Compliance stats by template.
+
+            '
+          items:
+            $ref: '#/components/schemas/types.ComplianceTemplateStats'
+          type: array
       type: object
-    -_types.Stats:
-      items:
-        $ref: '#/components/schemas/types.Stats'
-      type: array
-    types.ImpactedPackage:
-      description: ImpactedPackage holds the vulnerability details for a package
-      properties:
-        cvss:
-          description: 'CVSS is the vulnerability cvss score for this package.
-
-            '
-          format: float
-          type: number
-        package:
-          description: 'Package is the impacted package name and version.
-
-            '
-          type: string
-        severity:
-          description: 'Severity is the vulnerability severity for this package.
-
-            '
-          type: string
-      type: object
-    types.RuntimeStats:
-      description: RuntimeStats are stats for runtime flows (sum of audits per flow)
-      properties:
-        filesystem:
-          description: '.
-
-            '
-          type: integer
-        kubernetes:
-          description: '.
-
-            '
-          type: integer
-        network:
-          description: '.
-
-            '
-          type: integer
-        processes:
-          description: '.
-
-            '
-          type: integer
-      type: object
-    types.ImpactedContainer:
-      description: ImpactedContainer contains details of a running container with an impacted image
-      properties:
-        container:
-          description: '.
-
-            '
-          type: string
-        factors:
-          $ref: '#/components/schemas/types.RiskScoreFactors'
-        host:
-          description: '.
-
-            '
-          type: string
-        image:
-          description: '.
-
-            '
-          type: string
-        imageID:
-          description: '.
-
-            '
-          type: string
-        namespace:
-          description: '.
-
-            '
-          type: string
-      type: object
-    -_types.VulnerabilityStats:
-      items:
-        $ref: '#/components/schemas/types.VulnerabilityStats'
-      type: array
     types.DefenderUsage:
       description: DefenderUsage holds the number of defenders and the credits used for a specific defender type
       properties:
@@ -3007,119 +2758,37 @@ components:
             '
           type: integer
       type: object
-    vuln.ResourceType:
-      description: ResourceType represents the resource type
-      enum:
-      - - container
-        - image
-        - host
-        - istio
-        - vm
-        - function
-        - registryImage
-      type: string
-    types.ComplianceIDStats:
-      description: ComplianceIDStats holds data regarding applied compliance ID
+    types.ImpactedContainer:
+      description: ImpactedContainer contains details of a running container with an impacted image
       properties:
-        benchmarkID:
-          description: 'BenchmarkID is the benchmark ID.
+        container:
+          description: '.
 
             '
           type: string
-        category:
-          $ref: '#/components/schemas/vuln.ComplianceCategory'
-        description:
-          description: 'Description is the compliance description.
+        factors:
+          $ref: '#/components/schemas/types.RiskScoreFactors'
+        host:
+          description: '.
 
             '
           type: string
-        failed:
-          description: 'Failed is the number of occurrences of compliance ID in resources.
-
-            '
-          type: integer
-        id:
-          description: 'ID is the compliance ID.
-
-            '
-          type: integer
-        severity:
-          description: 'Severity is the compliance severity.
+        image:
+          description: '.
 
             '
           type: string
-        templateTitle:
-          description: 'TemplateTitle is the template title.
+        imageID:
+          description: '.
 
             '
           type: string
-        total:
-          description: 'Total is the count of resources evaluated with the compliance.
+        namespace:
+          description: '.
 
             '
-          type: integer
-        type:
-          $ref: '#/components/schemas/vulnerability.Type'
+          type: string
       type: object
-    types.VulnImpactedResources:
-      description: VulnImpactedResources holds details about the resources impacted by vulnerability
-      properties:
-        _id:
-          description: 'ID is the CVE ID (index for the impacted resources).
-
-            '
-          type: string
-        functions:
-          description: 'Functions is a map between function id to its details.
-
-            '
-          items:
-            $ref: '#/components/schemas/types.ImpactedResourceDetails'
-          type: array
-        functionsCount:
-          description: 'FunctionsCount is the total impacted functions count.
-
-            '
-          type: integer
-        hosts:
-          description: 'Hosts is the list of impacted hosts.
-
-            '
-          items:
-            $ref: '#/components/schemas/types.ImpactedResourceDetails'
-          type: array
-        hostsCount:
-          description: 'HostsCount is the total impacted hosts count.
-
-            '
-          type: integer
-        images:
-          description: 'Images is the list of impacted hosts.
-
-            '
-          items:
-            $ref: '#/components/schemas/types.ImpactedResourceDetails'
-          type: array
-        imagesCount:
-          description: 'ImagesCount is the total impacted images count.
-
-            '
-          type: integer
-        registryImages:
-          description: 'RegistryImages is a list of impacted registry images.
-
-            '
-          items:
-            $ref: '#/components/schemas/types.ImpactedResourceDetails'
-          type: array
-        registryImagesCount:
-          description: 'RegistryImagesCount is the total impacted registry images count.
-
-            '
-          type: integer
-      type: object
-    int:
-      type: integer
     types.Stats:
       description: Stats represents the status model that is stored in the DB
       properties:
@@ -3169,101 +2838,83 @@ components:
         vulnerabilities:
           $ref: '#/components/schemas/types.VulnerabilitiesStats'
       type: object
-    types.NetworkFirewallStats:
-      description: NetworkFirewallStats stores the total amount of network firewall audits
-      properties:
-        alerted:
-          description: '.
-
-            '
-          type: integer
-        blocked:
-          description: '.
-
-            '
-          type: integer
-      type: object
-    vuln.ComplianceCategory:
-      description: ComplianceCategory represents the compliance category
+    vulnerability.Type:
+      description: Type represents the vulnerability type
       enum:
-      - - Docker
-        - Docker (DISA STIG)
-        - Twistlock Labs
-        - Custom
-        - Istio
-        - Linux
-        - Kubernetes
-        - CRI
-        - OpenShift
-        - Application Control
-        - GKE
-        - Prisma Cloud Labs
-        - EKS
-        - AKS
+      - - container
+        - image
+        - host_config
+        - daemon_config
+        - daemon_config_files
+        - security_operations
+        - k8s_master
+        - k8s_worker
+        - k8s_federation
+        - linux
+        - windows
+        - istio
+        - serverless
+        - custom
+        - docker_stig
+        - openshift_master
+        - openshift_worker
+        - application_control_linux
+        - gke_worker
+        - image_malware
+        - host_malware
+        - aks_worker
+        - eks_worker
+        - image_secret
+        - host_secret
       type: string
-    types.ComplianceDailyStats:
-      description: ComplianceDailyStats is the compliance daily stats
+    types.RuleComplianceStats:
+      description: RuleComplianceStats holds data regarding applied compliance rule
       properties:
-        _id:
-          description: 'Date holds the date the data was collected.
+        failed:
+          description: 'Failed is the count of the rule compliance IDs in resources.
+
+            '
+          type: integer
+        name:
+          description: 'Name is the name of the applied rule.
 
             '
           type: string
-        distribution:
-          $ref: '#/components/schemas/vuln.Distribution'
-        modified:
-          description: 'Modified is the time the data was modified.
+        policyType:
+          $ref: '#/components/schemas/common.PolicyType'
+        total:
+          description: 'Total is the count of evaluations done by rule.
 
             '
-          format: date-time
-          type: string
+          type: integer
       type: object
-    types.AppFirewallStats:
-      additionalProperties:
-        $ref: '#/components/schemas/int'
-      description: 'AppFirewallStats are the daily stats for app firewall audits
-
-        TODO #20802 - replace string key with WAAS attack type type when mongo changed to avoid encoding map keys without stringer'
-      type: object
-    types.VulnerabilityStats:
-      description: VulnerabilityStats holds statistics about vulnerabilities issues
+    types.ImpactedPackage:
+      description: ImpactedPackage holds the vulnerability details for a package
       properties:
-        _id:
-          description: 'ID of the vulnerability stats.
+        cvss:
+          description: 'CVSS is the vulnerability cvss score for this package.
+
+            '
+          format: float
+          type: number
+        package:
+          description: 'Package is the impacted package name and version.
 
             '
           type: string
-        containers:
-          $ref: '#/components/schemas/types.ResourceVulnerabilityStats'
-        functions:
-          $ref: '#/components/schemas/types.ResourceVulnerabilityStats'
-        hosts:
-          $ref: '#/components/schemas/types.ResourceVulnerabilityStats'
-        images:
-          $ref: '#/components/schemas/types.ResourceVulnerabilityStats'
-        modified:
-          description: 'Date/time when the entity was modified.
+        severity:
+          description: 'Severity is the vulnerability severity for this package.
 
             '
-          format: date-time
           type: string
-        registryImages:
-          $ref: '#/components/schemas/types.ResourceVulnerabilityStats'
       type: object
-    types.VulnerabilitySummary:
-      description: VulnerabilitySummary represents the stats of each impacted entity
-      properties:
-        containers:
-          $ref: '#/components/schemas/vuln.Distribution'
-        functions:
-          $ref: '#/components/schemas/vuln.Distribution'
-        hosts:
-          $ref: '#/components/schemas/vuln.Distribution'
-        images:
-          $ref: '#/components/schemas/vuln.Distribution'
-        registryImages:
-          $ref: '#/components/schemas/vuln.Distribution'
-      type: object
+    -_types.VulnerabilityStats:
+      items:
+        $ref: '#/components/schemas/types.VulnerabilityStats'
+      type: array
+    float64:
+      format: double
+      type: number
     common.PolicyType:
       description: PolicyType represents the type of the policy
       enum:
@@ -3300,19 +2951,497 @@ components:
         - ciCodeRepoVulnerability
         - codeRepoVulnerability
       type: string
+    types.AccessStats:
+      description: AccessStats are stats for the access flows
+      properties:
+        docker:
+          $ref: '#/components/schemas/types.AccessStatsCount'
+        sshd:
+          $ref: '#/components/schemas/types.AccessStatsCount'
+        sudo:
+          $ref: '#/components/schemas/types.AccessStatsCount'
+      type: object
+    types.ServerlessUsage:
+      description: ServerlessUsage holds the number of defenders, invocations and credits used for serverless defenders
+      properties:
+        creditCount:
+          description: 'CreditCount is credits that was used for this defender type.
+
+            '
+          format: double
+          type: number
+        defendersCount:
+          description: 'DefendersCount is the number of defenders that was used for this defender type.
+
+            '
+          format: double
+          type: number
+        protectedFunctions:
+          description: 'ProtectedFunctions is the number of serverless functions that have a defender installed.
+
+            '
+          format: double
+          type: number
+        scannedFunctions:
+          description: 'ScannedFunctions is the number functions being scanned for vulnerabilities and compliance issues without a defender installed.
+
+            '
+          format: double
+          type: number
+      type: object
+    types.ImpactedResourceDetails:
+      description: ImpactedResourceDetails holds the vulnerability details for a specific impacted resource
+      properties:
+        containers:
+          description: 'Containers are the running containers of this image found in the environment.
+
+            '
+          items:
+            $ref: '#/components/schemas/types.ImpactedContainer'
+          type: array
+        functionDetails:
+          description: 'FunctionDetails is a formatted string holding function details.
+
+            '
+          type: string
+        packages:
+          description: 'Packages holds vulnerability details per impacted package found in this resource.
+
+            '
+          items:
+            $ref: '#/components/schemas/types.ImpactedPackage'
+          type: array
+        resourceID:
+          description: 'ResourceID is a resource identifier (e.g. image ID, hostname).
+
+            '
+          type: string
+      type: object
+    types.ComplianceDailyStats:
+      description: ComplianceDailyStats is the compliance daily stats
+      properties:
+        _id:
+          description: 'Date holds the date the data was collected.
+
+            '
+          type: string
+        distribution:
+          $ref: '#/components/schemas/vuln.Distribution'
+        modified:
+          description: 'Modified is the time the data was modified.
+
+            '
+          format: date-time
+          type: string
+      type: object
+    types.AppFirewallStats:
+      additionalProperties:
+        $ref: '#/components/schemas/int'
+      description: 'AppFirewallStats are the daily stats for app firewall audits
+
+        TODO #20802 - replace string key with WAAS attack type type when mongo changed to avoid encoding map keys without stringer'
+      type: object
+    -_types.Stats:
+      items:
+        $ref: '#/components/schemas/types.Stats'
+      type: array
+    vulnerability.RiskFactors:
+      additionalProperties:
+        $ref: '#/components/schemas/string'
+      description: RiskFactors maps the existence of vulnerability risk factors
+      type: object
+    types.ResourceVulnerabilityStats:
+      description: ResourceVulnerabilityStats holds vulnerability stats of a single resource type
+      properties:
+        count:
+          description: 'Count is the total number of vulnerabilities.
+
+            '
+          type: integer
+        cves:
+          $ref: '#/components/schemas/vuln.Distribution'
+        impacted:
+          $ref: '#/components/schemas/vuln.Distribution'
+        vulnerabilities:
+          description: 'All resource vulnerabilities.
+
+            '
+          items:
+            $ref: '#/components/schemas/types.VulnerabilityInfo'
+          type: array
+      type: object
+    vuln.ResourceType:
+      description: ResourceType represents the resource type
+      enum:
+      - - container
+        - image
+        - host
+        - istio
+        - vm
+        - function
+        - registryImage
+      type: string
+    types.VulnerabilitySummary:
+      description: VulnerabilitySummary represents the stats of each impacted entity
+      properties:
+        containers:
+          $ref: '#/components/schemas/vuln.Distribution'
+        functions:
+          $ref: '#/components/schemas/vuln.Distribution'
+        hosts:
+          $ref: '#/components/schemas/vuln.Distribution'
+        images:
+          $ref: '#/components/schemas/vuln.Distribution'
+        registryImages:
+          $ref: '#/components/schemas/vuln.Distribution'
+      type: object
+    types.AllDefendersUsage:
+      description: AllDefendersUsage holds stats about the usage of different modules and the sample time
+      properties:
+        appEmbedded:
+          $ref: '#/components/schemas/types.DefenderUsage'
+        cloudSecurityAgent:
+          $ref: '#/components/schemas/types.DefenderUsage'
+        container:
+          $ref: '#/components/schemas/types.DefenderUsage'
+        containerAgentless:
+          $ref: '#/components/schemas/types.DefenderUsage'
+        host:
+          $ref: '#/components/schemas/types.DefenderUsage'
+        hostAgentless:
+          $ref: '#/components/schemas/types.DefenderUsage'
+        period:
+          description: 'Period is the date beginning of the usage period.
+
+            '
+          format: date-time
+          type: string
+        remainingCredits:
+          description: 'RemainingCredits is the amount of credits left at the beginning of the period.
+
+            '
+          type: integer
+        serverless:
+          $ref: '#/components/schemas/types.ServerlessUsage'
+        waas:
+          $ref: '#/components/schemas/types.DefenderUsage'
+        waasOutOfBand:
+          $ref: '#/components/schemas/types.DefenderUsage'
+      type: object
+    vulnerability.ExploitData:
+      description: ExploitData holds information about an exploit
+      properties:
+        kind:
+          $ref: '#/components/schemas/vulnerability.ExploitKind'
+        link:
+          description: 'Link is a link to information about the exploit.
+
+            '
+          type: string
+        source:
+          $ref: '#/components/schemas/vulnerability.ExploitType'
+      type: object
+    vulnerability.Exploits:
+      description: Exploits represents the exploits data found for a CVE
+      items:
+        $ref: '#/components/schemas/vulnerability.ExploitData'
+      type: array
     vulnerability.ExploitKind:
       description: ExploitKind represents the kind of the exploit
       enum:
       - - poc
         - in-the-wild
       type: string
-    vulnerability.Exploits:
-      description: Exploits represents the exploits data found for a CVE
-      items:
-        $ref: '#/components/schemas/vulnerability.ExploitData'
-      type: array
+    types.Trends:
+      description: Trends contains data on global trends in the system
+      properties:
+        complianceTrend:
+          description: 'ComplianceTrend represents the compliance trend.
+
+            '
+          items:
+            $ref: '#/components/schemas/types.ComplianceDailyStats'
+          type: array
+        defendersSummary:
+          additionalProperties:
+            $ref: '#/components/schemas/int'
+          description: 'DefendersSummary represents the defenders count of each category.
+
+            '
+          type: object
+        vulnerabilitySummary:
+          $ref: '#/components/schemas/types.VulnerabilitySummary'
+      type: object
+    types.RuntimeStats:
+      description: RuntimeStats are stats for runtime flows (sum of audits per flow)
+      properties:
+        filesystem:
+          description: '.
+
+            '
+          type: integer
+        kubernetes:
+          description: '.
+
+            '
+          type: integer
+        network:
+          description: '.
+
+            '
+          type: integer
+        processes:
+          description: '.
+
+            '
+          type: integer
+      type: object
+    vuln.Distribution:
+      description: Distribution counts the number of vulnerabilities per type
+      properties:
+        critical:
+          description: '.
+
+            '
+          type: integer
+        high:
+          description: '.
+
+            '
+          type: integer
+        low:
+          description: '.
+
+            '
+          type: integer
+        medium:
+          description: '.
+
+            '
+          type: integer
+        total:
+          description: '.
+
+            '
+          type: integer
+      type: object
+    types.RiskScoreFactors:
+      description: RiskScoreFactors holds factors used to calculate risk score
+      properties:
+        envVarSecrets:
+          description: 'EnvVarSecrets indicates whether a container has access to secrets via environment variables.
+
+            '
+          type: boolean
+        hostAccess:
+          description: 'HostAccess indicates whether a container has access to the host network or namespace.
+
+            '
+          type: boolean
+        internet:
+          description: 'Internet indicates whether a container has internet access.
+
+            '
+          type: boolean
+        network:
+          description: 'Network indicates whether a container is listening to ports.
+
+            '
+          type: boolean
+        noSecurityProfile:
+          description: 'NoSecurityProfile indicates whether a container has security profile issue.
+
+            '
+          type: boolean
+        privilegedContainer:
+          description: 'PrivilegedContainer indicates whether a container runs using the --privileged flag.
+
+            '
+          type: boolean
+        rootMount:
+          description: 'RootMount indicates whether a container has access to the host file system using a root mount.
+
+            '
+          type: boolean
+        rootPrivilege:
+          description: 'RootPrivilege indicates whether a container runs as root.
+
+            '
+          type: boolean
+        runtimeSocket:
+          description: 'RuntimeSocket indicates whether a container has the runtime socket mounted.
+
+            '
+          type: boolean
+      type: object
+    types.ComplianceIDStats:
+      description: ComplianceIDStats holds data regarding applied compliance ID
+      properties:
+        benchmarkID:
+          description: 'BenchmarkID is the benchmark ID.
+
+            '
+          type: string
+        category:
+          $ref: '#/components/schemas/vuln.ComplianceCategory'
+        description:
+          description: 'Description is the compliance description.
+
+            '
+          type: string
+        failed:
+          description: 'Failed is the number of occurrences of compliance ID in resources.
+
+            '
+          type: integer
+        id:
+          description: 'ID is the compliance ID.
+
+            '
+          type: integer
+        severity:
+          description: 'Severity is the compliance severity.
+
+            '
+          type: string
+        templateTitle:
+          description: 'TemplateTitle is the template title.
+
+            '
+          type: string
+        total:
+          description: 'Total is the count of resources evaluated with the compliance.
+
+            '
+          type: integer
+        type:
+          $ref: '#/components/schemas/vulnerability.Type'
+      type: object
+    vuln.ComplianceCategory:
+      description: ComplianceCategory represents the compliance category
+      enum:
+      - - Docker
+        - Docker (DISA STIG)
+        - Twistlock Labs
+        - Custom
+        - Istio
+        - Linux
+        - Kubernetes
+        - CRI
+        - OpenShift
+        - Application Control
+        - GKE
+        - Prisma Cloud Labs
+        - EKS
+        - AKS
+      type: string
+    string:
+      type: string
+    types.VulnerabilitiesStats:
+      description: VulnerabilitiesStats are measures the total number of vulnerabilities in a specific images
+      properties:
+        containerCompliance:
+          description: 'ContainerCompliance is the sum of all compliance issues for all running containers.
+
+            '
+          type: integer
+        imageCompliance:
+          description: 'ImageCompliance is the sum of all compliance issues of all running images.
+
+            '
+          type: integer
+        imageCve:
+          description: 'ImageCVE is the sum of cve vulnerabilities of all running images.
+
+            '
+          type: integer
+      type: object
+    ApiStats:
+      type: object
+      description: API usage statistics for the authenticated API key.
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            api_key:
+              type: string
+              description: Redacted API key identifier.
+              example: 7f0aeb83312442613acf974dba5e853c
+            quota:
+              type: integer
+              description: Daily request quota.
+              example: 719
+            remaining:
+              type: integer
+              description: Remaining requests in the current day.
+              example: 93
+            used:
+              type: integer
+              description: Number of requests used today.
+              example: 810
+            reset_time:
+              type: string
+              format: date-time
+              description: Timestamp when the quota resets.
+              example: '2026-08-06T23:19:12Z'
+            endpoint_usage:
+              type: object
+              description: Request counts broken down by endpoint.
+              additionalProperties:
+                type: integer
+              example: {}
+          example:
+            api_key: c0132cd88805a182d0438741905d074c
+            quota: 721
+            remaining: 197
+            used: 718
+            reset_time: '2025-11-13T16:19:53Z'
+            endpoint_usage: {}
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          description: Human-readable error message.
+          example: Threat applied violation endpoint activity violation activity incident applied.
+        error_code:
+          type: string
+          description: Machine-readable error code.
+          example: example-error_code
+  responses:
+    InternalServerError:
+      description: An internal server error occurred.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid API key.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  securitySchemes:
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+      description: Threat Vault API key. Generate your API key from the Palo Alto Networks customer support portal or the Developer Portal at pan.dev. The API key controls access level and daily quota limits.
 x-refined-from:
 - palo-alto-compute-34-03-openapi-34-03-138-sh-openapi.json
 - palo-alto-compute-openapi-34-04-145-sh-openapi.json
 - palo-alto-cwpp-34-03-openapi-34-03-138-saas-openapi.json
 - palo-alto-cwpp-openapi-34-04-145-saas-openapi.json
+- palo-alto-networks-stats-api-openapi.yml
+- palo-alto-threat-vault-api-openapi-original.yml

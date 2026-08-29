@@ -1,12 +1,25 @@
 openapi: 3.2.0
 info:
   title: Palo Alto Networks Security Rules API
-  contact: {}
+  x-refined-note:
+  - x-logo differs across the merged source definitions and was not carried
   version: '1.0'
-  description: 'Operations tagged SecurityRules across 2 of this provider''s published API definitions: palo-alto-access-prisma-access-config-securityrules-openapi.yaml, palo-alto-cloudngfw-aws-securityrules-openapi.yaml. Each path carries the servers of the definition it was published in.'
+  description: 'Operations tagged SecurityRules across 6 of this provider''s published API definitions: palo-alto-access-prisma-access-config-securityrules-openapi.yaml, palo-alto-cloud-ngfw-api-openapi-original.yml, palo-alto-cloudngfw-aws-securityrules-openapi.yaml, palo-alto-networks-securityrules-api-openapi.yml, palo-alto-prisma-access-api-openapi-original.yml, palo-alto-strata-cloud-manager-api-openapi-original.yml. Each path carries the servers of the definition it was published in.'
 servers:
 - url: https://api.sase.paloaltonetworks.com
+- url: https://api.{region}.aws.cloudngfw.paloaltonetworks.com/v1
+  description: Cloud NGFW for AWS regional API endpoint.
+  variables:
+    region:
+      description: AWS region where Cloud NGFW is deployed (e.g., us-east-1, us-west-2, eu-west-1).
+      default: us-east-1
 - url: https://api.us-east-1.aws.cloudngfw.paloaltonetworks.com
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+- url: https://api.sase.paloaltonetworks.com/sse/config/v1
+  description: Prisma Access SASE configuration API server.
+- url: https://api.strata.paloaltonetworks.com
+  description: Strata Cloud Manager API production endpoint.
 tags:
 - name: SecurityRules
 paths:
@@ -222,6 +235,479 @@ paths:
       - SecurityRules
     servers:
     - url: https://api.sase.paloaltonetworks.com
+  /config/rulestacks/{rulestack}/security-rules:
+    get:
+      operationId: listSecurityRules
+      summary: Palo Alto Networks List Security Rules
+      description: Returns all security rules in the specified rule stack. Security rules are evaluated in priority order and define traffic inspection and forwarding policy for the Cloud NGFW.
+      tags:
+      - SecurityRules
+      parameters:
+      - $ref: '#/components/parameters/rulestack'
+      - name: maxresults
+        in: query
+        description: Maximum number of rules to return.
+        schema:
+          type: integer
+          default: 100
+        example: 100
+      - name: nexttoken
+        in: query
+        description: Pagination token from a previous response.
+        schema:
+          type: string
+        example: example-nexttoken
+      - name: listtype
+        in: query
+        description: Whether to return candidate or running configuration.
+        schema:
+          type: string
+          enum:
+          - CANDIDATE
+          - RUNNING
+          default: CANDIDATE
+        example: CANDIDATE
+      responses:
+        '200':
+          description: Security rules returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: object
+                    properties:
+                      RuleListCandidate:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SecurityRuleSummary'
+                      NextToken:
+                        type: string
+                  ResponseStatus:
+                    $ref: '#/components/schemas/ResponseStatus'
+              examples:
+                ListSecurityRules200Example:
+                  summary: Default listSecurityRules 200 response
+                  x-microcks-default: true
+                  value:
+                    Response:
+                      RuleListCandidate:
+                      - Priority: 234
+                        RuleName: Production Policy 12
+                        Enabled: false
+                      NextToken: example-NextToken
+                    ResponseStatus:
+                      ErrorCode: 0
+                      Reason: ''
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - awsSigV4: []
+    post:
+      operationId: createSecurityRule
+      summary: Palo Alto Networks Create Security Rule
+      description: Creates a new security rule in the rule stack at the specified priority. Rules with lower priority numbers are evaluated first. Define source and destination criteria, applications, and the enforcement action.
+      tags:
+      - SecurityRules
+      parameters:
+      - $ref: '#/components/parameters/rulestack'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecurityRuleRequest'
+            examples:
+              CreateSecurityRuleRequestExample:
+                summary: Default createSecurityRule request
+                x-microcks-default: true
+                value:
+                  Priority: 48316
+                  RuleEntry:
+                    RuleName: Primary Gateway 01
+                    Description: Activity Security blocked suspicious threat alert activity firewall.
+                    Enabled: true
+                    Source:
+                      Cidrs:
+                      - example-Cidrs_item
+                      Countries:
+                      - example-Countries_item
+                      Feeds:
+                      - example-Feeds_item
+                      - example-Feeds_item
+                      PrefixLists:
+                      - example-PrefixLists_item
+                      - example-PrefixLists_item
+                    Destination:
+                      Cidrs:
+                      - example-Cidrs_item
+                      - example-Cidrs_item
+                      Countries:
+                      - example-Countries_item
+                      - example-Countries_item
+                      Feeds:
+                      - example-Feeds_item
+                      FqdnLists:
+                      - example-FqdnLists_item
+                      - example-FqdnLists_item
+                      PrefixLists:
+                      - example-PrefixLists_item
+                    Applications:
+                    - ssh
+                    Protocol: APPLICATION-DEFAULT
+                    Action: DenySilent
+      responses:
+        '200':
+          description: Security rule created successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    $ref: '#/components/schemas/SecurityRule'
+                  ResponseStatus:
+                    $ref: '#/components/schemas/ResponseStatus'
+              examples:
+                CreateSecurityRule200Example:
+                  summary: Default createSecurityRule 200 response
+                  x-microcks-default: true
+                  value:
+                    Response:
+                      Priority: 707
+                      RuleEntry:
+                        RuleName: Primary Gateway 01
+                        Description: Firewall alert incident monitoring investigation threat threat blocked activity monitoring.
+                        Enabled: true
+                        Source:
+                          Cidrs:
+                          - example-Cidrs_item
+                          - example-Cidrs_item
+                          Countries:
+                          - example-Countries_item
+                          - example-Countries_item
+                          Feeds:
+                          - example-Feeds_item
+                          PrefixLists:
+                          - example-PrefixLists_item
+                        NegateSource: false
+                        Destination:
+                          Cidrs:
+                          - example-Cidrs_item
+                          Countries:
+                          - example-Countries_item
+                          - example-Countries_item
+                          Feeds:
+                          - example-Feeds_item
+                          FqdnLists:
+                          - example-FqdnLists_item
+                          - example-FqdnLists_item
+                          PrefixLists:
+                          - example-PrefixLists_item
+                        NegateDestination: false
+                        Applications:
+                        - dns
+                        - web-browsing
+                        Category:
+                          URLCategoryNames:
+                          - Production Sensor 06
+                          Feeds:
+                          - example-Feeds_item
+                        Protocol: UDP
+                        Action: Allow
+                        DecryptionRuleType: SSLOutboundInspection
+                        AuditComment: Rule malware monitoring malware firewall violation suspicious detected applied firewall detected applied.
+                    ResponseStatus:
+                      ErrorCode: 0
+                      Reason: ''
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - awsSigV4: []
+    servers:
+    - url: https://api.{region}.aws.cloudngfw.paloaltonetworks.com/v1
+      description: Cloud NGFW for AWS regional API endpoint.
+      variables:
+        region:
+          description: AWS region where Cloud NGFW is deployed (e.g., us-east-1, us-west-2, eu-west-1).
+          default: us-east-1
+  /config/rulestacks/{rulestack}/security-rules/{priority}:
+    get:
+      operationId: getSecurityRule
+      summary: Palo Alto Networks Get Security Rule
+      description: Returns a specific security rule by its priority number within the rule stack.
+      tags:
+      - SecurityRules
+      parameters:
+      - $ref: '#/components/parameters/rulestack'
+      - $ref: '#/components/parameters/priority'
+      - name: candidate
+        in: query
+        description: Return candidate configuration if true, running configuration if false.
+        schema:
+          type: boolean
+          default: true
+        example: true
+      responses:
+        '200':
+          description: Security rule returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    $ref: '#/components/schemas/SecurityRule'
+                  ResponseStatus:
+                    $ref: '#/components/schemas/ResponseStatus'
+              examples:
+                GetSecurityRule200Example:
+                  summary: Default getSecurityRule 200 response
+                  x-microcks-default: true
+                  value:
+                    Response:
+                      Priority: 707
+                      RuleEntry:
+                        RuleName: Primary Gateway 01
+                        Description: Firewall alert incident monitoring investigation threat threat blocked activity monitoring.
+                        Enabled: true
+                        Source:
+                          Cidrs:
+                          - example-Cidrs_item
+                          - example-Cidrs_item
+                          Countries:
+                          - example-Countries_item
+                          - example-Countries_item
+                          Feeds:
+                          - example-Feeds_item
+                          PrefixLists:
+                          - example-PrefixLists_item
+                        NegateSource: false
+                        Destination:
+                          Cidrs:
+                          - example-Cidrs_item
+                          Countries:
+                          - example-Countries_item
+                          - example-Countries_item
+                          Feeds:
+                          - example-Feeds_item
+                          FqdnLists:
+                          - example-FqdnLists_item
+                          - example-FqdnLists_item
+                          PrefixLists:
+                          - example-PrefixLists_item
+                        NegateDestination: false
+                        Applications:
+                        - dns
+                        - web-browsing
+                        Category:
+                          URLCategoryNames:
+                          - Production Sensor 06
+                          Feeds:
+                          - example-Feeds_item
+                        Protocol: UDP
+                        Action: Allow
+                        DecryptionRuleType: SSLOutboundInspection
+                        AuditComment: Rule malware monitoring malware firewall violation suspicious detected applied firewall detected applied.
+                    ResponseStatus:
+                      ErrorCode: 0
+                      Reason: ''
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - awsSigV4: []
+    put:
+      operationId: updateSecurityRule
+      summary: Palo Alto Networks Update Security Rule
+      description: Updates an existing security rule at the specified priority in the rule stack.
+      tags:
+      - SecurityRules
+      parameters:
+      - $ref: '#/components/parameters/rulestack'
+      - $ref: '#/components/parameters/priority'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecurityRuleRequest'
+            examples:
+              UpdateSecurityRuleRequestExample:
+                summary: Default updateSecurityRule request
+                x-microcks-default: true
+                value:
+                  Priority: 48316
+                  RuleEntry:
+                    RuleName: Primary Gateway 01
+                    Description: Activity Security blocked suspicious threat alert activity firewall.
+                    Enabled: true
+                    Source:
+                      Cidrs:
+                      - example-Cidrs_item
+                      Countries:
+                      - example-Countries_item
+                      Feeds:
+                      - example-Feeds_item
+                      - example-Feeds_item
+                      PrefixLists:
+                      - example-PrefixLists_item
+                      - example-PrefixLists_item
+                    Destination:
+                      Cidrs:
+                      - example-Cidrs_item
+                      - example-Cidrs_item
+                      Countries:
+                      - example-Countries_item
+                      - example-Countries_item
+                      Feeds:
+                      - example-Feeds_item
+                      FqdnLists:
+                      - example-FqdnLists_item
+                      - example-FqdnLists_item
+                      PrefixLists:
+                      - example-PrefixLists_item
+                    Applications:
+                    - ssh
+                    Protocol: APPLICATION-DEFAULT
+                    Action: DenySilent
+      responses:
+        '200':
+          description: Security rule updated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    $ref: '#/components/schemas/SecurityRule'
+                  ResponseStatus:
+                    $ref: '#/components/schemas/ResponseStatus'
+              examples:
+                UpdateSecurityRule200Example:
+                  summary: Default updateSecurityRule 200 response
+                  x-microcks-default: true
+                  value:
+                    Response:
+                      Priority: 707
+                      RuleEntry:
+                        RuleName: Primary Gateway 01
+                        Description: Firewall alert incident monitoring investigation threat threat blocked activity monitoring.
+                        Enabled: true
+                        Source:
+                          Cidrs:
+                          - example-Cidrs_item
+                          - example-Cidrs_item
+                          Countries:
+                          - example-Countries_item
+                          - example-Countries_item
+                          Feeds:
+                          - example-Feeds_item
+                          PrefixLists:
+                          - example-PrefixLists_item
+                        NegateSource: false
+                        Destination:
+                          Cidrs:
+                          - example-Cidrs_item
+                          Countries:
+                          - example-Countries_item
+                          - example-Countries_item
+                          Feeds:
+                          - example-Feeds_item
+                          FqdnLists:
+                          - example-FqdnLists_item
+                          - example-FqdnLists_item
+                          PrefixLists:
+                          - example-PrefixLists_item
+                        NegateDestination: false
+                        Applications:
+                        - dns
+                        - web-browsing
+                        Category:
+                          URLCategoryNames:
+                          - Production Sensor 06
+                          Feeds:
+                          - example-Feeds_item
+                        Protocol: UDP
+                        Action: Allow
+                        DecryptionRuleType: SSLOutboundInspection
+                        AuditComment: Rule malware monitoring malware firewall violation suspicious detected applied firewall detected applied.
+                    ResponseStatus:
+                      ErrorCode: 0
+                      Reason: ''
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - awsSigV4: []
+    delete:
+      operationId: deleteSecurityRule
+      summary: Palo Alto Networks Delete Security Rule
+      description: Deletes the security rule at the specified priority from the rule stack.
+      tags:
+      - SecurityRules
+      parameters:
+      - $ref: '#/components/parameters/rulestack'
+      - $ref: '#/components/parameters/priority'
+      responses:
+        '200':
+          description: Security rule deleted successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ResponseStatus:
+                    $ref: '#/components/schemas/ResponseStatus'
+              examples:
+                DeleteSecurityRule200Example:
+                  summary: Default deleteSecurityRule 200 response
+                  x-microcks-default: true
+                  value:
+                    ResponseStatus:
+                      ErrorCode: 0
+                      Reason: ''
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - awsSigV4: []
+    servers:
+    - url: https://api.{region}.aws.cloudngfw.paloaltonetworks.com/v1
+      description: Cloud NGFW for AWS regional API endpoint.
+      variables:
+        region:
+          description: AWS region where Cloud NGFW is deployed (e.g., us-east-1, us-west-2, eu-west-1).
+          default: us-east-1
   /v1/config/rulestacks/{rulestackname}/rulelists/{rulelistname}:
     get:
       description: 'List all security rules associated with a rulestack in priority order.
@@ -478,47 +964,502 @@ paths:
       - SecurityRules
     servers:
     - url: https://api.us-east-1.aws.cloudngfw.paloaltonetworks.com
+  /security-rules:
+    get:
+      operationId: listSecurityRules
+      summary: Palo Alto Networks List Security Rules
+      description: Returns a list of security policy rules configured in Prisma Access. Security rules control traffic flowing through the SASE platform by specifying source, destination, application, and action criteria. Rules are evaluated in order from top to bottom.
+      tags:
+      - SecurityRules
+      parameters:
+      - name: folder
+        in: query
+        required: true
+        description: The folder containing the security rules (e.g., Shared, Mobile Users, Remote Networks).
+        schema:
+          type: string
+        example: example-folder
+      - name: position
+        in: query
+        description: Filter by rule position (pre or post).
+        schema:
+          type: string
+          enum:
+          - pre
+          - post
+        example: pre
+      - name: offset
+        in: query
+        schema:
+          type: integer
+          default: 0
+        example: 0
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 200
+        example: 200
+      responses:
+        '200':
+          description: Security rules returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SecurityRule_2'
+                  offset:
+                    type: integer
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+              examples:
+                ListSecurityRules200Example:
+                  summary: Default listSecurityRules 200 response
+                  x-microcks-default: true
+                  value:
+                    data:
+                    - id: example-id
+                      name: Branch Policy 74
+                      description: Security incident incident threat violation malware.
+                      disabled: false
+                      from:
+                      - example-from_item
+                      to:
+                      - example-to_item
+                      source:
+                      - example-source_item
+                      - example-source_item
+                      destination:
+                      - example-destination_item
+                      source_user:
+                      - example-source_user_item
+                      application:
+                      - ssl
+                      - dns
+                      service:
+                      - example-service_item
+                      category:
+                      - custom
+                      action: drop
+                      profile_setting:
+                        group:
+                        - example-group_item
+                      log_setting: example-log_setting
+                      tag:
+                      - production
+                      - critical-asset
+                      folder: example-folder
+                      position: pre
+                    - id: example-id
+                      name: Branch Policy 74
+                      description: Security incident incident threat violation malware.
+                      disabled: false
+                      from:
+                      - example-from_item
+                      to:
+                      - example-to_item
+                      source:
+                      - example-source_item
+                      - example-source_item
+                      destination:
+                      - example-destination_item
+                      source_user:
+                      - example-source_user_item
+                      application:
+                      - ssl
+                      - dns
+                      service:
+                      - example-service_item
+                      category:
+                      - custom
+                      action: drop
+                      profile_setting:
+                        group:
+                        - example-group_item
+                      log_setting: example-log_setting
+                      tag:
+                      - production
+                      - critical-asset
+                      folder: example-folder
+                      position: pre
+                    offset: 526
+                    total: 263
+                    limit: 721
+        '400':
+          $ref: '#/components/responses/BadRequest_2'
+        '401':
+          $ref: '#/components/responses/Unauthorized_2'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    post:
+      operationId: createSecurityRule
+      summary: Palo Alto Networks Create a Security Rule
+      description: Creates a new security rule in the candidate configuration. Changes must be pushed to take effect.
+      tags:
+      - SecurityRules
+      parameters:
+      - name: folder
+        in: query
+        required: true
+        description: Target folder for the security rule.
+        schema:
+          type: string
+        example: example-folder
+      - name: position
+        in: query
+        description: Position for the new rule (pre or post).
+        schema:
+          type: string
+          enum:
+          - pre
+          - post
+        example: pre
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecurityRule_2'
+            examples:
+              CreateSecurityRuleRequestExample:
+                summary: Default createSecurityRule request
+                x-microcks-default: true
+                value:
+                  id: example-id
+                  name: Branch Policy 74
+                  description: Security incident incident threat violation malware.
+                  disabled: false
+                  from:
+                  - example-from_item
+                  to:
+                  - example-to_item
+                  source:
+                  - example-source_item
+                  - example-source_item
+                  destination:
+                  - example-destination_item
+                  source_user:
+                  - example-source_user_item
+                  application:
+                  - ssl
+                  - dns
+                  service:
+                  - example-service_item
+                  category:
+                  - custom
+                  action: drop
+                  profile_setting:
+                    group:
+                    - example-group_item
+                  log_setting: example-log_setting
+                  tag:
+                  - production
+                  - critical-asset
+                  folder: example-folder
+                  position: pre
+      responses:
+        '201':
+          description: Security rule created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityRule_2'
+              examples:
+                CreateSecurityRule201Example:
+                  summary: Default createSecurityRule 201 response
+                  x-microcks-default: true
+                  value:
+                    id: example-id
+                    name: Branch Policy 74
+                    description: Security incident incident threat violation malware.
+                    disabled: false
+                    from:
+                    - example-from_item
+                    to:
+                    - example-to_item
+                    source:
+                    - example-source_item
+                    - example-source_item
+                    destination:
+                    - example-destination_item
+                    source_user:
+                    - example-source_user_item
+                    application:
+                    - ssl
+                    - dns
+                    service:
+                    - example-service_item
+                    category:
+                    - custom
+                    action: drop
+                    profile_setting:
+                      group:
+                      - example-group_item
+                    log_setting: example-log_setting
+                    tag:
+                    - production
+                    - critical-asset
+                    folder: example-folder
+                    position: pre
+        '400':
+          $ref: '#/components/responses/BadRequest_2'
+        '401':
+          $ref: '#/components/responses/Unauthorized_2'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
+  /security-rules/{id}:
+    get:
+      operationId: getSecurityRule
+      summary: Palo Alto Networks Get a Security Rule
+      description: Returns the configuration of a specific security rule.
+      tags:
+      - SecurityRules
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Unique security rule identifier.
+        schema:
+          type: string
+        example: example-id
+      responses:
+        '200':
+          description: Security rule returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityRule_2'
+              examples:
+                GetSecurityRule200Example:
+                  summary: Default getSecurityRule 200 response
+                  x-microcks-default: true
+                  value:
+                    id: example-id
+                    name: Branch Policy 74
+                    description: Security incident incident threat violation malware.
+                    disabled: false
+                    from:
+                    - example-from_item
+                    to:
+                    - example-to_item
+                    source:
+                    - example-source_item
+                    - example-source_item
+                    destination:
+                    - example-destination_item
+                    source_user:
+                    - example-source_user_item
+                    application:
+                    - ssl
+                    - dns
+                    service:
+                    - example-service_item
+                    category:
+                    - custom
+                    action: drop
+                    profile_setting:
+                      group:
+                      - example-group_item
+                    log_setting: example-log_setting
+                    tag:
+                    - production
+                    - critical-asset
+                    folder: example-folder
+                    position: pre
+        '401':
+          $ref: '#/components/responses/Unauthorized_2'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    put:
+      operationId: updateSecurityRule
+      summary: Palo Alto Networks Update a Security Rule
+      description: Updates an existing security rule in the candidate configuration.
+      tags:
+      - SecurityRules
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Unique security rule identifier.
+        schema:
+          type: string
+        example: example-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecurityRule_2'
+            examples:
+              UpdateSecurityRuleRequestExample:
+                summary: Default updateSecurityRule request
+                x-microcks-default: true
+                value:
+                  id: example-id
+                  name: Branch Policy 74
+                  description: Security incident incident threat violation malware.
+                  disabled: false
+                  from:
+                  - example-from_item
+                  to:
+                  - example-to_item
+                  source:
+                  - example-source_item
+                  - example-source_item
+                  destination:
+                  - example-destination_item
+                  source_user:
+                  - example-source_user_item
+                  application:
+                  - ssl
+                  - dns
+                  service:
+                  - example-service_item
+                  category:
+                  - custom
+                  action: drop
+                  profile_setting:
+                    group:
+                    - example-group_item
+                  log_setting: example-log_setting
+                  tag:
+                  - production
+                  - critical-asset
+                  folder: example-folder
+                  position: pre
+      responses:
+        '200':
+          description: Security rule updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityRule_2'
+              examples:
+                UpdateSecurityRule200Example:
+                  summary: Default updateSecurityRule 200 response
+                  x-microcks-default: true
+                  value:
+                    id: example-id
+                    name: Branch Policy 74
+                    description: Security incident incident threat violation malware.
+                    disabled: false
+                    from:
+                    - example-from_item
+                    to:
+                    - example-to_item
+                    source:
+                    - example-source_item
+                    - example-source_item
+                    destination:
+                    - example-destination_item
+                    source_user:
+                    - example-source_user_item
+                    application:
+                    - ssl
+                    - dns
+                    service:
+                    - example-service_item
+                    category:
+                    - custom
+                    action: drop
+                    profile_setting:
+                      group:
+                      - example-group_item
+                    log_setting: example-log_setting
+                    tag:
+                    - production
+                    - critical-asset
+                    folder: example-folder
+                    position: pre
+        '400':
+          $ref: '#/components/responses/BadRequest_2'
+        '401':
+          $ref: '#/components/responses/Unauthorized_2'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    delete:
+      operationId: deleteSecurityRule
+      summary: Palo Alto Networks Delete a Security Rule
+      description: Deletes a security rule from the candidate configuration.
+      tags:
+      - SecurityRules
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Unique security rule identifier.
+        schema:
+          type: string
+        example: example-id
+      responses:
+        '200':
+          description: Security rule deleted successfully.
+        '401':
+          $ref: '#/components/responses/Unauthorized_2'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
 components:
   examples:
-    json_401_panui_auth_key_expired:
-      summary: Key Expired
-      value:
-        _errors:
-        - code: E016
-          details: {}
-          message: Key Expired
-        _request_id: abcd-1234
-    json_501_panui_restapi_method_not_supported:
-      summary: Method Not Supported
-      value:
-        _errors:
-        - code: E012
-          details: {}
-          message: Method Not Supported
-        _request_id: abcd-1234
-    json_400_panui_restapi_input_format_mismatch:
-      summary: Input Format Mismatch
+    json_400_panui_mgmt_invalid_object:
+      summary: Invalid Object
       value:
         _errors:
         - code: E003
           details: {}
-          message: 'Input Format Mismatch: input-format=json'
-        _request_id: abcd-1234
-    json_501_panui_restapi_version_not_supported:
-      summary: Version Not Supported
-      value:
-        _errors:
-        - code: E012
-          details: {}
-          message: Version Not Supported
-        _request_id: abcd-1234
-    json_409_panui_mgmt_name_not_unique:
-      summary: Name Not Unique
-      value:
-        _errors:
-        - code: E006
-          details: {}
-          message: Name Not Unique
+          message: Invalid Object
         _request_id: abcd-1234
     json_409_panui_mgmt_object_not_unique:
       summary: Object Not Unique
@@ -528,77 +1469,13 @@ components:
           details: {}
           message: Object Not Unique
         _request_id: abcd-1234
-    json_404_panui_mgmt_object_not_present:
-      summary: Object Not Present
-      value:
-        _errors:
-        - code: E005
-          details: {}
-          message: Object Not Present
-        _request_id: abcd-1234
-    json_400_panui_restapi_missing_body:
-      summary: Missing Body
+    json_400_panui_restapi_input_format_mismatch:
+      summary: Input Format Mismatch
       value:
         _errors:
         - code: E003
           details: {}
-          message: Missing Body
-        _request_id: abcd-1234
-    json_409_panui_mgmt_reference_not_zero:
-      summary: Reference Not Zero
-      value:
-        _errors:
-        - code: E009
-          details: {}
-          message: Reference Not Zero
-        _request_id: abcd-1234
-    json_400_panui_mgmt_invalid_command:
-      summary: Invalid Command
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: Invalid Command
-        _request_id: abcd-1234
-    json_400_panui_restapi_output_format_mismatch:
-      summary: Output Format Mismatch
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: 'Output Format Mismatch: output-format=json Accept=xml'
-        _request_id: abcd-1234
-    json_401_panui_auth_not_authenticated:
-      summary: Not Authenticated
-      value:
-        _errors:
-        - code: E016
-          details: {}
-          message: Not Authenticated
-        _request_id: abcd-1234
-    json_401_panui_auth_invalid_credential:
-      summary: Invalid Credential
-      value:
-        _errors:
-        - code: E016
-          details: {}
-          message: Invalid Credential
-        _request_id: abcd-1234
-    json_403_panui_auth_unauthorized:
-      summary: Unauthorized
-      value:
-        _errors:
-        - code: E007
-          details: {}
-          message: Unauthorized
-        _request_id: abcd-1234
-    json_400_panui_restapi_missing_query_parameter:
-      summary: Missing Query Parameter
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: 'Missing Query Parameter: name'
+          message: 'Input Format Mismatch: input-format=json'
         _request_id: abcd-1234
     json_405_panui_restapi_action_not_supported:
       summary: Action Not Supported
@@ -608,53 +1485,13 @@ components:
           details: {}
           message: 'Action Not Supported: move'
         _request_id: abcd-1234
-    json_400_panui_restapi_invalid_query_parameter:
-      summary: Invalid Query Parameter
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: 'Invalid Query Parameter: location=invalid'
-        _request_id: abcd-1234
-    json_401_panui_auth_key_too_long:
-      summary: Key Too Long
+    json_401_panui_auth_key_expired:
+      summary: Key Expired
       value:
         _errors:
         - code: E016
           details: {}
-          message: Key Too Long
-        _request_id: abcd-1234
-    json_400_panui_mgmt_invalid_object:
-      summary: Invalid Object
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: Invalid Object
-        _request_id: abcd-1234
-    json_400_panui_mgmt_malformed_command:
-      summary: Malformed Command
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: Malformed Command
-        _request_id: abcd-1234
-    json_504_panui_mgmt_session_timeout:
-      summary: Session Timeout
-      value:
-        _errors:
-        - code: 4
-          details: {}
-          message: Session Timeout
-        _request_id: abcd-1234
-    json_401_panui_auth_need_password_change:
-      summary: Need Password Change
-      value:
-        _errors:
-        - code: E016
-          details: {}
-          message: The password needs to be changed.
+          message: Key Expired
         _request_id: abcd-1234
     json_400_panui_mgmt_bad_xpath:
       summary: Bad XPath
@@ -664,9 +1501,152 @@ components:
           details: {}
           message: Bad XPath
         _request_id: abcd-1234
+    json_400_panui_restapi_missing_body:
+      summary: Missing Body
+      value:
+        _errors:
+        - code: E003
+          details: {}
+          message: Missing Body
+        _request_id: abcd-1234
+    json_403_panui_auth_unauthorized:
+      summary: Unauthorized
+      value:
+        _errors:
+        - code: E007
+          details: {}
+          message: Unauthorized
+        _request_id: abcd-1234
+    json_401_panui_auth_invalid_credential:
+      summary: Invalid Credential
+      value:
+        _errors:
+        - code: E016
+          details: {}
+          message: Invalid Credential
+        _request_id: abcd-1234
+    json_504_panui_mgmt_session_timeout:
+      summary: Session Timeout
+      value:
+        _errors:
+        - code: 4
+          details: {}
+          message: Session Timeout
+        _request_id: abcd-1234
+    json_401_panui_auth_not_authenticated:
+      summary: Not Authenticated
+      value:
+        _errors:
+        - code: E016
+          details: {}
+          message: Not Authenticated
+        _request_id: abcd-1234
+    json_400_panui_mgmt_invalid_command:
+      summary: Invalid Command
+      value:
+        _errors:
+        - code: E003
+          details: {}
+          message: Invalid Command
+        _request_id: abcd-1234
+    json_401_panui_auth_key_too_long:
+      summary: Key Too Long
+      value:
+        _errors:
+        - code: E016
+          details: {}
+          message: Key Too Long
+        _request_id: abcd-1234
+    json_409_panui_mgmt_name_not_unique:
+      summary: Name Not Unique
+      value:
+        _errors:
+        - code: E006
+          details: {}
+          message: Name Not Unique
+        _request_id: abcd-1234
+    json_401_panui_auth_need_password_change:
+      summary: Need Password Change
+      value:
+        _errors:
+        - code: E016
+          details: {}
+          message: The password needs to be changed.
+        _request_id: abcd-1234
+    json_501_panui_restapi_method_not_supported:
+      summary: Method Not Supported
+      value:
+        _errors:
+        - code: E012
+          details: {}
+          message: Method Not Supported
+        _request_id: abcd-1234
+    json_400_panui_mgmt_malformed_command:
+      summary: Malformed Command
+      value:
+        _errors:
+        - code: E003
+          details: {}
+          message: Malformed Command
+        _request_id: abcd-1234
+    json_409_panui_mgmt_reference_not_zero:
+      summary: Reference Not Zero
+      value:
+        _errors:
+        - code: E009
+          details: {}
+          message: Reference Not Zero
+        _request_id: abcd-1234
+    json_400_panui_restapi_invalid_query_parameter:
+      summary: Invalid Query Parameter
+      value:
+        _errors:
+        - code: E003
+          details: {}
+          message: 'Invalid Query Parameter: location=invalid'
+        _request_id: abcd-1234
+    json_501_panui_restapi_version_not_supported:
+      summary: Version Not Supported
+      value:
+        _errors:
+        - code: E012
+          details: {}
+          message: Version Not Supported
+        _request_id: abcd-1234
+    json_400_panui_restapi_missing_query_parameter:
+      summary: Missing Query Parameter
+      value:
+        _errors:
+        - code: E003
+          details: {}
+          message: 'Missing Query Parameter: name'
+        _request_id: abcd-1234
+    json_400_panui_restapi_output_format_mismatch:
+      summary: Output Format Mismatch
+      value:
+        _errors:
+        - code: E003
+          details: {}
+          message: 'Output Format Mismatch: output-format=json Accept=xml'
+        _request_id: abcd-1234
+    json_404_panui_mgmt_object_not_present:
+      summary: Object Not Present
+      value:
+        _errors:
+        - code: E005
+          details: {}
+          message: Object Not Present
+        _request_id: abcd-1234
   responses:
-    http_ok:
-      description: Ok
+    access_errors:
+      content:
+        application/json:
+          examples:
+            auth_unauthorized:
+              $ref: '#/components/examples/json_403_panui_auth_unauthorized'
+          schema:
+            $ref: '#/components/schemas/generic_error'
+      description: Forbidden
     not_found:
       content:
         application/json:
@@ -676,6 +1656,36 @@ components:
           schema:
             $ref: '#/components/schemas/generic_error'
       description: Not Found
+    conflict_errors:
+      content:
+        application/json:
+          examples:
+            name_not_unique:
+              $ref: '#/components/examples/json_409_panui_mgmt_name_not_unique'
+            object_not_unique:
+              $ref: '#/components/examples/json_409_panui_mgmt_object_not_unique'
+            reference_not_zero:
+              $ref: '#/components/examples/json_409_panui_mgmt_reference_not_zero'
+          schema:
+            $ref: '#/components/schemas/generic_error'
+      description: Conflict
+    http_created:
+      description: Created
+    bad_request_errors_basic:
+      content:
+        application/json:
+          examples:
+            input_format_mismatch:
+              $ref: '#/components/examples/json_400_panui_restapi_input_format_mismatch'
+            invalid_query_parameter:
+              $ref: '#/components/examples/json_400_panui_restapi_invalid_query_parameter'
+            missing_query_parameter:
+              $ref: '#/components/examples/json_400_panui_restapi_missing_query_parameter'
+            output_format_mismatch:
+              $ref: '#/components/examples/json_400_panui_restapi_output_format_mismatch'
+          schema:
+            $ref: '#/components/schemas/generic_error'
+      description: Bad Request
     default_errors:
       content:
         application/json:
@@ -697,6 +1707,23 @@ components:
           schema:
             $ref: '#/components/schemas/generic_error'
       description: General Errors
+    auth_errors:
+      content:
+        application/json:
+          examples:
+            auth_not_authenticated:
+              $ref: '#/components/examples/json_401_panui_auth_not_authenticated'
+            invalid_credential:
+              $ref: '#/components/examples/json_401_panui_auth_invalid_credential'
+            key_expired:
+              $ref: '#/components/examples/json_401_panui_auth_key_expired'
+            key_too_long:
+              $ref: '#/components/examples/json_401_panui_auth_key_too_long'
+            need_password_change:
+              $ref: '#/components/examples/json_401_panui_auth_need_password_change'
+          schema:
+            $ref: '#/components/schemas/generic_error'
+      description: Unauthorized
     bad_request_errors_basic_with_body:
       content:
         application/json:
@@ -716,78 +1743,132 @@ components:
           schema:
             $ref: '#/components/schemas/generic_error'
       description: Bad Request
-    bad_request_errors_basic:
+    http_ok:
+      description: Ok
+    Conflict:
+      description: A resource with the specified name already exists or cannot be modified.
       content:
         application/json:
-          examples:
-            input_format_mismatch:
-              $ref: '#/components/examples/json_400_panui_restapi_input_format_mismatch'
-            invalid_query_parameter:
-              $ref: '#/components/examples/json_400_panui_restapi_invalid_query_parameter'
-            missing_query_parameter:
-              $ref: '#/components/examples/json_400_panui_restapi_missing_query_parameter'
-            output_format_mismatch:
-              $ref: '#/components/examples/json_400_panui_restapi_output_format_mismatch'
           schema:
-            $ref: '#/components/schemas/generic_error'
-      description: Bad Request
-    auth_errors:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Malformed request or invalid parameters.
       content:
         application/json:
-          examples:
-            auth_not_authenticated:
-              $ref: '#/components/examples/json_401_panui_auth_not_authenticated'
-            invalid_credential:
-              $ref: '#/components/examples/json_401_panui_auth_invalid_credential'
-            key_expired:
-              $ref: '#/components/examples/json_401_panui_auth_key_expired'
-            key_too_long:
-              $ref: '#/components/examples/json_401_panui_auth_key_too_long'
-            need_password_change:
-              $ref: '#/components/examples/json_401_panui_auth_need_password_change'
           schema:
-            $ref: '#/components/schemas/generic_error'
-      description: Unauthorized
-    http_created:
-      description: Created
-    conflict_errors:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid AWS credentials.
       content:
         application/json:
-          examples:
-            name_not_unique:
-              $ref: '#/components/examples/json_409_panui_mgmt_name_not_unique'
-            object_not_unique:
-              $ref: '#/components/examples/json_409_panui_mgmt_object_not_unique'
-            reference_not_zero:
-              $ref: '#/components/examples/json_409_panui_mgmt_reference_not_zero'
           schema:
-            $ref: '#/components/schemas/generic_error'
-      description: Conflict
-    access_errors:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource was not found.
       content:
         application/json:
-          examples:
-            auth_unauthorized:
-              $ref: '#/components/examples/json_403_panui_auth_unauthorized'
           schema:
-            $ref: '#/components/schemas/generic_error'
-      description: Forbidden
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_2'
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_2'
+    Unauthorized_3:
+      description: Missing or invalid authentication token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_3'
+    Conflict_2:
+      description: A resource with the specified name already exists or the resource cannot be modified due to existing references.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_3'
+    BadRequest_2:
+      description: Invalid request parameters or body.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_2'
+    Unauthorized_2:
+      description: Missing or invalid OAuth2 access token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_2'
+    Forbidden_2:
+      description: Insufficient permissions for the requested operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_3'
+    Forbidden_3:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_4'
+    InternalServerError_2:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_4'
+    BadRequest_3:
+      description: Invalid request parameters or body.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_4'
+    Unauthorized_4:
+      description: Missing or invalid OAuth2 access token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_4'
+    Forbidden_4:
+      description: Insufficient permissions for the requested operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_5'
+    Conflict_3:
+      description: A resource with the specified name already exists or the resource cannot be modified due to existing references.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_5'
+    Unauthorized_5:
+      description: Missing or invalid authentication token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_5'
   parameters:
-    uuid-required:
-      description: 'The resource''s unique identifier.
-
-        '
-      in: path
-      name: id
-      required: true
-      schema:
-        type: string
     offset-optional:
       description: 'The offset of the result entry.
 
         '
       in: query
       name: offset
+      required: false
+      schema:
+        type: number
+    limit-optional:
+      description: 'The maximum number of result objects to return per page.
+
+        '
+      in: query
+      name: limit
       required: false
       schema:
         type: number
@@ -808,22 +1889,13 @@ components:
         - Mobile Users Explicit Proxy
         pattern: ^[0-9a-zA-Z._-\s]{1,}$
         type: string
-    limit-optional:
-      description: 'The maximum number of result objects to return per page.
+    uuid-required:
+      description: 'The resource''s unique identifier.
 
         '
-      in: query
-      name: limit
-      required: false
-      schema:
-        type: number
-    name-optional:
-      description: 'The name of the entry.
-
-        '
-      in: query
-      name: name
-      required: false
+      in: path
+      name: id
+      required: true
       schema:
         type: string
     position:
@@ -839,25 +1911,119 @@ components:
         - pre
         - post
         type: string
+    name-optional:
+      description: 'The name of the entry.
+
+        '
+      in: query
+      name: name
+      required: false
+      schema:
+        type: string
+    priority:
+      name: priority
+      in: path
+      required: true
+      description: Priority number of the security rule. Rules with lower numbers are evaluated first (range 1-65535).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 65535
+    rulestack:
+      name: rulestack
+      in: path
+      required: true
+      description: Name of the rule stack.
+      schema:
+        type: string
+    device:
+      name: device
+      in: query
+      description: Device name for device-scoped configuration.
+      schema:
+        type: string
+    id:
+      name: id
+      in: path
+      required: true
+      description: Unique identifier of the resource.
+      schema:
+        type: string
+        format: uuid
+    folder_2:
+      name: folder
+      in: query
+      description: Configuration folder scope (e.g., Shared, Mobile Users, Remote Networks, Service Connections).
+      schema:
+        type: string
+    offset:
+      name: offset
+      in: query
+      description: Pagination offset (number of records to skip).
+      schema:
+        type: integer
+        default: 0
+    snippet:
+      name: snippet
+      in: query
+      description: Configuration snippet name.
+      schema:
+        type: string
+    position_2:
+      name: position
+      in: query
+      description: Rulebase position filter.
+      schema:
+        type: string
+        enum:
+        - pre
+        - post
+    limit:
+      name: limit
+      in: query
+      description: Maximum number of results per page.
+      schema:
+        type: integer
+        default: 200
+        maximum: 5000
+    position_3:
+      name: position
+      in: query
+      description: Rulebase position filter.
+      schema:
+        type: string
+        enum:
+        - pre
+        - post
+    folder_3:
+      name: folder
+      in: query
+      description: Configuration folder scope (e.g., Shared, Mobile Users, Remote Networks, Service Connections).
+      schema:
+        type: string
   schemas:
-    generic_error:
+    rule-based-move:
       properties:
-        _errors:
-          $ref: '#/components/schemas/error_detail_cause_infos'
-        _request_id:
+        destination:
+          description: A destination of the rule. Valid destination values are top, bottom, before and after.
+          enum:
+          - top
+          - bottom
+          - before
+          - after
           type: string
-      type: object
-    error_detail_cause_info:
-      properties:
-        code:
+        destination_rule:
+          description: A destination_rule attribute is required only if the destination value is before or after. Valid destination_rule values are existing rule UUIDs within the same container.
           type: string
-        details:
-          type: object
-        help:
+        rulebase:
+          description: A base of a rule. Valid rulebase values are pre and post.
+          enum:
+          - pre
+          - post
           type: string
-        message:
-          type: string
-      title: Cause Info
+      required:
+      - destination
+      - rulebase
       type: object
     security-rules:
       properties:
@@ -943,99 +2109,360 @@ components:
       - category
       - action
       type: object
+    generic_error:
+      properties:
+        _errors:
+          $ref: '#/components/schemas/error_detail_cause_infos'
+        _request_id:
+          type: string
+      type: object
     error_detail_cause_infos:
       items:
         $ref: '#/components/schemas/error_detail_cause_info'
       type: array
-    rule-based-move:
+    error_detail_cause_info:
       properties:
-        destination:
-          description: A destination of the rule. Valid destination values are top, bottom, before and after.
-          enum:
-          - top
-          - bottom
-          - before
-          - after
+        code:
           type: string
-        destination_rule:
-          description: A destination_rule attribute is required only if the destination value is before or after. Valid destination_rule values are existing rule UUIDs within the same container.
+        details:
+          type: object
+        help:
           type: string
-        rulebase:
-          description: A base of a rule. Valid rulebase values are pre and post.
-          enum:
-          - pre
-          - post
+        message:
           type: string
-      required:
-      - destination
-      - rulebase
+      title: Cause Info
       type: object
-    UpdateSecurityRuleRequest.Tag:
-      additionalProperties: false
-      properties:
-        Key:
-          maxLength: 128
-          minLength: 1
-          title: Key
-          type: string
-        Value:
-          maxLength: 128
-          minLength: 1
-          title: Value
-          type: string
-      required:
-      - Key
-      - Value
-      title: Tag
+    RuleSource:
       type: object
-    UpdateSecurityRuleRequest.UrlCategory:
-      additionalProperties: false
-      properties:
-        IntelligentFeeds:
-          items:
-            type: string
-          title: Intelligentfeeds
-          type: array
-        URLCategoryNames:
-          items:
-            type: string
-          title: Urlcategorynames
-          type: array
-      title: UrlCategory
-      type: object
-    DescribeSecurityRuleResponse.RuleDestination:
-      additionalProperties: false
+      description: Traffic source matching criteria for a security rule.
       properties:
         Cidrs:
-          default:
-          - Any
+          type: array
           items:
             type: string
-          title: Cidrs
-          type: array
+          description: Source CIDR blocks (e.g., 10.0.0.0/8).
+          example:
+          - example-Cidrs_item
+          - example-Cidrs_item
         Countries:
+          type: array
           items:
             type: string
-          title: Countries
-          type: array
+          description: Source country codes (ISO 3166-1 alpha-2).
+          example:
+          - example-Countries_item
         Feeds:
+          type: array
           items:
             type: string
-          title: Feeds
-          type: array
-        FqdnLists:
-          items:
-            type: string
-          title: Fqdnlists
-          type: array
+          description: Threat intelligence feed names.
+          example:
+          - example-Feeds_item
+          - example-Feeds_item
         PrefixLists:
+          type: array
           items:
             type: string
-          title: Prefixlists
-          type: array
-      title: RuleDestination
+          description: Names of prefix lists defined in the rule stack.
+          example:
+          - example-PrefixLists_item
+          - example-PrefixLists_item
+    SecurityRuleRequest:
       type: object
-    UpdateSecurityRuleResponse.Result:
+      required:
+      - Priority
+      - RuleEntry
+      properties:
+        Priority:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          example: 48316
+        RuleEntry:
+          type: object
+          required:
+          - RuleName
+          - Action
+          properties:
+            RuleName:
+              type: string
+              example: Primary Sensor 76
+            Description:
+              type: string
+              example: Threat alert rule policy investigation on activity rule threat activity traffic.
+            Enabled:
+              type: boolean
+              default: true
+              example: true
+            Source:
+              $ref: '#/components/schemas/RuleSource'
+            Destination:
+              $ref: '#/components/schemas/RuleDestination'
+            Applications:
+              type: array
+              items:
+                type: string
+              example:
+              - ssl
+              - web-browsing
+            Protocol:
+              type: string
+              enum:
+              - APPLICATION-DEFAULT
+              - ANY
+              example: APPLICATION-DEFAULT
+            Action:
+              type: string
+              enum:
+              - Allow
+              - DenyResetBoth
+              - DenyResetServer
+              - DenySilent
+              example: DenyResetServer
+          example:
+            RuleName: Primary Gateway 01
+            Description: Activity Security blocked suspicious threat alert activity firewall.
+            Enabled: true
+            Source:
+              Cidrs:
+              - example-Cidrs_item
+              Countries:
+              - example-Countries_item
+              Feeds:
+              - example-Feeds_item
+              - example-Feeds_item
+              PrefixLists:
+              - example-PrefixLists_item
+              - example-PrefixLists_item
+            Destination:
+              Cidrs:
+              - example-Cidrs_item
+              - example-Cidrs_item
+              Countries:
+              - example-Countries_item
+              - example-Countries_item
+              Feeds:
+              - example-Feeds_item
+              FqdnLists:
+              - example-FqdnLists_item
+              - example-FqdnLists_item
+              PrefixLists:
+              - example-PrefixLists_item
+            Applications:
+            - ssh
+            Protocol: APPLICATION-DEFAULT
+            Action: DenySilent
+    RuleDestination:
+      type: object
+      description: Traffic destination matching criteria for a security rule.
+      properties:
+        Cidrs:
+          type: array
+          items:
+            type: string
+          description: Destination CIDR blocks.
+          example:
+          - example-Cidrs_item
+          - example-Cidrs_item
+        Countries:
+          type: array
+          items:
+            type: string
+          description: Destination country codes.
+          example:
+          - example-Countries_item
+          - example-Countries_item
+        Feeds:
+          type: array
+          items:
+            type: string
+          example:
+          - example-Feeds_item
+        FqdnLists:
+          type: array
+          items:
+            type: string
+          description: Names of FQDN lists defined in the rule stack.
+          example:
+          - example-FqdnLists_item
+        PrefixLists:
+          type: array
+          items:
+            type: string
+          example:
+          - example-PrefixLists_item
+    ErrorResponse:
+      type: object
+      properties:
+        ResponseStatus:
+          type: object
+          properties:
+            ErrorCode:
+              type: integer
+              example: 869
+            Reason:
+              type: string
+              example: Blocked investigation activity firewall activity malware network on applied.
+          example:
+            ErrorCode: 719
+            Reason: Alert incident applied violation rule blocked alert violation incident suspicious suspicious.
+    SecurityRuleSummary:
+      type: object
+      properties:
+        Priority:
+          type: integer
+          example: 234
+        RuleName:
+          type: string
+          example: Production Policy 12
+        Enabled:
+          type: boolean
+          example: false
+    ResponseStatus:
+      type: object
+      description: Standard API response status envelope included in all responses.
+      properties:
+        ErrorCode:
+          type: integer
+          description: Error code. 0 indicates success.
+          example: 0
+        Reason:
+          type: string
+          description: Human-readable status message.
+          example: ''
+    SecurityRule:
+      type: object
+      description: A security rule within a Cloud NGFW rule stack.
+      properties:
+        Priority:
+          type: integer
+          description: Rule evaluation priority (lower numbers evaluated first).
+          example: 707
+        RuleEntry:
+          type: object
+          properties:
+            RuleName:
+              type: string
+              example: Staging Policy 40
+            Description:
+              type: string
+              example: Threat network configured alert configured violation rule malware alert monitoring threat.
+            Enabled:
+              type: boolean
+              default: true
+              example: true
+            Source:
+              $ref: '#/components/schemas/RuleSource'
+            NegateSource:
+              type: boolean
+              default: false
+              example: false
+            Destination:
+              $ref: '#/components/schemas/RuleDestination'
+            NegateDestination:
+              type: boolean
+              default: false
+              example: false
+            Applications:
+              type: array
+              items:
+                type: string
+              description: Application names to match (use any for all applications).
+              example:
+              - ssl
+              - ssh
+            Category:
+              type: object
+              properties:
+                URLCategoryNames:
+                  type: array
+                  items:
+                    type: string
+                  example:
+                  - Staging Firewall 58
+                  - Primary Firewall 83
+                Feeds:
+                  type: array
+                  items:
+                    type: string
+                  example:
+                  - example-Feeds_item
+                  - example-Feeds_item
+              example:
+                URLCategoryNames:
+                - Production Firewall 26
+                - Primary Policy 38
+                Feeds:
+                - example-Feeds_item
+            Protocol:
+              type: string
+              enum:
+              - APPLICATION-DEFAULT
+              - TCP
+              - UDP
+              - ICMP
+              - ANY
+              example: ICMP
+            Action:
+              type: string
+              enum:
+              - Allow
+              - DenyResetBoth
+              - DenyResetServer
+              - DenySilent
+              example: Allow
+            DecryptionRuleType:
+              type: string
+              enum:
+              - SSLOutboundInspection
+              - None
+              example: None
+            AuditComment:
+              type: string
+              example: Blocked suspicious rule investigation activity on.
+          example:
+            RuleName: Primary Gateway 01
+            Description: Firewall alert incident monitoring investigation threat threat blocked activity monitoring.
+            Enabled: true
+            Source:
+              Cidrs:
+              - example-Cidrs_item
+              - example-Cidrs_item
+              Countries:
+              - example-Countries_item
+              - example-Countries_item
+              Feeds:
+              - example-Feeds_item
+              PrefixLists:
+              - example-PrefixLists_item
+            NegateSource: false
+            Destination:
+              Cidrs:
+              - example-Cidrs_item
+              Countries:
+              - example-Countries_item
+              - example-Countries_item
+              Feeds:
+              - example-Feeds_item
+              FqdnLists:
+              - example-FqdnLists_item
+              - example-FqdnLists_item
+              PrefixLists:
+              - example-PrefixLists_item
+            NegateDestination: false
+            Applications:
+            - dns
+            - web-browsing
+            Category:
+              URLCategoryNames:
+              - Production Sensor 06
+              Feeds:
+              - example-Feeds_item
+            Protocol: UDP
+            Action: Allow
+            DecryptionRuleType: SSLOutboundInspection
+            AuditComment: Rule malware monitoring malware firewall violation suspicious detected applied firewall detected applied.
+    DeleteSecurityRuleResponse.Result:
       additionalProperties: false
       properties:
         ErrorCode:
@@ -1046,238 +2473,6 @@ components:
           title: Reason
           type: string
       title: Result
-      type: object
-    UpdateSecurityRuleResponse.UrlCategory:
-      additionalProperties: false
-      properties:
-        IntelligentFeeds:
-          items:
-            type: string
-          title: Intelligentfeeds
-          type: array
-        URLCategoryNames:
-          items:
-            type: string
-          title: Urlcategorynames
-          type: array
-      title: UrlCategory
-      type: object
-    CreateSecurityRuleRequest.UrlCategory:
-      additionalProperties: false
-      properties:
-        IntelligentFeeds:
-          items:
-            type: string
-          title: Intelligentfeeds
-          type: array
-        URLCategoryNames:
-          items:
-            type: string
-          title: Urlcategorynames
-          type: array
-      title: UrlCategory
-      type: object
-    UpdateSecurityRuleResponse.RuleDestination:
-      additionalProperties: false
-      properties:
-        Cidrs:
-          default:
-          - Any
-          items:
-            type: string
-          title: Cidrs
-          type: array
-        Countries:
-          items:
-            type: string
-          title: Countries
-          type: array
-        Feeds:
-          items:
-            type: string
-          title: Feeds
-          type: array
-        FqdnLists:
-          items:
-            type: string
-          title: Fqdnlists
-          type: array
-        PrefixLists:
-          items:
-            type: string
-          title: Prefixlists
-          type: array
-      title: RuleDestination
-      type: object
-    DescribeSecurityRuleResponse.UrlCategory:
-      additionalProperties: false
-      properties:
-        IntelligentFeeds:
-          items:
-            type: string
-          title: Intelligentfeeds
-          type: array
-        URLCategoryNames:
-          items:
-            type: string
-          title: Urlcategorynames
-          type: array
-      title: UrlCategory
-      type: object
-    DescribeSecurityRuleResponse.ResponseData:
-      additionalProperties: false
-      properties:
-        Priority:
-          title: Priority
-          type: integer
-        RuleEntryCandidate:
-          $ref: '#/components/schemas/DescribeSecurityRuleResponse.Rule'
-        RuleEntryRunning:
-          $ref: '#/components/schemas/DescribeSecurityRuleResponse.Rule'
-        RuleListName:
-          title: Rulelistname
-          type: string
-        RuleStackName:
-          title: Rulestackname
-          type: string
-      title: ResponseData
-      type: object
-    UpdateSecurityRuleResponse.Rule:
-      additionalProperties: false
-      properties:
-        Action:
-          default: Allow
-          enum:
-          - Allow
-          - DenySilent
-          - DenyResetServer
-          - DenyResetBoth
-          title: Action
-          type: string
-        Applications:
-          default:
-          - Any
-          items:
-            type: string
-          title: Applications
-          type: array
-        AuditComment:
-          maxLength: 512
-          title: Auditcomment
-          type: string
-        Category:
-          $ref: '#/components/schemas/UpdateSecurityRuleResponse.UrlCategory'
-        DecryptionRuleType:
-          enum:
-          - SSLOutboundInspection
-          title: Decryptionruletype
-          type: string
-        Description:
-          maxLength: 512
-          title: Description
-          type: string
-        Destination:
-          $ref: '#/components/schemas/UpdateSecurityRuleResponse.RuleDestination'
-        Enabled:
-          default: true
-          title: Enabled
-          type: boolean
-        Logging:
-          default: false
-          title: Logging
-          type: boolean
-        NegateDestination:
-          default: false
-          title: Negatedestination
-          type: boolean
-        NegateSource:
-          default: false
-          title: Negatesource
-          type: boolean
-        Protocol:
-          default: application-default
-          title: Protocol
-          type: string
-        RuleName:
-          maxLength: 128
-          minLength: 1
-          pattern: ^[a-zA-Z0-9-]+$
-          title: Rulename
-          type: string
-        Source:
-          $ref: '#/components/schemas/UpdateSecurityRuleResponse.RuleSource'
-        Tags:
-          items:
-            $ref: '#/components/schemas/UpdateSecurityRuleResponse.Tag'
-          maxItems: 200
-          title: Tags
-          type: array
-        UpdateToken:
-          title: Updatetoken
-          type: string
-      required:
-      - RuleName
-      title: Rule
-      type: object
-    CreateSecurityRuleRequest.RuleSource:
-      additionalProperties: false
-      properties:
-        Cidrs:
-          default:
-          - Any
-          items:
-            type: string
-          title: Cidrs
-          type: array
-        Countries:
-          items:
-            type: string
-          title: Countries
-          type: array
-        Feeds:
-          items:
-            type: string
-          title: Feeds
-          type: array
-        PrefixLists:
-          items:
-            type: string
-          title: Prefixlists
-          type: array
-      title: RuleSource
-      type: object
-    CreateSecurityRuleRequest.Tag:
-      additionalProperties: false
-      properties:
-        Key:
-          maxLength: 128
-          minLength: 1
-          title: Key
-          type: string
-        Value:
-          maxLength: 128
-          minLength: 1
-          title: Value
-          type: string
-      required:
-      - Key
-      - Value
-      title: Tag
-      type: object
-    DeleteSecurityRuleResponse.UrlCategory:
-      additionalProperties: false
-      properties:
-        IntelligentFeeds:
-          items:
-            type: string
-          title: Intelligentfeeds
-          type: array
-        URLCategoryNames:
-          items:
-            type: string
-          title: Urlcategorynames
-          type: array
-      title: UrlCategory
       type: object
     CreateSecurityRuleResponse.Rule:
       additionalProperties: false
@@ -1356,36 +2551,34 @@ components:
       - RuleName
       title: Rule
       type: object
-    ListSecurityRulesResponse.ResponseData:
+    CreateSecurityRuleRequest.RuleSource:
       additionalProperties: false
       properties:
-        NextToken:
-          title: Nexttoken
-          type: string
-        RuleEntryCandidate:
+        Cidrs:
+          default:
+          - Any
           items:
-            $ref: '#/components/schemas/ListSecurityRulesResponse.RuleEntryIdentifier'
-          title: Ruleentrycandidate
+            type: string
+          title: Cidrs
           type: array
-        RuleEntryRunning:
+        Countries:
           items:
-            $ref: '#/components/schemas/ListSecurityRulesResponse.RuleEntryIdentifier'
-          title: Ruleentryrunning
+            type: string
+          title: Countries
           type: array
-        RuleEntryUncommitted:
+        Feeds:
           items:
-            $ref: '#/components/schemas/ListSecurityRulesResponse.RuleEntryUncommittedIdentifier'
-          title: Ruleentryuncommitted
+            type: string
+          title: Feeds
           type: array
-        RuleListName:
-          title: Rulelistname
-          type: string
-        RuleStackName:
-          title: Rulestackname
-          type: string
-      title: ResponseData
+        PrefixLists:
+          items:
+            type: string
+          title: Prefixlists
+          type: array
+      title: RuleSource
       type: object
-    DeleteSecurityRuleResponse.RuleDestination:
+    CreateSecurityRuleRequest.RuleDestination:
       additionalProperties: false
       properties:
         Cidrs:
@@ -1417,25 +2610,7 @@ components:
           type: array
       title: RuleDestination
       type: object
-    UpdateSecurityRuleResponse.Tag:
-      additionalProperties: false
-      properties:
-        Key:
-          maxLength: 128
-          minLength: 1
-          title: Key
-          type: string
-        Value:
-          maxLength: 128
-          minLength: 1
-          title: Value
-          type: string
-      required:
-      - Key
-      - Value
-      title: Tag
-      type: object
-    DeleteSecurityRuleResponse.Result:
+    CreateSecurityRuleResponse.Result:
       additionalProperties: false
       properties:
         ErrorCode:
@@ -1447,109 +2622,57 @@ components:
           type: string
       title: Result
       type: object
-    ListSecurityRulesResponse.Result:
+    UpdateSecurityRuleResponse.ResponseData:
       additionalProperties: false
       properties:
-        ErrorCode:
-          default: 0
-          title: Errorcode
+        Priority:
+          title: Priority
           type: integer
-        Reason:
-          title: Reason
+        RuleEntry:
+          $ref: '#/components/schemas/UpdateSecurityRuleResponse.Rule'
+        RuleListName:
+          title: Rulelistname
           type: string
-      title: Result
+        RuleStackName:
+          title: Rulestackname
+          type: string
+      title: ResponseData
       type: object
-    CreateSecurityRuleResponse.UrlCategory:
+    UpdateSecurityRuleResponse.RuleSource:
       additionalProperties: false
       properties:
-        IntelligentFeeds:
-          items:
-            type: string
-          title: Intelligentfeeds
-          type: array
-        URLCategoryNames:
-          items:
-            type: string
-          title: Urlcategorynames
-          type: array
-      title: UrlCategory
-      type: object
-    UpdateSecurityRuleRequest.Rule:
-      additionalProperties: false
-      properties:
-        Action:
-          default: Allow
-          enum:
-          - Allow
-          - DenySilent
-          - DenyResetServer
-          - DenyResetBoth
-          title: Action
-          type: string
-        Applications:
+        Cidrs:
           default:
           - Any
           items:
             type: string
-          title: Applications
+          title: Cidrs
           type: array
-        AuditComment:
-          maxLength: 512
-          title: Auditcomment
-          type: string
-        Category:
-          $ref: '#/components/schemas/UpdateSecurityRuleRequest.UrlCategory'
-        DecryptionRuleType:
-          enum:
-          - SSLOutboundInspection
-          title: Decryptionruletype
-          type: string
-        Description:
-          maxLength: 512
-          title: Description
-          type: string
-        Destination:
-          $ref: '#/components/schemas/UpdateSecurityRuleRequest.RuleDestination'
-        Enabled:
-          default: true
-          title: Enabled
-          type: boolean
-        Logging:
-          default: false
-          title: Logging
-          type: boolean
-        NegateDestination:
-          default: false
-          title: Negatedestination
-          type: boolean
-        NegateSource:
-          default: false
-          title: Negatesource
-          type: boolean
-        Protocol:
-          default: application-default
-          title: Protocol
-          type: string
-        RuleName:
-          maxLength: 128
-          minLength: 1
-          pattern: ^[a-zA-Z0-9-]+$
-          title: Rulename
-          type: string
-        Source:
-          $ref: '#/components/schemas/UpdateSecurityRuleRequest.RuleSource'
-        Tags:
+        Countries:
           items:
-            $ref: '#/components/schemas/UpdateSecurityRuleRequest.Tag'
-          maxItems: 200
-          title: Tags
+            type: string
+          title: Countries
           type: array
-        UpdateToken:
-          title: Updatetoken
-          type: string
-      required:
-      - RuleName
-      title: Rule
+        Feeds:
+          items:
+            type: string
+          title: Feeds
+          type: array
+        PrefixLists:
+          items:
+            type: string
+          title: Prefixlists
+          type: array
+      title: RuleSource
+      type: object
+    DescribeSecurityRuleResponse:
+      additionalProperties: false
+      properties:
+        Response:
+          $ref: '#/components/schemas/DescribeSecurityRuleResponse.ResponseData'
+        ResponseStatus:
+          $ref: '#/components/schemas/DescribeSecurityRuleResponse.Result'
+      title: DescribeSecurityRuleResponse
       type: object
     DeleteSecurityRuleResponse.Rule:
       additionalProperties: false
@@ -1628,24 +2751,6 @@ components:
       - RuleName
       title: Rule
       type: object
-    CreateSecurityRuleResponse.Tag:
-      additionalProperties: false
-      properties:
-        Key:
-          maxLength: 128
-          minLength: 1
-          title: Key
-          type: string
-        Value:
-          maxLength: 128
-          minLength: 1
-          title: Value
-          type: string
-      required:
-      - Key
-      - Value
-      title: Tag
-      type: object
     DeleteSecurityRuleResponse.RuleSource:
       additionalProperties: false
       properties:
@@ -1673,7 +2778,64 @@ components:
           type: array
       title: RuleSource
       type: object
-    UpdateSecurityRuleRequest.RuleDestination:
+    UpdateSecurityRuleResponse.Result:
+      additionalProperties: false
+      properties:
+        ErrorCode:
+          default: 0
+          title: Errorcode
+          type: integer
+        Reason:
+          title: Reason
+          type: string
+      title: Result
+      type: object
+    ListSecurityRulesResponse.Result:
+      additionalProperties: false
+      properties:
+        ErrorCode:
+          default: 0
+          title: Errorcode
+          type: integer
+        Reason:
+          title: Reason
+          type: string
+      title: Result
+      type: object
+    ListSecurityRulesResponse.RuleEntryUncommittedIdentifier:
+      additionalProperties: false
+      properties:
+        Operation:
+          title: Operation
+          type: string
+        Priority:
+          title: Priority
+          type: integer
+        RuleName:
+          title: Rulename
+          type: string
+      required:
+      - Priority
+      - RuleName
+      - Operation
+      title: RuleEntryUncommittedIdentifier
+      type: object
+    DescribeSecurityRuleResponse.UrlCategory:
+      additionalProperties: false
+      properties:
+        IntelligentFeeds:
+          items:
+            type: string
+          title: Intelligentfeeds
+          type: array
+        URLCategoryNames:
+          items:
+            type: string
+          title: Urlcategorynames
+          type: array
+      title: UrlCategory
+      type: object
+    UpdateSecurityRuleResponse.RuleDestination:
       additionalProperties: false
       properties:
         Cidrs:
@@ -1705,168 +2867,7 @@ components:
           type: array
       title: RuleDestination
       type: object
-    CreateSecurityRuleResponse.RuleSource:
-      additionalProperties: false
-      properties:
-        Cidrs:
-          default:
-          - Any
-          items:
-            type: string
-          title: Cidrs
-          type: array
-        Countries:
-          items:
-            type: string
-          title: Countries
-          type: array
-        Feeds:
-          items:
-            type: string
-          title: Feeds
-          type: array
-        PrefixLists:
-          items:
-            type: string
-          title: Prefixlists
-          type: array
-      title: RuleSource
-      type: object
-    ListSecurityRulesResponse.RuleEntryUncommittedIdentifier:
-      additionalProperties: false
-      properties:
-        Operation:
-          title: Operation
-          type: string
-        Priority:
-          title: Priority
-          type: integer
-        RuleName:
-          title: Rulename
-          type: string
-      required:
-      - Priority
-      - RuleName
-      - Operation
-      title: RuleEntryUncommittedIdentifier
-      type: object
-    CreateSecurityRuleResponse.Result:
-      additionalProperties: false
-      properties:
-        ErrorCode:
-          default: 0
-          title: Errorcode
-          type: integer
-        Reason:
-          title: Reason
-          type: string
-      title: Result
-      type: object
-    DeleteSecurityRuleResponse.ResponseData:
-      additionalProperties: false
-      properties:
-        Priority:
-          title: Priority
-          type: integer
-        RuleEntry:
-          $ref: '#/components/schemas/DeleteSecurityRuleResponse.Rule'
-        RuleListName:
-          title: Rulelistname
-          type: string
-        RuleStackName:
-          title: Rulestackname
-          type: string
-      title: ResponseData
-      type: object
-    DescribeSecurityRuleResponse:
-      additionalProperties: false
-      properties:
-        Response:
-          $ref: '#/components/schemas/DescribeSecurityRuleResponse.ResponseData'
-        ResponseStatus:
-          $ref: '#/components/schemas/DescribeSecurityRuleResponse.Result'
-      title: DescribeSecurityRuleResponse
-      type: object
-    CreateSecurityRuleResponse.ResponseData:
-      additionalProperties: false
-      properties:
-        Priority:
-          title: Priority
-          type: integer
-        RuleEntry:
-          $ref: '#/components/schemas/CreateSecurityRuleResponse.Rule'
-        RuleListName:
-          title: Rulelistname
-          type: string
-        RuleStackName:
-          title: Rulestackname
-          type: string
-      title: ResponseData
-      type: object
-    ListSecurityRulesResponse:
-      additionalProperties: false
-      properties:
-        Response:
-          $ref: '#/components/schemas/ListSecurityRulesResponse.ResponseData'
-        ResponseStatus:
-          $ref: '#/components/schemas/ListSecurityRulesResponse.Result'
-      title: ListSecurityRulesResponse
-      type: object
-    DescribeSecurityRuleResponse.RuleSource:
-      additionalProperties: false
-      properties:
-        Cidrs:
-          default:
-          - Any
-          items:
-            type: string
-          title: Cidrs
-          type: array
-        Countries:
-          items:
-            type: string
-          title: Countries
-          type: array
-        Feeds:
-          items:
-            type: string
-          title: Feeds
-          type: array
-        PrefixLists:
-          items:
-            type: string
-          title: Prefixlists
-          type: array
-      title: RuleSource
-      type: object
-    UpdateSecurityRuleRequest.RuleSource:
-      additionalProperties: false
-      properties:
-        Cidrs:
-          default:
-          - Any
-          items:
-            type: string
-          title: Cidrs
-          type: array
-        Countries:
-          items:
-            type: string
-          title: Countries
-          type: array
-        Feeds:
-          items:
-            type: string
-          title: Feeds
-          type: array
-        PrefixLists:
-          items:
-            type: string
-          title: Prefixlists
-          type: array
-      title: RuleSource
-      type: object
-    DeleteSecurityRuleResponse.Tag:
+    CreateSecurityRuleRequest.Tag:
       additionalProperties: false
       properties:
         Key:
@@ -1884,72 +2885,118 @@ components:
       - Value
       title: Tag
       type: object
-    UpdateSecurityRuleResponse.ResponseData:
+    DescribeSecurityRuleResponse.Tag:
       additionalProperties: false
       properties:
-        Priority:
-          title: Priority
-          type: integer
-        RuleEntry:
-          $ref: '#/components/schemas/UpdateSecurityRuleResponse.Rule'
-        RuleListName:
-          title: Rulelistname
+        Key:
+          maxLength: 128
+          minLength: 1
+          title: Key
           type: string
-        RuleStackName:
-          title: Rulestackname
+        Value:
+          maxLength: 128
+          minLength: 1
+          title: Value
           type: string
-      title: ResponseData
+      required:
+      - Key
+      - Value
+      title: Tag
       type: object
-    UpdateSecurityRuleResponse.RuleSource:
+    UpdateSecurityRuleRequest:
       additionalProperties: false
       properties:
-        Cidrs:
+        RuleEntry:
+          $ref: '#/components/schemas/UpdateSecurityRuleRequest.Rule'
+      required:
+      - RuleEntry
+      title: UpdateSecurityRuleRequest
+      type: object
+    UpdateSecurityRuleRequest.Rule:
+      additionalProperties: false
+      properties:
+        Action:
+          default: Allow
+          enum:
+          - Allow
+          - DenySilent
+          - DenyResetServer
+          - DenyResetBoth
+          title: Action
+          type: string
+        Applications:
           default:
           - Any
           items:
             type: string
-          title: Cidrs
+          title: Applications
           type: array
-        Countries:
+        AuditComment:
+          maxLength: 512
+          title: Auditcomment
+          type: string
+        Category:
+          $ref: '#/components/schemas/UpdateSecurityRuleRequest.UrlCategory'
+        DecryptionRuleType:
+          enum:
+          - SSLOutboundInspection
+          title: Decryptionruletype
+          type: string
+        Description:
+          maxLength: 512
+          title: Description
+          type: string
+        Destination:
+          $ref: '#/components/schemas/UpdateSecurityRuleRequest.RuleDestination'
+        Enabled:
+          default: true
+          title: Enabled
+          type: boolean
+        Logging:
+          default: false
+          title: Logging
+          type: boolean
+        NegateDestination:
+          default: false
+          title: Negatedestination
+          type: boolean
+        NegateSource:
+          default: false
+          title: Negatesource
+          type: boolean
+        Protocol:
+          default: application-default
+          title: Protocol
+          type: string
+        RuleName:
+          maxLength: 128
+          minLength: 1
+          pattern: ^[a-zA-Z0-9-]+$
+          title: Rulename
+          type: string
+        Source:
+          $ref: '#/components/schemas/UpdateSecurityRuleRequest.RuleSource'
+        Tags:
           items:
-            type: string
-          title: Countries
+            $ref: '#/components/schemas/UpdateSecurityRuleRequest.Tag'
+          maxItems: 200
+          title: Tags
           type: array
-        Feeds:
-          items:
-            type: string
-          title: Feeds
-          type: array
-        PrefixLists:
-          items:
-            type: string
-          title: Prefixlists
-          type: array
-      title: RuleSource
+        UpdateToken:
+          title: Updatetoken
+          type: string
+      required:
+      - RuleName
+      title: Rule
       type: object
-    UpdateSecurityRuleResponse:
+    CreateSecurityRuleResponse:
       additionalProperties: false
       properties:
         Response:
-          $ref: '#/components/schemas/UpdateSecurityRuleResponse.ResponseData'
+          $ref: '#/components/schemas/CreateSecurityRuleResponse.ResponseData'
         ResponseStatus:
-          $ref: '#/components/schemas/UpdateSecurityRuleResponse.Result'
-      title: UpdateSecurityRuleResponse
-      type: object
-    CreateSecurityRuleRequest:
-      additionalProperties: false
-      properties:
-        Priority:
-          exclusiveMaximum: 1000001
-          exclusiveMinimum: 0
-          title: Priority
-          type: integer
-        RuleEntry:
-          $ref: '#/components/schemas/CreateSecurityRuleRequest.RuleCreate'
-      required:
-      - Priority
-      - RuleEntry
-      title: CreateSecurityRuleRequest
+          $ref: '#/components/schemas/CreateSecurityRuleResponse.Result'
+      title: CreateSecurityRuleResponse
       type: object
     CreateSecurityRuleRequest.RuleCreate:
       additionalProperties: false
@@ -2025,7 +3072,40 @@ components:
       - RuleName
       title: RuleCreate
       type: object
-    CreateSecurityRuleRequest.RuleDestination:
+    DescribeSecurityRuleResponse.ResponseData:
+      additionalProperties: false
+      properties:
+        Priority:
+          title: Priority
+          type: integer
+        RuleEntryCandidate:
+          $ref: '#/components/schemas/DescribeSecurityRuleResponse.Rule'
+        RuleEntryRunning:
+          $ref: '#/components/schemas/DescribeSecurityRuleResponse.Rule'
+        RuleListName:
+          title: Rulelistname
+          type: string
+        RuleStackName:
+          title: Rulestackname
+          type: string
+      title: ResponseData
+      type: object
+    UpdateSecurityRuleResponse.UrlCategory:
+      additionalProperties: false
+      properties:
+        IntelligentFeeds:
+          items:
+            type: string
+          title: Intelligentfeeds
+          type: array
+        URLCategoryNames:
+          items:
+            type: string
+          title: Urlcategorynames
+          type: array
+      title: UrlCategory
+      type: object
+    DeleteSecurityRuleResponse.RuleDestination:
       additionalProperties: false
       properties:
         Cidrs:
@@ -2057,25 +3137,7 @@ components:
           type: array
       title: RuleDestination
       type: object
-    UpdateSecurityRuleRequest:
-      additionalProperties: false
-      properties:
-        RuleEntry:
-          $ref: '#/components/schemas/UpdateSecurityRuleRequest.Rule'
-      required:
-      - RuleEntry
-      title: UpdateSecurityRuleRequest
-      type: object
-    DeleteSecurityRuleResponse:
-      additionalProperties: false
-      properties:
-        Response:
-          $ref: '#/components/schemas/DeleteSecurityRuleResponse.ResponseData'
-        ResponseStatus:
-          $ref: '#/components/schemas/DeleteSecurityRuleResponse.Result'
-      title: DeleteSecurityRuleResponse
-      type: object
-    DescribeSecurityRuleResponse.Tag:
+    UpdateSecurityRuleResponse.Tag:
       additionalProperties: false
       properties:
         Key:
@@ -2092,6 +3154,250 @@ components:
       - Key
       - Value
       title: Tag
+      type: object
+    CreateSecurityRuleResponse.RuleSource:
+      additionalProperties: false
+      properties:
+        Cidrs:
+          default:
+          - Any
+          items:
+            type: string
+          title: Cidrs
+          type: array
+        Countries:
+          items:
+            type: string
+          title: Countries
+          type: array
+        Feeds:
+          items:
+            type: string
+          title: Feeds
+          type: array
+        PrefixLists:
+          items:
+            type: string
+          title: Prefixlists
+          type: array
+      title: RuleSource
+      type: object
+    UpdateSecurityRuleRequest.RuleSource:
+      additionalProperties: false
+      properties:
+        Cidrs:
+          default:
+          - Any
+          items:
+            type: string
+          title: Cidrs
+          type: array
+        Countries:
+          items:
+            type: string
+          title: Countries
+          type: array
+        Feeds:
+          items:
+            type: string
+          title: Feeds
+          type: array
+        PrefixLists:
+          items:
+            type: string
+          title: Prefixlists
+          type: array
+      title: RuleSource
+      type: object
+    CreateSecurityRuleRequest.UrlCategory:
+      additionalProperties: false
+      properties:
+        IntelligentFeeds:
+          items:
+            type: string
+          title: Intelligentfeeds
+          type: array
+        URLCategoryNames:
+          items:
+            type: string
+          title: Urlcategorynames
+          type: array
+      title: UrlCategory
+      type: object
+    DeleteSecurityRuleResponse:
+      additionalProperties: false
+      properties:
+        Response:
+          $ref: '#/components/schemas/DeleteSecurityRuleResponse.ResponseData'
+        ResponseStatus:
+          $ref: '#/components/schemas/DeleteSecurityRuleResponse.Result'
+      title: DeleteSecurityRuleResponse
+      type: object
+    UpdateSecurityRuleResponse.Rule:
+      additionalProperties: false
+      properties:
+        Action:
+          default: Allow
+          enum:
+          - Allow
+          - DenySilent
+          - DenyResetServer
+          - DenyResetBoth
+          title: Action
+          type: string
+        Applications:
+          default:
+          - Any
+          items:
+            type: string
+          title: Applications
+          type: array
+        AuditComment:
+          maxLength: 512
+          title: Auditcomment
+          type: string
+        Category:
+          $ref: '#/components/schemas/UpdateSecurityRuleResponse.UrlCategory'
+        DecryptionRuleType:
+          enum:
+          - SSLOutboundInspection
+          title: Decryptionruletype
+          type: string
+        Description:
+          maxLength: 512
+          title: Description
+          type: string
+        Destination:
+          $ref: '#/components/schemas/UpdateSecurityRuleResponse.RuleDestination'
+        Enabled:
+          default: true
+          title: Enabled
+          type: boolean
+        Logging:
+          default: false
+          title: Logging
+          type: boolean
+        NegateDestination:
+          default: false
+          title: Negatedestination
+          type: boolean
+        NegateSource:
+          default: false
+          title: Negatesource
+          type: boolean
+        Protocol:
+          default: application-default
+          title: Protocol
+          type: string
+        RuleName:
+          maxLength: 128
+          minLength: 1
+          pattern: ^[a-zA-Z0-9-]+$
+          title: Rulename
+          type: string
+        Source:
+          $ref: '#/components/schemas/UpdateSecurityRuleResponse.RuleSource'
+        Tags:
+          items:
+            $ref: '#/components/schemas/UpdateSecurityRuleResponse.Tag'
+          maxItems: 200
+          title: Tags
+          type: array
+        UpdateToken:
+          title: Updatetoken
+          type: string
+      required:
+      - RuleName
+      title: Rule
+      type: object
+    ListSecurityRulesResponse.ResponseData:
+      additionalProperties: false
+      properties:
+        NextToken:
+          title: Nexttoken
+          type: string
+        RuleEntryCandidate:
+          items:
+            $ref: '#/components/schemas/ListSecurityRulesResponse.RuleEntryIdentifier'
+          title: Ruleentrycandidate
+          type: array
+        RuleEntryRunning:
+          items:
+            $ref: '#/components/schemas/ListSecurityRulesResponse.RuleEntryIdentifier'
+          title: Ruleentryrunning
+          type: array
+        RuleEntryUncommitted:
+          items:
+            $ref: '#/components/schemas/ListSecurityRulesResponse.RuleEntryUncommittedIdentifier'
+          title: Ruleentryuncommitted
+          type: array
+        RuleListName:
+          title: Rulelistname
+          type: string
+        RuleStackName:
+          title: Rulestackname
+          type: string
+      title: ResponseData
+      type: object
+    DescribeSecurityRuleResponse.Result:
+      additionalProperties: false
+      properties:
+        ErrorCode:
+          default: 0
+          title: Errorcode
+          type: integer
+        Reason:
+          title: Reason
+          type: string
+      title: Result
+      type: object
+    UpdateSecurityRuleRequest.Tag:
+      additionalProperties: false
+      properties:
+        Key:
+          maxLength: 128
+          minLength: 1
+          title: Key
+          type: string
+        Value:
+          maxLength: 128
+          minLength: 1
+          title: Value
+          type: string
+      required:
+      - Key
+      - Value
+      title: Tag
+      type: object
+    UpdateSecurityRuleRequest.UrlCategory:
+      additionalProperties: false
+      properties:
+        IntelligentFeeds:
+          items:
+            type: string
+          title: Intelligentfeeds
+          type: array
+        URLCategoryNames:
+          items:
+            type: string
+          title: Urlcategorynames
+          type: array
+      title: UrlCategory
+      type: object
+    CreateSecurityRuleResponse.UrlCategory:
+      additionalProperties: false
+      properties:
+        IntelligentFeeds:
+          items:
+            type: string
+          title: Intelligentfeeds
+          type: array
+        URLCategoryNames:
+          items:
+            type: string
+          title: Urlcategorynames
+          type: array
+      title: UrlCategory
       type: object
     DescribeSecurityRuleResponse.Rule:
       additionalProperties: false
@@ -2170,6 +3476,38 @@ components:
       - RuleName
       title: Rule
       type: object
+    DeleteSecurityRuleResponse.Tag:
+      additionalProperties: false
+      properties:
+        Key:
+          maxLength: 128
+          minLength: 1
+          title: Key
+          type: string
+        Value:
+          maxLength: 128
+          minLength: 1
+          title: Value
+          type: string
+      required:
+      - Key
+      - Value
+      title: Tag
+      type: object
+    DeleteSecurityRuleRequest:
+      additionalProperties: false
+      properties: {}
+      title: DeleteSecurityRuleRequest
+      type: object
+    ListSecurityRulesResponse:
+      additionalProperties: false
+      properties:
+        Response:
+          $ref: '#/components/schemas/ListSecurityRulesResponse.ResponseData'
+        ResponseStatus:
+          $ref: '#/components/schemas/ListSecurityRulesResponse.Result'
+      title: ListSecurityRulesResponse
+      type: object
     CreateSecurityRuleResponse.RuleDestination:
       additionalProperties: false
       properties:
@@ -2202,14 +3540,67 @@ components:
           type: array
       title: RuleDestination
       type: object
-    CreateSecurityRuleResponse:
+    UpdateSecurityRuleRequest.RuleDestination:
       additionalProperties: false
       properties:
-        Response:
-          $ref: '#/components/schemas/CreateSecurityRuleResponse.ResponseData'
-        ResponseStatus:
-          $ref: '#/components/schemas/CreateSecurityRuleResponse.Result'
-      title: CreateSecurityRuleResponse
+        Cidrs:
+          default:
+          - Any
+          items:
+            type: string
+          title: Cidrs
+          type: array
+        Countries:
+          items:
+            type: string
+          title: Countries
+          type: array
+        Feeds:
+          items:
+            type: string
+          title: Feeds
+          type: array
+        FqdnLists:
+          items:
+            type: string
+          title: Fqdnlists
+          type: array
+        PrefixLists:
+          items:
+            type: string
+          title: Prefixlists
+          type: array
+      title: RuleDestination
+      type: object
+    DeleteSecurityRuleResponse.UrlCategory:
+      additionalProperties: false
+      properties:
+        IntelligentFeeds:
+          items:
+            type: string
+          title: Intelligentfeeds
+          type: array
+        URLCategoryNames:
+          items:
+            type: string
+          title: Urlcategorynames
+          type: array
+      title: UrlCategory
+      type: object
+    CreateSecurityRuleRequest:
+      additionalProperties: false
+      properties:
+        Priority:
+          exclusiveMaximum: 1000001
+          exclusiveMinimum: 0
+          title: Priority
+          type: integer
+        RuleEntry:
+          $ref: '#/components/schemas/CreateSecurityRuleRequest.RuleCreate'
+      required:
+      - Priority
+      - RuleEntry
+      title: CreateSecurityRuleRequest
       type: object
     ListSecurityRulesResponse.RuleEntryIdentifier:
       additionalProperties: false
@@ -2226,27 +3617,1163 @@ components:
       - Priority
       title: RuleEntryIdentifier
       type: object
-    DescribeSecurityRuleResponse.Result:
+    DescribeSecurityRuleResponse.RuleDestination:
       additionalProperties: false
       properties:
-        ErrorCode:
-          default: 0
-          title: Errorcode
-          type: integer
-        Reason:
-          title: Reason
-          type: string
-      title: Result
+        Cidrs:
+          default:
+          - Any
+          items:
+            type: string
+          title: Cidrs
+          type: array
+        Countries:
+          items:
+            type: string
+          title: Countries
+          type: array
+        Feeds:
+          items:
+            type: string
+          title: Feeds
+          type: array
+        FqdnLists:
+          items:
+            type: string
+          title: Fqdnlists
+          type: array
+        PrefixLists:
+          items:
+            type: string
+          title: Prefixlists
+          type: array
+      title: RuleDestination
       type: object
-    DeleteSecurityRuleRequest:
+    UpdateSecurityRuleResponse:
       additionalProperties: false
-      properties: {}
-      title: DeleteSecurityRuleRequest
+      properties:
+        Response:
+          $ref: '#/components/schemas/UpdateSecurityRuleResponse.ResponseData'
+        ResponseStatus:
+          $ref: '#/components/schemas/UpdateSecurityRuleResponse.Result'
+      title: UpdateSecurityRuleResponse
       type: object
+    CreateSecurityRuleResponse.Tag:
+      additionalProperties: false
+      properties:
+        Key:
+          maxLength: 128
+          minLength: 1
+          title: Key
+          type: string
+        Value:
+          maxLength: 128
+          minLength: 1
+          title: Value
+          type: string
+      required:
+      - Key
+      - Value
+      title: Tag
+      type: object
+    DeleteSecurityRuleResponse.ResponseData:
+      additionalProperties: false
+      properties:
+        Priority:
+          title: Priority
+          type: integer
+        RuleEntry:
+          $ref: '#/components/schemas/DeleteSecurityRuleResponse.Rule'
+        RuleListName:
+          title: Rulelistname
+          type: string
+        RuleStackName:
+          title: Rulestackname
+          type: string
+      title: ResponseData
+      type: object
+    DescribeSecurityRuleResponse.RuleSource:
+      additionalProperties: false
+      properties:
+        Cidrs:
+          default:
+          - Any
+          items:
+            type: string
+          title: Cidrs
+          type: array
+        Countries:
+          items:
+            type: string
+          title: Countries
+          type: array
+        Feeds:
+          items:
+            type: string
+          title: Feeds
+          type: array
+        PrefixLists:
+          items:
+            type: string
+          title: Prefixlists
+          type: array
+      title: RuleSource
+      type: object
+    CreateSecurityRuleResponse.ResponseData:
+      additionalProperties: false
+      properties:
+        Priority:
+          title: Priority
+          type: integer
+        RuleEntry:
+          $ref: '#/components/schemas/CreateSecurityRuleResponse.Rule'
+        RuleListName:
+          title: Rulelistname
+          type: string
+        RuleStackName:
+          title: Rulestackname
+          type: string
+      title: ResponseData
+      type: object
+    DeleteResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Identifier of the deleted resource.
+          example: example-id
+    SecurityRuleList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SecurityRule_3'
+          example:
+          - id: 6c72fa83-24c0-4558-897f-a344aa4b1076
+            name: Branch Firewall 85
+            folder: example-folder
+            position: post
+            from:
+            - example-from_item
+            to:
+            - example-to_item
+            - example-to_item
+            source:
+            - example-source_item
+            - example-source_item
+            destination:
+            - example-destination_item
+            - example-destination_item
+            source_user:
+            - example-source_user_item
+            application:
+            - ssl
+            service:
+            - example-service_item
+            - example-service_item
+            category:
+            - advanced
+            action: reset-both
+            log_setting: example-log_setting
+            profile_setting:
+              group:
+              - example-group_item
+              - example-group_item
+            disabled: false
+            description: Alert activity firewall malware traffic incident Security configured rule.
+            tag:
+            - critical-asset
+          - id: 6c72fa83-24c0-4558-897f-a344aa4b1076
+            name: Branch Firewall 85
+            folder: example-folder
+            position: post
+            from:
+            - example-from_item
+            to:
+            - example-to_item
+            - example-to_item
+            source:
+            - example-source_item
+            - example-source_item
+            destination:
+            - example-destination_item
+            - example-destination_item
+            source_user:
+            - example-source_user_item
+            application:
+            - ssl
+            service:
+            - example-service_item
+            - example-service_item
+            category:
+            - advanced
+            action: reset-both
+            log_setting: example-log_setting
+            profile_setting:
+              group:
+              - example-group_item
+              - example-group_item
+            disabled: false
+            description: Alert activity firewall malware traffic incident Security configured rule.
+            tag:
+            - critical-asset
+        offset:
+          type: integer
+          example: 977
+        total:
+          type: integer
+          example: 964
+        limit:
+          type: integer
+          example: 574
+    SecurityRuleRequest_2:
+      type: object
+      required:
+      - name
+      - action
+      properties:
+        name:
+          type: string
+          example: Staging Policy 74
+        from:
+          type: array
+          items:
+            type: string
+          default:
+          - any
+          example:
+          - any
+        to:
+          type: array
+          items:
+            type: string
+          default:
+          - any
+          example:
+          - any
+        source:
+          type: array
+          items:
+            type: string
+          default:
+          - any
+          example:
+          - any
+        destination:
+          type: array
+          items:
+            type: string
+          default:
+          - any
+          example:
+          - any
+        source_user:
+          type: array
+          items:
+            type: string
+          example:
+          - example-source_user_item
+        application:
+          type: array
+          items:
+            type: string
+          default:
+          - any
+          example:
+          - any
+        service:
+          type: array
+          items:
+            type: string
+          default:
+          - application-default
+          example:
+          - application-default
+        category:
+          type: array
+          items:
+            type: string
+          example:
+          - standard
+        action:
+          type: string
+          enum:
+          - allow
+          - deny
+          - drop
+          - reset-client
+          - reset-server
+          - reset-both
+          example: allow
+        log_setting:
+          type: string
+          example: example-log_setting
+        profile_setting:
+          type: object
+          properties:
+            group:
+              type: array
+              items:
+                type: string
+              example:
+              - example-group_item
+          example:
+            group:
+            - example-group_item
+            - example-group_item
+        disabled:
+          type: boolean
+          default: false
+          example: false
+        description:
+          type: string
+          example: Threat applied on alert monitoring incident rule on monitoring.
+        tag:
+          type: array
+          items:
+            type: string
+          example:
+          - critical-asset
+          - production
+    SecurityRule_3:
+      type: object
+      description: A security policy rule defining traffic matching criteria and enforcement action applied by managed firewalls.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+          example: 6c72fa83-24c0-4558-897f-a344aa4b1076
+        name:
+          type: string
+          example: Branch Firewall 85
+        folder:
+          type: string
+          readOnly: true
+          example: example-folder
+        position:
+          type: string
+          enum:
+          - pre
+          - post
+          example: post
+        from:
+          type: array
+          items:
+            type: string
+          description: Source security zones.
+          example:
+          - example-from_item
+        to:
+          type: array
+          items:
+            type: string
+          description: Destination security zones.
+          example:
+          - example-to_item
+          - example-to_item
+        source:
+          type: array
+          items:
+            type: string
+          description: Source addresses or address groups (use "any" for all).
+          example:
+          - example-source_item
+          - example-source_item
+        destination:
+          type: array
+          items:
+            type: string
+          description: Destination addresses or address groups.
+          example:
+          - example-destination_item
+          - example-destination_item
+        source_user:
+          type: array
+          items:
+            type: string
+          description: Source users or user groups.
+          example:
+          - example-source_user_item
+        application:
+          type: array
+          items:
+            type: string
+          description: Applications to match (e.g., ssl, web-browsing).
+          example:
+          - ssl
+        service:
+          type: array
+          items:
+            type: string
+          description: Service objects or application-default.
+          example:
+          - example-service_item
+          - example-service_item
+        category:
+          type: array
+          items:
+            type: string
+          description: URL categories to match.
+          example:
+          - advanced
+        action:
+          type: string
+          enum:
+          - allow
+          - deny
+          - drop
+          - reset-client
+          - reset-server
+          - reset-both
+          example: reset-both
+        log_setting:
+          type: string
+          description: Log forwarding profile name.
+          example: example-log_setting
+        profile_setting:
+          type: object
+          properties:
+            group:
+              type: array
+              items:
+                type: string
+              example:
+              - example-group_item
+          example:
+            group:
+            - example-group_item
+            - example-group_item
+        disabled:
+          type: boolean
+          default: false
+          example: false
+        description:
+          type: string
+          example: Alert activity firewall malware traffic incident Security configured rule.
+        tag:
+          type: array
+          items:
+            type: string
+          example:
+          - critical-asset
+    ErrorResponse_3:
+      type: object
+      properties:
+        _errors:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+                example: example-code
+              message:
+                type: string
+                example: Investigation incident suspicious network policy network endpoint endpoint policy investigation activity.
+              details:
+                type: object
+                example: {}
+          example:
+          - code: example-code
+            message: Security monitoring rule configured endpoint on network blocked.
+            details: {}
+          - code: example-code
+            message: Security on on threat monitoring activity policy.
+            details: {}
+        _request_id:
+          type: string
+          description: Unique request identifier for troubleshooting.
+          example: '574499'
+    SecurityRule_2:
+      type: object
+      required:
+      - name
+      - from
+      - to
+      - source
+      - destination
+      - application
+      - action
+      properties:
+        id:
+          type: string
+          readOnly: true
+          example: example-id
+        name:
+          type: string
+          description: Name of the security rule.
+          example: Branch Policy 74
+        description:
+          type: string
+          example: Security incident incident threat violation malware.
+        disabled:
+          type: boolean
+          default: false
+          example: false
+        from:
+          type: array
+          description: Source security zones.
+          items:
+            type: string
+          example:
+          - example-from_item
+        to:
+          type: array
+          description: Destination security zones.
+          items:
+            type: string
+          example:
+          - example-to_item
+        source:
+          type: array
+          description: Source addresses or address groups.
+          items:
+            type: string
+          example:
+          - example-source_item
+          - example-source_item
+        destination:
+          type: array
+          description: Destination addresses or address groups.
+          items:
+            type: string
+          example:
+          - example-destination_item
+        source_user:
+          type: array
+          description: Source user or user group names.
+          items:
+            type: string
+          example:
+          - example-source_user_item
+        application:
+          type: array
+          description: Applications to match.
+          items:
+            type: string
+          example:
+          - ssl
+          - dns
+        service:
+          type: array
+          description: Services or service groups to match.
+          items:
+            type: string
+          example:
+          - example-service_item
+        category:
+          type: array
+          description: URL categories to match.
+          items:
+            type: string
+          example:
+          - custom
+        action:
+          type: string
+          enum:
+          - allow
+          - deny
+          - drop
+          - reset-client
+          - reset-server
+          - reset-both
+          description: Action to take when the rule matches.
+          example: drop
+        profile_setting:
+          type: object
+          properties:
+            group:
+              type: array
+              items:
+                type: string
+              description: Security profile group names.
+              example:
+              - example-group_item
+          example:
+            group:
+            - example-group_item
+        log_setting:
+          type: string
+          description: Log forwarding profile name.
+          example: example-log_setting
+        tag:
+          type: array
+          items:
+            type: string
+          example:
+          - production
+          - critical-asset
+        folder:
+          type: string
+          readOnly: true
+          example: example-folder
+        position:
+          type: string
+          enum:
+          - pre
+          - post
+          readOnly: true
+          example: pre
+    ErrorResponse_2:
+      type: object
+      properties:
+        _errors:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+                example: example-code
+              message:
+                type: string
+                example: Alert malware configured threat rule network malware configured on.
+              details:
+                type: object
+                example: {}
+          example:
+          - code: example-code
+            message: Threat configured alert firewall violation monitoring traffic activity.
+            details: {}
+          - code: example-code
+            message: Blocked threat Security traffic firewall monitoring malware endpoint suspicious network.
+            details: {}
+        _request_id:
+          type: string
+          example: '980164'
+    ErrorResponse_4:
+      type: object
+      properties:
+        _errors:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+                example: example-code
+              message:
+                type: string
+                example: Alert malware configured threat rule network malware configured on.
+              details:
+                type: object
+                example: {}
+          example:
+          - code: example-code
+            message: Threat configured alert firewall violation monitoring traffic activity.
+            details: {}
+          - code: example-code
+            message: Blocked threat Security traffic firewall monitoring malware endpoint suspicious network.
+            details: {}
+        _request_id:
+          type: string
+          example: '980164'
+    SecurityRule_4:
+      type: object
+      required:
+      - name
+      - from
+      - to
+      - source
+      - destination
+      - application
+      - action
+      properties:
+        id:
+          type: string
+          readOnly: true
+          example: example-id
+        name:
+          type: string
+          description: Name of the security rule.
+          example: Branch Policy 74
+        description:
+          type: string
+          example: Security incident incident threat violation malware.
+        disabled:
+          type: boolean
+          default: false
+          example: false
+        from:
+          type: array
+          description: Source security zones.
+          items:
+            type: string
+          example:
+          - example-from_item
+        to:
+          type: array
+          description: Destination security zones.
+          items:
+            type: string
+          example:
+          - example-to_item
+        source:
+          type: array
+          description: Source addresses or address groups.
+          items:
+            type: string
+          example:
+          - example-source_item
+          - example-source_item
+        destination:
+          type: array
+          description: Destination addresses or address groups.
+          items:
+            type: string
+          example:
+          - example-destination_item
+        source_user:
+          type: array
+          description: Source user or user group names.
+          items:
+            type: string
+          example:
+          - example-source_user_item
+        application:
+          type: array
+          description: Applications to match.
+          items:
+            type: string
+          example:
+          - ssl
+          - dns
+        service:
+          type: array
+          description: Services or service groups to match.
+          items:
+            type: string
+          example:
+          - example-service_item
+        category:
+          type: array
+          description: URL categories to match.
+          items:
+            type: string
+          example:
+          - custom
+        action:
+          type: string
+          enum:
+          - allow
+          - deny
+          - drop
+          - reset-client
+          - reset-server
+          - reset-both
+          description: Action to take when the rule matches.
+          example: drop
+        profile_setting:
+          type: object
+          properties:
+            group:
+              type: array
+              items:
+                type: string
+              description: Security profile group names.
+              example:
+              - example-group_item
+          example:
+            group:
+            - example-group_item
+        log_setting:
+          type: string
+          description: Log forwarding profile name.
+          example: example-log_setting
+        tag:
+          type: array
+          items:
+            type: string
+          example:
+          - production
+          - critical-asset
+        folder:
+          type: string
+          readOnly: true
+          example: example-folder
+        position:
+          type: string
+          enum:
+          - pre
+          - post
+          readOnly: true
+          example: pre
+    SecurityRuleRequest_3:
+      type: object
+      required:
+      - name
+      - action
+      properties:
+        name:
+          type: string
+          example: Staging Policy 74
+        from:
+          type: array
+          items:
+            type: string
+          default:
+          - any
+          example:
+          - any
+        to:
+          type: array
+          items:
+            type: string
+          default:
+          - any
+          example:
+          - any
+        source:
+          type: array
+          items:
+            type: string
+          default:
+          - any
+          example:
+          - any
+        destination:
+          type: array
+          items:
+            type: string
+          default:
+          - any
+          example:
+          - any
+        source_user:
+          type: array
+          items:
+            type: string
+          example:
+          - example-source_user_item
+        application:
+          type: array
+          items:
+            type: string
+          default:
+          - any
+          example:
+          - any
+        service:
+          type: array
+          items:
+            type: string
+          default:
+          - application-default
+          example:
+          - application-default
+        category:
+          type: array
+          items:
+            type: string
+          example:
+          - standard
+        action:
+          type: string
+          enum:
+          - allow
+          - deny
+          - drop
+          - reset-client
+          - reset-server
+          - reset-both
+          example: allow
+        log_setting:
+          type: string
+          example: example-log_setting
+        profile_setting:
+          type: object
+          properties:
+            group:
+              type: array
+              items:
+                type: string
+              example:
+              - example-group_item
+          example:
+            group:
+            - example-group_item
+            - example-group_item
+        disabled:
+          type: boolean
+          default: false
+          example: false
+        description:
+          type: string
+          example: Threat applied on alert monitoring incident rule on monitoring.
+        tag:
+          type: array
+          items:
+            type: string
+          example:
+          - critical-asset
+          - production
+    ErrorResponse_5:
+      type: object
+      properties:
+        _errors:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+                example: example-code
+              message:
+                type: string
+                example: Investigation incident suspicious network policy network endpoint endpoint policy investigation activity.
+              details:
+                type: object
+                example: {}
+          example:
+          - code: example-code
+            message: Security monitoring rule configured endpoint on network blocked.
+            details: {}
+          - code: example-code
+            message: Security on on threat monitoring activity policy.
+            details: {}
+        _request_id:
+          type: string
+          description: Unique request identifier for troubleshooting.
+          example: '574499'
+    SecurityRuleList_2:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SecurityRule_5'
+          example:
+          - id: 6c72fa83-24c0-4558-897f-a344aa4b1076
+            name: Branch Firewall 85
+            folder: example-folder
+            position: post
+            from:
+            - example-from_item
+            to:
+            - example-to_item
+            - example-to_item
+            source:
+            - example-source_item
+            - example-source_item
+            destination:
+            - example-destination_item
+            - example-destination_item
+            source_user:
+            - example-source_user_item
+            application:
+            - ssl
+            service:
+            - example-service_item
+            - example-service_item
+            category:
+            - advanced
+            action: reset-both
+            log_setting: example-log_setting
+            profile_setting:
+              group:
+              - example-group_item
+              - example-group_item
+            disabled: false
+            description: Alert activity firewall malware traffic incident Security configured rule.
+            tag:
+            - critical-asset
+          - id: 6c72fa83-24c0-4558-897f-a344aa4b1076
+            name: Branch Firewall 85
+            folder: example-folder
+            position: post
+            from:
+            - example-from_item
+            to:
+            - example-to_item
+            - example-to_item
+            source:
+            - example-source_item
+            - example-source_item
+            destination:
+            - example-destination_item
+            - example-destination_item
+            source_user:
+            - example-source_user_item
+            application:
+            - ssl
+            service:
+            - example-service_item
+            - example-service_item
+            category:
+            - advanced
+            action: reset-both
+            log_setting: example-log_setting
+            profile_setting:
+              group:
+              - example-group_item
+              - example-group_item
+            disabled: false
+            description: Alert activity firewall malware traffic incident Security configured rule.
+            tag:
+            - critical-asset
+        offset:
+          type: integer
+          example: 977
+        total:
+          type: integer
+          example: 964
+        limit:
+          type: integer
+          example: 574
+    SecurityRule_5:
+      type: object
+      description: A security policy rule defining traffic matching criteria and enforcement action applied by managed firewalls.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+          example: 6c72fa83-24c0-4558-897f-a344aa4b1076
+        name:
+          type: string
+          example: Branch Firewall 85
+        folder:
+          type: string
+          readOnly: true
+          example: example-folder
+        position:
+          type: string
+          enum:
+          - pre
+          - post
+          example: post
+        from:
+          type: array
+          items:
+            type: string
+          description: Source security zones.
+          example:
+          - example-from_item
+        to:
+          type: array
+          items:
+            type: string
+          description: Destination security zones.
+          example:
+          - example-to_item
+          - example-to_item
+        source:
+          type: array
+          items:
+            type: string
+          description: Source addresses or address groups (use "any" for all).
+          example:
+          - example-source_item
+          - example-source_item
+        destination:
+          type: array
+          items:
+            type: string
+          description: Destination addresses or address groups.
+          example:
+          - example-destination_item
+          - example-destination_item
+        source_user:
+          type: array
+          items:
+            type: string
+          description: Source users or user groups.
+          example:
+          - example-source_user_item
+        application:
+          type: array
+          items:
+            type: string
+          description: Applications to match (e.g., ssl, web-browsing).
+          example:
+          - ssl
+        service:
+          type: array
+          items:
+            type: string
+          description: Service objects or application-default.
+          example:
+          - example-service_item
+          - example-service_item
+        category:
+          type: array
+          items:
+            type: string
+          description: URL categories to match.
+          example:
+          - advanced
+        action:
+          type: string
+          enum:
+          - allow
+          - deny
+          - drop
+          - reset-client
+          - reset-server
+          - reset-both
+          example: reset-both
+        log_setting:
+          type: string
+          description: Log forwarding profile name.
+          example: example-log_setting
+        profile_setting:
+          type: object
+          properties:
+            group:
+              type: array
+              items:
+                type: string
+              example:
+              - example-group_item
+          example:
+            group:
+            - example-group_item
+            - example-group_item
+        disabled:
+          type: boolean
+          default: false
+          example: false
+        description:
+          type: string
+          example: Alert activity firewall malware traffic incident Security configured rule.
+        tag:
+          type: array
+          items:
+            type: string
+          example:
+          - critical-asset
   securitySchemes:
     Bearer:
       scheme: bearer
       type: http
+    awsSigV4:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: AWS Signature Version 4 (SigV4) signed request. Use an AWS IAM role or user with CloudNGFW IAM permissions. Sign requests using the service name cloudngfw and the target AWS region. Include x-amz-date and x-amz-security-token headers as required.
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
+    oauth2:
+      type: oauth2
+      description: OAuth 2.0 client credentials flow for obtaining an access token. Requires a client ID and client secret from the Palo Alto Networks SASE identity provider.
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.apps.paloaltonetworks.com/oauth2/access_token
+          scopes: {}
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 access token obtained from https://auth.apps.paloaltonetworks.com/oauth2/access_token using a client credentials grant. Generate a service account and client credentials from the Strata Cloud Manager identity settings. Tokens expire and must be refreshed periodically.
 x-refined-from:
 - palo-alto-access-prisma-access-config-securityrules-openapi.yaml
+- palo-alto-cloud-ngfw-api-openapi-original.yml
 - palo-alto-cloudngfw-aws-securityrules-openapi.yaml
+- palo-alto-networks-securityrules-api-openapi.yml
+- palo-alto-prisma-access-api-openapi-original.yml
+- palo-alto-strata-cloud-manager-api-openapi-original.yml

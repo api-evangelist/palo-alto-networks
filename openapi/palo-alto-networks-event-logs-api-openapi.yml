@@ -118,42 +118,56 @@ paths:
       - Event Logs
 components:
   schemas:
-    ActivityLogOrder:
+    ActivityLogFilterOperands:
       properties:
-        direction:
-          $ref: '#/components/schemas/Direction'
-        field:
-          description: A field, that will be used for ordering
-          example: activityDate
-          type: string
-      type: object
-    ActivityLogFilter:
-      properties:
-        expression:
-          $ref: '#/components/schemas/BaseActivityLogFilter'
-        ordering:
-          $ref: '#/components/schemas/BaseActivityLogOrdering'
-        paging:
-          $ref: '#/components/schemas/Page2'
-      type: object
-    NaryOperator:
-      description: An operator for filtering
-      enum:
-      - AND
-      - OR
-      example: OR
-      type: string
-    ErrorInformation9:
-      properties:
-        args:
+        operands:
+          description: A list of conditions that will be used for filtering
+          example:
+          - field: activityType
+            operator: EQ
+            value: Authentication
+          - field: activityName
+            operator: EQ
+            value: Login Succeeded
           items:
-            $ref: '#/components/schemas/AnyValue9'
+            $ref: '#/components/schemas/BaseActivityLogFilter'
           type: array
-        code:
-          format: int32
+        operator:
+          $ref: '#/components/schemas/NaryOperator'
+      type: object
+    ErrorResponse9:
+      properties:
+        errors:
+          items:
+            $ref: '#/components/schemas/ErrorInformation9'
+          type: array
+      type: object
+    ActivityLogFilterOperand:
+      properties:
+        operand:
+          $ref: '#/components/schemas/ActivityLogCondition'
+        operator:
+          $ref: '#/components/schemas/UnaryOperator'
+      type: object
+    ActivityLogEntriesResponse:
+      properties:
+        activityLogEntries:
+          description: A collection of activity log entries
+          items:
+            $ref: '#/components/schemas/ActivityLogEntryInformation'
+          type: array
+        count:
+          description: The number of activity log entries.
+          example: 2
+          format: int64
           type: integer
-        message:
-          type: string
+      type: object
+    BaseActivityLogFilter:
+      description: Root expression for filtering
+      oneOf:
+      - $ref: '#/components/schemas/ActivityLogFilterOperands'
+      - $ref: '#/components/schemas/ActivityLogFilterOperand'
+      - $ref: '#/components/schemas/ActivityLogCondition'
       type: object
     BaseActivityLogOrdering:
       description: Specify the ordering of a search result
@@ -174,19 +188,19 @@ components:
       - IN
       example: EQ
       type: string
-    ActivityLogEntriesResponse:
-      properties:
-        activityLogEntries:
-          description: A collection of activity log entries
-          items:
-            $ref: '#/components/schemas/ActivityLogEntryInformation'
-          type: array
-        count:
-          description: The number of activity log entries.
-          example: 2
-          format: int64
-          type: integer
-      type: object
+    UnaryOperator:
+      description: An operator for filtering
+      enum:
+      - NOT
+      example: NOT
+      type: string
+    NaryOperator:
+      description: An operator for filtering
+      enum:
+      - AND
+      - OR
+      example: OR
+      type: string
     Page2:
       description: Specify pagination on the search request
       properties:
@@ -201,29 +215,36 @@ components:
           format: int32
           type: integer
       type: object
-    ActivityLogType:
+    ActivityLogCondition:
+      description: A Condition for filtering
       properties:
-        key:
+        field:
+          description: Represents a field for filtering
+          example: activityType
           type: string
-        readableName:
+        operator:
+          $ref: '#/components/schemas/ActivityLogFilterOperator'
+        value:
+          description: represents a field's value
+          example: Authentication
           type: string
         values:
+          description: represents a field's values
+          example:
+          - Authentication
+          - Users
           items:
-            $ref: '#/components/schemas/ActivityLogName'
+            type: string
           type: array
       type: object
-    UnaryOperator:
-      description: An operator for filtering
-      enum:
-      - NOT
-      example: NOT
-      type: string
-    ActivityLogFilterOperand:
+    ActivityLogFilter:
       properties:
-        operand:
-          $ref: '#/components/schemas/ActivityLogCondition'
-        operator:
-          $ref: '#/components/schemas/UnaryOperator'
+        expression:
+          $ref: '#/components/schemas/BaseActivityLogFilter'
+        ordering:
+          $ref: '#/components/schemas/BaseActivityLogOrdering'
+        paging:
+          $ref: '#/components/schemas/Page2'
       type: object
     ActivityLogEntryInformation:
       properties:
@@ -268,23 +289,6 @@ components:
           example: '1234567890'
           type: string
       type: object
-    ActivityLogFilterOperands:
-      properties:
-        operands:
-          description: A list of conditions that will be used for filtering
-          example:
-          - field: activityType
-            operator: EQ
-            value: Authentication
-          - field: activityName
-            operator: EQ
-            value: Login Succeeded
-          items:
-            $ref: '#/components/schemas/BaseActivityLogFilter'
-          type: array
-        operator:
-          $ref: '#/components/schemas/NaryOperator'
-      type: object
     Direction:
       description: An ordering direction
       enum:
@@ -292,6 +296,47 @@ components:
       - DESC
       example: DESC
       type: string
+    AnyValue9:
+      description: Can be any value - string, number, boolean, array or object.
+    ActivityLogOrder:
+      properties:
+        direction:
+          $ref: '#/components/schemas/Direction'
+        field:
+          description: A field, that will be used for ordering
+          example: activityDate
+          type: string
+      type: object
+    ErrorInformation9:
+      properties:
+        args:
+          items:
+            $ref: '#/components/schemas/AnyValue9'
+          type: array
+        code:
+          format: int32
+          type: integer
+        message:
+          type: string
+      type: object
+    ActivityLogName:
+      properties:
+        key:
+          type: string
+        readableName:
+          type: string
+      type: object
+    ActivityLogType:
+      properties:
+        key:
+          type: string
+        readableName:
+          type: string
+        values:
+          items:
+            $ref: '#/components/schemas/ActivityLogName'
+          type: array
+      type: object
     ExportedActivityLogEntryInformation:
       properties:
         activityDate:
@@ -325,51 +370,6 @@ components:
           additionalProperties:
             type: string
           type: object
-      type: object
-    ErrorResponse9:
-      properties:
-        errors:
-          items:
-            $ref: '#/components/schemas/ErrorInformation9'
-          type: array
-      type: object
-    ActivityLogCondition:
-      description: A Condition for filtering
-      properties:
-        field:
-          description: Represents a field for filtering
-          example: activityType
-          type: string
-        operator:
-          $ref: '#/components/schemas/ActivityLogFilterOperator'
-        value:
-          description: represents a field's value
-          example: Authentication
-          type: string
-        values:
-          description: represents a field's values
-          example:
-          - Authentication
-          - Users
-          items:
-            type: string
-          type: array
-      type: object
-    ActivityLogName:
-      properties:
-        key:
-          type: string
-        readableName:
-          type: string
-      type: object
-    AnyValue9:
-      description: Can be any value - string, number, boolean, array or object.
-    BaseActivityLogFilter:
-      description: Root expression for filtering
-      oneOf:
-      - $ref: '#/components/schemas/ActivityLogFilterOperands'
-      - $ref: '#/components/schemas/ActivityLogFilterOperand'
-      - $ref: '#/components/schemas/ActivityLogCondition'
       type: object
   securitySchemes:
     scmOAuth:

@@ -1,0 +1,292 @@
+openapi: 3.2.0
+info:
+  title: Palo Alto Networks XQL API
+  version: '1.0'
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+  description: 'Operations tagged XQL across 3 of this provider''s published API definitions: palo-alto-cortex-xdr-api-openapi-original.yml, palo-alto-cortex-xsiam-api-openapi-original.yml, palo-alto-networks-xql-api-openapi.yml. Each path carries the servers of the definition it was published in.'
+servers:
+- url: https://api-{fqdn}/public_api/v1
+  description: Cortex XDR tenant API endpoint.
+  variables:
+    fqdn:
+      description: Tenant FQDN from the Cortex XDR settings page (e.g., example.xdr.us.paloaltonetworks.com).
+      default: example.xdr.us.paloaltonetworks.com
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+tags:
+- name: XQL
+  description: XQL (Extended Query Language) query execution.
+paths:
+  /xql/start_xql_query:
+    post:
+      operationId: startXqlQuery
+      summary: Palo Alto Networks Execute XQL Query
+      description: Initiates an XQL (Extended Query Language) query against the Cortex XDR data lake. XQL is a domain-specific language for querying endpoint, network, and cloud telemetry data. Returns a query ID for retrieving results asynchronously.
+      tags:
+      - XQL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - request_data
+              properties:
+                request_data:
+                  type: object
+                  required:
+                  - query
+                  properties:
+                    query:
+                      type: string
+                      description: XQL query string to execute.
+                    timeframe:
+                      type: object
+                      description: Time range for the query.
+                      properties:
+                        relativeTime:
+                          type: string
+                          description: Relative time range (e.g., last_24_hours, last_7_days).
+                        startTime:
+                          type: integer
+                          description: Absolute start time as Unix epoch milliseconds.
+                        endTime:
+                          type: integer
+                          description: Absolute end time as Unix epoch milliseconds.
+                    max_results:
+                      type: integer
+                      description: Maximum number of results to return.
+                      default: 1000
+                      maximum: 10000
+            examples:
+              StartXqlQueryRequestExample:
+                summary: Default startXqlQuery request
+                x-microcks-default: true
+                value:
+                  request_data:
+                    query: example-query
+                    timeframe:
+                      relativeTime: example-relativeTime
+                      startTime: 1729966197370
+                      endTime: 1717632192421
+                    max_results: 1000
+      responses:
+        '200':
+          description: XQL query initiated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: string
+                    description: Query execution ID for retrieving results.
+              examples:
+                StartXqlQuery200Example:
+                  summary: Default startXqlQuery 200 response
+                  x-microcks-default: true
+                  value:
+                    reply: example-reply
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - xdrAuth: []
+    servers:
+    - url: https://api-{fqdn}/public_api/v1
+      description: Cortex XDR tenant API endpoint.
+      variables:
+        fqdn:
+          description: Tenant FQDN from the Cortex XDR settings page (e.g., example.xdr.us.paloaltonetworks.com).
+          default: example.xdr.us.paloaltonetworks.com
+  /xql/get_query_results:
+    post:
+      operationId: getXqlQueryResults
+      summary: Palo Alto Networks Get XQL Query Results
+      description: Retrieves the results of an XQL query previously initiated via the start_xql_query endpoint. Poll this endpoint until the status is SUCCESS or FAILED.
+      tags:
+      - XQL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - request_data
+              properties:
+                request_data:
+                  type: object
+                  required:
+                  - query_id
+                  properties:
+                    query_id:
+                      type: string
+                      description: Query ID returned by start_xql_query.
+                    pending_duration:
+                      type: integer
+                      description: Number of seconds to wait for query completion before returning.
+                      default: 0
+                    max_results:
+                      type: integer
+                      description: Maximum number of result rows to return.
+                      default: 1000
+                    format:
+                      type: string
+                      enum:
+                      - json
+                      - json_simple
+            examples:
+              GetXqlQueryResultsRequestExample:
+                summary: Default getXqlQueryResults request
+                x-microcks-default: true
+                value:
+                  request_data:
+                    query_id: '629000'
+                    pending_duration: 0
+                    max_results: 1000
+                    format: json_simple
+      responses:
+        '200':
+          description: XQL query results returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        enum:
+                        - PENDING
+                        - SUCCESS
+                        - FAILED
+                        - CANCELED
+                      number_of_results:
+                        type: integer
+                      query_cost:
+                        type: object
+                        additionalProperties:
+                          type: number
+                      remaining_quota:
+                        type: number
+                      results:
+                        type: object
+                        properties:
+                          data:
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: true
+              examples:
+                GetXqlQueryResults200Example:
+                  summary: Default getXqlQueryResults 200 response
+                  x-microcks-default: true
+                  value:
+                    reply:
+                      status: FAILED
+                      number_of_results: 884
+                      query_cost: {}
+                      remaining_quota: 53.19
+                      results:
+                        data:
+                        - {}
+                        - {}
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - xdrAuth: []
+    servers:
+    - url: https://api-{fqdn}/public_api/v1
+      description: Cortex XDR tenant API endpoint.
+      variables:
+        fqdn:
+          description: Tenant FQDN from the Cortex XDR settings page (e.g., example.xdr.us.paloaltonetworks.com).
+          default: example.xdr.us.paloaltonetworks.com
+components:
+  responses:
+    BadRequest:
+      description: Malformed request body or invalid parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid authentication headers.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        reply:
+          type: object
+          properties:
+            err_code:
+              type: integer
+              example: 782
+            err_msg:
+              type: string
+              example: example-err_msg
+            err_extra:
+              type: string
+              example: example-err_extra
+          example:
+            err_code: 270
+            err_msg: example-err_msg
+            err_extra: example-err_extra
+    ErrorResponse_2:
+      type: object
+      properties:
+        reply:
+          type: object
+          properties:
+            err_code:
+              type: integer
+              example: 140
+            err_msg:
+              type: string
+              example: example-err_msg
+            err_extra:
+              type: string
+              example: example-err_extra
+          example:
+            err_code: 33
+            err_msg: example-err_msg
+            err_extra: example-err_extra
+  securitySchemes:
+    xdrAuth:
+      type: apiKey
+      in: header
+      name: x-xdr-hmac-v2
+      description: 'Cortex XDR uses a custom HMAC-SHA256 authentication scheme. Each request requires four headers: x-xdr-auth-id (API key ID), x-xdr-nonce (64-character random string), x-xdr-timestamp (Unix epoch milliseconds), and x-xdr-hmac-v2 (SHA-256 hash of apikey + nonce + timestamp). Generate API keys from Cortex XDR Settings > Configurations > API Keys.'
+    xsiamAuth:
+      type: apiKey
+      in: header
+      name: x-xdr-hmac-v2
+      description: 'Cortex XSIAM uses a custom HMAC-SHA256 authentication scheme. Include four headers on each request: x-xdr-auth-id (API key ID number), x-xdr-nonce (64-character random string), x-xdr-timestamp (Unix epoch milliseconds as a string), and x-xdr-hmac-v2 (SHA-256 hash of api_key + nonce + timestamp). Standard and Advanced API key types are supported; Advanced keys provide additional security through IP allowlisting. Generate API keys from XSIAM Settings > Configurations > API Keys.'
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
+x-refined-from:
+- palo-alto-cortex-xdr-api-openapi-original.yml
+- palo-alto-cortex-xsiam-api-openapi-original.yml
+- palo-alto-networks-xql-api-openapi.yml

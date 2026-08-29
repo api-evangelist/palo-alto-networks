@@ -705,47 +705,77 @@ paths:
       x-migrated-v3: true
 components:
   schemas:
-    ActionPlanRelatedAlerts:
+    ActionPlanSuggestResponse:
       type: object
       properties:
-        alertId:
-          type: string
-        alertTime:
+        offset:
           format: int64
           type: integer
-        alertStatus:
+          description: Exact offset where the query begins
+          example: 0
+        queryRemainder:
           type: string
-        resource:
-          $ref: '#/components/schemas/Resource'
-        policy:
-          $ref: '#/components/schemas/Policy'
-        isAlertAccessible:
+          example: ''
+        translate:
           type: boolean
-    ActionPlanResponse:
-      type: object
-      properties:
-        lastRunTs:
-          format: int64
-          type: integer
-        totalCount:
-          format: int64
-          type: integer
-        value:
+          default: false
+        needsOffsetUpdate:
+          type: boolean
+          default: false
+        completeParameters:
           type: array
           items:
-            $ref: '#/components/schemas/ActionPlan'
-        nextPageToken:
-          type: string
-    OnDemandNotificationConfigRequest:
-      title: OnDemandNotificationConfigRequest
+            type: string
+          example: []
+        valid:
+          type: boolean
+          default: false
+        suggestions:
+          type: array
+          items:
+            type: string
+          example:
+          - PRIVILEGE_ESCALATION
+          - HIGH_PRIVILEGED_ROLE
+    OnDemandNotificationConfig:
+      title: OnDemandNotificationConfig
       type: object
       required:
-      - onDemandNotificationConfig
+      - integrationType
+      - recipients
       properties:
-        onDemandNotificationConfig:
-          $ref: '#/components/schemas/OnDemandNotificationConfig'
-        translation:
-          $ref: '#/components/schemas/Translation'
+        clientId:
+          description: Id to identify the category of request. For Jira, Slack, it can be AP
+          type: string
+        generatorType:
+          description: For ad-hoc notification, its value should be REALTIME
+          type: string
+        integrationType:
+          description: Can be either Jira or Slack
+          type: string
+        templateId:
+          description: Jira template Id
+          type: string
+        recipients:
+          description: List containing single Integration id for jira or list of channels for slack etc.
+          type: array
+          items:
+            type: string
+            example:
+            - slack-channel-1
+            - slack-channel-2
+            - slack-channel-3
+    ActionPlanSuggestRequest:
+      type: object
+      properties:
+        filterName:
+          description: name of the filter.
+          type: string
+          allOf:
+          - $ref: '#/components/schemas/FilterSuggestFieldEnum'
+        query:
+          description: Typed in string on UI (substring will be searched)
+          type: string
     Policy:
       type: object
       properties:
@@ -761,61 +791,77 @@ components:
           type: string
         policySeverity:
           type: string
-    AssetCriticalityStatusResponse:
-      type: object
-      properties:
-        assetCriticality:
-          type: string
-          description: 'Name of the allowed asset criticalities. Allowed criticalities: [critical, high, medium, low, none]'
-          allOf:
-          - $ref: '#/components/schemas/AssetCriticalityEnum'
-    SuccessfulEvent:
-      title: SuccessfulEvent
-      type: object
-      properties:
-        recipient:
-          $ref: '#/components/schemas/Recipient'
-        customerId:
-          type: integer
-        clientId:
-          type: string
-        metaData:
-          type: object
-        notificationId:
-          type: string
-    SortBy:
+    Filter:
       type: object
       properties:
         name:
+          description: 'Name of the allowed Filter types. Allowed names: [status, assignee, id, finding type, asset type, name]'
           type: string
           allOf:
-          - $ref: '#/components/schemas/SortField'
-        order:
+          - $ref: '#/components/schemas/ActionPlanFilter'
+        operator:
+          description: Only allowed operator for the filter is '='
           type: string
-          allOf:
-          - $ref: '#/components/schemas/SortDirection'
-    ActionPlanApiRequest:
-      properties:
-        limit:
-          format: int64
-          type: integer
-        nextPageToken:
+        value:
+          description: Value for the applied filter
           type: string
-        filters:
-          description: List of filters that can be applied for the API
-          type: array
-          items:
-            $ref: '#/components/schemas/Filter'
-        sortBy:
-          $ref: '#/components/schemas/SortBy'
-    PolicyCountCategory:
+    ImpactedAssetsResponse:
       type: object
       properties:
-        policyCategory:
-          type: string
-        count:
+        lastRunTs:
           format: int64
           type: integer
+        id:
+          type: string
+        totalCount:
+          format: int64
+          type: integer
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActionPlanImpactedAssets'
+        nextPageToken:
+          type: string
+    ActionPlanNamesResponse:
+      type: object
+      properties:
+        lastRunTs:
+          format: int64
+          type: integer
+        totalCount:
+          format: int64
+          type: integer
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActionPlanName'
+    ActionPlanFeedbackRequest:
+      type: object
+      properties:
+        thumbsUpDown:
+          type: string
+          enum:
+          - up
+          - down
+          - none
+        thumbsDownDescription:
+          type: string
+        thumbsDownReasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/ThumbsDownReason'
+    Recipient:
+      title: Recipient
+      type: object
+      properties:
+        generatorType:
+          type: string
+        integrationType:
+          type: string
+        id:
+          type: string
+        refId:
+          type: string
     ActionPlan:
       type: object
       properties:
@@ -879,161 +925,47 @@ components:
           type: integer
         lastUpdatedBy:
           type: string
-    SetAssetCriticalityRequest:
-      type: object
+    CriticalAssetApiRequest:
       properties:
-        assetIds:
+        limit:
+          format: int64
+          type: integer
+        pageToken:
+          type: string
+        filters:
+          description: List of filters that can be applied for the API
           type: array
           items:
-            type: string
-        assetCriticality:
+            $ref: '#/components/schemas/Filter'
+    ActionPlanApiRequest:
+      properties:
+        limit:
+          format: int64
+          type: integer
+        nextPageToken:
           type: string
-          description: 'Name of the allowed asset criticalities. Allowed criticalities: [critical, high, medium, low, none]'
-          allOf:
-          - $ref: '#/components/schemas/AssetCriticalityEnum'
-    Filter:
+        filters:
+          description: List of filters that can be applied for the API
+          type: array
+          items:
+            $ref: '#/components/schemas/Filter'
+        sortBy:
+          $ref: '#/components/schemas/SortBy'
+    Resource:
       type: object
       properties:
+        accountId:
+          type: string
+        accountName:
+          type: string
+        url:
+          type: string
+        unifiedAssetId:
+          type: string
         name:
-          description: 'Name of the allowed Filter types. Allowed names: [status, assignee, id, finding type, asset type, name]'
           type: string
-          allOf:
-          - $ref: '#/components/schemas/ActionPlanFilter'
-        operator:
-          description: Only allowed operator for the filter is '='
-          type: string
-        value:
-          description: Value for the applied filter
-          type: string
-    ActionPlanSuggestResponse:
-      type: object
-      properties:
-        offset:
-          format: int64
-          type: integer
-          description: Exact offset where the query begins
-          example: 0
-        queryRemainder:
-          type: string
-          example: ''
-        translate:
+        resourceDetailsAvailable:
           type: boolean
-          default: false
-        needsOffsetUpdate:
-          type: boolean
-          default: false
-        completeParameters:
-          type: array
-          items:
-            type: string
-          example: []
-        valid:
-          type: boolean
-          default: false
-        suggestions:
-          type: array
-          items:
-            type: string
-          example:
-          - PRIVILEGE_ESCALATION
-          - HIGH_PRIVILEGED_ROLE
-    ActionPlanRelatedAlertsResponse:
-      type: object
-      properties:
-        lastRunTs:
-          format: int64
-          type: integer
-        id:
-          type: string
-        totalCount:
-          format: int64
-          type: integer
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/ActionPlanRelatedAlerts'
-        nextPageToken:
-          type: string
-    ActionPlanFeedbackRequest:
-      type: object
-      properties:
-        thumbsUpDown:
-          type: string
-          enum:
-          - up
-          - down
-          - none
-        thumbsDownDescription:
-          type: string
-        thumbsDownReasons:
-          type: array
-          items:
-            $ref: '#/components/schemas/ThumbsDownReason'
-    ImpactedAssetsResponse:
-      type: object
-      properties:
-        lastRunTs:
-          format: int64
-          type: integer
-        id:
-          type: string
-        totalCount:
-          format: int64
-          type: integer
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/ActionPlanImpactedAssets'
-        nextPageToken:
-          type: string
-    ActionPlanSuggestRequest:
-      type: object
-      properties:
-        filterName:
-          description: name of the filter.
-          type: string
-          allOf:
-          - $ref: '#/components/schemas/FilterSuggestFieldEnum'
-        query:
-          description: Typed in string on UI (substring will be searched)
-          type: string
-    FilterSuggestFieldEnum:
-      description: name of the filter It will be action_plan.name
-      enum:
-      - status
-      - finding.type
-    SortField:
-      enum:
-      - criticality
-      - alertCount
-      - assetCount
-    ActionPlanUpdateStatusAssignee:
-      type: object
-      properties:
-        status:
-          type: string
-          enum:
-          - new
-          - in-progress
-          - done
-        assignee:
-          type: string
-    NotificationResponse:
-      title: NotificationResponse
-      type: object
-      properties:
-        id:
-          type: string
-        success:
-          type: integer
-        failed:
-          type: integer
-        successfulEvents:
-          type: array
-          items:
-            $ref: '#/components/schemas/SuccessfulEvent'
-        failedEvents:
-          type: object
     ActionPlanImpactedAssets:
       type: object
       properties:
@@ -1057,88 +989,40 @@ components:
           type: boolean
         isAssetAccessible:
           type: boolean
-    PolicyCountType:
+    SortBy:
       type: object
       properties:
-        policyType:
+        name:
           type: string
-        count:
-          format: int64
-          type: integer
-    ThumbsDownReason:
-      type: string
-      example: Wrong priority for me
-    Error:
+          allOf:
+          - $ref: '#/components/schemas/SortField'
+        order:
+          type: string
+          allOf:
+          - $ref: '#/components/schemas/SortDirection'
+    CriticalAssetResponse:
       type: object
       properties:
-        code:
-          type: string
-        message:
-          type: string
-        target:
-          type: string
-    CriticalAssetApiRequest:
-      properties:
-        limit:
-          format: int64
-          type: integer
-        pageToken:
-          type: string
-        filters:
-          description: List of filters that can be applied for the API
-          type: array
-          items:
-            $ref: '#/components/schemas/Filter'
-    ActionPlanNamesResponse:
-      type: object
-      properties:
-        lastRunTs:
-          format: int64
-          type: integer
         totalCount:
           format: int64
           type: integer
         value:
           type: array
           items:
-            $ref: '#/components/schemas/ActionPlanName'
-    AssetCriticalityEnum:
-      enum:
-      - critical
-      - high
-      - medium
-      - low
-      - none
-      type: string
-    OnDemandNotificationConfig:
-      title: OnDemandNotificationConfig
+            $ref: '#/components/schemas/Asset'
+        nextPageToken:
+          type: string
+    ErrorResponse:
       type: object
-      required:
-      - integrationType
-      - recipients
       properties:
-        clientId:
-          description: Id to identify the category of request. For Jira, Slack, it can be AP
-          type: string
-        generatorType:
-          description: For ad-hoc notification, its value should be REALTIME
-          type: string
-        integrationType:
-          description: Can be either Jira or Slack
-          type: string
-        templateId:
-          description: Jira template Id
-          type: string
-        recipients:
-          description: List containing single Integration id for jira or list of channels for slack etc.
-          type: array
-          items:
-            type: string
-            example:
-            - slack-channel-1
-            - slack-channel-2
-            - slack-channel-3
-    ActionPlanRecommendationSummaryResponse:
+        error:
+          $ref: '#/components/schemas/Error'
+    FilterSuggestFieldEnum:
+      description: name of the filter It will be action_plan.name
+      enum:
+      - status
+      - finding.type
+    ActionPlanRelatedAlertsResponse:
       type: object
       properties:
         lastRunTs:
@@ -1146,7 +1030,14 @@ components:
           type: integer
         id:
           type: string
-        recommendationSummary:
+        totalCount:
+          format: int64
+          type: integer
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActionPlanRelatedAlerts'
+        nextPageToken:
           type: string
     Asset:
       type: object
@@ -1169,6 +1060,36 @@ components:
           type: string
         resourceDetailsAvailable:
           type: boolean
+    AssetCriticalityEnum:
+      enum:
+      - critical
+      - high
+      - medium
+      - low
+      - none
+      type: string
+    ThumbsDownReason:
+      type: string
+      example: Wrong priority for me
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        target:
+          type: string
+    OnDemandNotificationConfigRequest:
+      title: OnDemandNotificationConfigRequest
+      type: object
+      required:
+      - onDemandNotificationConfig
+      properties:
+        onDemandNotificationConfig:
+          $ref: '#/components/schemas/OnDemandNotificationConfig'
+        translation:
+          $ref: '#/components/schemas/Translation'
     ActionPlanFilter:
       enum:
       - status
@@ -1177,35 +1098,6 @@ components:
       - id
       - business.criticality
       type: string
-    CriticalAssetResponse:
-      type: object
-      properties:
-        totalCount:
-          format: int64
-          type: integer
-        value:
-          type: array
-          items:
-            $ref: '#/components/schemas/Asset'
-        nextPageToken:
-          type: string
-    ErrorResponse:
-      type: object
-      properties:
-        error:
-          $ref: '#/components/schemas/Error'
-    Recipient:
-      title: Recipient
-      type: object
-      properties:
-        generatorType:
-          type: string
-        integrationType:
-          type: string
-        id:
-          type: string
-        refId:
-          type: string
     ActionPlanName:
       type: object
       properties:
@@ -1213,6 +1105,14 @@ components:
           type: string
         id:
           type: string
+    PolicyCountCategory:
+      type: object
+      properties:
+        policyCategory:
+          type: string
+        count:
+          format: int64
+          type: integer
     Translation:
       title: Translation
       type: object
@@ -1230,25 +1130,125 @@ components:
                 type: string
               assetCallbackUrl:
                 type: string
-    Resource:
-      type: object
-      properties:
-        accountId:
-          type: string
-        accountName:
-          type: string
-        url:
-          type: string
-        unifiedAssetId:
-          type: string
-        name:
-          type: string
-        resourceDetailsAvailable:
-          type: boolean
     SortDirection:
       enum:
       - desc
       - asc
+    SuccessfulEvent:
+      title: SuccessfulEvent
+      type: object
+      properties:
+        recipient:
+          $ref: '#/components/schemas/Recipient'
+        customerId:
+          type: integer
+        clientId:
+          type: string
+        metaData:
+          type: object
+        notificationId:
+          type: string
+    ActionPlanRecommendationSummaryResponse:
+      type: object
+      properties:
+        lastRunTs:
+          format: int64
+          type: integer
+        id:
+          type: string
+        recommendationSummary:
+          type: string
+    PolicyCountType:
+      type: object
+      properties:
+        policyType:
+          type: string
+        count:
+          format: int64
+          type: integer
+    AssetCriticalityStatusResponse:
+      type: object
+      properties:
+        assetCriticality:
+          type: string
+          description: 'Name of the allowed asset criticalities. Allowed criticalities: [critical, high, medium, low, none]'
+          allOf:
+          - $ref: '#/components/schemas/AssetCriticalityEnum'
+    NotificationResponse:
+      title: NotificationResponse
+      type: object
+      properties:
+        id:
+          type: string
+        success:
+          type: integer
+        failed:
+          type: integer
+        successfulEvents:
+          type: array
+          items:
+            $ref: '#/components/schemas/SuccessfulEvent'
+        failedEvents:
+          type: object
+    ActionPlanUpdateStatusAssignee:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - new
+          - in-progress
+          - done
+        assignee:
+          type: string
+    SetAssetCriticalityRequest:
+      type: object
+      properties:
+        assetIds:
+          type: array
+          items:
+            type: string
+        assetCriticality:
+          type: string
+          description: 'Name of the allowed asset criticalities. Allowed criticalities: [critical, high, medium, low, none]'
+          allOf:
+          - $ref: '#/components/schemas/AssetCriticalityEnum'
+    SortField:
+      enum:
+      - criticality
+      - alertCount
+      - assetCount
+    ActionPlanRelatedAlerts:
+      type: object
+      properties:
+        alertId:
+          type: string
+        alertTime:
+          format: int64
+          type: integer
+        alertStatus:
+          type: string
+        resource:
+          $ref: '#/components/schemas/Resource'
+        policy:
+          $ref: '#/components/schemas/Policy'
+        isAlertAccessible:
+          type: boolean
+    ActionPlanResponse:
+      type: object
+      properties:
+        lastRunTs:
+          format: int64
+          type: integer
+        totalCount:
+          format: int64
+          type: integer
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActionPlan'
+        nextPageToken:
+          type: string
   securitySchemes:
     x-redlock-auth:
       description: The x-redlock-auth value is a JSON Web Token (JWT).

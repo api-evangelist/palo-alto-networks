@@ -1,0 +1,193 @@
+openapi: 3.2.0
+info:
+  title: Palo Alto Networks Authentication API
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/
+  license:
+    name: Proprietary
+    url: https://www.paloaltonetworks.com/legal
+  version: '1.0'
+  description: 'Operations tagged Authentication across 3 of this provider''s published API definitions: palo-alto-networks-authentication-api-openapi.yml, palo-alto-prisma-cloud-compute-api-openapi-original.yml, palo-alto-prisma-cloud-cspm-api-openapi-original.yml. Each path carries the servers of the definition it was published in.'
+servers:
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+- url: https://{console}/api/v1
+  description: Prisma Cloud Compute Console API.
+  variables:
+    console:
+      default: console.example.com
+      description: Address of the Prisma Cloud Compute Console. For SaaS deployments, use the address provided in Prisma Cloud under Compute > Manage > System > Utilities.
+- url: https://api.prismacloud.io
+  description: Prisma Cloud API (US region 1).
+- url: https://api2.prismacloud.io
+  description: Prisma Cloud API (US region 2).
+- url: https://api3.prismacloud.io
+  description: Prisma Cloud API (US region 3).
+- url: https://api.eu.prismacloud.io
+  description: Prisma Cloud API (EU).
+- url: https://api.anz.prismacloud.io
+  description: Prisma Cloud API (ANZ).
+- url: https://api.sg.prismacloud.io
+  description: Prisma Cloud API (Singapore).
+- url: https://api.ca.prismacloud.io
+  description: Prisma Cloud API (Canada).
+tags:
+- name: Authentication
+  description: Token-based authentication for API access.
+paths:
+  /authenticate:
+    post:
+      operationId: authenticate
+      summary: Palo Alto Networks Authenticate and Obtain Bearer Token
+      description: Authenticates with Prisma Cloud Compute credentials and returns a JWT bearer token for subsequent API calls. The token is valid for 30 minutes. For integrations requiring project-level access, include the project name in the request body.
+      tags:
+      - Authentication
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - username
+              - password
+              properties:
+                username:
+                  type: string
+                  description: Prisma Cloud Compute username or access key.
+                password:
+                  type: string
+                  description: Prisma Cloud Compute password or secret key.
+                project:
+                  type: string
+                  description: Project name for project-scoped access. Omit for Central Console access.
+            examples:
+              AuthenticateRequestExample:
+                summary: Default authenticate request
+                x-microcks-default: true
+                value:
+                  username: soc-analyst
+                  password: example-password
+                  project: example-project
+      responses:
+        '200':
+          description: Authentication successful.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: JWT bearer token valid for 30 minutes.
+              examples:
+                Authenticate200Example:
+                  summary: Default authenticate 200 response
+                  x-microcks-default: true
+                  value:
+                    token: 4149d308542fc31fb11607add5a3d9ef
+        '401':
+          description: Invalid credentials or unauthorized access.
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
+  /login:
+    post:
+      operationId: login
+      summary: Palo Alto Networks Authenticate and Get JWT Token
+      description: Authenticates with Prisma Cloud access key credentials and returns a JWT token for subsequent API calls. Tokens are valid for 10 minutes.
+      tags:
+      - Authentication
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - username
+              - password
+              properties:
+                username:
+                  type: string
+                  description: Access Key ID from Prisma Cloud Settings.
+                password:
+                  type: string
+                  description: Secret Key associated with the Access Key.
+                customerName:
+                  type: string
+                  description: Customer name (required for multi-tenant accounts).
+            examples:
+              LoginRequestExample:
+                summary: Default login request
+                x-microcks-default: true
+                value:
+                  username: jsmith
+                  password: example-password
+                  customerName: Branch Gateway 17
+      responses:
+        '200':
+          description: Authentication successful.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: JWT bearer token for API authorization.
+                  message:
+                    type: string
+                  customerNames:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        customerName:
+                          type: string
+                        tosAccepted:
+                          type: boolean
+              examples:
+                Login200Example:
+                  summary: Default login 200 response
+                  x-microcks-default: true
+                  value:
+                    token: b92f25f9d9ca270185936012ae9c8b4a
+                    message: Threat network traffic violation alert threat violation policy alert suspicious traffic.
+                    customerNames:
+                    - customerName: Corporate Firewall 06
+                      tosAccepted: false
+        '401':
+          description: Invalid credentials.
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
+components:
+  securitySchemes:
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from the /api/v1/authenticate endpoint. Valid for 30 minutes.
+    basicAuth:
+      type: http
+      scheme: basic
+      description: HTTP Basic authentication using Prisma Cloud Compute credentials.
+x-refined-from:
+- palo-alto-networks-authentication-api-openapi.yml
+- palo-alto-prisma-cloud-compute-api-openapi-original.yml
+- palo-alto-prisma-cloud-cspm-api-openapi-original.yml

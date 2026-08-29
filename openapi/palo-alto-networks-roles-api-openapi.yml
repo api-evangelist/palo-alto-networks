@@ -2,13 +2,102 @@ openapi: 3.2.0
 info:
   title: Palo Alto Networks Roles API
   version: '1.0'
-  contact: {}
-  description: 'Operations tagged Roles across 2 of this provider''s published API definitions: palo-alto-sase-iam-roles-openapi.yaml, palo-alto-scm-iam-roles-openapi.yaml. Each path carries the servers of the definition it was published in.'
+  description: 'Operations tagged Roles across 4 of this provider''s published API definitions: palo-alto-networks-roles-api-openapi.yml, palo-alto-sase-iam-api-openapi-original.yml, palo-alto-sase-iam-roles-openapi.yaml, palo-alto-scm-iam-roles-openapi.yaml. Each path carries the servers of the definition it was published in.'
 servers:
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+- url: https://api.sase.paloaltonetworks.com/iam/v1
+  description: SASE IAM Service API production server.
 - url: https://api.sase.paloaltonetworks.com
 tags:
 - name: Roles
+  description: Available IAM roles and their permissions.
 paths:
+  /roles:
+    get:
+      operationId: listRoles
+      summary: Palo Alto Networks List Available Roles
+      description: Returns the list of available IAM roles that can be assigned in access policies. Each role defines a set of API permissions for specific SASE services and operations.
+      tags:
+      - Roles
+      responses:
+        '200':
+          description: Available roles returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Role'
+              examples:
+                ListRoles200Example:
+                  summary: Default listRoles 200 response
+                  x-microcks-default: true
+                  value:
+                    total: 293
+                    items:
+                    - id: example-id
+                      name: Branch Policy 17
+                      display_name: Carlos Garcia
+                      description: Alert network suspicious applied blocked detected.
+                      permissions:
+                      - example-permissions_item
+                      - example-permissions_item
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                ListRoles401Example:
+                  summary: Default listRoles 401 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Malware endpoint traffic incident on on traffic rule endpoint traffic.
+                    request_id: 1e1e39dd-16dd-4699-a272-365b75e92268
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                ListRoles403Example:
+                  summary: Default listRoles 403 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Malware endpoint traffic incident on on traffic rule endpoint traffic.
+                    request_id: 1e1e39dd-16dd-4699-a272-365b75e92268
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                ListRoles500Example:
+                  summary: Default listRoles 500 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Malware endpoint traffic incident on on traffic rule endpoint traffic.
+                    request_id: 1e1e39dd-16dd-4699-a272-365b75e92268
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
   /iam/v1/roles:
     get:
       description: 'Retrieve a list of all roles.
@@ -54,24 +143,57 @@ paths:
     - url: https://api.sase.paloaltonetworks.com
 components:
   schemas:
-    permission_set_access:
-      description: A permission set that you want to grant to this custom role. Permission sets are maintained by Palo Alto Networks. Use permission sets for a custom role if you are using it to grant a user access who uses the UI.
-      example:
-        access_types:
-        - read
-        id: iam.management
+    ErrorResponse:
+      type: object
       properties:
-        access_types:
-          description: 'The type of access (`read` and/or `write`) granted for this permission set.
-
-            '
+        error:
+          type: string
+          description: Error code identifying the error type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable description of the error.
+          example: Malware endpoint traffic incident on on traffic rule endpoint traffic.
+        request_id:
+          type: string
+          description: Request identifier for support correlation.
+          example: 1e1e39dd-16dd-4699-a272-365b75e92268
+    Role:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier of the role.
+          example: example-id
+        name:
+          type: string
+          description: Role name (e.g., superuser, network_admin, readonly).
+          example: Branch Policy 17
+        display_name:
+          type: string
+          description: Human-readable role display name.
+          example: Carlos Garcia
+        description:
+          type: string
+          description: Description of the permissions granted by this role.
+          example: Alert network suspicious applied blocked detected.
+        permissions:
+          type: array
           items:
             type: string
-          type: array
-        id:
-          description: "The ID of a permission set included in this custom role. \n"
-          type: string
-      title: Root Type for permission_set_access
+          description: List of permission identifiers included in this role.
+          example:
+          - example-permissions_item
+          - example-permissions_item
+    _pagination:
+      properties:
+        count:
+          default: 1
+          description: Total count of the items
+          type: integer
+      required:
+      - count
+      - items
       type: object
     role:
       example:
@@ -127,15 +249,24 @@ components:
       - label
       title: Root Type for role
       type: object
-    _pagination:
+    permission_set_access:
+      description: A permission set that you want to grant to this custom role. Permission sets are maintained by Palo Alto Networks. Use permission sets for a custom role if you are using it to grant a user access who uses the UI.
+      example:
+        access_types:
+        - read
+        id: iam.management
       properties:
-        count:
-          default: 1
-          description: Total count of the items
-          type: integer
-      required:
-      - count
-      - items
+        access_types:
+          description: 'The type of access (`read` and/or `write`) granted for this permission set.
+
+            '
+          items:
+            type: string
+          type: array
+        id:
+          description: "The ID of a permission set included in this custom role. \n"
+          type: string
+      title: Root Type for permission_set_access
       type: object
   responses:
     roles_list:
@@ -153,9 +284,16 @@ components:
               type: object
       description: Successful response.
   securitySchemes:
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
     Bearer:
       scheme: bearer
       type: http
 x-refined-from:
+- palo-alto-networks-roles-api-openapi.yml
+- palo-alto-sase-iam-api-openapi-original.yml
 - palo-alto-sase-iam-roles-openapi.yaml
 - palo-alto-scm-iam-roles-openapi.yaml

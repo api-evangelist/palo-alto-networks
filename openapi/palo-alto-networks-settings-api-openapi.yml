@@ -1,8 +1,10 @@
 openapi: 3.2.0
 info:
   title: Palo Alto Networks Settings API
+  x-refined-note:
+  - x-description-source differs across the merged source definitions and was not carried
   version: '1.0'
-  description: 'Operations tagged Settings across 7 of this provider''s published API definitions: palo-alto-compute-34-03-openapi-34-03-138-sh-openapi.json, palo-alto-compute-openapi-34-04-145-sh-openapi.json, palo-alto-cspm-consolidated-spec-cspm-spec-openapi.json, palo-alto-cspm-satellite-openapi.json, palo-alto-cspm-settings-openapi.json, palo-alto-cwpp-34-03-openapi-34-03-138-saas-openapi.json, palo-alto-cwpp-openapi-34-04-145-saas-openapi.json. Each path carries the servers of the definition it was published in.'
+  description: 'Operations tagged Settings across 9 of this provider''s published API definitions: palo-alto-compute-34-03-openapi-34-03-138-sh-openapi.json, palo-alto-compute-openapi-34-04-145-sh-openapi.json, palo-alto-cspm-consolidated-spec-cspm-spec-openapi.json, palo-alto-cspm-satellite-openapi.json, palo-alto-cspm-settings-openapi.json, palo-alto-cwpp-34-03-openapi-34-03-138-saas-openapi.json, palo-alto-cwpp-openapi-34-04-145-saas-openapi.json, palo-alto-networks-settings-api-openapi.yml, palo-alto-saas-security-api-openapi-original.yml. Each path carries the servers of the definition it was published in.'
 servers:
 - url: https://api.prismacloud.io
 - url: https://api2.prismacloud.io
@@ -20,6 +22,10 @@ servers:
 - url: https://api.jp.prismacloud.io
 - url: https://api.fr.prismacloud.io
 - url: PATH_TO_CONSOLE
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+- url: https://api.aperture.paloaltonetworks.com
+  description: SaaS Security (Aperture) API production server.
 tags:
 - name: Settings
   description: Settings. 39 operations in this definition.
@@ -1773,23 +1779,94 @@ paths:
     - url: https://api.ind.prismacloud.io
     - url: https://api.jp.prismacloud.io
     - url: https://api.fr.prismacloud.io
+  /api/settings/log-forwarding:
+    get:
+      operationId: getLogForwardingSettings
+      summary: Palo Alto Networks Get Log Forwarding Settings
+      description: Returns the current log forwarding configuration for the SaaS Security tenant, including enabled destinations such as syslog servers, SIEM integrations, and storage buckets.
+      tags:
+      - Settings
+      responses:
+        '200':
+          description: Log forwarding settings returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogForwardingSettings'
+              examples:
+                GetLogForwardingSettings200Example:
+                  summary: Default getLogForwardingSettings 200 response
+                  x-microcks-default: true
+                  value:
+                    enabled: false
+                    destinations:
+                    - type: s3
+                      name: Staging Firewall 89
+                      enabled: true
+                      log_types:
+                      - custom
+                      - standard
+                    - type: splunk
+                      name: Staging Sensor 80
+                      enabled: true
+                      log_types:
+                      - standard
+        '401':
+          description: Invalid or missing Bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_2'
+              examples:
+                GetLogForwardingSettings401Example:
+                  summary: Default getLogForwardingSettings 401 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Configured monitoring network blocked investigation applied activity.
+                    request_id: 5cc3d66e-5479-4e15-bd64-849adde3cb60
+        '403':
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_2'
+              examples:
+                GetLogForwardingSettings403Example:
+                  summary: Default getLogForwardingSettings 403 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Configured monitoring network blocked investigation applied activity.
+                    request_id: 5cc3d66e-5479-4e15-bd64-849adde3cb60
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse_2'
+              examples:
+                GetLogForwardingSettings500Example:
+                  summary: Default getLogForwardingSettings 500 response
+                  x-microcks-default: true
+                  value:
+                    error: example-error
+                    message: Configured monitoring network blocked investigation applied activity.
+                    request_id: 5cc3d66e-5479-4e15-bd64-849adde3cb60
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
 components:
   schemas:
-    cred.Type:
-      description: Type specifies the credential type
-      enum:
-      - - aws
-        - azure
-        - gcp
-        - ibmCloud
-        - oci
-        - apiToken
-        - basic
-        - dtr
-        - kubeconfig
-        - certificate
-        - gitlabToken
-      type: string
+    -_shared.TASDropletSpecification:
+      items:
+        $ref: '#/components/schemas/shared.TASDropletSpecification'
+      type: array
     types.ConsoleCertificateSettings:
       description: ConsoleCertificateSettings are the console certificate settings
       properties:
@@ -1808,6 +1885,38 @@ components:
         hpkp:
           $ref: '#/components/schemas/types.HPKPSettings'
       type: object
+    types.HPKPSettings:
+      description: HPKPSettings represents the public key pinning settings
+      properties:
+        certs:
+          description: 'Certs are the public certs used for fingerprinting.
+
+            '
+          type: string
+        enabled:
+          description: '.
+
+            '
+          type: boolean
+        fingerprints:
+          description: 'SHA256 fingerprints of the certificates.
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+      type: object
+    common.ExternalLabelSourceType:
+      description: ExternalLabelSourceType indicates the source of the labels
+      enum:
+      - - namespace
+        - deployment
+        - pod
+        - aws
+        - azure
+        - gcp
+        - oci
+      type: string
     defender.Settings:
       description: Settings is the Defender settings
       properties:
@@ -1847,133 +1956,271 @@ components:
             '
           type: integer
       type: object
-    shared.TASRemoteBlobstoreConfig:
-      description: TASRemoteBlobstoreConfig contains remote blobstore details
+    defender.Category:
+      description: Category represents the defender target category
+      enum:
+      - - container
+        - host
+        - serverless
+        - appEmbedded
+        - hostAgentless
+        - containerAgentless
+        - cloudSecurityAgent
+      type: string
+    shared.GitlabRegistrySpec:
+      description: GitlabRegistrySpec represents a specification for registry scanning in GitLab
       properties:
-        blobstoreAddress:
-          description: 'BlobstoreAddress is the address of the remote cloud controller.
-
-            '
-          type: string
-        cACert:
-          description: 'CACert Ops manager CA root certificate in case the user chooses not to skip TLS validation.
-
-            '
-          type: string
-        credential:
-          $ref: '#/components/schemas/cred.Credential'
-        credentialID:
-          description: 'CredentialID is the id in the credentials store to use for authenticating with the remote blobstore.
-
-            '
-          type: string
-        foundation:
-          description: ' Foundation is the name of TAS foundation.
-
-            '
-          type: string
-      type: object
-    common.CloudMetadata:
-      description: CloudMetadata is the metadata for a cloud provider managed asset (e.g., as part of AWS/GCP/Azure/OCI)
-      properties:
-        accountID:
-          description: 'Cloud account ID.
-
-            '
-          type: string
-        awsExecutionEnv:
-          description: 'AWS execution environment (e.g. EC2/Fargate).
-
-            '
-          type: string
-        azure:
-          $ref: '#/components/schemas/common.AzureMetadata'
-        gcp:
-          $ref: '#/components/schemas/common.GCPCloudMetadata'
-        image:
-          description: 'The name of the image the cloud managed host or container is based on.
-
-            '
-          type: string
-        labels:
-          description: 'Cloud provider metadata labels.
-
-            '
-          items:
-            $ref: '#/components/schemas/common.ExternalLabel'
-          type: array
-        name:
-          description: 'Resource name.
-
-            '
-          type: string
-        ociTenantID:
-          description: 'OCI Tenant ID.
-
-            '
-          type: string
-        provider:
-          $ref: '#/components/schemas/common.CloudProvider'
-        region:
-          description: 'Resource''s region.
-
-            '
-          type: string
-        resourceID:
-          description: 'Unique ID of the resource.
-
-            '
-          type: string
-        resourceURL:
-          description: 'Server-defined URL for the resource.
-
-            '
-          type: string
-        type:
-          description: 'Instance type.
-
-            '
-          type: string
-        vmID:
-          description: 'Azure unique vm ID.
-
-            '
-          type: string
-        vmImageID:
-          description: 'VMImageID holds the VM instance''s image ID.
-
-            '
-          type: string
-      type: object
-    types.HPKPSettings:
-      description: HPKPSettings represents the public key pinning settings
-      properties:
-        certs:
-          description: 'Certs are the public certs used for fingerprinting.
-
-            '
-          type: string
-        enabled:
+        apiDomainName:
           description: '.
 
             '
-          type: boolean
-        fingerprints:
-          description: 'SHA256 fingerprints of the certificates.
+          type: string
+        excludedGroupIDs:
+          description: '.
 
             '
           items:
             $ref: '#/components/schemas/string'
           type: array
+        groupIDs:
+          description: '.
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        projectIDs:
+          description: '.
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        userID:
+          description: '.
+
+            '
+          type: string
       type: object
-    shared.LicenseContractType:
-      description: LicenseContractType is the license contract type
+    shared.RegistryOSType:
+      description: RegistryOSType specifies the registry images base OS type
       enum:
-      - - ''
-        - host
-        - avg
-        - burndown
+      - - linux
+        - linuxARM64
+        - windows
       type: string
+    intelligence.IntelligenceSettings:
+      description: IntelligenceSettings are the intelligence service settings
+      properties:
+        address:
+          description: 'Address is the intelligence service address.
+
+            '
+          type: string
+        customEndpoint:
+          description: 'CustomEndpoint is the user defined custom endpoint.
+
+            '
+          type: string
+        customEndpointCACert:
+          description: 'CustomEndpointCACert is the custom CA cert bundle for trusting the custom endpoint.
+
+            '
+          type: string
+        customEndpointCredentialID:
+          description: 'CustomEndpointCredentialID is the custom endpoint credential ID.
+
+            '
+          type: string
+        customEndpointEnabled:
+          description: 'CustomEndpointEnabled indicates that the user custom endpoint is enabled.
+
+            '
+          type: boolean
+        enabled:
+          description: 'Enabled indicates whether intelligence service is enabled.
+
+            '
+          type: boolean
+        token:
+          description: 'Token is the token used to access intelligence service.
+
+            '
+          type: string
+        uploadDisabled:
+          description: 'UploadDisabled indicates whether logs uploading is disabled.
+
+            '
+          type: boolean
+        windowsFeedEnabled:
+          description: 'WindowsFeedEnabled indicates whether windows feed is enabled.
+
+            '
+          type: boolean
+      type: object
+    shared.TASDropletSpecification:
+      description: TASDropletSpecification specify which droplets to scan
+      properties:
+        cap:
+          description: 'Cap indicates only the last k images should be fetched.
+
+            '
+          type: integer
+        cloudControllerAddress:
+          description: 'CloudControllerAddress is the address of the local cloud controller in TAS env.
+
+            '
+          type: string
+        hostname:
+          description: 'Hostname is the hostname of the defender that is used as the blobstore scanner.
+
+            '
+          type: string
+        pattern:
+          description: 'Name is the droplet name.
+
+            '
+          type: string
+        remote:
+          description: 'Remote indicates whether the blobstore is remote or local.
+
+            '
+          type: boolean
+        remoteConfig:
+          $ref: '#/components/schemas/shared.TASRemoteBlobstoreConfig'
+      type: object
+    shared.RegistrySpecification:
+      description: RegistrySpecification contains information for connecting to local/remote registry
+      properties:
+        azureCloudMetadata:
+          $ref: '#/components/schemas/common.CloudMetadata'
+        caCert:
+          description: 'CACert is the Certificate Authority that signed the registry certificate.
+
+            '
+          type: string
+        cap:
+          description: 'Specifies the maximum number of images from each repo to fetch and scan, sorted by most recently modified.
+
+            '
+          type: integer
+        collections:
+          description: 'Specifies the set of Defenders in-scope for working on a scan job.
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        credential:
+          $ref: '#/components/schemas/cred.Credential'
+        credentialID:
+          description: 'ID of the credentials in the credentials store to use for authenticating with the registry.
+
+            '
+          type: string
+        excludedRepositories:
+          description: 'Repositories to exclude from scanning.
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        excludedTags:
+          description: 'Tags to exclude from scanning.
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        gitlabRegistrySpec:
+          $ref: '#/components/schemas/shared.GitlabRegistrySpec'
+        harborDeploymentSecurity:
+          description: 'Indicates whether the Prisma Cloud plugin uses temporary tokens provided by Harbor to scan images in projects where Harbor''s deployment security setting is enabled.
+
+            '
+          type: boolean
+        id:
+          description: 'ID is a unique identifier of the registry spec.
+
+            '
+          type: string
+        jfrogRepoTypes:
+          description: 'JFrog Artifactory repository types to scan.
+
+            '
+          items:
+            $ref: '#/components/schemas/shared.JFrogRepoType'
+          type: array
+        lastScanStatus:
+          description: 'LastScanStatus is the last scan status. we keep both LastScanStatus and ScanStatus in order to not lose the latest scan status when a scan starts.
+
+            '
+          type: string
+        lastScanTime:
+          description: 'LastScanTime specifies the last time a scan was completed.
+
+            '
+          format: date-time
+          type: string
+        namespace:
+          description: 'IBM Bluemix namespace https://console.bluemix.net/docs/services/Registry/registry_overview.html#registry_planning.
+
+            '
+          type: string
+        os:
+          $ref: '#/components/schemas/shared.RegistryOSType'
+        registry:
+          description: 'Registry address (e.g., https://gcr.io).
+
+            '
+          type: string
+        repository:
+          description: 'Repositories to scan.
+
+            '
+          type: string
+        scanError:
+          description: 'ScanError is the error received while scanning the specification.
+
+            '
+          type: string
+        scanStatus:
+          description: 'ScanStatus is the scan status that''s updated dynamically during the scan, when the scan finishes - its value is passed to the LastScanStatus field in the DB.
+
+            '
+          type: string
+        scanTime:
+          description: 'ScanTime specifies the time a scan was started.
+
+            '
+          format: date-time
+          type: string
+        scannedImagesSuccessTotal:
+          description: 'ScannedImagesSuccessTotal is the total number of registry images that were scanned successfully on the last registry specification scan.
+
+            '
+          type: integer
+        scanners:
+          description: 'Number of Defenders that can be utilized for each scan job.
+
+            '
+          type: integer
+        tag:
+          description: 'Tags to scan.
+
+            '
+          type: string
+        version:
+          description: 'Registry type. Determines the protocol Prisma Cloud uses to communicate with the registry.
+
+            '
+          type: string
+        versionPattern:
+          description: 'Pattern heuristic for quickly filtering images by tags without having to query all images for modification dates.
+
+            '
+          type: string
+      type: object
     cred.AzureSPInfo:
       description: AzureSPInfo contains the Azure credentials needed for certificate based authentications
       properties:
@@ -1995,60 +2242,206 @@ components:
             '
           type: string
       type: object
-    common.ACIMetadata:
-      properties:
-        containerGroup:
-          description: '.
-
-            '
-          type: string
-      type: object
-    defender.Category:
-      description: Category represents the defender target category
+    cred.AzureMIType:
       enum:
-      - - container
-        - host
-        - serverless
-        - appEmbedded
-        - hostAgentless
-        - containerAgentless
-        - cloudSecurityAgent
+      - - user-assigned
+        - system-assigned
       type: string
-    api.LicenseRequest:
-      description: LicenseRequest is a request to setup a new license
+    types.CertSettings:
+      description: CertSettings are the certificates settings
       properties:
-        key:
-          description: 'Key is the license key.
+        caExpiration:
+          description: 'CAExpiration holds the expiration date of the CA cert.
+
+            '
+          format: date-time
+          type: string
+        consoleSAN:
+          description: 'ConsoleSAN if specified, use this list as the SAN for the console server certificate. Used for websocket and API.
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        defenderOldCAExpiration:
+          description: 'DefenderOldCAExpiration holds the expiration time of the defender old CA cert.
+
+            '
+          format: date-time
+          type: string
+      type: object
+    common.Secret:
+      description: Secret Stores the plain and encrypted version of a value. The plain version is not stored in a database
+      properties:
+        encrypted:
+          description: 'Specifies an encrypted value of the secret.
+
+            '
+          type: string
+        plain:
+          description: 'Specifies the plain text value of the secret.
 
             '
           type: string
       type: object
-    types.CertificateSettings:
-      description: CertificateSettings are the certificate settings
+    common.ImageType:
+      description: 'ImageType is the type of a VM image.
+
+        For example, in the case of Azure this is one of marketplace/managed/gallery.'
+      type: string
+    shared.WildFireSettings:
+      description: WildFireSettings are the settings for WildFire API requests
       properties:
-        accessCaCert:
-          description: 'AccessCACert is a custom CA certificate.
+        apiKey:
+          description: 'APIKey is the key identifier used for WF APIs.
 
             '
           type: string
-        certificatePeriodDays:
-          description: 'CertificatePeriodDays is the certificates period in days.
+        apiKeyExpiration:
+          description: 'APIKeyExpiration is the expiration time of the API key.
 
             '
+          format: date-time
+          type: string
+        lastError:
+          description: 'LastError is the last error that occurred when trying to create/update the wildfire key.
+
+            '
+          type: string
+        policy:
+          $ref: '#/components/schemas/shared.WildFirePolicy'
+      type: object
+    -_shared.VMSpecification:
+      items:
+        $ref: '#/components/schemas/shared.VMSpecification'
+      type: array
+    identity.SamlSettings:
+      description: SamlSettings are the saml connectivity settings
+      properties:
+        appId:
+          description: 'AppID is the Azure application ID.
+
+            '
+          type: string
+        appSecret:
+          $ref: '#/components/schemas/common.Secret'
+        audience:
+          description: 'Audience specifies the SAML audience used in the verification of the SAML response.
+
+            '
+          type: string
+        cert:
+          description: 'Cert is idp certificate in PEM format.
+
+            '
+          type: string
+        consoleURL:
+          description: 'ConsoleURL is the external Console URL that is used by the IDP for routing the browser after login.
+
+            '
+          type: string
+        enabled:
+          description: 'Enabled indicates whether saml settings are enabled.
+
+            '
+          type: boolean
+        groupAttribute:
+          description: 'GroupAttribute is the name of the group attribute.
+
+            '
+          type: string
+        issuer:
+          description: 'Issuer is idp issuer id.
+
+            '
+          type: string
+        providerAlias:
+          description: 'ProviderAlias is the provider alias used for display.
+
+            '
+          type: string
+        skipAuthnContext:
+          description: 'SkipAuthnContext indicates whether request authentication contexts should be skipped.
+
+            '
+          type: boolean
+        tenantId:
+          description: 'TenantID is the Azure Tenant ID.
+
+            '
+          type: string
+        type:
+          $ref: '#/components/schemas/identity.SamlType'
+        url:
+          description: 'URL is idp sso url.
+
+            '
+          type: string
+      type: object
+    cred.TemporaryToken:
+      description: 'TemporaryToken is a temporary session token for cloud provider APIs
+
+        AWS - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp.html
+
+        GCP - https://cloud.google.com/iam/docs/creating-short-lived-service-account-credentials
+
+        Azure - https://docs.microsoft.com/en-us/azure/active-directory/manage-apps/what-is-single-sign-on'
+      properties:
+        awsAccessKeyId:
+          description: 'Specifies a temporary access key.
+
+            '
+          type: string
+        awsSecretAccessKey:
+          $ref: '#/components/schemas/common.Secret'
+        duration:
+          description: 'Specifies a duration for the token.
+
+            '
+          format: int64
           type: integer
+        expirationTime:
+          description: 'Specifies an expiration time for the token.
+
+            '
+          format: date-time
+          type: string
+        token:
+          $ref: '#/components/schemas/common.Secret'
       type: object
-    common.CloudRunMetadata:
+    shared.WildFirePolicy:
+      description: WildFirePolicy is the global wildfire usage policy, set by the client
       properties:
-        revision:
-          description: '.
+        agentlessEnabled:
+          description: 'AgentlessEnabled indicates whether agentless scan will consult WF.
+
+            '
+          type: boolean
+        complianceEnabled:
+          description: 'ComplianceEnabled indicates whether compliance malware scan will consult WF.
+
+            '
+          type: boolean
+        graywareAsMalware:
+          description: 'GraywareAsMalware indicates whether files with WF verdict of Grayware will be treated as malware.
+
+            '
+          type: boolean
+        region:
+          description: 'Region is the WF server region to query.
 
             '
           type: string
-        service:
-          description: '.
+        runtimeEnabled:
+          description: 'RuntimeEnabled indicates whether runtime malware scan will consult WF.
 
             '
-          type: string
+          type: boolean
+        uploadEnabled:
+          description: 'UploadEnabled indicates whether files will be uploaded to WF.
+
+            '
+          type: boolean
       type: object
     shared.ScanSettings:
       description: ScanSettings are global settings for image/host/container and registry scanning
@@ -2137,593 +2530,6 @@ components:
             '
           format: int64
           type: integer
-      type: object
-    shared.WildFireSettings:
-      description: WildFireSettings are the settings for WildFire API requests
-      properties:
-        apiKey:
-          description: 'APIKey is the key identifier used for WF APIs.
-
-            '
-          type: string
-        apiKeyExpiration:
-          description: 'APIKeyExpiration is the expiration time of the API key.
-
-            '
-          format: date-time
-          type: string
-        lastError:
-          description: 'LastError is the last error that occurred when trying to create/update the wildfire key.
-
-            '
-          type: string
-        policy:
-          $ref: '#/components/schemas/shared.WildFirePolicy'
-      type: object
-    common.GCPCloudMetadata:
-      properties:
-        cloudRun:
-          $ref: '#/components/schemas/common.CloudRunMetadata'
-      type: object
-    common.CloudProvider:
-      description: CloudProvider specifies the cloud provider name
-      enum:
-      - - aws
-        - azure
-        - gcp
-        - alibaba
-        - oci
-        - others
-      type: string
-    -_shared.VMSpecification:
-      items:
-        $ref: '#/components/schemas/shared.VMSpecification'
-      type: array
-    common.ExternalLabel:
-      description: ExternalLabel holds an external label with a source and timestamp
-      properties:
-        key:
-          description: 'Label key.
-
-            '
-          type: string
-        sourceName:
-          description: 'Source name (e.g., for a namespace, the source name can be ''twistlock'').
-
-            '
-          type: string
-        sourceType:
-          $ref: '#/components/schemas/common.ExternalLabelSourceType'
-        timestamp:
-          description: 'Time when the label was fetched.
-
-            '
-          format: date-time
-          type: string
-        value:
-          description: 'Value of the label.
-
-            '
-          type: string
-      type: object
-    shared.TrustedCertSignature:
-      description: TrustedCertSignature represents a trusted cert settings
-      properties:
-        cn:
-          description: 'CN is the certificate common name.
-
-            '
-          type: string
-        issuer:
-          description: 'Issuer is the certificate issuer.
-
-            '
-          type: string
-        notAfter1:
-          description: 'NotAfter is the certificate expiration time
-
-            Remark: the 1 suffix required for backward compatibility (previous values were strings and cannot be serialized).
-
-            '
-          format: date-time
-          type: string
-        notBefore1:
-          description: 'NotBefore is the minimum time for which the cert is valid
-
-            Remark: the 1 suffix required for backward compatibility (previous values were strings and cannot be serialized).
-
-            '
-          format: date-time
-          type: string
-        raw:
-          description: 'Raw is the raw certificate (in PEM format).
-
-            '
-          type: string
-      type: object
-    shared.JFrogRepoType:
-      description: JFrogRepoType represents the type of JFrog Artifactory repository
-      enum:
-      - - local
-        - remote
-        - virtual
-      type: string
-    string:
-      type: string
-    common.Secret:
-      description: Secret Stores the plain and encrypted version of a value. The plain version is not stored in a database
-      properties:
-        encrypted:
-          description: 'Specifies an encrypted value of the secret.
-
-            '
-          type: string
-        plain:
-          description: 'Specifies the plain text value of the secret.
-
-            '
-          type: string
-      type: object
-    types.LogonSettings:
-      description: LogonSettings are settings associated with the login properties
-      properties:
-        basicAuthDisabled:
-          description: 'Indicates whether the user can use basic auth.
-
-            '
-          type: boolean
-        includeTLS:
-          description: 'IncludeTLS indicates that TLS checks should be included in copy links.
-
-            '
-          type: boolean
-        sessionTimeoutSec:
-          description: 'SessionTimeoutSec defines the session timeout in seconds.
-
-            '
-          format: int64
-          type: integer
-        strongPassword:
-          description: 'StrongPassword indicates whether strong password enforcement is applied.
-
-            '
-          type: boolean
-        useSupportCredentials:
-          description: 'UseSupportCredentials indicates whether to include credentials in the URL.
-
-            '
-          type: boolean
-      type: object
-    common.ImageType:
-      description: 'ImageType is the type of a VM image.
-
-        For example, in the case of Azure this is one of marketplace/managed/gallery.'
-      type: string
-    shared.RegistryOSType:
-      description: RegistryOSType specifies the registry images base OS type
-      enum:
-      - - linux
-        - linuxARM64
-        - windows
-      type: string
-    types.CertData:
-      description: CertData  is used to add a custom certificate to the product
-      properties:
-        certificate:
-          description: 'Data is the certificate pem data.
-
-            '
-          type: string
-      type: object
-    identity.SamlSettings:
-      description: SamlSettings are the saml connectivity settings
-      properties:
-        appId:
-          description: 'AppID is the Azure application ID.
-
-            '
-          type: string
-        appSecret:
-          $ref: '#/components/schemas/common.Secret'
-        audience:
-          description: 'Audience specifies the SAML audience used in the verification of the SAML response.
-
-            '
-          type: string
-        cert:
-          description: 'Cert is idp certificate in PEM format.
-
-            '
-          type: string
-        consoleURL:
-          description: 'ConsoleURL is the external Console URL that is used by the IDP for routing the browser after login.
-
-            '
-          type: string
-        enabled:
-          description: 'Enabled indicates whether saml settings are enabled.
-
-            '
-          type: boolean
-        groupAttribute:
-          description: 'GroupAttribute is the name of the group attribute.
-
-            '
-          type: string
-        issuer:
-          description: 'Issuer is idp issuer id.
-
-            '
-          type: string
-        providerAlias:
-          description: 'ProviderAlias is the provider alias used for display.
-
-            '
-          type: string
-        skipAuthnContext:
-          description: 'SkipAuthnContext indicates whether request authentication contexts should be skipped.
-
-            '
-          type: boolean
-        tenantId:
-          description: 'TenantID is the Azure Tenant ID.
-
-            '
-          type: string
-        type:
-          $ref: '#/components/schemas/identity.SamlType'
-        url:
-          description: 'URL is idp sso url.
-
-            '
-          type: string
-      type: object
-    -_shared.TASDropletSpecification:
-      items:
-        $ref: '#/components/schemas/shared.TASDropletSpecification'
-      type: array
-    intelligence.IntelligenceSettings:
-      description: IntelligenceSettings are the intelligence service settings
-      properties:
-        address:
-          description: 'Address is the intelligence service address.
-
-            '
-          type: string
-        customEndpoint:
-          description: 'CustomEndpoint is the user defined custom endpoint.
-
-            '
-          type: string
-        customEndpointCACert:
-          description: 'CustomEndpointCACert is the custom CA cert bundle for trusting the custom endpoint.
-
-            '
-          type: string
-        customEndpointCredentialID:
-          description: 'CustomEndpointCredentialID is the custom endpoint credential ID.
-
-            '
-          type: string
-        customEndpointEnabled:
-          description: 'CustomEndpointEnabled indicates that the user custom endpoint is enabled.
-
-            '
-          type: boolean
-        enabled:
-          description: 'Enabled indicates whether intelligence service is enabled.
-
-            '
-          type: boolean
-        token:
-          description: 'Token is the token used to access intelligence service.
-
-            '
-          type: string
-        uploadDisabled:
-          description: 'UploadDisabled indicates whether logs uploading is disabled.
-
-            '
-          type: boolean
-        windowsFeedEnabled:
-          description: 'WindowsFeedEnabled indicates whether windows feed is enabled.
-
-            '
-          type: boolean
-      type: object
-    shared.TASDropletSpecification:
-      description: TASDropletSpecification specify which droplets to scan
-      properties:
-        cap:
-          description: 'Cap indicates only the last k images should be fetched.
-
-            '
-          type: integer
-        cloudControllerAddress:
-          description: 'CloudControllerAddress is the address of the local cloud controller in TAS env.
-
-            '
-          type: string
-        hostname:
-          description: 'Hostname is the hostname of the defender that is used as the blobstore scanner.
-
-            '
-          type: string
-        pattern:
-          description: 'Name is the droplet name.
-
-            '
-          type: string
-        remote:
-          description: 'Remote indicates whether the blobstore is remote or local.
-
-            '
-          type: boolean
-        remoteConfig:
-          $ref: '#/components/schemas/shared.TASRemoteBlobstoreConfig'
-      type: object
-    shared.TrustedCertSettings:
-      description: TrustedCertSettings are settings for trusted certs
-      properties:
-        certs:
-          description: 'Certs are the list of trusted certificates to use in access scenarios.
-
-            '
-          items:
-            $ref: '#/components/schemas/shared.TrustedCertSignature'
-          type: array
-        checkRevocation:
-          description: 'CheckRevocation indicates whether to check the certificate revocation.
-
-            '
-          type: boolean
-        enabled:
-          description: 'Enabled indicates whether the trusted certificate feature is enabled.
-
-            '
-          type: boolean
-      type: object
-    shared.VMSpecification:
-      description: VMSpecification contains information for setting up and connecting to the image
-      properties:
-        cap:
-          description: 'Specifies the maximum number of images to fetch and scan, ordered by most recently modified.
-
-            '
-          type: integer
-        consoleAddr:
-          description: 'Network-accessible address that Defender can use to publish scan results to Console.
-
-            '
-          type: string
-        credentialID:
-          description: 'ID of the credentials in the credentials store to use for authenticating with the cloud provider.
-
-            '
-          type: string
-        enableSecureBoot:
-          description: 'EnableSecureBoot indicates secure boot should be enabled for the instance launched for scanning (currently only supported with GCP).
-
-            '
-          type: boolean
-        excludedImages:
-          description: 'Images to exclude from scanning.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        gcpProjectID:
-          description: 'GCP project ID to use for listing VM images instead of the default associated with the GCP credential (optional).
-
-            '
-          type: string
-        imageType:
-          $ref: '#/components/schemas/common.ImageType'
-        images:
-          description: 'The names of images to scan.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        instanceType:
-          description: 'InstanceType is the instance type to use for the instance launched for scanning. For example, the default instance type for AWS is "m4.large".
-
-            '
-          type: string
-        labels:
-          description: 'The labels to use to target images to scan.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        region:
-          description: 'Cloud provider region.
-
-            '
-          type: string
-        scanners:
-          description: 'Number of Defenders that can be utilized for each scan job.
-
-            '
-          type: integer
-        subnetID:
-          description: 'SubnetID is the network subnet ID to use for the instance launched for scanning. Default value is empty string, which represents the default subnet in the VPC.
-
-            '
-          type: string
-        vpcID:
-          description: 'VPCID is the network VPC ID to use for the instance launched for scanning. Default value is empty string, which represents the default VPC in the region.
-
-            '
-          type: string
-        zone:
-          description: 'Cloud provider zone (part of a region). On GCP, designates in which zone to deploy the VM scan instance.
-
-            '
-          type: string
-      type: object
-    cred.TemporaryToken:
-      description: 'TemporaryToken is a temporary session token for cloud provider APIs
-
-        AWS - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp.html
-
-        GCP - https://cloud.google.com/iam/docs/creating-short-lived-service-account-credentials
-
-        Azure - https://docs.microsoft.com/en-us/azure/active-directory/manage-apps/what-is-single-sign-on'
-      properties:
-        awsAccessKeyId:
-          description: 'Specifies a temporary access key.
-
-            '
-          type: string
-        awsSecretAccessKey:
-          $ref: '#/components/schemas/common.Secret'
-        duration:
-          description: 'Specifies a duration for the token.
-
-            '
-          format: int64
-          type: integer
-        expirationTime:
-          description: 'Specifies an expiration time for the token.
-
-            '
-          format: date-time
-          type: string
-        token:
-          $ref: '#/components/schemas/common.Secret'
-      type: object
-    identity.ProviderName:
-      description: ProviderName is the identity provider name
-      enum:
-      - - github
-        - openshift
-      type: string
-    shared.GitlabRegistrySpec:
-      description: GitlabRegistrySpec represents a specification for registry scanning in GitLab
-      properties:
-        apiDomainName:
-          description: '.
-
-            '
-          type: string
-        excludedGroupIDs:
-          description: '.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        groupIDs:
-          description: '.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        projectIDs:
-          description: '.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        userID:
-          description: '.
-
-            '
-          type: string
-      type: object
-    shared.LicenseTier:
-      description: LicenseTier represents the license tier of the customer
-      enum:
-      - - ''
-        - developer
-        - enterprise
-        - evaluation
-        - oem
-      type: string
-    common.ExternalLabelSourceType:
-      description: ExternalLabelSourceType indicates the source of the labels
-      enum:
-      - - namespace
-        - deployment
-        - pod
-        - aws
-        - azure
-        - gcp
-        - oci
-      type: string
-    shared.CustomLabelsSettings:
-      description: 'CustomLabelsSettings are customized label names that are used to augment audit events
-
-        They can either be docker labels (which appears in the container label specification)
-
-        or k8s/openshift labels (which appears in the pause container that monitors the target container)'
-      properties:
-        labels:
-          description: 'Labels are the custom labels.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-      type: object
-    cred.AzureMIType:
-      enum:
-      - - user-assigned
-        - system-assigned
-      type: string
-    cred.OCICred:
-      description: OCICred are additional parameters required for OCI credentials
-      properties:
-        fingerprint:
-          description: 'Fingerprint is the public key signature.
-
-            '
-          type: string
-        tenancyId:
-          description: 'TenancyID is the OCID of the tenancy.
-
-            '
-          type: string
-      type: object
-    shared.WildFirePolicy:
-      description: WildFirePolicy is the global wildfire usage policy, set by the client
-      properties:
-        agentlessEnabled:
-          description: 'AgentlessEnabled indicates whether agentless scan will consult WF.
-
-            '
-          type: boolean
-        complianceEnabled:
-          description: 'ComplianceEnabled indicates whether compliance malware scan will consult WF.
-
-            '
-          type: boolean
-        graywareAsMalware:
-          description: 'GraywareAsMalware indicates whether files with WF verdict of Grayware will be treated as malware.
-
-            '
-          type: boolean
-        region:
-          description: 'Region is the WF server region to query.
-
-            '
-          type: string
-        runtimeEnabled:
-          description: 'RuntimeEnabled indicates whether runtime malware scan will consult WF.
-
-            '
-          type: boolean
-        uploadEnabled:
-          description: 'UploadEnabled indicates whether files will be uploaded to WF.
-
-            '
-          type: boolean
       type: object
     cred.Credential:
       description: Credential specifies the authentication data of an external provider
@@ -2861,6 +2667,167 @@ components:
             '
           type: boolean
       type: object
+    shared.LoggerSetting:
+      description: LoggerSetting are a specific logger settings
+      properties:
+        allProcEvents:
+          description: 'AllProcEvents indicates whether any new spawned container process should generate an event source entry.
+
+            '
+          type: boolean
+        enabled:
+          description: 'Enabled indicates whether log feature is enabled.
+
+            '
+          type: boolean
+        verboseScan:
+          description: 'VerboseScan indicates whether detailed scan (Compliance/Vulnerability) result should be written to event logger.
+
+            '
+          type: boolean
+      type: object
+    shared.TrustedCertSignature:
+      description: TrustedCertSignature represents a trusted cert settings
+      properties:
+        cn:
+          description: 'CN is the certificate common name.
+
+            '
+          type: string
+        issuer:
+          description: 'Issuer is the certificate issuer.
+
+            '
+          type: string
+        notAfter1:
+          description: 'NotAfter is the certificate expiration time
+
+            Remark: the 1 suffix required for backward compatibility (previous values were strings and cannot be serialized).
+
+            '
+          format: date-time
+          type: string
+        notBefore1:
+          description: 'NotBefore is the minimum time for which the cert is valid
+
+            Remark: the 1 suffix required for backward compatibility (previous values were strings and cannot be serialized).
+
+            '
+          format: date-time
+          type: string
+        raw:
+          description: 'Raw is the raw certificate (in PEM format).
+
+            '
+          type: string
+      type: object
+    shared.VMSpecification:
+      description: VMSpecification contains information for setting up and connecting to the image
+      properties:
+        cap:
+          description: 'Specifies the maximum number of images to fetch and scan, ordered by most recently modified.
+
+            '
+          type: integer
+        consoleAddr:
+          description: 'Network-accessible address that Defender can use to publish scan results to Console.
+
+            '
+          type: string
+        credentialID:
+          description: 'ID of the credentials in the credentials store to use for authenticating with the cloud provider.
+
+            '
+          type: string
+        enableSecureBoot:
+          description: 'EnableSecureBoot indicates secure boot should be enabled for the instance launched for scanning (currently only supported with GCP).
+
+            '
+          type: boolean
+        excludedImages:
+          description: 'Images to exclude from scanning.
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        gcpProjectID:
+          description: 'GCP project ID to use for listing VM images instead of the default associated with the GCP credential (optional).
+
+            '
+          type: string
+        imageType:
+          $ref: '#/components/schemas/common.ImageType'
+        images:
+          description: 'The names of images to scan.
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        instanceType:
+          description: 'InstanceType is the instance type to use for the instance launched for scanning. For example, the default instance type for AWS is "m4.large".
+
+            '
+          type: string
+        labels:
+          description: 'The labels to use to target images to scan.
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        region:
+          description: 'Cloud provider region.
+
+            '
+          type: string
+        scanners:
+          description: 'Number of Defenders that can be utilized for each scan job.
+
+            '
+          type: integer
+        subnetID:
+          description: 'SubnetID is the network subnet ID to use for the instance launched for scanning. Default value is empty string, which represents the default subnet in the VPC.
+
+            '
+          type: string
+        vpcID:
+          description: 'VPCID is the network VPC ID to use for the instance launched for scanning. Default value is empty string, which represents the default VPC in the region.
+
+            '
+          type: string
+        zone:
+          description: 'Cloud provider zone (part of a region). On GCP, designates in which zone to deploy the VM scan instance.
+
+            '
+          type: string
+      type: object
+    common.CloudProvider:
+      description: CloudProvider specifies the cloud provider name
+      enum:
+      - - aws
+        - azure
+        - gcp
+        - alibaba
+        - oci
+        - others
+      type: string
+    cred.Type:
+      description: Type specifies the credential type
+      enum:
+      - - aws
+        - azure
+        - gcp
+        - ibmCloud
+        - oci
+        - apiToken
+        - basic
+        - dtr
+        - kubeconfig
+        - certificate
+        - gitlabToken
+      type: string
     types.TelemetrySettings:
       description: TelemetrySettings is the telemetry settings
       properties:
@@ -2870,39 +2837,14 @@ components:
             '
           type: boolean
       type: object
-    types.CertSettings:
-      description: CertSettings are the certificates settings
+    types.CertData:
+      description: CertData  is used to add a custom certificate to the product
       properties:
-        caExpiration:
-          description: 'CAExpiration holds the expiration date of the CA cert.
+        certificate:
+          description: 'Data is the certificate pem data.
 
             '
-          format: date-time
           type: string
-        consoleSAN:
-          description: 'ConsoleSAN if specified, use this list as the SAN for the console server certificate. Used for websocket and API.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        defenderOldCAExpiration:
-          description: 'DefenderOldCAExpiration holds the expiration time of the defender old CA cert.
-
-            '
-          format: date-time
-          type: string
-      type: object
-    shared.DefenderLicenseDetails:
-      description: DefenderLicenseDetails represents a single defender license details
-      properties:
-        category:
-          $ref: '#/components/schemas/defender.Category'
-        count:
-          description: 'Count is the amount of licensed defenders.
-
-            '
-          type: integer
       type: object
     shared.License:
       description: License represent the customer license
@@ -2961,60 +2903,14 @@ components:
             '
           type: integer
       type: object
-    common.ProxySettings:
-      description: ProxySettings are the http proxy settings
+    api.LicenseRequest:
+      description: LicenseRequest is a request to setup a new license
       properties:
-        ca:
-          description: 'Proxy''s CA for Defender to trust. Required when using TLS intercept proxies.
+        key:
+          description: 'Key is the license key.
 
             '
           type: string
-        httpProxy:
-          description: 'Proxy address.
-
-            '
-          type: string
-        noProxy:
-          description: 'List of addresses for which the proxy should not be used.
-
-            '
-          type: string
-        password:
-          $ref: '#/components/schemas/common.Secret'
-        user:
-          description: 'Username to authenticate with the proxy.
-
-            '
-          type: string
-      type: object
-    identity.SamlType:
-      description: SamlType represents the type of a SAML configured settings
-      enum:
-      - - okta
-        - gsuite
-        - ping
-        - shibboleth
-        - azure
-        - adfs
-      type: string
-    shared.LoggerSetting:
-      description: LoggerSetting are a specific logger settings
-      properties:
-        allProcEvents:
-          description: 'AllProcEvents indicates whether any new spawned container process should generate an event source entry.
-
-            '
-          type: boolean
-        enabled:
-          description: 'Enabled indicates whether log feature is enabled.
-
-            '
-          type: boolean
-        verboseScan:
-          description: 'VerboseScan indicates whether detailed scan (Compliance/Vulnerability) result should be written to event logger.
-
-            '
-          type: boolean
       type: object
     identity.LdapSettings:
       description: LdapSettings are the ldap connectivity settings
@@ -3066,71 +2962,6 @@ components:
 
             '
           type: string
-      type: object
-    shared.RegistrySettings:
-      description: RegistrySettings contains each registry's unique settings
-      properties:
-        harborScannerUrlSuffix:
-          description: 'Relative path to the Harbor scanner endpoint.
-
-            '
-          type: string
-        specifications:
-          description: 'Information for connecting to the registries to be scanned.
-
-            '
-          items:
-            $ref: '#/components/schemas/shared.RegistrySpecification'
-          type: array
-        webhookUrlSuffix:
-          description: 'Relative path to the webhook HTTP endpoint.
-
-            '
-          type: string
-      type: object
-    common.AzureMetadata:
-      properties:
-        aci:
-          $ref: '#/components/schemas/common.ACIMetadata'
-        resourceGroup:
-          description: '.
-
-            '
-          type: string
-      type: object
-    shared.SyslogSettings:
-      description: SyslogSettings are the syslog settings
-      properties:
-        addr:
-          description: 'Addr is the remote address for sending events.
-
-            '
-          type: string
-        allProcEvents:
-          description: 'AllProcEvents indicates whether any new spawned container process should generate an event source entry.
-
-            '
-          type: boolean
-        cert:
-          description: 'Cert is the server cert for dialing TLS syslogger.
-
-            '
-          type: string
-        enabled:
-          description: 'Enabled indicates whether log feature is enabled.
-
-            '
-          type: boolean
-        id:
-          description: 'ID represents the user''s custom identifier string.
-
-            '
-          type: string
-        verboseScan:
-          description: 'VerboseScan indicates whether detailed scan (Compliance/Vulnerability) result should be written to event logger.
-
-            '
-          type: boolean
       type: object
     identity.ProviderSettings:
       description: ProviderSettings are the Oauth/ OpenID Connect connectivity settings
@@ -3195,6 +3026,216 @@ components:
             '
           type: string
       type: object
+    common.ExternalLabel:
+      description: ExternalLabel holds an external label with a source and timestamp
+      properties:
+        key:
+          description: 'Label key.
+
+            '
+          type: string
+        sourceName:
+          description: 'Source name (e.g., for a namespace, the source name can be ''twistlock'').
+
+            '
+          type: string
+        sourceType:
+          $ref: '#/components/schemas/common.ExternalLabelSourceType'
+        timestamp:
+          description: 'Time when the label was fetched.
+
+            '
+          format: date-time
+          type: string
+        value:
+          description: 'Value of the label.
+
+            '
+          type: string
+      type: object
+    common.AzureMetadata:
+      properties:
+        aci:
+          $ref: '#/components/schemas/common.ACIMetadata'
+        resourceGroup:
+          description: '.
+
+            '
+          type: string
+      type: object
+    common.CloudRunMetadata:
+      properties:
+        revision:
+          description: '.
+
+            '
+          type: string
+        service:
+          description: '.
+
+            '
+          type: string
+      type: object
+    shared.DefenderLicenseDetails:
+      description: DefenderLicenseDetails represents a single defender license details
+      properties:
+        category:
+          $ref: '#/components/schemas/defender.Category'
+        count:
+          description: 'Count is the amount of licensed defenders.
+
+            '
+          type: integer
+      type: object
+    common.CloudMetadata:
+      description: CloudMetadata is the metadata for a cloud provider managed asset (e.g., as part of AWS/GCP/Azure/OCI)
+      properties:
+        accountID:
+          description: 'Cloud account ID.
+
+            '
+          type: string
+        awsExecutionEnv:
+          description: 'AWS execution environment (e.g. EC2/Fargate).
+
+            '
+          type: string
+        azure:
+          $ref: '#/components/schemas/common.AzureMetadata'
+        gcp:
+          $ref: '#/components/schemas/common.GCPCloudMetadata'
+        image:
+          description: 'The name of the image the cloud managed host or container is based on.
+
+            '
+          type: string
+        labels:
+          description: 'Cloud provider metadata labels.
+
+            '
+          items:
+            $ref: '#/components/schemas/common.ExternalLabel'
+          type: array
+        name:
+          description: 'Resource name.
+
+            '
+          type: string
+        ociTenantID:
+          description: 'OCI Tenant ID.
+
+            '
+          type: string
+        provider:
+          $ref: '#/components/schemas/common.CloudProvider'
+        region:
+          description: 'Resource''s region.
+
+            '
+          type: string
+        resourceID:
+          description: 'Unique ID of the resource.
+
+            '
+          type: string
+        resourceURL:
+          description: 'Server-defined URL for the resource.
+
+            '
+          type: string
+        type:
+          description: 'Instance type.
+
+            '
+          type: string
+        vmID:
+          description: 'Azure unique vm ID.
+
+            '
+          type: string
+        vmImageID:
+          description: 'VMImageID holds the VM instance''s image ID.
+
+            '
+          type: string
+      type: object
+    identity.SamlType:
+      description: SamlType represents the type of a SAML configured settings
+      enum:
+      - - okta
+        - gsuite
+        - ping
+        - shibboleth
+        - azure
+        - adfs
+      type: string
+    shared.TASRemoteBlobstoreConfig:
+      description: TASRemoteBlobstoreConfig contains remote blobstore details
+      properties:
+        blobstoreAddress:
+          description: 'BlobstoreAddress is the address of the remote cloud controller.
+
+            '
+          type: string
+        cACert:
+          description: 'CACert Ops manager CA root certificate in case the user chooses not to skip TLS validation.
+
+            '
+          type: string
+        credential:
+          $ref: '#/components/schemas/cred.Credential'
+        credentialID:
+          description: 'CredentialID is the id in the credentials store to use for authenticating with the remote blobstore.
+
+            '
+          type: string
+        foundation:
+          description: ' Foundation is the name of TAS foundation.
+
+            '
+          type: string
+      type: object
+    shared.JFrogRepoType:
+      description: JFrogRepoType represents the type of JFrog Artifactory repository
+      enum:
+      - - local
+        - remote
+        - virtual
+      type: string
+    shared.SyslogSettings:
+      description: SyslogSettings are the syslog settings
+      properties:
+        addr:
+          description: 'Addr is the remote address for sending events.
+
+            '
+          type: string
+        allProcEvents:
+          description: 'AllProcEvents indicates whether any new spawned container process should generate an event source entry.
+
+            '
+          type: boolean
+        cert:
+          description: 'Cert is the server cert for dialing TLS syslogger.
+
+            '
+          type: string
+        enabled:
+          description: 'Enabled indicates whether log feature is enabled.
+
+            '
+          type: boolean
+        id:
+          description: 'ID represents the user''s custom identifier string.
+
+            '
+          type: string
+        verboseScan:
+          description: 'VerboseScan indicates whether detailed scan (Compliance/Vulnerability) result should be written to event logger.
+
+            '
+          type: boolean
+      type: object
     shared.LoggingSettings:
       description: LoggingSettings are the logging settings
       properties:
@@ -3218,134 +3259,181 @@ components:
         syslog:
           $ref: '#/components/schemas/shared.SyslogSettings'
       type: object
-    shared.RegistrySpecification:
-      description: RegistrySpecification contains information for connecting to local/remote registry
+    types.CertificateSettings:
+      description: CertificateSettings are the certificate settings
       properties:
-        azureCloudMetadata:
-          $ref: '#/components/schemas/common.CloudMetadata'
-        caCert:
-          description: 'CACert is the Certificate Authority that signed the registry certificate.
+        accessCaCert:
+          description: 'AccessCACert is a custom CA certificate.
 
             '
           type: string
-        cap:
-          description: 'Specifies the maximum number of images from each repo to fetch and scan, sorted by most recently modified.
+        certificatePeriodDays:
+          description: 'CertificatePeriodDays is the certificates period in days.
 
             '
           type: integer
-        collections:
-          description: 'Specifies the set of Defenders in-scope for working on a scan job.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        credential:
-          $ref: '#/components/schemas/cred.Credential'
-        credentialID:
-          description: 'ID of the credentials in the credentials store to use for authenticating with the registry.
-
-            '
-          type: string
-        excludedRepositories:
-          description: 'Repositories to exclude from scanning.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        excludedTags:
-          description: 'Tags to exclude from scanning.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        gitlabRegistrySpec:
-          $ref: '#/components/schemas/shared.GitlabRegistrySpec'
-        harborDeploymentSecurity:
-          description: 'Indicates whether the Prisma Cloud plugin uses temporary tokens provided by Harbor to scan images in projects where Harbor''s deployment security setting is enabled.
+      type: object
+    types.LogonSettings:
+      description: LogonSettings are settings associated with the login properties
+      properties:
+        basicAuthDisabled:
+          description: 'Indicates whether the user can use basic auth.
 
             '
           type: boolean
-        id:
-          description: 'ID is a unique identifier of the registry spec.
+        includeTLS:
+          description: 'IncludeTLS indicates that TLS checks should be included in copy links.
+
+            '
+          type: boolean
+        sessionTimeoutSec:
+          description: 'SessionTimeoutSec defines the session timeout in seconds.
+
+            '
+          format: int64
+          type: integer
+        strongPassword:
+          description: 'StrongPassword indicates whether strong password enforcement is applied.
+
+            '
+          type: boolean
+        useSupportCredentials:
+          description: 'UseSupportCredentials indicates whether to include credentials in the URL.
+
+            '
+          type: boolean
+      type: object
+    common.GCPCloudMetadata:
+      properties:
+        cloudRun:
+          $ref: '#/components/schemas/common.CloudRunMetadata'
+      type: object
+    common.ACIMetadata:
+      properties:
+        containerGroup:
+          description: '.
 
             '
           type: string
-        jfrogRepoTypes:
-          description: 'JFrog Artifactory repository types to scan.
+      type: object
+    cred.OCICred:
+      description: OCICred are additional parameters required for OCI credentials
+      properties:
+        fingerprint:
+          description: 'Fingerprint is the public key signature.
+
+            '
+          type: string
+        tenancyId:
+          description: 'TenancyID is the OCID of the tenancy.
+
+            '
+          type: string
+      type: object
+    shared.TrustedCertSettings:
+      description: TrustedCertSettings are settings for trusted certs
+      properties:
+        certs:
+          description: 'Certs are the list of trusted certificates to use in access scenarios.
 
             '
           items:
-            $ref: '#/components/schemas/shared.JFrogRepoType'
+            $ref: '#/components/schemas/shared.TrustedCertSignature'
           type: array
-        lastScanStatus:
-          description: 'LastScanStatus is the last scan status. we keep both LastScanStatus and ScanStatus in order to not lose the latest scan status when a scan starts.
+        checkRevocation:
+          description: 'CheckRevocation indicates whether to check the certificate revocation.
+
+            '
+          type: boolean
+        enabled:
+          description: 'Enabled indicates whether the trusted certificate feature is enabled.
+
+            '
+          type: boolean
+      type: object
+    shared.LicenseContractType:
+      description: LicenseContractType is the license contract type
+      enum:
+      - - ''
+        - host
+        - avg
+        - burndown
+      type: string
+    shared.LicenseTier:
+      description: LicenseTier represents the license tier of the customer
+      enum:
+      - - ''
+        - developer
+        - enterprise
+        - evaluation
+        - oem
+      type: string
+    shared.CustomLabelsSettings:
+      description: 'CustomLabelsSettings are customized label names that are used to augment audit events
+
+        They can either be docker labels (which appears in the container label specification)
+
+        or k8s/openshift labels (which appears in the pause container that monitors the target container)'
+      properties:
+        labels:
+          description: 'Labels are the custom labels.
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+      type: object
+    common.ProxySettings:
+      description: ProxySettings are the http proxy settings
+      properties:
+        ca:
+          description: 'Proxy''s CA for Defender to trust. Required when using TLS intercept proxies.
 
             '
           type: string
-        lastScanTime:
-          description: 'LastScanTime specifies the last time a scan was completed.
-
-            '
-          format: date-time
-          type: string
-        namespace:
-          description: 'IBM Bluemix namespace https://console.bluemix.net/docs/services/Registry/registry_overview.html#registry_planning.
+        httpProxy:
+          description: 'Proxy address.
 
             '
           type: string
-        os:
-          $ref: '#/components/schemas/shared.RegistryOSType'
-        registry:
-          description: 'Registry address (e.g., https://gcr.io).
+        noProxy:
+          description: 'List of addresses for which the proxy should not be used.
 
             '
           type: string
-        repository:
-          description: 'Repositories to scan.
+        password:
+          $ref: '#/components/schemas/common.Secret'
+        user:
+          description: 'Username to authenticate with the proxy.
 
             '
           type: string
-        scanError:
-          description: 'ScanError is the error received while scanning the specification.
+      type: object
+    identity.ProviderName:
+      description: ProviderName is the identity provider name
+      enum:
+      - - github
+        - openshift
+      type: string
+    string:
+      type: string
+    shared.RegistrySettings:
+      description: RegistrySettings contains each registry's unique settings
+      properties:
+        harborScannerUrlSuffix:
+          description: 'Relative path to the Harbor scanner endpoint.
 
             '
           type: string
-        scanStatus:
-          description: 'ScanStatus is the scan status that''s updated dynamically during the scan, when the scan finishes - its value is passed to the LastScanStatus field in the DB.
+        specifications:
+          description: 'Information for connecting to the registries to be scanned.
 
             '
-          type: string
-        scanTime:
-          description: 'ScanTime specifies the time a scan was started.
-
-            '
-          format: date-time
-          type: string
-        scannedImagesSuccessTotal:
-          description: 'ScannedImagesSuccessTotal is the total number of registry images that were scanned successfully on the last registry specification scan.
-
-            '
-          type: integer
-        scanners:
-          description: 'Number of Defenders that can be utilized for each scan job.
-
-            '
-          type: integer
-        tag:
-          description: 'Tags to scan.
-
-            '
-          type: string
-        version:
-          description: 'Registry type. Determines the protocol Prisma Cloud uses to communicate with the registry.
-
-            '
-          type: string
-        versionPattern:
-          description: 'Pattern heuristic for quickly filtering images by tags without having to query all images for modification dates.
+          items:
+            $ref: '#/components/schemas/shared.RegistrySpecification'
+          type: array
+        webhookUrlSuffix:
+          description: 'Relative path to the webhook HTTP endpoint.
 
             '
           type: string
@@ -3407,6 +3495,31 @@ components:
           description: User Attribution in Notification
           type: boolean
       type: object
+    ClusterInfo:
+      type: object
+      required:
+      - clusterAssetId
+      properties:
+        clusterAssetId:
+          type: string
+        config:
+          type: object
+          additionalProperties:
+            type: object
+    InnerError:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        innerError:
+          $ref: '#/components/schemas/InnerError'
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          $ref: '#/components/schemas/Error'
     ClusterInfoResponse:
       type: object
       properties:
@@ -3426,11 +3539,6 @@ components:
           type: string
         orchestratorPlatform:
           type: string
-    ErrorResponse:
-      type: object
-      properties:
-        error:
-          $ref: '#/components/schemas/Error'
     ClusterMetaDataResponse:
       type: object
       properties:
@@ -3460,26 +3568,6 @@ components:
           required:
           - code
           - message
-    ClusterInfo:
-      type: object
-      required:
-      - clusterAssetId
-      properties:
-        clusterAssetId:
-          type: string
-        config:
-          type: object
-          additionalProperties:
-            type: object
-    InnerError:
-      type: object
-      properties:
-        code:
-          type: string
-        message:
-          type: string
-        innerError:
-          $ref: '#/components/schemas/InnerError'
     EnterpriseSettingsRequestModel_2:
       description: Model used for EnterpriseSettings
       properties:
@@ -3543,12 +3631,100 @@ components:
           description: User Attribution in Notification
           type: boolean
       type: object
+    LogForwardingSettings:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: Whether log forwarding is globally enabled.
+          example: false
+        destinations:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum:
+                - syslog
+                - https
+                - s3
+                - splunk
+                description: Forwarding destination type.
+                example: s3
+              name:
+                type: string
+                description: Destination name.
+                example: Staging Policy 90
+              enabled:
+                type: boolean
+                description: Whether this destination is active.
+                example: true
+              log_types:
+                type: array
+                items:
+                  type: string
+                description: Log types forwarded to this destination.
+                example:
+                - standard
+          example:
+          - type: s3
+            name: Staging Firewall 89
+            enabled: true
+            log_types:
+            - custom
+            - standard
+          - type: splunk
+            name: Staging Sensor 80
+            enabled: true
+            log_types:
+            - standard
+    ErrorResponse_2:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code identifying the error type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable description of the error.
+          example: Configured monitoring network blocked investigation applied activity.
+        request_id:
+          type: string
+          description: Request identifier for support correlation.
+          example: 5cc3d66e-5479-4e15-bd64-849adde3cb60
+    ErrorResponse_3:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code identifying the error type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable description of the error.
+          example: Configured monitoring network blocked investigation applied activity.
+        request_id:
+          type: string
+          description: Request identifier for support correlation.
+          example: 5cc3d66e-5479-4e15-bd64-849adde3cb60
   securitySchemes:
     x-redlock-auth:
       description: The x-redlock-auth value is a JSON Web Token (JWT).
       in: header
       name: x-redlock-auth
       type: apiKey
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token. Obtain by authenticating with the SaaS Security API token endpoint using your service account credentials.
 x-refined-from:
 - palo-alto-compute-34-03-openapi-34-03-138-sh-openapi.json
 - palo-alto-compute-openapi-34-04-145-sh-openapi.json
@@ -3557,3 +3733,5 @@ x-refined-from:
 - palo-alto-cspm-settings-openapi.json
 - palo-alto-cwpp-34-03-openapi-34-03-138-saas-openapi.json
 - palo-alto-cwpp-openapi-34-04-145-saas-openapi.json
+- palo-alto-networks-settings-api-openapi.yml
+- palo-alto-saas-security-api-openapi-original.yml

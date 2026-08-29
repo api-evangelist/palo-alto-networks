@@ -1,10 +1,20 @@
 openapi: 3.2.0
 info:
   title: Palo Alto Networks Defenders API
+  x-refined-note:
+  - x-description-source differs across the merged source definitions and was not carried
   version: '1.0'
-  description: 'Operations tagged Defenders across 4 of this provider''s published API definitions: palo-alto-compute-34-03-openapi-34-03-138-sh-openapi.json, palo-alto-compute-openapi-34-04-145-sh-openapi.json, palo-alto-cwpp-34-03-openapi-34-03-138-saas-openapi.json, palo-alto-cwpp-openapi-34-04-145-saas-openapi.json. Each path carries the servers of the definition it was published in.'
+  description: 'Operations tagged Defenders across 6 of this provider''s published API definitions: palo-alto-compute-34-03-openapi-34-03-138-sh-openapi.json, palo-alto-compute-openapi-34-04-145-sh-openapi.json, palo-alto-cwpp-34-03-openapi-34-03-138-saas-openapi.json, palo-alto-cwpp-openapi-34-04-145-saas-openapi.json, palo-alto-networks-defenders-api-openapi.yml, palo-alto-prisma-cloud-compute-api-openapi-original.yml. Each path carries the servers of the definition it was published in.'
 servers:
 - url: PATH_TO_CONSOLE
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
+- url: https://{console}/api/v1
+  description: Prisma Cloud Compute Console API.
+  variables:
+    console:
+      default: console.example.com
+      description: Address of the Prisma Cloud Compute Console. For SaaS deployments, use the address provided in Prisma Cloud under Compute > Manage > System > Utilities.
 tags:
 - name: Defenders
   description: Defenders. 21 operations in this definition.
@@ -3136,25 +3146,571 @@ paths:
       operationId: post-defenders-id-upgrade
       summary: Upgrade a Defender
       x-description-source: desc/defenders/id_upgrade_post.md
+  /defenders:
+    get:
+      operationId: getDefenders
+      summary: Palo Alto Networks List Defenders
+      description: Returns information about all deployed Defenders including their connection status, version, type, and the host they are running on. Defenders are the runtime agents that enforce security policies and report vulnerability and compliance data to the Console.
+      tags:
+      - Defenders
+      parameters:
+      - name: offset
+        in: query
+        description: Number of records to skip for pagination.
+        schema:
+          type: integer
+          default: 0
+        example: 0
+      - name: limit
+        in: query
+        description: Maximum number of records to return.
+        schema:
+          type: integer
+          default: 50
+        example: 50
+      - name: search
+        in: query
+        description: Search term to filter Defenders by hostname.
+        schema:
+          type: string
+        example: example-search
+      - name: connected
+        in: query
+        description: Filter by connection status.
+        schema:
+          type: boolean
+        example: true
+      - name: type
+        in: query
+        description: Filter by Defender type.
+        schema:
+          type: string
+          enum:
+          - docker
+          - dockerWindows
+          - cri
+          - fargate
+          - appEmbedded
+          - serverless
+        example: serverless
+      - name: cluster
+        in: query
+        description: Filter by cluster name.
+        schema:
+          type: string
+        example: example-cluster
+      responses:
+        '200':
+          description: Defender list returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Defender'
+              examples:
+                GetDefenders200Example:
+                  summary: Default getDefenders 200 response
+                  x-microcks-default: true
+                  value:
+                  - hostname: host-7a08
+                    version: 9.6.1
+                    type: cri
+                    connected: true
+                    lastModified: '2024-10-15T05:34:16Z'
+                    cluster: example-cluster
+                    cloudMetadata:
+                      provider: example-provider
+                      accountId: '210791'
+                      region: us-west-2
+                    category: appEmbedded
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
+  /defenders/summary:
+    get:
+      operationId: getDefendersSummary
+      summary: Palo Alto Networks Get Defender Summary Statistics
+      description: Returns summary statistics about deployed Defenders including total count, connected count, version distribution, and deployment type breakdown.
+      tags:
+      - Defenders
+      responses:
+        '200':
+          description: Defender summary statistics returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DefenderSummary'
+              examples:
+                GetDefendersSummary200Example:
+                  summary: Default getDefendersSummary 200 response
+                  x-microcks-default: true
+                  value:
+                    total: 699
+                    connected: 599
+                    disconnected: 938
+                    by_type:
+                      docker: 291
+                      dockerWindows: 218
+                      cri: 483
+                      fargate: 38
+                      appEmbedded: 555
+                      serverless: 454
+                    version_distribution:
+                    - version: 1.1.4
+                      count: 916
+                    - version: 9.6.3
+                      count: 298
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - oauth2Bearer: []
+    servers:
+    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+      description: AIOps for NGFW BPA API production server.
 components:
   schemas:
-    -_types.DefenderSummary:
-      items:
-        $ref: '#/components/schemas/types.DefenderSummary'
-      type: array
-    shared.ServerlessBundleRequest:
-      description: ServerlessBundleRequest represents the arguments to serverless bundle request
+    common.DefenderProxyOpt:
+      description: 'DefenderProxyOpt holds options for defender proxy configuration
+
+        It embeds ProxySettings but override it''s Password field with a simple string
+
+        This is needed in order to avoid Secret''s MarshalJSON method, which depends on existence of master key file'
       properties:
-        provider:
-          $ref: '#/components/schemas/common.CloudProvider'
-        proxyCA:
-          description: 'ProxyCA is the proxy’s CA certificate for Defender to trust.
+        ca:
+          description: 'Proxy''s CA for Defender to trust. Required when using TLS intercept proxies.
 
             '
           type: string
-        runtime:
-          $ref: '#/components/schemas/shared.LambdaRuntimeType'
+        httpProxy:
+          description: 'Proxy address.
+
+            '
+          type: string
+        noProxy:
+          description: 'List of addresses for which the proxy should not be used.
+
+            '
+          type: string
+        password:
+          description: '.
+
+            '
+          type: string
+        user:
+          description: 'Username to authenticate with the proxy.
+
+            '
+          type: string
       type: object
+    shared.AppEmbeddedEmbedRequest:
+      description: AppEmbeddedEmbedRequest represents the arguments required for a AppEmbedded defender embed request
+      properties:
+        appID:
+          description: 'AppID identifies the app that the embedded app defender defender is protecting.
+
+            '
+          type: string
+        consoleAddr:
+          description: 'ConsoleAddr is the console address.
+
+            '
+          type: string
+        dataFolder:
+          description: 'DataFolder is the path to the Twistlock data folder in the container.
+
+            '
+          type: string
+        dockerfile:
+          description: 'Dockerfile is the Dockerfile to embed AppEmbedded defender into.
+
+            '
+          type: string
+        filesystemMonitoring:
+          description: 'FilesystemMonitoring is the flag of filesystem monitoring for this Defender.
+
+            '
+          type: boolean
+      type: object
+    common.ContainerRuntime:
+      description: ContainerRuntime represents the supported container runtime types
+      enum:
+      - - docker
+        - containerd
+        - crio
+      type: string
+    common.ExternalLabelSourceType:
+      description: ExternalLabelSourceType indicates the source of the labels
+      enum:
+      - - namespace
+        - deployment
+        - pod
+        - aws
+        - azure
+        - gcp
+        - oci
+      type: string
+    defender.Category:
+      description: Category represents the defender target category
+      enum:
+      - - container
+        - host
+        - serverless
+        - appEmbedded
+        - hostAgentless
+        - containerAgentless
+        - cloudSecurityAgent
+      type: string
+    defender.Features:
+      description: Features is the defender features that can be updated
+      properties:
+        clusterMonitoring:
+          description: 'Indicates whether any of the cluster monitoring features are enabled (monitor service accounts, monitor Istio, collect Kubernetes pod labels).
+
+            '
+          type: boolean
+        proxyListenerType:
+          $ref: '#/components/schemas/defender.ProxyListenerType'
+      type: object
+    uint8:
+      type: integer
+    defender.UpgradeStatus:
+      description: UpgradeStatus represents the status of current twistlock defender upgrade
+      properties:
+        err:
+          description: 'Error string, if an error occurred.
+
+            '
+          type: string
+        hostname:
+          description: 'Name of the host where Defender runs.
+
+            '
+          type: string
+        lastModified:
+          description: 'Datetime of the last upgrade.
+
+            '
+          format: date-time
+          type: string
+        progress:
+          description: 'Upgrade progress.
+
+            '
+          type: integer
+      type: object
+    int:
+      type: integer
+    defender.SystemInfo:
+      description: SystemInfo is the OS information of the host
+      properties:
+        cpuCount:
+          description: 'CPU count on the host where Defender runs.
+
+            '
+          type: integer
+        freeDiskSpaceGB:
+          description: 'Free disk space (in GB) on the host where Defender runs.
+
+            '
+          type: integer
+        kernelVersion:
+          description: 'Kernel version on the host where Defender runs.
+
+            '
+          type: string
+        memoryGB:
+          description: 'Total memory (in GB) on the host where Defender runs.
+
+            '
+          format: double
+          type: number
+        totalDiskSpaceGB:
+          description: 'Total disk space (in GB) on the host where Defender runs.
+
+            '
+          type: integer
+      type: object
+    common.Secret:
+      description: Secret Stores the plain and encrypted version of a value. The plain version is not stored in a database
+      properties:
+        encrypted:
+          description: 'Specifies an encrypted value of the secret.
+
+            '
+          type: string
+        plain:
+          description: 'Specifies the plain text value of the secret.
+
+            '
+          type: string
+      type: object
+    defender.ScanStatus:
+      description: ScanStatus represents the status of current scan
+      properties:
+        completed:
+          description: 'Indicates if scanning has successfully completed (true) or not (false).
+
+            '
+          type: boolean
+        errors:
+          description: 'List of errors that occurred during the last scan.
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        hostname:
+          description: 'Name of the host where Defender runs.
+
+            '
+          type: string
+        scanTime:
+          description: 'Datetime of the last completed scan.
+
+            '
+          format: date-time
+          type: string
+        scanning:
+          description: 'Indicates whether scanning is in progress (true) or not (false).
+
+            '
+          type: boolean
+        selective:
+          description: 'Indicates if the scan is for a specific resource (true) or not (false).
+
+            '
+          type: boolean
+      type: object
+    common.Toleration:
+      description: 'Toleration holds options for pod toleration
+
+        ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+
+        code ref: k8s.io/api/core/v1/types.go'
+      properties:
+        effect:
+          description: 'Effect indicates the taint effect to match. Empty means match all taint effects.
+
+            When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+
+            +optional.
+
+            '
+          type: string
+        key:
+          description: 'Key is the taint key that the toleration applies to. Empty means match all taint keys.
+
+            If the key is empty, operator must be Exists; this combination means to match all values and all keys.
+
+            +optional.
+
+            '
+          type: string
+        operator:
+          description: 'Operator represents a key''s relationship to the value.
+
+            Valid operators are Exists and Equal. Defaults to Equal.
+
+            Exists is equivalent to wildcard for value, so that a pod can
+
+            tolerate all taints of a particular category.
+
+            +optional.
+
+            '
+          type: string
+        tolerationSeconds:
+          description: 'TolerationSeconds represents the period of time the toleration (which must be
+
+            of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default,
+
+            it is not set, which means tolerate the taint forever (do not evict). Zero and
+
+            negative values will be treated as 0 (evict immediately) by the system.
+
+            +optional.
+
+            '
+          format: int64
+          type: integer
+        value:
+          description: 'Value is the taint value the toleration matches to.
+
+            If the operator is Exists, the value should be empty, otherwise just a regular string.
+
+            +optional.
+
+            '
+          type: string
+      type: object
+    defender.FeatureStatus:
+      description: FeatureStatus holds data about defender features
+      properties:
+        enabled:
+          description: 'Indicates if the feature is enabled (true) or not (false).
+
+            '
+          type: boolean
+        err:
+          description: 'Error string, if an error occurred.
+
+            '
+          type: string
+        hostname:
+          description: 'Name of host where Defender runs.
+
+            '
+          type: string
+      type: object
+    defender.Type:
+      description: Type is the type to be given at startup
+      enum:
+      - - none
+        - docker
+        - dockerWindows
+        - containerdWindows
+        - swarm
+        - daemonset
+        - serverLinux
+        - serverWindows
+        - cri
+        - fargate
+        - appEmbedded
+        - tas
+        - tasWindows
+        - serverless
+        - ecs
+        - podman
+        - eksFargate
+      type: string
+    common.CloudProvider:
+      description: CloudProvider specifies the cloud provider name
+      enum:
+      - - aws
+        - azure
+        - gcp
+        - alibaba
+        - oci
+        - others
+      type: string
+    types.DefenderSummary:
+      description: DefenderSummary is a summary for a type of defender
+      properties:
+        category:
+          $ref: '#/components/schemas/defender.Category'
+        connected:
+          description: 'Connected counts how many defenders are connected for this category.
+
+            '
+          type: integer
+        deployed:
+          description: 'Deployed counts how many defenders are deployed for this category.
+
+            '
+          type: integer
+        licensed:
+          description: 'Licensed counts how many defenders are licensed for this category.
+
+            '
+          type: integer
+      type: object
+    common.ExternalLabel:
+      description: ExternalLabel holds an external label with a source and timestamp
+      properties:
+        key:
+          description: 'Label key.
+
+            '
+          type: string
+        sourceName:
+          description: 'Source name (e.g., for a namespace, the source name can be ''twistlock'').
+
+            '
+          type: string
+        sourceType:
+          $ref: '#/components/schemas/common.ExternalLabelSourceType'
+        timestamp:
+          description: 'Time when the label was fetched.
+
+            '
+          format: date-time
+          type: string
+        value:
+          description: 'Value of the label.
+
+            '
+          type: string
+      type: object
+    common.AzureMetadata:
+      properties:
+        aci:
+          $ref: '#/components/schemas/common.ACIMetadata'
+        resourceGroup:
+          description: '.
+
+            '
+          type: string
+      type: object
+    common.CloudRunMetadata:
+      properties:
+        revision:
+          description: '.
+
+            '
+          type: string
+        service:
+          description: '.
+
+            '
+          type: string
+      type: object
+    appembedded.FargateTask:
+      additionalProperties:
+        $ref: '#/components/schemas/string'
+      description: FargateTask represents the generic fargate task AWS template
+      type: object
+    common.ClusterType:
+      description: ClusterType is the cluster type
+      enum:
+      - - AKS
+        - ECS
+        - EKS
+        - GKE
+        - Kubernetes
+      type: string
+    waas.OutOfBandMode:
+      description: OutOfBandMode holds the app firewall out-of-band mode
+      enum:
+      - - ''
+        - Observation
+        - Protection
+      type: string
+    defender.ProxyListenerType:
+      description: ProxyListenerType is the proxy listener type of defenders
+      type: string
+    -_string:
+      items:
+        $ref: '#/components/schemas/string'
+      type: array
     common.CloudMetadata:
       description: CloudMetadata is the metadata for a cloud provider managed asset (e.g., as part of AWS/GCP/Azure/OCI)
       properties:
@@ -3226,6 +3782,239 @@ components:
 
             '
           type: string
+      type: object
+    defender.Defender:
+      description: Defender is an update about an agent starting
+      properties:
+        category:
+          $ref: '#/components/schemas/defender.Category'
+        certificateExpiration:
+          description: 'Client certificate expiration time.
+
+            '
+          format: date-time
+          type: string
+        cloudMetadata:
+          $ref: '#/components/schemas/common.CloudMetadata'
+        cluster:
+          description: 'Cluster name (fallback is internal IP).
+
+            '
+          type: string
+        clusterID:
+          description: 'Unique ID generated for each DaemonSet. Used to group Defenders by clusters. Note: Kubernetes does not provide a cluster name as part of its API.
+
+            '
+          type: string
+        clusterOIDCProviderURL:
+          description: 'ClusterOIDCProviderURL is the URL of the OpenID Connect (OIDC) identity provider of the associated Kubernetes cluster.
+
+            '
+          type: string
+        clusterType:
+          $ref: '#/components/schemas/common.ClusterType'
+        collections:
+          description: 'Collections to which this Defender belongs.
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        compatibleVersion:
+          description: 'Indicates if Defender has a compatible version for communication (e.g., request logs) (true) or not (false).
+
+            '
+          type: boolean
+        connected:
+          description: 'Indicates whether Defender is connected (true) or not (false).
+
+            '
+          type: boolean
+        container:
+          description: 'Container is the container name for app embedded defenders.
+
+            '
+          type: string
+        features:
+          $ref: '#/components/schemas/defender.Features'
+        firewallProtection:
+          $ref: '#/components/schemas/waas.ProtectionStatus'
+        fqdn:
+          description: 'Full domain name of the host. Used in audit alerts to identify specific hosts.
+
+            '
+          type: string
+        hostname:
+          description: 'Name of host where Defender is deployed.
+
+            '
+          type: string
+        isARM64:
+          description: 'IsARM64 indicates whether the defender runs on aarch64 architecture.
+
+            '
+          type: boolean
+        lastModified:
+          description: 'Datetime when the Defender''s connectivity status last changed.
+
+            '
+          format: date-time
+          type: string
+        podUid:
+          description: 'PodUID is the UID of the pod where the defender is running, the UID is unique within a Kubernetes cluster.
+
+            '
+          type: string
+        port:
+          description: 'Port that Defender uses to connect to Console.
+
+            '
+          type: integer
+        proxy:
+          $ref: '#/components/schemas/common.ProxySettings'
+        remoteLoggingSupported:
+          description: 'Indicates if Defender logs can be retrieved remotely (true) or not (false).
+
+            '
+          type: boolean
+        remoteMgmtSupported:
+          description: 'Indicates if Defender can be remotely managed (upgraded, restarted) (true) or not (false).
+
+            '
+          type: boolean
+        status:
+          $ref: '#/components/schemas/defender.Status'
+        systemInfo:
+          $ref: '#/components/schemas/defender.SystemInfo'
+        tasBlobstoreScanner:
+          description: 'Indicates TAS blobstore scanning only Defender.
+
+            '
+          type: boolean
+        tasClusterID:
+          description: 'TAS cluster ID where Defender runs. This is typically set to the Cloud controller''s API address.
+
+            '
+          type: string
+        tasFoundation:
+          description: 'TASFoundation is the foundation the Defender is running on.
+
+            '
+          type: string
+        type:
+          $ref: '#/components/schemas/defender.Type'
+        usingOldCA:
+          description: 'UsingOldCA indicates whether the defender client is using an old certificate signed by an old CA for TLS handshake.
+
+            '
+          type: boolean
+        version:
+          description: 'Defender version.
+
+            '
+          type: string
+        vpcObserver:
+          description: 'VPCObserver indicates whether the defender runs in a VPC observer.
+
+            '
+          type: boolean
+      type: object
+    shared.LambdaRuntimeType:
+      description: 'LambdaRuntimeType represents the runtime type of the serverless function
+
+        The constants used are taken from: https://docs.aws.amazon.com/lambda/latest/dg/API_CreateFunction.html#SSS-CreateFunction-request-Runtime'
+      enum:
+      - - python
+        - python3.9
+        - python3.10
+        - python3.11
+        - python3.12
+        - python3.13
+        - nodejs
+        - nodejs18.x
+        - nodejs20.x
+        - nodejs22.x
+        - dotnet
+        - dotnetcore2.1
+        - dotnetcore3.1
+        - dotnet6
+        - java
+        - java8
+        - java11
+        - java17
+        - java21
+        - ruby
+      type: string
+    shared.ServerlessBundleRequest:
+      description: ServerlessBundleRequest represents the arguments to serverless bundle request
+      properties:
+        provider:
+          $ref: '#/components/schemas/common.CloudProvider'
+        proxyCA:
+          description: 'ProxyCA is the proxy’s CA certificate for Defender to trust.
+
+            '
+          type: string
+        runtime:
+          $ref: '#/components/schemas/shared.LambdaRuntimeType'
+      type: object
+    -_types.DefenderSummary:
+      items:
+        $ref: '#/components/schemas/types.DefenderSummary'
+      type: array
+    common.GCPCloudMetadata:
+      properties:
+        cloudRun:
+          $ref: '#/components/schemas/common.CloudRunMetadata'
+      type: object
+    common.ACIMetadata:
+      properties:
+        containerGroup:
+          description: '.
+
+            '
+          type: string
+      type: object
+    -_uint8:
+      items:
+        $ref: '#/components/schemas/uint8'
+      type: array
+    shared.DefenderInstallBundle:
+      description: DefenderInstallBundle represents the install bundle for the defender
+      properties:
+        installBundle:
+          description: 'InstallBundle is the base64 bundle of certificates used to communicate with the console.
+
+            '
+          type: string
+        wsAddress:
+          description: 'WSAddress is the websocket address (console ) the TAS defender connects to.
+
+            '
+          type: string
+      type: object
+    -_defender.Defender:
+      items:
+        $ref: '#/components/schemas/defender.Defender'
+      type: array
+    waas.UnprotectedProcess:
+      description: UnprotectedProcess holds unprotected processes alongside the port
+      properties:
+        port:
+          description: 'Port is the process port.
+
+            '
+          type: integer
+        process:
+          description: 'Process is the process name.
+
+            '
+          type: string
+        tls:
+          description: 'TLS is the port TLS indication.
+
+            '
+          type: boolean
       type: object
     common.DaemonSetOptions:
       description: DaemonSetOptions are options for creating the daemonset install script for defenders
@@ -3379,13 +4168,69 @@ components:
             '
           type: boolean
       type: object
-    common.ContainerRuntime:
-      description: ContainerRuntime represents the supported container runtime types
-      enum:
-      - - docker
-        - containerd
-        - crio
-      type: string
+    waas.ProtectionStatus:
+      description: ProtectionStatus describes the status of the WAAS protection
+      properties:
+        enabled:
+          description: 'Enabled indicates if WAAS proxy protection is enabled (true) or not (false).
+
+            '
+          type: boolean
+        outOfBandMode:
+          $ref: '#/components/schemas/waas.OutOfBandMode'
+        ports:
+          description: 'Ports indicates http open ports associated with the container.
+
+            '
+          items:
+            $ref: '#/components/schemas/int'
+          type: array
+        supported:
+          description: 'Supported indicates if WAAS protection is supported (true) or not (false).
+
+            '
+          type: boolean
+        tlsPorts:
+          description: 'TLSPorts indicates https open ports associated with the container.
+
+            '
+          items:
+            $ref: '#/components/schemas/int'
+          type: array
+        unprotectedProcesses:
+          description: 'UnprotectedProcesses holds the processes that support HTTP/HTTPS without WAAS protection.
+
+            '
+          items:
+            $ref: '#/components/schemas/waas.UnprotectedProcess'
+          type: array
+      type: object
+    common.ProxySettings:
+      description: ProxySettings are the http proxy settings
+      properties:
+        ca:
+          description: 'Proxy''s CA for Defender to trust. Required when using TLS intercept proxies.
+
+            '
+          type: string
+        httpProxy:
+          description: 'Proxy address.
+
+            '
+          type: string
+        noProxy:
+          description: 'List of addresses for which the proxy should not be used.
+
+            '
+          type: string
+        password:
+          $ref: '#/components/schemas/common.Secret'
+        user:
+          description: 'Username to authenticate with the proxy.
+
+            '
+          type: string
+      type: object
     defender.Status:
       description: Status is the generic status state per defender or global
       properties:
@@ -3426,705 +4271,172 @@ components:
         upgrade:
           $ref: '#/components/schemas/defender.UpgradeStatus'
       type: object
-    waas.UnprotectedProcess:
-      description: UnprotectedProcess holds unprotected processes alongside the port
-      properties:
-        port:
-          description: 'Port is the process port.
-
-            '
-          type: integer
-        process:
-          description: 'Process is the process name.
-
-            '
-          type: string
-        tls:
-          description: 'TLS is the port TLS indication.
-
-            '
-          type: boolean
-      type: object
-    appembedded.FargateTask:
-      additionalProperties:
-        $ref: '#/components/schemas/string'
-      description: FargateTask represents the generic fargate task AWS template
-      type: object
-    common.ACIMetadata:
-      properties:
-        containerGroup:
-          description: '.
-
-            '
-          type: string
-      type: object
-    defender.ScanStatus:
-      description: ScanStatus represents the status of current scan
-      properties:
-        completed:
-          description: 'Indicates if scanning has successfully completed (true) or not (false).
-
-            '
-          type: boolean
-        errors:
-          description: 'List of errors that occurred during the last scan.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        hostname:
-          description: 'Name of the host where Defender runs.
-
-            '
-          type: string
-        scanTime:
-          description: 'Datetime of the last completed scan.
-
-            '
-          format: date-time
-          type: string
-        scanning:
-          description: 'Indicates whether scanning is in progress (true) or not (false).
-
-            '
-          type: boolean
-        selective:
-          description: 'Indicates if the scan is for a specific resource (true) or not (false).
-
-            '
-          type: boolean
-      type: object
-    defender.Category:
-      description: Category represents the defender target category
-      enum:
-      - - container
-        - host
-        - serverless
-        - appEmbedded
-        - hostAgentless
-        - containerAgentless
-        - cloudSecurityAgent
-      type: string
-    common.CloudRunMetadata:
-      properties:
-        revision:
-          description: '.
-
-            '
-          type: string
-        service:
-          description: '.
-
-            '
-          type: string
-      type: object
-    common.GCPCloudMetadata:
-      properties:
-        cloudRun:
-          $ref: '#/components/schemas/common.CloudRunMetadata'
-      type: object
-    common.CloudProvider:
-      description: CloudProvider specifies the cloud provider name
-      enum:
-      - - aws
-        - azure
-        - gcp
-        - alibaba
-        - oci
-        - others
-      type: string
-    common.ExternalLabel:
-      description: ExternalLabel holds an external label with a source and timestamp
-      properties:
-        key:
-          description: 'Label key.
-
-            '
-          type: string
-        sourceName:
-          description: 'Source name (e.g., for a namespace, the source name can be ''twistlock'').
-
-            '
-          type: string
-        sourceType:
-          $ref: '#/components/schemas/common.ExternalLabelSourceType'
-        timestamp:
-          description: 'Time when the label was fetched.
-
-            '
-          format: date-time
-          type: string
-        value:
-          description: 'Value of the label.
-
-            '
-          type: string
-      type: object
-    common.Toleration:
-      description: 'Toleration holds options for pod toleration
-
-        ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
-
-        code ref: k8s.io/api/core/v1/types.go'
-      properties:
-        effect:
-          description: 'Effect indicates the taint effect to match. Empty means match all taint effects.
-
-            When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
-
-            +optional.
-
-            '
-          type: string
-        key:
-          description: 'Key is the taint key that the toleration applies to. Empty means match all taint keys.
-
-            If the key is empty, operator must be Exists; this combination means to match all values and all keys.
-
-            +optional.
-
-            '
-          type: string
-        operator:
-          description: 'Operator represents a key''s relationship to the value.
-
-            Valid operators are Exists and Equal. Defaults to Equal.
-
-            Exists is equivalent to wildcard for value, so that a pod can
-
-            tolerate all taints of a particular category.
-
-            +optional.
-
-            '
-          type: string
-        tolerationSeconds:
-          description: 'TolerationSeconds represents the period of time the toleration (which must be
-
-            of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default,
-
-            it is not set, which means tolerate the taint forever (do not evict). Zero and
-
-            negative values will be treated as 0 (evict immediately) by the system.
-
-            +optional.
-
-            '
-          format: int64
-          type: integer
-        value:
-          description: 'Value is the taint value the toleration matches to.
-
-            If the operator is Exists, the value should be empty, otherwise just a regular string.
-
-            +optional.
-
-            '
-          type: string
-      type: object
     string:
       type: string
-    common.Secret:
-      description: Secret Stores the plain and encrypted version of a value. The plain version is not stored in a database
-      properties:
-        encrypted:
-          description: 'Specifies an encrypted value of the secret.
-
-            '
-          type: string
-        plain:
-          description: 'Specifies the plain text value of the secret.
-
-            '
-          type: string
+    ErrorResponse:
       type: object
-    -_uint8:
-      items:
-        $ref: '#/components/schemas/uint8'
-      type: array
-    defender.Features:
-      description: Features is the defender features that can be updated
-      properties:
-        clusterMonitoring:
-          description: 'Indicates whether any of the cluster monitoring features are enabled (monitor service accounts, monitor Istio, collect Kubernetes pod labels).
-
-            '
-          type: boolean
-        proxyListenerType:
-          $ref: '#/components/schemas/defender.ProxyListenerType'
-      type: object
-    defender.FeatureStatus:
-      description: FeatureStatus holds data about defender features
-      properties:
-        enabled:
-          description: 'Indicates if the feature is enabled (true) or not (false).
-
-            '
-          type: boolean
-        err:
-          description: 'Error string, if an error occurred.
-
-            '
-          type: string
-        hostname:
-          description: 'Name of host where Defender runs.
-
-            '
-          type: string
-      type: object
-    -_defender.Defender:
-      items:
-        $ref: '#/components/schemas/defender.Defender'
-      type: array
-    shared.LambdaRuntimeType:
-      description: 'LambdaRuntimeType represents the runtime type of the serverless function
-
-        The constants used are taken from: https://docs.aws.amazon.com/lambda/latest/dg/API_CreateFunction.html#SSS-CreateFunction-request-Runtime'
-      enum:
-      - - python
-        - python3.9
-        - python3.10
-        - python3.11
-        - python3.12
-        - python3.13
-        - nodejs
-        - nodejs18.x
-        - nodejs20.x
-        - nodejs22.x
-        - dotnet
-        - dotnetcore2.1
-        - dotnetcore3.1
-        - dotnet6
-        - java
-        - java8
-        - java11
-        - java17
-        - java21
-        - ruby
-      type: string
-    types.DefenderSummary:
-      description: DefenderSummary is a summary for a type of defender
-      properties:
-        category:
-          $ref: '#/components/schemas/defender.Category'
-        connected:
-          description: 'Connected counts how many defenders are connected for this category.
-
-            '
-          type: integer
-        deployed:
-          description: 'Deployed counts how many defenders are deployed for this category.
-
-            '
-          type: integer
-        licensed:
-          description: 'Licensed counts how many defenders are licensed for this category.
-
-            '
-          type: integer
-      type: object
-    defender.ProxyListenerType:
-      description: ProxyListenerType is the proxy listener type of defenders
-      type: string
-    common.DefenderProxyOpt:
-      description: 'DefenderProxyOpt holds options for defender proxy configuration
-
-        It embeds ProxySettings but override it''s Password field with a simple string
-
-        This is needed in order to avoid Secret''s MarshalJSON method, which depends on existence of master key file'
-      properties:
-        ca:
-          description: 'Proxy''s CA for Defender to trust. Required when using TLS intercept proxies.
-
-            '
-          type: string
-        httpProxy:
-          description: 'Proxy address.
-
-            '
-          type: string
-        noProxy:
-          description: 'List of addresses for which the proxy should not be used.
-
-            '
-          type: string
-        password:
-          description: '.
-
-            '
-          type: string
-        user:
-          description: 'Username to authenticate with the proxy.
-
-            '
-          type: string
-      type: object
-    waas.ProtectionStatus:
-      description: ProtectionStatus describes the status of the WAAS protection
-      properties:
-        enabled:
-          description: 'Enabled indicates if WAAS proxy protection is enabled (true) or not (false).
-
-            '
-          type: boolean
-        outOfBandMode:
-          $ref: '#/components/schemas/waas.OutOfBandMode'
-        ports:
-          description: 'Ports indicates http open ports associated with the container.
-
-            '
-          items:
-            $ref: '#/components/schemas/int'
-          type: array
-        supported:
-          description: 'Supported indicates if WAAS protection is supported (true) or not (false).
-
-            '
-          type: boolean
-        tlsPorts:
-          description: 'TLSPorts indicates https open ports associated with the container.
-
-            '
-          items:
-            $ref: '#/components/schemas/int'
-          type: array
-        unprotectedProcesses:
-          description: 'UnprotectedProcesses holds the processes that support HTTP/HTTPS without WAAS protection.
-
-            '
-          items:
-            $ref: '#/components/schemas/waas.UnprotectedProcess'
-          type: array
-      type: object
-    common.ExternalLabelSourceType:
-      description: ExternalLabelSourceType indicates the source of the labels
-      enum:
-      - - namespace
-        - deployment
-        - pod
-        - aws
-        - azure
-        - gcp
-        - oci
-      type: string
-    defender.Type:
-      description: Type is the type to be given at startup
-      enum:
-      - - none
-        - docker
-        - dockerWindows
-        - containerdWindows
-        - swarm
-        - daemonset
-        - serverLinux
-        - serverWindows
-        - cri
-        - fargate
-        - appEmbedded
-        - tas
-        - tasWindows
-        - serverless
-        - ecs
-        - podman
-        - eksFargate
-      type: string
-    common.ClusterType:
-      description: ClusterType is the cluster type
-      enum:
-      - - AKS
-        - ECS
-        - EKS
-        - GKE
-        - Kubernetes
-      type: string
-    -_string:
-      items:
-        $ref: '#/components/schemas/string'
-      type: array
-    uint8:
-      type: integer
-    waas.OutOfBandMode:
-      description: OutOfBandMode holds the app firewall out-of-band mode
-      enum:
-      - - ''
-        - Observation
-        - Protection
-      type: string
-    shared.DefenderInstallBundle:
-      description: DefenderInstallBundle represents the install bundle for the defender
-      properties:
-        installBundle:
-          description: 'InstallBundle is the base64 bundle of certificates used to communicate with the console.
-
-            '
-          type: string
-        wsAddress:
-          description: 'WSAddress is the websocket address (console ) the TAS defender connects to.
-
-            '
-          type: string
-      type: object
-    defender.SystemInfo:
-      description: SystemInfo is the OS information of the host
-      properties:
-        cpuCount:
-          description: 'CPU count on the host where Defender runs.
-
-            '
-          type: integer
-        freeDiskSpaceGB:
-          description: 'Free disk space (in GB) on the host where Defender runs.
-
-            '
-          type: integer
-        kernelVersion:
-          description: 'Kernel version on the host where Defender runs.
-
-            '
-          type: string
-        memoryGB:
-          description: 'Total memory (in GB) on the host where Defender runs.
-
-            '
-          format: double
-          type: number
-        totalDiskSpaceGB:
-          description: 'Total disk space (in GB) on the host where Defender runs.
-
-            '
-          type: integer
-      type: object
-    defender.UpgradeStatus:
-      description: UpgradeStatus represents the status of current twistlock defender upgrade
       properties:
         err:
-          description: 'Error string, if an error occurred.
-
-            '
           type: string
+          description: Error message.
+          example: example-err
+    Defender:
+      type: object
+      properties:
         hostname:
-          description: 'Name of the host where Defender runs.
-
-            '
           type: string
-        lastModified:
-          description: 'Datetime of the last upgrade.
-
-            '
-          format: date-time
-          type: string
-        progress:
-          description: 'Upgrade progress.
-
-            '
-          type: integer
-      type: object
-    int:
-      type: integer
-    common.ProxySettings:
-      description: ProxySettings are the http proxy settings
-      properties:
-        ca:
-          description: 'Proxy''s CA for Defender to trust. Required when using TLS intercept proxies.
-
-            '
-          type: string
-        httpProxy:
-          description: 'Proxy address.
-
-            '
-          type: string
-        noProxy:
-          description: 'List of addresses for which the proxy should not be used.
-
-            '
-          type: string
-        password:
-          $ref: '#/components/schemas/common.Secret'
-        user:
-          description: 'Username to authenticate with the proxy.
-
-            '
-          type: string
-      type: object
-    common.AzureMetadata:
-      properties:
-        aci:
-          $ref: '#/components/schemas/common.ACIMetadata'
-        resourceGroup:
-          description: '.
-
-            '
-          type: string
-      type: object
-    defender.Defender:
-      description: Defender is an update about an agent starting
-      properties:
-        category:
-          $ref: '#/components/schemas/defender.Category'
-        certificateExpiration:
-          description: 'Client certificate expiration time.
-
-            '
-          format: date-time
-          type: string
-        cloudMetadata:
-          $ref: '#/components/schemas/common.CloudMetadata'
-        cluster:
-          description: 'Cluster name (fallback is internal IP).
-
-            '
-          type: string
-        clusterID:
-          description: 'Unique ID generated for each DaemonSet. Used to group Defenders by clusters. Note: Kubernetes does not provide a cluster name as part of its API.
-
-            '
-          type: string
-        clusterOIDCProviderURL:
-          description: 'ClusterOIDCProviderURL is the URL of the OpenID Connect (OIDC) identity provider of the associated Kubernetes cluster.
-
-            '
-          type: string
-        clusterType:
-          $ref: '#/components/schemas/common.ClusterType'
-        collections:
-          description: 'Collections to which this Defender belongs.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        compatibleVersion:
-          description: 'Indicates if Defender has a compatible version for communication (e.g., request logs) (true) or not (false).
-
-            '
-          type: boolean
-        connected:
-          description: 'Indicates whether Defender is connected (true) or not (false).
-
-            '
-          type: boolean
-        container:
-          description: 'Container is the container name for app embedded defenders.
-
-            '
-          type: string
-        features:
-          $ref: '#/components/schemas/defender.Features'
-        firewallProtection:
-          $ref: '#/components/schemas/waas.ProtectionStatus'
-        fqdn:
-          description: 'Full domain name of the host. Used in audit alerts to identify specific hosts.
-
-            '
-          type: string
-        hostname:
-          description: 'Name of host where Defender is deployed.
-
-            '
-          type: string
-        isARM64:
-          description: 'IsARM64 indicates whether the defender runs on aarch64 architecture.
-
-            '
-          type: boolean
-        lastModified:
-          description: 'Datetime when the Defender''s connectivity status last changed.
-
-            '
-          format: date-time
-          type: string
-        podUid:
-          description: 'PodUID is the UID of the pod where the defender is running, the UID is unique within a Kubernetes cluster.
-
-            '
-          type: string
-        port:
-          description: 'Port that Defender uses to connect to Console.
-
-            '
-          type: integer
-        proxy:
-          $ref: '#/components/schemas/common.ProxySettings'
-        remoteLoggingSupported:
-          description: 'Indicates if Defender logs can be retrieved remotely (true) or not (false).
-
-            '
-          type: boolean
-        remoteMgmtSupported:
-          description: 'Indicates if Defender can be remotely managed (upgraded, restarted) (true) or not (false).
-
-            '
-          type: boolean
-        status:
-          $ref: '#/components/schemas/defender.Status'
-        systemInfo:
-          $ref: '#/components/schemas/defender.SystemInfo'
-        tasBlobstoreScanner:
-          description: 'Indicates TAS blobstore scanning only Defender.
-
-            '
-          type: boolean
-        tasClusterID:
-          description: 'TAS cluster ID where Defender runs. This is typically set to the Cloud controller''s API address.
-
-            '
-          type: string
-        tasFoundation:
-          description: 'TASFoundation is the foundation the Defender is running on.
-
-            '
-          type: string
-        type:
-          $ref: '#/components/schemas/defender.Type'
-        usingOldCA:
-          description: 'UsingOldCA indicates whether the defender client is using an old certificate signed by an old CA for TLS handshake.
-
-            '
-          type: boolean
+          description: Hostname where the Defender is deployed.
+          example: host-7a08
         version:
-          description: 'Defender version.
-
-            '
           type: string
-        vpcObserver:
-          description: 'VPCObserver indicates whether the defender runs in a VPC observer.
-
-            '
+          description: Defender agent version.
+          example: 9.6.1
+        type:
+          type: string
+          enum:
+          - docker
+          - dockerWindows
+          - cri
+          - fargate
+          - appEmbedded
+          - serverless
+          description: Type of Defender deployment.
+          example: cri
+        connected:
           type: boolean
+          description: Whether the Defender is currently connected to the Console.
+          example: true
+        lastModified:
+          type: string
+          format: date-time
+          description: Timestamp of the last status update from the Defender.
+          example: '2024-10-15T05:34:16Z'
+        cluster:
+          type: string
+          description: Kubernetes cluster name if applicable.
+          example: example-cluster
+        cloudMetadata:
+          type: object
+          properties:
+            provider:
+              type: string
+              example: example-provider
+            accountId:
+              type: string
+              example: '642621'
+            region:
+              type: string
+              example: us-west-2
+          example:
+            provider: example-provider
+            accountId: '210791'
+            region: us-west-2
+        category:
+          type: string
+          enum:
+          - container
+          - host
+          - serverless
+          - appEmbedded
+          example: appEmbedded
+    DefenderSummary:
       type: object
-    shared.AppEmbeddedEmbedRequest:
-      description: AppEmbeddedEmbedRequest represents the arguments required for a AppEmbedded defender embed request
       properties:
-        appID:
-          description: 'AppID identifies the app that the embedded app defender defender is protecting.
-
-            '
-          type: string
-        consoleAddr:
-          description: 'ConsoleAddr is the console address.
-
-            '
-          type: string
-        dataFolder:
-          description: 'DataFolder is the path to the Twistlock data folder in the container.
-
-            '
-          type: string
-        dockerfile:
-          description: 'Dockerfile is the Dockerfile to embed AppEmbedded defender into.
-
-            '
-          type: string
-        filesystemMonitoring:
-          description: 'FilesystemMonitoring is the flag of filesystem monitoring for this Defender.
-
-            '
-          type: boolean
-      type: object
+        total:
+          type: integer
+          description: Total number of deployed Defenders.
+          example: 699
+        connected:
+          type: integer
+          description: Number of currently connected Defenders.
+          example: 599
+        disconnected:
+          type: integer
+          description: Number of disconnected Defenders.
+          example: 938
+        by_type:
+          type: object
+          description: Defender count breakdown by deployment type.
+          properties:
+            docker:
+              type: integer
+              example: 337
+            dockerWindows:
+              type: integer
+              example: 871
+            cri:
+              type: integer
+              example: 582
+            fargate:
+              type: integer
+              example: 950
+            appEmbedded:
+              type: integer
+              example: 172
+            serverless:
+              type: integer
+              example: 889
+          example:
+            docker: 291
+            dockerWindows: 218
+            cri: 483
+            fargate: 38
+            appEmbedded: 555
+            serverless: 454
+        version_distribution:
+          type: array
+          items:
+            type: object
+            properties:
+              version:
+                type: string
+                example: 7.8.9
+              count:
+                type: integer
+                example: 568
+          example:
+          - version: 1.1.4
+            count: 916
+          - version: 9.6.3
+            count: 298
+  responses:
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Invalid or expired authentication credentials.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  securitySchemes:
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from the /api/v1/authenticate endpoint. Valid for 30 minutes.
+    basicAuth:
+      type: http
+      scheme: basic
+      description: HTTP Basic authentication using Prisma Cloud Compute credentials.
 x-refined-from:
 - palo-alto-compute-34-03-openapi-34-03-138-sh-openapi.json
 - palo-alto-compute-openapi-34-04-145-sh-openapi.json
 - palo-alto-cwpp-34-03-openapi-34-03-138-saas-openapi.json
 - palo-alto-cwpp-openapi-34-04-145-saas-openapi.json
+- palo-alto-networks-defenders-api-openapi.yml
+- palo-alto-prisma-cloud-compute-api-openapi-original.yml

@@ -1,10 +1,20 @@
 openapi: 3.2.0
 info:
   title: Palo Alto Networks Services API
+  x-refined-note:
+  - x-logo differs across the merged source definitions and was not carried
   version: '1.0'
-  description: 'Operations tagged Services across 2 of this provider''s published API definitions: palo-alto-access-prisma-access-config-services-openapi.yaml, palo-alto-scm-config-cloudngfw-objects-objects-june-openapi.yaml. Each path carries the servers of the definition it was published in.'
+  description: 'Operations tagged Services across 4 of this provider''s published API definitions: palo-alto-access-prisma-access-config-services-openapi.yaml, palo-alto-cortex-xpanse-api-openapi-original.yml, palo-alto-networks-services-api-openapi.yml, palo-alto-scm-config-cloudngfw-objects-objects-june-openapi.yaml. Each path carries the servers of the definition it was published in.'
 servers:
 - url: https://api.sase.paloaltonetworks.com
+- url: https://api-{fqdn}/public_api/v1
+  description: Cortex Xpanse tenant API endpoint.
+  variables:
+    fqdn:
+      description: Tenant FQDN from the Xpanse settings page (e.g., example.xpanse.paloaltonetworks.com).
+      default: example.xpanse.paloaltonetworks.com
+- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
+  description: AIOps for NGFW BPA API production server.
 - url: https://api.strata.paloaltonetworks.com/config/objects/v1
   description: Current
 - url: https://api.sase.paloaltonetworks.com/sse/config/v1
@@ -187,6 +197,135 @@ paths:
       - Services
     servers:
     - url: https://api.sase.paloaltonetworks.com
+  /services/get_services:
+    post:
+      operationId: getServices
+      summary: Palo Alto Networks Get Exposed Services
+      description: Returns a list of internet-exposed network services discovered by Xpanse. Services represent open ports and protocols observed on internet-facing assets. Supports filtering by service type, port, protocol, country, and associated asset.
+      tags:
+      - Services
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_data:
+                  type: object
+                  properties:
+                    filters:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Filter'
+                    search_from:
+                      type: integer
+                      default: 0
+                    search_to:
+                      type: integer
+                      default: 100
+                    sort:
+                      $ref: '#/components/schemas/SortOrder'
+            examples:
+              GetServicesRequestExample:
+                summary: Default getServices request
+                x-microcks-default: true
+                value:
+                  request_data:
+                    filters:
+                    - field: example-field
+                      operator: contains
+                      value: example-value
+                    - field: example-field
+                      operator: contains
+                      value: example-value
+                    search_from: 0
+                    search_to: 100
+                    sort:
+                      field: example-field
+                      keyword: asc
+      responses:
+        '200':
+          description: Exposed services returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      total_count:
+                        type: integer
+                      result_count:
+                        type: integer
+                      services:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ExposedService'
+              examples:
+                GetServices200Example:
+                  summary: Default getServices 200 response
+                  x-microcks-default: true
+                  value:
+                    reply:
+                      total_count: 543
+                      result_count: 703
+                      services:
+                      - service_id: '336506'
+                        service_name: Corporate Agent 50
+                        service_type: NETWORKING
+                        ip_address:
+                        - 10.239.5.194
+                        domain:
+                        - example-domain_item
+                        - example-domain_item
+                        port: 278
+                        protocol: TCP
+                        provider:
+                        - example-provider_item
+                        business_units:
+                        - example-business_units_item
+                        - example-business_units_item
+                        created: 966
+                        last_observed: 356
+                        is_active: Unconfirmed
+                        discovery_type: DirectlyDiscovered
+                      - service_id: '336506'
+                        service_name: Corporate Agent 50
+                        service_type: NETWORKING
+                        ip_address:
+                        - 10.239.5.194
+                        domain:
+                        - example-domain_item
+                        - example-domain_item
+                        port: 278
+                        protocol: TCP
+                        provider:
+                        - example-provider_item
+                        business_units:
+                        - example-business_units_item
+                        - example-business_units_item
+                        created: 966
+                        last_observed: 356
+                        is_active: Unconfirmed
+                        discovery_type: DirectlyDiscovered
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+      security:
+      - xpanseAuth: []
+    servers:
+    - url: https://api-{fqdn}/public_api/v1
+      description: Cortex Xpanse tenant API endpoint.
+      variables:
+        fqdn:
+          description: Tenant FQDN from the Xpanse settings page (e.g., example.xpanse.paloaltonetworks.com).
+          default: example.xpanse.paloaltonetworks.com
   /services:
     get:
       tags:
@@ -375,45 +514,13 @@ paths:
       description: Legacy
 components:
   examples:
-    json_401_panui_auth_key_expired:
-      summary: Key Expired
-      value:
-        _errors:
-        - code: E016
-          details: {}
-          message: Key Expired
-        _request_id: abcd-1234
-    json_501_panui_restapi_method_not_supported:
-      summary: Method Not Supported
-      value:
-        _errors:
-        - code: E012
-          details: {}
-          message: Method Not Supported
-        _request_id: abcd-1234
-    json_400_panui_restapi_input_format_mismatch:
-      summary: Input Format Mismatch
+    json_400_panui_mgmt_invalid_object:
+      summary: Invalid Object
       value:
         _errors:
         - code: E003
           details: {}
-          message: 'Input Format Mismatch: input-format=json'
-        _request_id: abcd-1234
-    json_501_panui_restapi_version_not_supported:
-      summary: Version Not Supported
-      value:
-        _errors:
-        - code: E012
-          details: {}
-          message: Version Not Supported
-        _request_id: abcd-1234
-    json_409_panui_mgmt_name_not_unique:
-      summary: Name Not Unique
-      value:
-        _errors:
-        - code: E006
-          details: {}
-          message: Name Not Unique
+          message: Invalid Object
         _request_id: abcd-1234
     json_409_panui_mgmt_object_not_unique:
       summary: Object Not Unique
@@ -423,77 +530,13 @@ components:
           details: {}
           message: Object Not Unique
         _request_id: abcd-1234
-    json_404_panui_mgmt_object_not_present:
-      summary: Object Not Present
-      value:
-        _errors:
-        - code: E005
-          details: {}
-          message: Object Not Present
-        _request_id: abcd-1234
-    json_400_panui_restapi_missing_body:
-      summary: Missing Body
+    json_400_panui_restapi_input_format_mismatch:
+      summary: Input Format Mismatch
       value:
         _errors:
         - code: E003
           details: {}
-          message: Missing Body
-        _request_id: abcd-1234
-    json_409_panui_mgmt_reference_not_zero:
-      summary: Reference Not Zero
-      value:
-        _errors:
-        - code: E009
-          details: {}
-          message: Reference Not Zero
-        _request_id: abcd-1234
-    json_400_panui_mgmt_invalid_command:
-      summary: Invalid Command
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: Invalid Command
-        _request_id: abcd-1234
-    json_400_panui_restapi_output_format_mismatch:
-      summary: Output Format Mismatch
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: 'Output Format Mismatch: output-format=json Accept=xml'
-        _request_id: abcd-1234
-    json_401_panui_auth_not_authenticated:
-      summary: Not Authenticated
-      value:
-        _errors:
-        - code: E016
-          details: {}
-          message: Not Authenticated
-        _request_id: abcd-1234
-    json_401_panui_auth_invalid_credential:
-      summary: Invalid Credential
-      value:
-        _errors:
-        - code: E016
-          details: {}
-          message: Invalid Credential
-        _request_id: abcd-1234
-    json_403_panui_auth_unauthorized:
-      summary: Unauthorized
-      value:
-        _errors:
-        - code: E007
-          details: {}
-          message: Unauthorized
-        _request_id: abcd-1234
-    json_400_panui_restapi_missing_query_parameter:
-      summary: Missing Query Parameter
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: 'Missing Query Parameter: name'
+          message: 'Input Format Mismatch: input-format=json'
         _request_id: abcd-1234
     json_405_panui_restapi_action_not_supported:
       summary: Action Not Supported
@@ -503,53 +546,13 @@ components:
           details: {}
           message: 'Action Not Supported: move'
         _request_id: abcd-1234
-    json_400_panui_restapi_invalid_query_parameter:
-      summary: Invalid Query Parameter
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: 'Invalid Query Parameter: location=invalid'
-        _request_id: abcd-1234
-    json_401_panui_auth_key_too_long:
-      summary: Key Too Long
+    json_401_panui_auth_key_expired:
+      summary: Key Expired
       value:
         _errors:
         - code: E016
           details: {}
-          message: Key Too Long
-        _request_id: abcd-1234
-    json_400_panui_mgmt_invalid_object:
-      summary: Invalid Object
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: Invalid Object
-        _request_id: abcd-1234
-    json_400_panui_mgmt_malformed_command:
-      summary: Malformed Command
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: Malformed Command
-        _request_id: abcd-1234
-    json_504_panui_mgmt_session_timeout:
-      summary: Session Timeout
-      value:
-        _errors:
-        - code: 4
-          details: {}
-          message: Session Timeout
-        _request_id: abcd-1234
-    json_401_panui_auth_need_password_change:
-      summary: Need Password Change
-      value:
-        _errors:
-        - code: E016
-          details: {}
-          message: The password needs to be changed.
+          message: Key Expired
         _request_id: abcd-1234
     json_400_panui_mgmt_bad_xpath:
       summary: Bad XPath
@@ -559,44 +562,148 @@ components:
           details: {}
           message: Bad XPath
         _request_id: abcd-1234
-    json_401_panui_auth_key_expired_2:
-      summary: Key Expired
-      value:
-        _errors:
-        - code: E016
-          message: Key Expired
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_501_panui_restapi_method_not_supported_2:
-      summary: Method Not Supported
-      value:
-        _errors:
-        - code: E012
-          message: Method Not Supported
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_restapi_input_format_mismatch_2:
-      summary: Input Format Mismatch
+    json_400_panui_restapi_missing_body:
+      summary: Missing Body
       value:
         _errors:
         - code: E003
-          message: 'Input Format Mismatch: input-format=json'
           details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_501_panui_restapi_version_not_supported_2:
-      summary: Version Not Supported
+          message: Missing Body
+        _request_id: abcd-1234
+    json_403_panui_auth_unauthorized:
+      summary: Unauthorized
       value:
         _errors:
-        - code: E012
-          message: Version Not Supported
+        - code: E007
           details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_409_panui_mgmt_name_not_unique_2:
+          message: Unauthorized
+        _request_id: abcd-1234
+    json_401_panui_auth_invalid_credential:
+      summary: Invalid Credential
+      value:
+        _errors:
+        - code: E016
+          details: {}
+          message: Invalid Credential
+        _request_id: abcd-1234
+    json_504_panui_mgmt_session_timeout:
+      summary: Session Timeout
+      value:
+        _errors:
+        - code: 4
+          details: {}
+          message: Session Timeout
+        _request_id: abcd-1234
+    json_401_panui_auth_not_authenticated:
+      summary: Not Authenticated
+      value:
+        _errors:
+        - code: E016
+          details: {}
+          message: Not Authenticated
+        _request_id: abcd-1234
+    json_400_panui_mgmt_invalid_command:
+      summary: Invalid Command
+      value:
+        _errors:
+        - code: E003
+          details: {}
+          message: Invalid Command
+        _request_id: abcd-1234
+    json_401_panui_auth_key_too_long:
+      summary: Key Too Long
+      value:
+        _errors:
+        - code: E016
+          details: {}
+          message: Key Too Long
+        _request_id: abcd-1234
+    json_409_panui_mgmt_name_not_unique:
       summary: Name Not Unique
       value:
         _errors:
         - code: E006
+          details: {}
           message: Name Not Unique
+        _request_id: abcd-1234
+    json_401_panui_auth_need_password_change:
+      summary: Need Password Change
+      value:
+        _errors:
+        - code: E016
+          details: {}
+          message: The password needs to be changed.
+        _request_id: abcd-1234
+    json_501_panui_restapi_method_not_supported:
+      summary: Method Not Supported
+      value:
+        _errors:
+        - code: E012
+          details: {}
+          message: Method Not Supported
+        _request_id: abcd-1234
+    json_400_panui_mgmt_malformed_command:
+      summary: Malformed Command
+      value:
+        _errors:
+        - code: E003
+          details: {}
+          message: Malformed Command
+        _request_id: abcd-1234
+    json_409_panui_mgmt_reference_not_zero:
+      summary: Reference Not Zero
+      value:
+        _errors:
+        - code: E009
+          details: {}
+          message: Reference Not Zero
+        _request_id: abcd-1234
+    json_400_panui_restapi_invalid_query_parameter:
+      summary: Invalid Query Parameter
+      value:
+        _errors:
+        - code: E003
+          details: {}
+          message: 'Invalid Query Parameter: location=invalid'
+        _request_id: abcd-1234
+    json_501_panui_restapi_version_not_supported:
+      summary: Version Not Supported
+      value:
+        _errors:
+        - code: E012
+          details: {}
+          message: Version Not Supported
+        _request_id: abcd-1234
+    json_400_panui_restapi_missing_query_parameter:
+      summary: Missing Query Parameter
+      value:
+        _errors:
+        - code: E003
+          details: {}
+          message: 'Missing Query Parameter: name'
+        _request_id: abcd-1234
+    json_400_panui_restapi_output_format_mismatch:
+      summary: Output Format Mismatch
+      value:
+        _errors:
+        - code: E003
+          details: {}
+          message: 'Output Format Mismatch: output-format=json Accept=xml'
+        _request_id: abcd-1234
+    json_404_panui_mgmt_object_not_present:
+      summary: Object Not Present
+      value:
+        _errors:
+        - code: E005
+          details: {}
+          message: Object Not Present
+        _request_id: abcd-1234
+    json_400_panui_mgmt_invalid_object_2:
+      summary: Invalid Object
+      value:
+        _errors:
+        - code: E003
+          message: Invalid Object
           details: {}
         _request_id: 123e4567-e89b-12d3-a456-426655440000
     json_409_panui_mgmt_object_not_unique_2:
@@ -607,76 +714,12 @@ components:
           message: Object Not Unique
           details: {}
         _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_404_panui_mgmt_object_not_present_2:
-      summary: Object Not Present
-      value:
-        _errors:
-        - code: E005
-          message: Object Not Present
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_restapi_missing_body_2:
-      summary: Missing Body
+    json_400_panui_restapi_input_format_mismatch_2:
+      summary: Input Format Mismatch
       value:
         _errors:
         - code: E003
-          message: Missing Body
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_409_panui_mgmt_reference_not_zero_2:
-      summary: Reference Not Zero
-      value:
-        _errors:
-        - code: E009
-          message: Reference Not Zero
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_mgmt_invalid_command_2:
-      summary: Invalid Command
-      value:
-        _errors:
-        - code: E003
-          message: Invalid Command
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_restapi_output_format_mismatch_2:
-      summary: Output Format Mismatch
-      value:
-        _errors:
-        - code: E003
-          message: 'Output Format Mismatch: output-format=json Accept=xml'
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_401_panui_auth_not_authenticated_2:
-      summary: Not Authenticated
-      value:
-        _errors:
-        - code: E016
-          message: Not Authenticated
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_401_panui_auth_invalid_credential_2:
-      summary: Invalid Credential
-      value:
-        _errors:
-        - code: E016
-          message: Invalid Credential
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_403_panui_auth_unauthorized_2:
-      summary: Unauthorized
-      value:
-        _errors:
-        - code: E007
-          message: Unauthorized
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_restapi_missing_query_parameter_2:
-      summary: Missing Query Parameter
-      value:
-        _errors:
-        - code: E003
-          message: 'Missing Query Parameter: name'
+          message: 'Input Format Mismatch: input-format=json'
           details: {}
         _request_id: 123e4567-e89b-12d3-a456-426655440000
     json_405_panui_restapi_action_not_supported_2:
@@ -687,52 +730,12 @@ components:
           message: 'Action Not Supported: move'
           details: {}
         _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_restapi_invalid_query_parameter_2:
-      summary: Invalid Query Parameter
-      value:
-        _errors:
-        - code: E003
-          message: 'Invalid Query Parameter: location=invalid'
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_401_panui_auth_key_too_long_2:
-      summary: Key Too Long
+    json_401_panui_auth_key_expired_2:
+      summary: Key Expired
       value:
         _errors:
         - code: E016
-          message: Key Too Long
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_mgmt_invalid_object_2:
-      summary: Invalid Object
-      value:
-        _errors:
-        - code: E003
-          message: Invalid Object
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_mgmt_malformed_command_2:
-      summary: Malformed Command
-      value:
-        _errors:
-        - code: E003
-          message: Malformed Command
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_504_panui_mgmt_session_timeout_2:
-      summary: Session Timeout
-      value:
-        _errors:
-        - code: '4'
-          message: Session Timeout
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_401_panui_auth_need_password_change_2:
-      summary: Need Password Change
-      value:
-        _errors:
-        - code: E016
-          message: The password needs to be changed.
+          message: Key Expired
           details: {}
         _request_id: 123e4567-e89b-12d3-a456-426655440000
     json_400_panui_mgmt_bad_xpath_2:
@@ -743,9 +746,152 @@ components:
           message: Bad XPath
           details: {}
         _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_400_panui_restapi_missing_body_2:
+      summary: Missing Body
+      value:
+        _errors:
+        - code: E003
+          message: Missing Body
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_403_panui_auth_unauthorized_2:
+      summary: Unauthorized
+      value:
+        _errors:
+        - code: E007
+          message: Unauthorized
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_401_panui_auth_invalid_credential_2:
+      summary: Invalid Credential
+      value:
+        _errors:
+        - code: E016
+          message: Invalid Credential
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_504_panui_mgmt_session_timeout_2:
+      summary: Session Timeout
+      value:
+        _errors:
+        - code: '4'
+          message: Session Timeout
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_401_panui_auth_not_authenticated_2:
+      summary: Not Authenticated
+      value:
+        _errors:
+        - code: E016
+          message: Not Authenticated
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_400_panui_mgmt_invalid_command_2:
+      summary: Invalid Command
+      value:
+        _errors:
+        - code: E003
+          message: Invalid Command
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_401_panui_auth_key_too_long_2:
+      summary: Key Too Long
+      value:
+        _errors:
+        - code: E016
+          message: Key Too Long
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_409_panui_mgmt_name_not_unique_2:
+      summary: Name Not Unique
+      value:
+        _errors:
+        - code: E006
+          message: Name Not Unique
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_401_panui_auth_need_password_change_2:
+      summary: Need Password Change
+      value:
+        _errors:
+        - code: E016
+          message: The password needs to be changed.
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_501_panui_restapi_method_not_supported_2:
+      summary: Method Not Supported
+      value:
+        _errors:
+        - code: E012
+          message: Method Not Supported
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_400_panui_mgmt_malformed_command_2:
+      summary: Malformed Command
+      value:
+        _errors:
+        - code: E003
+          message: Malformed Command
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_409_panui_mgmt_reference_not_zero_2:
+      summary: Reference Not Zero
+      value:
+        _errors:
+        - code: E009
+          message: Reference Not Zero
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_400_panui_restapi_invalid_query_parameter_2:
+      summary: Invalid Query Parameter
+      value:
+        _errors:
+        - code: E003
+          message: 'Invalid Query Parameter: location=invalid'
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_501_panui_restapi_version_not_supported_2:
+      summary: Version Not Supported
+      value:
+        _errors:
+        - code: E012
+          message: Version Not Supported
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_400_panui_restapi_missing_query_parameter_2:
+      summary: Missing Query Parameter
+      value:
+        _errors:
+        - code: E003
+          message: 'Missing Query Parameter: name'
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_400_panui_restapi_output_format_mismatch_2:
+      summary: Output Format Mismatch
+      value:
+        _errors:
+        - code: E003
+          message: 'Output Format Mismatch: output-format=json Accept=xml'
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_404_panui_mgmt_object_not_present_2:
+      summary: Object Not Present
+      value:
+        _errors:
+        - code: E005
+          message: Object Not Present
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
   responses:
-    http_ok:
-      description: Ok
+    access_errors:
+      content:
+        application/json:
+          examples:
+            auth_unauthorized:
+              $ref: '#/components/examples/json_403_panui_auth_unauthorized'
+          schema:
+            $ref: '#/components/schemas/generic_error'
+      description: Forbidden
     not_found:
       content:
         application/json:
@@ -755,6 +901,36 @@ components:
           schema:
             $ref: '#/components/schemas/generic_error'
       description: Not Found
+    conflict_errors:
+      content:
+        application/json:
+          examples:
+            name_not_unique:
+              $ref: '#/components/examples/json_409_panui_mgmt_name_not_unique'
+            object_not_unique:
+              $ref: '#/components/examples/json_409_panui_mgmt_object_not_unique'
+            reference_not_zero:
+              $ref: '#/components/examples/json_409_panui_mgmt_reference_not_zero'
+          schema:
+            $ref: '#/components/schemas/generic_error'
+      description: Conflict
+    http_created:
+      description: Created
+    bad_request_errors_basic:
+      content:
+        application/json:
+          examples:
+            input_format_mismatch:
+              $ref: '#/components/examples/json_400_panui_restapi_input_format_mismatch'
+            invalid_query_parameter:
+              $ref: '#/components/examples/json_400_panui_restapi_invalid_query_parameter'
+            missing_query_parameter:
+              $ref: '#/components/examples/json_400_panui_restapi_missing_query_parameter'
+            output_format_mismatch:
+              $ref: '#/components/examples/json_400_panui_restapi_output_format_mismatch'
+          schema:
+            $ref: '#/components/schemas/generic_error'
+      description: Bad Request
     default_errors:
       content:
         application/json:
@@ -776,6 +952,23 @@ components:
           schema:
             $ref: '#/components/schemas/generic_error'
       description: General Errors
+    auth_errors:
+      content:
+        application/json:
+          examples:
+            auth_not_authenticated:
+              $ref: '#/components/examples/json_401_panui_auth_not_authenticated'
+            invalid_credential:
+              $ref: '#/components/examples/json_401_panui_auth_invalid_credential'
+            key_expired:
+              $ref: '#/components/examples/json_401_panui_auth_key_expired'
+            key_too_long:
+              $ref: '#/components/examples/json_401_panui_auth_key_too_long'
+            need_password_change:
+              $ref: '#/components/examples/json_401_panui_auth_need_password_change'
+          schema:
+            $ref: '#/components/schemas/generic_error'
+      description: Unauthorized
     bad_request_errors_basic_with_body:
       content:
         application/json:
@@ -795,80 +988,38 @@ components:
           schema:
             $ref: '#/components/schemas/generic_error'
       description: Bad Request
-    bad_request_errors_basic:
+    http_ok:
+      description: Ok
+    BadRequest:
+      description: Malformed request body or invalid parameters.
       content:
         application/json:
-          examples:
-            input_format_mismatch:
-              $ref: '#/components/examples/json_400_panui_restapi_input_format_mismatch'
-            invalid_query_parameter:
-              $ref: '#/components/examples/json_400_panui_restapi_invalid_query_parameter'
-            missing_query_parameter:
-              $ref: '#/components/examples/json_400_panui_restapi_missing_query_parameter'
-            output_format_mismatch:
-              $ref: '#/components/examples/json_400_panui_restapi_output_format_mismatch'
           schema:
-            $ref: '#/components/schemas/generic_error'
-      description: Bad Request
-    auth_errors:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid authentication headers.
       content:
         application/json:
-          examples:
-            auth_not_authenticated:
-              $ref: '#/components/examples/json_401_panui_auth_not_authenticated'
-            invalid_credential:
-              $ref: '#/components/examples/json_401_panui_auth_invalid_credential'
-            key_expired:
-              $ref: '#/components/examples/json_401_panui_auth_key_expired'
-            key_too_long:
-              $ref: '#/components/examples/json_401_panui_auth_key_too_long'
-            need_password_change:
-              $ref: '#/components/examples/json_401_panui_auth_need_password_change'
           schema:
-            $ref: '#/components/schemas/generic_error'
-      description: Unauthorized
-    http_created:
-      description: Created
-    conflict_errors:
-      content:
-        application/json:
-          examples:
-            name_not_unique:
-              $ref: '#/components/examples/json_409_panui_mgmt_name_not_unique'
-            object_not_unique:
-              $ref: '#/components/examples/json_409_panui_mgmt_object_not_unique'
-            reference_not_zero:
-              $ref: '#/components/examples/json_409_panui_mgmt_reference_not_zero'
-          schema:
-            $ref: '#/components/schemas/generic_error'
-      description: Conflict
-    access_errors:
-      content:
-        application/json:
-          examples:
-            auth_unauthorized:
-              $ref: '#/components/examples/json_403_panui_auth_unauthorized'
-          schema:
-            $ref: '#/components/schemas/generic_error'
-      description: Forbidden
+            $ref: '#/components/schemas/ErrorResponse'
     http_ok_2:
       description: OK
   parameters:
-    uuid-required:
-      description: 'The resource''s unique identifier.
-
-        '
-      in: path
-      name: id
-      required: true
-      schema:
-        type: string
     offset-optional:
       description: 'The offset of the result entry.
 
         '
       in: query
       name: offset
+      required: false
+      schema:
+        type: number
+    limit-optional:
+      description: 'The maximum number of result objects to return per page.
+
+        '
+      in: query
+      name: limit
       required: false
       schema:
         type: number
@@ -889,21 +1040,37 @@ components:
         - Mobile Users Explicit Proxy
         pattern: ^[0-9a-zA-Z._-\s]{1,}$
         type: string
-    limit-optional:
-      description: 'The maximum number of result objects to return per page.
+    uuid-required:
+      description: 'The resource''s unique identifier.
 
         '
-      in: query
-      name: limit
-      required: false
+      in: path
+      name: id
+      required: true
       schema:
-        type: number
+        type: string
     name-optional:
       description: 'The name of the entry.
 
         '
       in: query
       name: name
+      required: false
+      schema:
+        type: string
+    device:
+      name: device
+      in: query
+      description: 'The device in which the resource is defined
+
+        '
+      required: false
+      schema:
+        type: string
+    name:
+      name: name
+      in: query
+      description: The name of the configuration resource
       required: false
       schema:
         type: string
@@ -916,21 +1083,6 @@ components:
         type: string
         format: uuid
         example: 123e4567-e89b-12d3-a456-426655440000
-    name:
-      name: name
-      in: query
-      description: The name of the configuration resource
-      required: false
-      schema:
-        type: string
-    limit:
-      name: limit
-      in: query
-      description: The maximum number of results per page
-      required: false
-      schema:
-        type: integer
-        default: 200
     folder_2:
       name: folder
       in: query
@@ -957,15 +1109,14 @@ components:
       schema:
         type: integer
         default: 0
-    device:
-      name: device
+    limit:
+      name: limit
       in: query
-      description: 'The device in which the resource is defined
-
-        '
+      description: The maximum number of results per page
       required: false
       schema:
-        type: string
+        type: integer
+        default: 200
   schemas:
     generic_error:
       properties:
@@ -973,18 +1124,6 @@ components:
           $ref: '#/components/schemas/error_detail_cause_infos'
         _request_id:
           type: string
-      type: object
-    error_detail_cause_info:
-      properties:
-        code:
-          type: string
-        details:
-          type: object
-        help:
-          type: string
-        message:
-          type: string
-      title: Cause Info
       type: object
     error_detail_cause_infos:
       items:
@@ -1079,6 +1218,164 @@ components:
       - name
       - protocol
       type: object
+    error_detail_cause_info:
+      properties:
+        code:
+          type: string
+        details:
+          type: object
+        help:
+          type: string
+        message:
+          type: string
+      title: Cause Info
+      type: object
+    ErrorResponse:
+      type: object
+      properties:
+        reply:
+          type: object
+          properties:
+            err_code:
+              type: integer
+              example: 849
+            err_msg:
+              type: string
+              example: example-err_msg
+            err_extra:
+              type: string
+              example: example-err_extra
+          example:
+            err_code: 931
+            err_msg: example-err_msg
+            err_extra: example-err_extra
+    Filter:
+      type: object
+      description: A filter criterion for querying Xpanse resources.
+      required:
+      - field
+      - operator
+      - value
+      properties:
+        field:
+          type: string
+          description: Field name to filter on.
+          example: example-field
+        operator:
+          type: string
+          enum:
+          - in
+          - contains
+          - gte
+          - lte
+          - eq
+          - neq
+          example: contains
+        value:
+          description: Filter value (string, integer, or array for "in" operator).
+          oneOf:
+          - type: string
+          - type: integer
+          - type: array
+            items:
+              oneOf:
+              - type: string
+              - type: integer
+          example: example-value
+    ExposedService:
+      type: object
+      description: An internet-exposed network service discovered on an asset.
+      properties:
+        service_id:
+          type: string
+          example: '336506'
+        service_name:
+          type: string
+          description: Service name or protocol (e.g., HTTPS, SSH, RDP).
+          example: Corporate Agent 50
+        service_type:
+          type: string
+          enum:
+          - APPLICATION_SERVER
+          - CLOUD_STORAGE
+          - DATABASE
+          - NETWORKING
+          - REMOTE_DESKTOP
+          - UNCLASSIFIED
+          - WEB
+          example: NETWORKING
+        ip_address:
+          type: array
+          items:
+            type: string
+          example:
+          - 10.239.5.194
+        domain:
+          type: array
+          items:
+            type: string
+          example:
+          - example-domain_item
+          - example-domain_item
+        port:
+          type: integer
+          description: TCP/UDP port number.
+          example: 278
+        protocol:
+          type: string
+          enum:
+          - TCP
+          - UDP
+          example: TCP
+        provider:
+          type: array
+          items:
+            type: string
+          description: Cloud or hosting providers detected for this service.
+          example:
+          - example-provider_item
+        business_units:
+          type: array
+          items:
+            type: string
+          example:
+          - example-business_units_item
+          - example-business_units_item
+        created:
+          type: integer
+          description: Service first discovery timestamp as Unix epoch milliseconds.
+          example: 966
+        last_observed:
+          type: integer
+          example: 356
+        is_active:
+          type: string
+          enum:
+          - Active
+          - Inactive
+          - Unconfirmed
+          example: Unconfirmed
+        discovery_type:
+          type: string
+          enum:
+          - ColocatedOnIp
+          - DirectlyDiscovered
+          - CSP
+          - CertificateAssociation
+          example: DirectlyDiscovered
+    SortOrder:
+      type: object
+      description: Sorting specification for result sets.
+      properties:
+        field:
+          type: string
+          example: example-field
+        keyword:
+          type: string
+          enum:
+          - asc
+          - desc
+          example: asc
     services:
       type: object
       required:
@@ -1211,6 +1508,11 @@ components:
         _request_id:
           type: string
       x-examples: {}
+    error_detail_cause_infos_2:
+      type: array
+      items:
+        $ref: '#/components/schemas/error_detail_cause_info_2'
+      x-examples: {}
     error_detail_cause_info_2:
       type: object
       title: Cause Info
@@ -1225,15 +1527,20 @@ components:
           - type: object
         help:
           type: string
-    error_detail_cause_infos_2:
-      type: array
-      items:
-        $ref: '#/components/schemas/error_detail_cause_info_2'
-      x-examples: {}
   securitySchemes:
     Bearer:
       scheme: bearer
       type: http
+    xpanseAuth:
+      type: apiKey
+      in: header
+      name: x-xdr-hmac-v2
+      description: 'Cortex Xpanse uses a custom HMAC-SHA256 authentication scheme with RBAC API key pairs. Include four headers: x-xdr-auth-id (API key ID), x-xdr-nonce (64-character random string), x-xdr-timestamp (Unix epoch milliseconds), and x-xdr-hmac-v2 (SHA-256 hash of api_key + nonce + timestamp). API keys are scoped with RBAC roles controlling which Xpanse data and operations are accessible. Generate keys from Xpanse Settings > Configurations > API Keys.'
+    oauth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
     scmOAuth:
       type: oauth2
       description: "Strata Cloud Manager APIs authenticate client requests using the \nOAuth 2.0 Client Credentials flow.  Please use the `client_id`, \n`client_secret` values associated with an IAM service account along \nwith a scope value of `tsg_id:XXXXXXXXXX`, where `XXXXXXXXXX` is the \nTenant Service Group (TSG) ID.  The resulting JWT access token should \nbe attached to all API calls as a `Bearer` token in the `Authorization` \nheader (ex. `Authorization: Bearer tokenstring`).\n"
@@ -1248,4 +1555,6 @@ components:
       bearerFormat: JWT
 x-refined-from:
 - palo-alto-access-prisma-access-config-services-openapi.yaml
+- palo-alto-cortex-xpanse-api-openapi-original.yml
+- palo-alto-networks-services-api-openapi.yml
 - palo-alto-scm-config-cloudngfw-objects-objects-june-openapi.yaml
