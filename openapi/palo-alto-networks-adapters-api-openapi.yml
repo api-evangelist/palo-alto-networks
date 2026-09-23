@@ -259,6 +259,30 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
+    CustomTargetAdapterValidateResponseSchema:
+      properties:
+        validated:
+          type: boolean
+          title: Validated
+        stdout:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Stdout
+        stderr:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Stderr
+        traceback:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Traceback
+      type: object
+      required:
+      - validated
+      title: CustomTargetAdapterValidateResponseSchema
     CustomTargetAdapterListItemSchema:
       properties:
         uuid:
@@ -298,12 +322,38 @@ components:
       - created_at
       - updated_at
       title: CustomTargetAdapterListItemSchema
-    CustomTargetAdapterStatus:
-      type: string
-      enum:
-      - DRAFT
-      - ACTIVE
-      title: CustomTargetAdapterStatus
+    AdapterVarResponseSchema:
+      properties:
+        key:
+          type: string
+          maxLength: 255
+          title: Key
+          description: Variable key
+        value:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Value
+          description: Variable value. On update, null means 'keep the existing value' — used for unchanged secrets, whose values are never returned.
+        type:
+          $ref: '#/components/schemas/AdapterVarType'
+          description: VAR (non-sensitive) or SECRET (sensitive)
+        is_redacted:
+          type: boolean
+          title: Is Redacted
+          description: True when the value is hidden (secrets). Redacted values are returned as null.
+          default: false
+      type: object
+      required:
+      - key
+      - type
+      title: AdapterVarResponseSchema
+      description: 'A variable returned in adapter responses.
+
+
+        Secrets are masked: value is returned as null with is_redacted=true.
+
+        '
     CustomTargetAdapterValidateRequestSchema:
       properties:
         script_b64:
@@ -339,6 +389,27 @@ components:
       - network_broker_channel_uuid
       - prompt
       title: CustomTargetAdapterValidateRequestSchema
+    CustomTargetAdapterConfigResponseSchema:
+      properties:
+        default_script_b64:
+          type: string
+          title: Default Script B64
+          description: Base64-encoded starter adapter script template for the editor.
+        default_test_prompt:
+          type: string
+          title: Default Test Prompt
+          description: Default prompt used to test the adapter.
+      type: object
+      required:
+      - default_script_b64
+      - default_test_prompt
+      title: CustomTargetAdapterConfigResponseSchema
+      description: 'Static/example values for the adapter authoring UI.
+
+
+        Returned by GET /v1/adapters/config so the frontend can prefill the editor.
+
+        '
     CustomTargetAdapterUpdateRequestSchema:
       properties:
         name:
@@ -392,101 +463,15 @@ components:
         - key omitted    -> delete the variable
 
         '
-    ValidationError:
+    PaginationSchema:
       properties:
-        loc:
-          items:
-            anyOf:
-            - type: string
-            - type: integer
-          type: array
-          title: Location
-        msg:
-          type: string
-          title: Message
-        type:
-          type: string
-          title: Error Type
-      type: object
-      required:
-      - loc
-      - msg
-      - type
-      title: ValidationError
-    CustomTargetAdapterValidateResponseSchema:
-      properties:
-        validated:
-          type: boolean
-          title: Validated
-        stdout:
+        total_items:
           anyOf:
-          - type: string
+          - type: integer
           - type: 'null'
-          title: Stdout
-        stderr:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Stderr
-        traceback:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Traceback
+          title: Total Items
       type: object
-      required:
-      - validated
-      title: CustomTargetAdapterValidateResponseSchema
-    AdapterVarBase:
-      properties:
-        key:
-          type: string
-          maxLength: 255
-          title: Key
-          description: Variable key
-        value:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Value
-          description: Variable value. On update, null means 'keep the existing value' — used for unchanged secrets, whose values are never returned.
-        type:
-          $ref: '#/components/schemas/AdapterVarType'
-          description: VAR (non-sensitive) or SECRET (sensitive)
-      type: object
-      required:
-      - key
-      - type
-      title: AdapterVarBase
-      description: A single adapter configuration variable (also the GSM-stored shape).
-    CustomTargetAdapterConfigResponseSchema:
-      properties:
-        default_script_b64:
-          type: string
-          title: Default Script B64
-          description: Base64-encoded starter adapter script template for the editor.
-        default_test_prompt:
-          type: string
-          title: Default Test Prompt
-          description: Default prompt used to test the adapter.
-      type: object
-      required:
-      - default_script_b64
-      - default_test_prompt
-      title: CustomTargetAdapterConfigResponseSchema
-      description: 'Static/example values for the adapter authoring UI.
-
-
-        Returned by GET /v1/adapters/config so the frontend can prefill the editor.
-
-        '
-    AdapterVarType:
-      type: string
-      enum:
-      - VAR
-      - SECRET
-      title: AdapterVarType
-      description: Whether a configuration variable is a plain var or a sensitive secret.
+      title: PaginationSchema
     CustomTargetAdapterCreateRequestSchema:
       properties:
         name:
@@ -529,61 +514,33 @@ components:
       - prompt
       title: CustomTargetAdapterCreateRequestSchema
       description: Customer input to create an adapter.
-    CustomTargetAdapterListSchema:
+    CustomTargetAdapterStatus:
+      type: string
+      enum:
+      - DRAFT
+      - ACTIVE
+      title: CustomTargetAdapterStatus
+    ValidationError:
       properties:
-        pagination:
-          $ref: '#/components/schemas/PaginationSchema'
-        data:
+        loc:
           items:
-            $ref: '#/components/schemas/CustomTargetAdapterListItemSchema'
+            anyOf:
+            - type: string
+            - type: integer
           type: array
-          title: Data
-          description: List of adapters
-      type: object
-      required:
-      - pagination
-      title: CustomTargetAdapterListSchema
-    AdapterVarResponseSchema:
-      properties:
-        key:
+          title: Location
+        msg:
           type: string
-          maxLength: 255
-          title: Key
-          description: Variable key
-        value:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Value
-          description: Variable value. On update, null means 'keep the existing value' — used for unchanged secrets, whose values are never returned.
+          title: Message
         type:
-          $ref: '#/components/schemas/AdapterVarType'
-          description: VAR (non-sensitive) or SECRET (sensitive)
-        is_redacted:
-          type: boolean
-          title: Is Redacted
-          description: True when the value is hidden (secrets). Redacted values are returned as null.
-          default: false
+          type: string
+          title: Error Type
       type: object
       required:
-      - key
+      - loc
+      - msg
       - type
-      title: AdapterVarResponseSchema
-      description: 'A variable returned in adapter responses.
-
-
-        Secrets are masked: value is returned as null with is_redacted=true.
-
-        '
-    HTTPValidationError:
-      properties:
-        detail:
-          items:
-            $ref: '#/components/schemas/ValidationError'
-          type: array
-          title: Detail
-      type: object
-      title: HTTPValidationError
+      title: ValidationError
     CustomTargetAdapterSchema:
       properties:
         name:
@@ -660,15 +617,58 @@ components:
       - tsg_id
       - status
       title: CustomTargetAdapterSchema
-    PaginationSchema:
+    AdapterVarType:
+      type: string
+      enum:
+      - VAR
+      - SECRET
+      title: AdapterVarType
+      description: Whether a configuration variable is a plain var or a sensitive secret.
+    AdapterVarBase:
       properties:
-        total_items:
+        key:
+          type: string
+          maxLength: 255
+          title: Key
+          description: Variable key
+        value:
           anyOf:
-          - type: integer
+          - type: string
           - type: 'null'
-          title: Total Items
+          title: Value
+          description: Variable value. On update, null means 'keep the existing value' — used for unchanged secrets, whose values are never returned.
+        type:
+          $ref: '#/components/schemas/AdapterVarType'
+          description: VAR (non-sensitive) or SECRET (sensitive)
       type: object
-      title: PaginationSchema
+      required:
+      - key
+      - type
+      title: AdapterVarBase
+      description: A single adapter configuration variable (also the GSM-stored shape).
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    CustomTargetAdapterListSchema:
+      properties:
+        pagination:
+          $ref: '#/components/schemas/PaginationSchema'
+        data:
+          items:
+            $ref: '#/components/schemas/CustomTargetAdapterListItemSchema'
+          type: array
+          title: Data
+          description: List of adapters
+      type: object
+      required:
+      - pagination
+      title: CustomTargetAdapterListSchema
   securitySchemes:
     bearerAuth:
       type: http

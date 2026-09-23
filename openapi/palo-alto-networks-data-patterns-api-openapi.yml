@@ -1,7 +1,11 @@
 openapi: 3.2.0
 info:
   contact: {}
-  description: "Manage data patterns used for detecting sensitive information such as PII, financial data, healthcare \ninformation, and custom patterns. Create, update, and configure detection patterns with various techniques \nincluding regex, machine learning, and exact data matching.\n"
+  description: 'Manage data patterns used for detecting sensitive information such as PII, financial data, healthcare
+
+    information, and custom patterns. Create, update, and configure detection patterns with various techniques
+
+    including regex, machine learning, and exact data matching.'
   license:
     name: MIT
     url: https://opensource.org/license/mit
@@ -205,61 +209,157 @@ paths:
       summary: Update Data Pattern
       tags:
       - Data Patterns
+  /data-patterns:
+    get:
+      operationId: listDataPatterns
+      summary: Palo Alto Networks List Data Patterns
+      description: Returns a list of configured data patterns used for DLP detection. Includes both predefined system patterns (such as credit card numbers, social security numbers, and HIPAA identifiers) and custom patterns defined by the organization. Each pattern includes its detection rules, confidence thresholds, and associated data profile assignments.
+      tags:
+      - Data Patterns
+      parameters:
+      - name: offset
+        in: query
+        description: Pagination offset.
+        schema:
+          type: integer
+          default: 0
+        example: 0
+      - name: limit
+        in: query
+        description: Maximum number of patterns to return.
+        schema:
+          type: integer
+          default: 100
+          maximum: 500
+        example: 100
+      responses:
+        '200':
+          description: Data patterns returned successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of data patterns.
+                  data_patterns:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DataPattern'
+              examples:
+                ListDataPatterns200Example:
+                  summary: Default listDataPatterns 200 response
+                  x-microcks-default: true
+                  value:
+                    total: 693
+                    data_patterns:
+                    - id: example-id
+                      name: Production Gateway 48
+                      description: Monitoring violation on alert network activity applied incident monitoring.
+                      type: custom
+                      category: custom
+                      confidence: medium
+                      detection_rules:
+                      - rule_type: regex
+                        value: example-value
+                        proximity: 380
+                      - rule_type: keyword
+                        value: example-value
+                        proximity: 94
+                      enabled: true
+                      incident_count: 23
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+  /data-patterns/{id}:
+    get:
+      operationId: getDataPattern
+      summary: Palo Alto Networks Get Data Pattern Details
+      description: Returns detailed configuration for a specific data pattern including its detection rules, regular expressions or keyword lists, proximity settings, and confidence scoring parameters.
+      tags:
+      - Data Patterns
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Unique data pattern identifier.
+        schema:
+          type: string
+        example: example-id
+      responses:
+        '200':
+          description: Data pattern details returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataPattern'
+              examples:
+                GetDataPattern200Example:
+                  summary: Default getDataPattern 200 response
+                  x-microcks-default: true
+                  value:
+                    id: example-id
+                    name: Production Gateway 48
+                    description: Monitoring violation on alert network activity applied incident monitoring.
+                    type: custom
+                    category: custom
+                    confidence: medium
+                    detection_rules:
+                    - rule_type: regex
+                      value: example-value
+                      proximity: 380
+                    - rule_type: keyword
+                      value: example-value
+                      proximity: 94
+                    enabled: true
+                    incident_count: 23
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
 components:
   schemas:
-    JsonNullableDataPatternDetectionConfig:
-      description: New detection configuration
+    DataPatternMatchingRules:
+      description: Optional matching rules controlling how the data pattern detects sensitive content
       properties:
-        present:
-          type: boolean
-        undefined:
-          type: boolean
-      type: object
-    JsonNullableString:
-      description: New description (set to null to clear)
-      properties:
-        present:
-          type: boolean
-        undefined:
-          type: boolean
-      type: object
-    SortObject:
-      properties:
-        empty:
-          type: boolean
-        sorted:
-          type: boolean
-        unsorted:
-          type: boolean
-      type: object
-    WeightedRegex:
-      description: Weighted regular expressions used for detection
-      properties:
-        regex:
-          maxLength: 2147483647
-          minLength: 1
+        delimiter:
+          description: Delimiter character used to separate tokens
           type: string
-        weight:
+        metadata_criteria:
+          description: Metadata criteria for additional filtering
+          items:
+            $ref: '#/components/schemas/MetadataCriterion'
+          type: array
+        proximity_distance:
+          description: Proximity distance for keyword matching (2-1000)
           format: int32
+          maximum: 1000
+          minimum: 2
           type: integer
-      required:
-      - regex
-      - weight
-      type: object
-    DataPatternTags:
-      description: Metadata tags
-      properties:
-        classification:
+        proximity_keywords:
+          description: List of keywords that must appear within the proximity distance
           items:
+            description: List of keywords that must appear within the proximity distance
             type: string
           type: array
-        compliance:
+        regexes:
+          description: Weighted regular expressions used for detection
           items:
-            type: string
-          type: array
-        geography:
-          items:
-            type: string
+            $ref: '#/components/schemas/WeightedRegex'
           type: array
       type: object
     PageableObject:
@@ -279,6 +379,129 @@ components:
           $ref: '#/components/schemas/SortObject'
         unpaged:
           type: boolean
+      type: object
+    JsonNullableDataPatternTags:
+      description: New metadata tags
+      properties:
+        present:
+          type: boolean
+        undefined:
+          type: boolean
+      type: object
+    AuditResponse:
+      description: Audit metadata tracking creation and last-update information
+      properties:
+        created_at:
+          description: Timestamp when the resource was created
+          format: date-time
+          type: string
+        created_by:
+          description: Username or service that created the resource
+          type: string
+        updated_at:
+          description: Timestamp when the resource was last updated
+          format: date-time
+          type: string
+        updated_by:
+          description: Username or service that last updated the resource
+          type: string
+      type: object
+    MetadataCriterion:
+      description: Metadata criteria for additional filtering
+      properties:
+        comparisonOperatorType:
+          enum:
+          - less_than
+          - less_than_or_equal_to
+          - greater_than_or_equal_to
+          - greater_than
+          - equal_to
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        value:
+          type: string
+      type: object
+    JsonNullableDataPatternType:
+      description: New pattern type
+      properties:
+        present:
+          type: boolean
+        undefined:
+          type: boolean
+      type: object
+    JsonNullableDataPatternDetectionConfig:
+      description: New detection configuration
+      properties:
+        present:
+          type: boolean
+        undefined:
+          type: boolean
+      type: object
+    DataPatternDetectionConfig:
+      description: Detection configuration specifying the technique and supported confidence levels
+      properties:
+        supported_confidence_levels:
+          description: List of confidence levels supported by this pattern
+          items:
+            description: List of confidence levels supported by this pattern
+            enum:
+            - low
+            - medium
+            - high
+            type: string
+          type: array
+        technique:
+          description: Detection technique (e.g. regex, ml)
+          enum:
+          - edm
+          - document_fingerprint
+          - trainable_classifier
+          - ml_document
+          - regex
+          - weighted_regex
+          - ml
+          - titus_tag
+          - wildfire
+          - file_property
+          - dictionary
+          - pab
+          - document_classifier
+          type: string
+      required:
+      - technique
+      type: object
+    DataPatternRequest:
+      description: Request payload for creating or updating a data pattern
+      properties:
+        description:
+          description: Optional human-readable description
+          type: string
+        detection_config:
+          $ref: '#/components/schemas/DataPatternDetectionConfig'
+        matching_rules:
+          $ref: '#/components/schemas/DataPatternMatchingRules'
+        name:
+          description: Display name of the data pattern
+          example: SSN Pattern
+          maxLength: 64
+          minLength: 1
+          type: string
+        tags:
+          $ref: '#/components/schemas/DataPatternTags'
+        type:
+          description: Pattern type (e.g. regex, ml_based)
+          enum:
+          - predefined
+          - custom
+          - file_property
+          type: string
+      required:
+      - detection_config
+      - name
+      - type
       type: object
     DataPatternResponse:
       description: Data pattern resource returned by the API
@@ -334,177 +557,35 @@ components:
           format: int32
           type: integer
       type: object
-    DataPatternDetectionConfig:
-      description: Detection configuration specifying the technique and supported confidence levels
+    WeightedRegex:
+      description: Weighted regular expressions used for detection
       properties:
-        supported_confidence_levels:
-          description: List of confidence levels supported by this pattern
-          items:
-            description: List of confidence levels supported by this pattern
-            enum:
-            - low
-            - medium
-            - high
-            type: string
-          type: array
-        technique:
-          description: Detection technique (e.g. regex, ml)
-          enum:
-          - edm
-          - document_fingerprint
-          - trainable_classifier
-          - ml_document
-          - regex
-          - weighted_regex
-          - ml
-          - titus_tag
-          - wildfire
-          - file_property
-          - dictionary
-          - pab
-          - document_classifier
-          type: string
-      required:
-      - technique
-      type: object
-    AuditResponse:
-      description: Audit metadata tracking creation and last-update information
-      properties:
-        created_at:
-          description: Timestamp when the resource was created
-          format: date-time
-          type: string
-        created_by:
-          description: Username or service that created the resource
-          type: string
-        updated_at:
-          description: Timestamp when the resource was last updated
-          format: date-time
-          type: string
-        updated_by:
-          description: Username or service that last updated the resource
-          type: string
-      type: object
-    JsonNullableDataPatternType:
-      description: New pattern type
-      properties:
-        present:
-          type: boolean
-        undefined:
-          type: boolean
-      type: object
-    JsonNullableDataPatternTags:
-      description: New metadata tags
-      properties:
-        present:
-          type: boolean
-        undefined:
-          type: boolean
-      type: object
-    DataPatternMatchingRules:
-      description: Optional matching rules controlling how the data pattern detects sensitive content
-      properties:
-        delimiter:
-          description: Delimiter character used to separate tokens
-          type: string
-        metadata_criteria:
-          description: Metadata criteria for additional filtering
-          items:
-            $ref: '#/components/schemas/MetadataCriterion'
-          type: array
-        proximity_distance:
-          description: Proximity distance for keyword matching (2-1000)
-          format: int32
-          maximum: 1000
-          minimum: 2
-          type: integer
-        proximity_keywords:
-          description: List of keywords that must appear within the proximity distance
-          items:
-            description: List of keywords that must appear within the proximity distance
-            type: string
-          type: array
-        regexes:
-          description: Weighted regular expressions used for detection
-          items:
-            $ref: '#/components/schemas/WeightedRegex'
-          type: array
-      type: object
-    DataPatternRequest:
-      description: Request payload for creating or updating a data pattern
-      properties:
-        description:
-          description: Optional human-readable description
-          type: string
-        detection_config:
-          $ref: '#/components/schemas/DataPatternDetectionConfig'
-        matching_rules:
-          $ref: '#/components/schemas/DataPatternMatchingRules'
-        name:
-          description: Display name of the data pattern
-          example: SSN Pattern
-          maxLength: 64
+        regex:
+          maxLength: 2147483647
           minLength: 1
           type: string
-        tags:
-          $ref: '#/components/schemas/DataPatternTags'
-        type:
-          description: Pattern type (e.g. regex, ml_based)
-          enum:
-          - predefined
-          - custom
-          - file_property
-          type: string
+        weight:
+          format: int32
+          type: integer
       required:
-      - detection_config
-      - name
-      - type
+      - regex
+      - weight
       type: object
-    MetadataCriterion:
-      description: Metadata criteria for additional filtering
+    DataPatternTags:
+      description: Metadata tags
       properties:
-        comparisonOperatorType:
-          enum:
-          - less_than
-          - less_than_or_equal_to
-          - greater_than_or_equal_to
-          - greater_than
-          - equal_to
-          type: string
-        name:
-          type: string
-        type:
-          type: string
-        value:
-          type: string
-      type: object
-    DataPatternPatchRequest:
-      description: Request payload for partially updating a data pattern (JSON Merge Patch)
-      properties:
-        description:
-          $ref: '#/components/schemas/JsonNullableString'
-        detection_config:
-          $ref: '#/components/schemas/JsonNullableDataPatternDetectionConfig'
-        matching_rules:
-          $ref: '#/components/schemas/JsonNullableDataPatternMatchingRules'
-        name:
-          $ref: '#/components/schemas/JsonNullableString'
-        tags:
-          $ref: '#/components/schemas/JsonNullableDataPatternTags'
-        type:
-          $ref: '#/components/schemas/JsonNullableDataPatternType'
-      required:
-      - detection_config
-      - name
-      - type
-      type: object
-    JsonNullableDataPatternMatchingRules:
-      description: New matching rules
-      properties:
-        present:
-          type: boolean
-        undefined:
-          type: boolean
+        classification:
+          items:
+            type: string
+          type: array
+        compliance:
+          items:
+            type: string
+          type: array
+        geography:
+          items:
+            type: string
+          type: array
       type: object
     PageDataPatternResponse:
       properties:
@@ -538,7 +619,162 @@ components:
           format: int32
           type: integer
       type: object
+    SortObject:
+      properties:
+        empty:
+          type: boolean
+        sorted:
+          type: boolean
+        unsorted:
+          type: boolean
+      type: object
+    DataPatternPatchRequest:
+      description: Request payload for partially updating a data pattern (JSON Merge Patch)
+      properties:
+        description:
+          $ref: '#/components/schemas/JsonNullableString'
+        detection_config:
+          $ref: '#/components/schemas/JsonNullableDataPatternDetectionConfig'
+        matching_rules:
+          $ref: '#/components/schemas/JsonNullableDataPatternMatchingRules'
+        name:
+          $ref: '#/components/schemas/JsonNullableString'
+        tags:
+          $ref: '#/components/schemas/JsonNullableDataPatternTags'
+        type:
+          $ref: '#/components/schemas/JsonNullableDataPatternType'
+      required:
+      - detection_config
+      - name
+      - type
+      type: object
+    JsonNullableString:
+      description: New description (set to null to clear)
+      properties:
+        present:
+          type: boolean
+        undefined:
+          type: boolean
+      type: object
+    JsonNullableDataPatternMatchingRules:
+      description: New matching rules
+      properties:
+        present:
+          type: boolean
+        undefined:
+          type: boolean
+      type: object
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code or type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable error message.
+          example: Policy blocked rule alert configured traffic Security activity.
+    DataPattern:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique data pattern identifier.
+          example: example-id
+        name:
+          type: string
+          description: Display name of the data pattern.
+          example: Production Gateway 48
+        description:
+          type: string
+          description: Human-readable description of what the pattern detects.
+          example: Monitoring violation on alert network activity applied incident monitoring.
+        type:
+          type: string
+          enum:
+          - predefined
+          - custom
+          description: Whether the pattern is predefined or custom.
+          example: custom
+        category:
+          type: string
+          description: Pattern category (e.g., PII, PCI, HIPAA, Financial).
+          example: custom
+        confidence:
+          type: string
+          enum:
+          - high
+          - medium
+          - low
+          description: Confidence threshold for the pattern.
+          example: medium
+        detection_rules:
+          type: array
+          items:
+            type: object
+            properties:
+              rule_type:
+                type: string
+                enum:
+                - regex
+                - keyword
+                - dictionary
+                - file_property
+                example: dictionary
+              value:
+                type: string
+                example: example-value
+              proximity:
+                type: integer
+                example: 398
+          description: Detection rule definitions for the pattern.
+          example:
+          - rule_type: regex
+            value: example-value
+            proximity: 380
+          - rule_type: keyword
+            value: example-value
+            proximity: 94
+        enabled:
+          type: boolean
+          description: Whether the data pattern is active.
+          example: true
+        incident_count:
+          type: integer
+          description: Total number of incidents triggered by this pattern.
+          example: 23
   securitySchemes:
     Bearer:
       scheme: bearer
       type: http
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 bearer token obtained from the Palo Alto Networks SASE authentication service using the client credentials flow.
+  responses:
+    Unauthorized:
+      description: Invalid or expired bearer token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

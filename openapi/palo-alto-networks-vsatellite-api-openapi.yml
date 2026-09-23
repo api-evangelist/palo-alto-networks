@@ -1,6 +1,6 @@
 openapi: 3.2.0
 info:
-  title: TLS Protect Cloud API for Strata Cloud Manager V Satellite API
+  title: TLS Protect Cloud API for Strata Cloud Manager V Satellite…
   description: Use the TLS Protect Cloud APIs to manage certificates, certificate requests, applications, machine identities, users, teams, event logs, and more. This Open API spec file was created on June 04, 2026. © 2026 Palo Alto Networks, Inc. Palo Alto Networks is a registered trademark of Palo Alto Networks. A list of our trademarks can be found at https://www.paloaltonetworks.com/company/trademarks.html. All other marks mentioned herein may be trademarks of their respective companies.
   version: 1.0.0
   license:
@@ -416,7 +416,28 @@ paths:
       tags:
       - VSatellite
     patch:
-      description: "Create or update updates configuration. The default update window is set to daily, with a start time at 12:00 AM and duration of 24 hours. This schedule allows updates to be performed on demand as soon as they become available.\n    **Example Default Request Body:**\n\n    ```json\n    {\n        \"updateConfigSchedulerPattern\": {\n            \"recurrenceType\": \"DAY\",\n            \"startTime\": \"00:00:00\",\n            \"duration\": \"PT24H\"\n        }\n    }\n    ```\n"
+      description: 'Create or update updates configuration. The default update window is set to daily, with a start time at 12:00 AM and duration of 24 hours. This schedule allows updates to be performed on demand as soon as they become available.
+
+        **Example Default Request Body:**
+
+
+        ```json
+
+        {
+
+        "updateConfigSchedulerPattern": {
+
+        "recurrenceType": "DAY",
+
+        "startTime": "00:00:00",
+
+        "duration": "PT24H"
+
+        }
+
+        }
+
+        ```'
       operationId: updatesconfig_patch
       requestBody:
         content:
@@ -449,39 +470,66 @@ components:
           format: date-time
           type: string
       type: object
-    NodeCondition:
+    EdgeStatus:
+      enum:
+      - ACTIVE
+      - LOST_CONNECTION
+      - REGISTERED
+      - PAIRED
+      - LOST_CONNECTION_DURING_INSTALL
+      - INSTALLED
+      - INSTALL_FAILED
+      - UNHEALTHY
+      - ERROR
+      - INSTALLING
+      type: string
+    NodeInfo:
       properties:
-        Status:
-          type: string
-          writeOnly: true
-        Type:
-          type: string
-          writeOnly: true
-        status:
-          type: string
-        type:
+        kubelet_version:
           type: string
       type: object
-    DailyPatternInformation:
-      allOf:
-      - $ref: '#/components/schemas/SchedulerPatternInformation3'
-      - properties:
-          duration:
-            description: Duration in ISO-8601 format
-            enum:
-            - PT8H
-            - PT12H
-            - PT24H
-            example: PT24H
-            type: string
-          startTime:
-            description: Start time in HH:mm:ss format
-            pattern: ^([01]\d|2[0-3]):[0-5]\d:[0-5]\d$
-            type: string
-        type: object
-      required:
-      - duration
-      - startTime
+    EncryptionKeysResponse:
+      properties:
+        encryptionKeys:
+          items:
+            $ref: '#/components/schemas/EncryptionKeyInformation'
+          type: array
+      type: object
+    UpdatesConfigResponse:
+      properties:
+        updateConfigSchedulerPattern:
+          oneOf:
+          - $ref: '#/components/schemas/DailyPatternInformation'
+          - $ref: '#/components/schemas/WeeklyPatternInformation'
+          type: object
+      type: object
+    EdgeInstanceHealthDetails:
+      properties:
+        companyId:
+          format: uuid
+          type: string
+        edgeInstanceId:
+          format: uuid
+          type: string
+        hsmStatus:
+          $ref: '#/components/schemas/HSMEdgeStatus'
+        installedCharts:
+          items:
+            $ref: '#/components/schemas/NamespaceChartDetails'
+          type: array
+        nodeStatus:
+          items:
+            $ref: '#/components/schemas/NodeStatusDetails'
+          type: array
+        systemstatus:
+          items:
+            $ref: '#/components/schemas/NamespaceStatusDetails'
+          type: array
+        timestamp:
+          format: date-time
+          type: string
+        version:
+          type: string
       type: object
     EdgeInstanceConnectionDetails:
       properties:
@@ -584,67 +632,6 @@ components:
             $ref: '#/components/schemas/EdgeWorkerStatusDetailsInformation'
           type: array
       type: object
-    PairingCodeInformation:
-      properties:
-        companyId:
-          format: uuid
-          type: string
-        environmentId:
-          format: uuid
-          type: string
-        expirationDate:
-          format: date-time
-          type: string
-        id:
-          format: uuid
-          type: string
-        pairingCode:
-          type: string
-        productEntitlements:
-          items:
-            $ref: '#/components/schemas/ProductEntitlement'
-          type: array
-        reuseCount:
-          format: int32
-          type: integer
-      type: object
-    EdgeWorkerRequest:
-      properties:
-        edgeInstanceId:
-          format: uuid
-          type: string
-        host:
-          type: string
-        port:
-          format: int32
-          type: integer
-      type: object
-    HSMEdgeStatus:
-      enum:
-      - HSM_ERROR
-      - HSM_NOT_CONFIGURED
-      - HSM_LOST_CONNECTION
-      - HSM_HEALTHY
-      type: string
-    ChartDetails:
-      properties:
-        name:
-          type: string
-        version:
-          type: string
-      type: object
-    WorkerServiceStatusDetails:
-      properties:
-        name:
-          type: string
-        status:
-          type: string
-      type: object
-    NodeInfo:
-      properties:
-        kubelet_version:
-          type: string
-      type: object
     EncryptionKeyInformation:
       properties:
         companyId:
@@ -660,41 +647,284 @@ components:
           format: date-time
           type: string
       type: object
-    EdgeInstanceHealthDetails:
+    EdgeWorkerHealthDetails:
       properties:
+        age:
+          format: int64
+          type: integer
         companyId:
           format: uuid
           type: string
+        cpuUsage:
+          format: int32
+          type: integer
         edgeInstanceId:
           format: uuid
           type: string
-        hsmStatus:
-          $ref: '#/components/schemas/HSMEdgeStatus'
-        installedCharts:
+        edgeWorkerId:
+          format: uuid
+          type: string
+        host:
+          type: string
+        memoryUsage:
+          format: int64
+          type: integer
+        port:
+          format: int32
+          type: integer
+        services:
           items:
-            $ref: '#/components/schemas/NamespaceChartDetails'
+            $ref: '#/components/schemas/WorkerServiceStatusDetails'
           type: array
-        nodeStatus:
-          items:
-            $ref: '#/components/schemas/NodeStatusDetails'
-          type: array
-        systemstatus:
-          items:
-            $ref: '#/components/schemas/NamespaceStatusDetails'
-          type: array
+        status:
+          type: string
         timestamp:
           format: date-time
           type: string
-        version:
+      type: object
+    ProductEntitlement:
+      enum:
+      - ANY
+      - MIRA
+      - DEVOPS
+      - OUTAGE_DETECTION
+      - CODESIGN
+      type: string
+    EdgeInstanceResponse:
+      properties:
+        edgeInstances:
+          items:
+            $ref: '#/components/schemas/EdgeInstanceInformation'
+          type: array
+      type: object
+    EdgeWorkersResponse:
+      properties:
+        edgeWorkers:
+          items:
+            $ref: '#/components/schemas/EdgeWorkerInformation'
+          type: array
+      type: object
+    NodeStatusDetails:
+      properties:
+        conditions:
+          items:
+            $ref: '#/components/schemas/NodeCondition'
+          type: array
+        info:
+          $ref: '#/components/schemas/NodeInfo'
+      type: object
+    ErrorResponse6:
+      properties:
+        errors:
+          items:
+            $ref: '#/components/schemas/ErrorInformation6'
+          type: array
+      type: object
+    NamespaceChartDetails:
+      properties:
+        charts:
+          items:
+            $ref: '#/components/schemas/ChartDetails'
+          type: array
+        name:
           type: string
       type: object
-    UpdatesConfigResponse:
+    EdgeWorkerStatusDetailsInformation:
+      properties:
+        edgeWorkerId:
+          format: uuid
+          type: string
+        healthDetails:
+          items:
+            $ref: '#/components/schemas/EdgeWorkerHealthDetails'
+          type: array
+      type: object
+    EdgeWorkerRequest:
+      properties:
+        edgeInstanceId:
+          format: uuid
+          type: string
+        host:
+          type: string
+        port:
+          format: int32
+          type: integer
+      type: object
+    SchedulerPatternInformation3:
+      discriminator:
+        mapping:
+          DAY: '#/components/schemas/DailyPatternInformation'
+          WEEK: '#/components/schemas/WeeklyPatternInformation'
+        propertyName: recurrenceType
+      properties:
+        recurrenceType:
+          type: string
+      required:
+      - recurrenceType
+      type: object
+    EdgeWorkerDeleteResponse:
+      properties:
+        id:
+          format: uuid
+          type: string
+        pairingCode:
+          type: string
+      type: object
+    RecoveryCodeRequest:
+      properties:
+        edgeInstanceId:
+          format: uuid
+          type: string
+      required:
+      - edgeInstanceId
+      type: object
+    EdgeType:
+      enum:
+      - ALL
+      - HUB
+      - SATELLITE
+      type: string
+    WorkerStatus:
+      enum:
+      - DRAFT
+      - PAIRED
+      - ACTIVE
+      - FAILED
+      - INACTIVE
+      type: string
+    UpgradeStatus:
+      enum:
+      - LATEST
+      - UPGRADE_PENDING
+      - UPGRADING
+      - FAILED
+      type: string
+    EdgeInstanceStatusDetailsInformation:
+      properties:
+        connectionDetails:
+          items:
+            $ref: '#/components/schemas/EdgeInstanceConnectionDetails'
+          type: array
+        healthDetails:
+          items:
+            $ref: '#/components/schemas/EdgeInstanceHealthDetails'
+          type: array
+      type: object
+    DailyPatternInformation:
+      allOf:
+      - $ref: '#/components/schemas/SchedulerPatternInformation3'
+      - properties:
+          duration:
+            description: Duration in ISO-8601 format
+            enum:
+            - PT8H
+            - PT12H
+            - PT24H
+            example: PT24H
+            type: string
+          startTime:
+            description: Start time in HH:mm:ss format
+            pattern: ^([01]\d|2[0-3]):[0-5]\d:[0-5]\d$
+            type: string
+        type: object
+      required:
+      - duration
+      - startTime
+      type: object
+    WorkerServiceStatusDetails:
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+      type: object
+    PairingCodeRequest:
+      properties:
+        environmentId:
+          format: uuid
+          type: string
+        primaryInstanceId:
+          format: uuid
+          type: string
+        reuseCount:
+          format: int32
+          type: integer
+      type: object
+    EdgeInstanceRequest:
+      properties:
+        name:
+          minLength: 1
+          type: string
+        upgradeOrderPriority:
+          format: int32
+          maximum: 100
+          minimum: 1
+          type: integer
+      required:
+      - name
+      type: object
+    UpdatesConfigRequest:
       properties:
         updateConfigSchedulerPattern:
           oneOf:
           - $ref: '#/components/schemas/DailyPatternInformation'
           - $ref: '#/components/schemas/WeeklyPatternInformation'
           type: object
+      required:
+      - updateConfigSchedulerPattern
+      type: object
+    KeyAlgorithm:
+      enum:
+      - RSA
+      - ED25519
+      - VSAT_HPKE
+      type: string
+    ErrorInformation6:
+      properties:
+        args:
+          items:
+            $ref: '#/components/schemas/AnyValue6'
+          type: array
+        code:
+          format: int32
+          type: integer
+        message:
+          type: string
+      type: object
+    ChartDetails:
+      properties:
+        name:
+          type: string
+        version:
+          type: string
+      type: object
+    HSMEdgeStatus:
+      enum:
+      - HSM_ERROR
+      - HSM_NOT_CONFIGURED
+      - HSM_LOST_CONNECTION
+      - HSM_HEALTHY
+      type: string
+    PodStatusDetails:
+      properties:
+        age:
+          format: int64
+          type: integer
+        cpuUsage:
+          format: int32
+          type: integer
+        image:
+          type: string
+        memoryUsage:
+          format: int64
+          type: integer
+        name:
+          type: string
+        restartCount:
+          format: int32
+          type: integer
+        status:
+          type: string
       type: object
     EdgeWorkerInformation:
       properties:
@@ -727,6 +957,21 @@ components:
         status:
           $ref: '#/components/schemas/WorkerStatus'
       type: object
+    NodeCondition:
+      properties:
+        Status:
+          type: string
+          writeOnly: true
+        Type:
+          type: string
+          writeOnly: true
+        status:
+          type: string
+        type:
+          type: string
+      type: object
+    AnyValue6:
+      description: Can be any value - string, number, boolean, array or object.
     RecoveryCodeInformation:
       properties:
         companyId:
@@ -751,104 +996,6 @@ components:
         tsgId:
           type: string
       type: object
-    UpdatesConfigRequest:
-      properties:
-        updateConfigSchedulerPattern:
-          oneOf:
-          - $ref: '#/components/schemas/DailyPatternInformation'
-          - $ref: '#/components/schemas/WeeklyPatternInformation'
-          type: object
-      required:
-      - updateConfigSchedulerPattern
-      type: object
-    SchedulerPatternInformation3:
-      discriminator:
-        mapping:
-          DAY: '#/components/schemas/DailyPatternInformation'
-          WEEK: '#/components/schemas/WeeklyPatternInformation'
-        propertyName: recurrenceType
-      properties:
-        recurrenceType:
-          type: string
-      required:
-      - recurrenceType
-      type: object
-    EdgeWorkerDeleteResponse:
-      properties:
-        id:
-          format: uuid
-          type: string
-        pairingCode:
-          type: string
-      type: object
-    WorkerStatus:
-      enum:
-      - DRAFT
-      - PAIRED
-      - ACTIVE
-      - FAILED
-      - INACTIVE
-      type: string
-    PairingCodeRequest:
-      properties:
-        environmentId:
-          format: uuid
-          type: string
-        primaryInstanceId:
-          format: uuid
-          type: string
-        reuseCount:
-          format: int32
-          type: integer
-      type: object
-    KeyAlgorithm:
-      enum:
-      - RSA
-      - ED25519
-      - VSAT_HPKE
-      type: string
-    PodStatusDetails:
-      properties:
-        age:
-          format: int64
-          type: integer
-        cpuUsage:
-          format: int32
-          type: integer
-        image:
-          type: string
-        memoryUsage:
-          format: int64
-          type: integer
-        name:
-          type: string
-        restartCount:
-          format: int32
-          type: integer
-        status:
-          type: string
-      type: object
-    ErrorResponse6:
-      properties:
-        errors:
-          items:
-            $ref: '#/components/schemas/ErrorInformation6'
-          type: array
-      type: object
-    EdgeType:
-      enum:
-      - ALL
-      - HUB
-      - SATELLITE
-      type: string
-    ProductEntitlement:
-      enum:
-      - ANY
-      - MIRA
-      - DEVOPS
-      - OUTAGE_DETECTION
-      - CODESIGN
-      type: string
     WeeklyPatternInformation:
       allOf:
       - $ref: '#/components/schemas/SchedulerPatternInformation3'
@@ -894,155 +1041,29 @@ components:
       - duration
       - startTime
       type: object
-    EncryptionKeysResponse:
+    PairingCodeInformation:
       properties:
-        encryptionKeys:
-          items:
-            $ref: '#/components/schemas/EncryptionKeyInformation'
-          type: array
-      type: object
-    EdgeInstanceRequest:
-      properties:
-        name:
-          minLength: 1
-          type: string
-        upgradeOrderPriority:
-          format: int32
-          maximum: 100
-          minimum: 1
-          type: integer
-      required:
-      - name
-      type: object
-    EdgeStatus:
-      enum:
-      - ACTIVE
-      - LOST_CONNECTION
-      - REGISTERED
-      - PAIRED
-      - LOST_CONNECTION_DURING_INSTALL
-      - INSTALLED
-      - INSTALL_FAILED
-      - UNHEALTHY
-      - ERROR
-      - INSTALLING
-      type: string
-    ErrorInformation6:
-      properties:
-        args:
-          items:
-            $ref: '#/components/schemas/AnyValue6'
-          type: array
-        code:
-          format: int32
-          type: integer
-        message:
-          type: string
-      type: object
-    EdgeInstanceStatusDetailsInformation:
-      properties:
-        connectionDetails:
-          items:
-            $ref: '#/components/schemas/EdgeInstanceConnectionDetails'
-          type: array
-        healthDetails:
-          items:
-            $ref: '#/components/schemas/EdgeInstanceHealthDetails'
-          type: array
-      type: object
-    EdgeWorkersResponse:
-      properties:
-        edgeWorkers:
-          items:
-            $ref: '#/components/schemas/EdgeWorkerInformation'
-          type: array
-      type: object
-    RecoveryCodeRequest:
-      properties:
-        edgeInstanceId:
-          format: uuid
-          type: string
-      required:
-      - edgeInstanceId
-      type: object
-    EdgeWorkerStatusDetailsInformation:
-      properties:
-        edgeWorkerId:
-          format: uuid
-          type: string
-        healthDetails:
-          items:
-            $ref: '#/components/schemas/EdgeWorkerHealthDetails'
-          type: array
-      type: object
-    NodeStatusDetails:
-      properties:
-        conditions:
-          items:
-            $ref: '#/components/schemas/NodeCondition'
-          type: array
-        info:
-          $ref: '#/components/schemas/NodeInfo'
-      type: object
-    AnyValue6:
-      description: Can be any value - string, number, boolean, array or object.
-    EdgeInstanceResponse:
-      properties:
-        edgeInstances:
-          items:
-            $ref: '#/components/schemas/EdgeInstanceInformation'
-          type: array
-      type: object
-    EdgeWorkerHealthDetails:
-      properties:
-        age:
-          format: int64
-          type: integer
         companyId:
           format: uuid
           type: string
-        cpuUsage:
-          format: int32
-          type: integer
-        edgeInstanceId:
+        environmentId:
           format: uuid
           type: string
-        edgeWorkerId:
-          format: uuid
-          type: string
-        host:
-          type: string
-        memoryUsage:
-          format: int64
-          type: integer
-        port:
-          format: int32
-          type: integer
-        services:
-          items:
-            $ref: '#/components/schemas/WorkerServiceStatusDetails'
-          type: array
-        status:
-          type: string
-        timestamp:
+        expirationDate:
           format: date-time
           type: string
-      type: object
-    UpgradeStatus:
-      enum:
-      - LATEST
-      - UPGRADE_PENDING
-      - UPGRADING
-      - FAILED
-      type: string
-    NamespaceChartDetails:
-      properties:
-        charts:
-          items:
-            $ref: '#/components/schemas/ChartDetails'
-          type: array
-        name:
+        id:
+          format: uuid
           type: string
+        pairingCode:
+          type: string
+        productEntitlements:
+          items:
+            $ref: '#/components/schemas/ProductEntitlement'
+          type: array
+        reuseCount:
+          format: int32
+          type: integer
       type: object
   securitySchemes:
     scmOAuth:

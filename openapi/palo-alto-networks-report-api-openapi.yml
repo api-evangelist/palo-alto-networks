@@ -2,10 +2,8 @@ openapi: 3.2.0
 info:
   title: Palo Alto Networks Report API
   version: '1.0'
-  description: 'Operations tagged Report across 3 of this provider''s published API definitions: palo-alto-networks-report-api-openapi.yml, palo-alto-prisma-airs-redteam-data-plane-dp-openapi-openapi.yaml, palo-alto-wildfire-api-openapi-original.yml. Each path carries the servers of the definition it was published in.'
+  description: 'Operations tagged Report across 2 of this provider''s published API definitions: palo-alto-prisma-airs-redteam-data-plane-dp-openapi-openapi.yaml, palo-alto-wildfire-api-openapi-original.yml. Each path carries the servers of the definition it was published in.'
 servers:
-- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
-  description: AIOps for NGFW BPA API production server.
 - url: https://api.sase.paloaltonetworks.com/ai-red-teaming/data-plane
 - url: https://wildfire.paloaltonetworks.com/publicapi
   description: WildFire global cloud (US).
@@ -17,216 +15,8 @@ servers:
       default: eu
 tags:
 - name: Report
-  description: Retrieve detailed analysis reports and supporting files.
+  description: Operations for generating and retrieving scan job reports for static and dynamic.
 paths:
-  /get/report:
-    post:
-      operationId: getReport
-      summary: Palo Alto Networks Get Analysis Report
-      description: Retrieves the full WildFire analysis report for a sample identified by its MD5 or SHA-256 hash. Reports include behavioral analysis, network activity, file system changes, registry modifications, and process information. Reports are available in XML or PDF format.
-      tags:
-      - Report
-      requestBody:
-        required: true
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              type: object
-              required:
-              - apikey
-              - hash
-              - format
-              properties:
-                apikey:
-                  type: string
-                  description: WildFire API key for authentication.
-                hash:
-                  type: string
-                  description: MD5 or SHA-256 hash of the analyzed sample.
-                format:
-                  type: string
-                  enum:
-                  - xml
-                  - pdf
-                  description: Report output format.
-                type:
-                  type: string
-                  description: Hash type. If omitted, WildFire auto-detects based on hash length.
-                  enum:
-                  - md5
-                  - sha256
-            examples:
-              GetReportRequestExample:
-                summary: Default getReport request
-                x-microcks-default: true
-                value:
-                  apikey: example-apikey
-                  hash: example-hash
-                  format: pdf
-                  type: sha256
-      responses:
-        '200':
-          description: Analysis report returned successfully.
-          content:
-            application/xml:
-              schema:
-                $ref: '#/components/schemas/AnalysisReport'
-              examples:
-                GetReport200Example:
-                  summary: Default getReport 200 response
-                  x-microcks-default: true
-                  value:
-                    wildfire:
-                      version: 2.3.1
-                      file_info:
-                        file_stype: standard
-                        size: 531
-                        md5: fe002567a9904394d4ceafd8a4fb3f00
-                        sha256: 59258b8b3904457b736c4ebf1128de54a88068379c519afe5c7cae56cb75cd1e
-                        create_time: '2025-07-04T20:04:29Z'
-                      task_info:
-                        report: example-report
-            application/pdf:
-              schema:
-                type: string
-                format: binary
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-      x-microcks-operation:
-        delay: 0
-        dispatcher: FALLBACK
-      security:
-      - oauth2Bearer: []
-    servers:
-    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
-      description: AIOps for NGFW BPA API production server.
-  /get/sample:
-    post:
-      operationId: getSample
-      summary: Palo Alto Networks Download Sample
-      description: Downloads the original sample file identified by its hash. Only available for samples where the verdict is malware or grayware. Requires an API key with sample download permissions.
-      tags:
-      - Report
-      requestBody:
-        required: true
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              type: object
-              required:
-              - apikey
-              - hash
-              properties:
-                apikey:
-                  type: string
-                  description: WildFire API key with sample download permissions.
-                hash:
-                  type: string
-                  description: MD5 or SHA-256 hash of the sample to download.
-                type:
-                  type: string
-                  enum:
-                  - md5
-                  - sha256
-            examples:
-              GetSampleRequestExample:
-                summary: Default getSample request
-                x-microcks-default: true
-                value:
-                  apikey: example-apikey
-                  hash: example-hash
-                  type: md5
-      responses:
-        '200':
-          description: Sample file returned successfully.
-          content:
-            application/octet-stream:
-              schema:
-                type: string
-                format: binary
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-      x-microcks-operation:
-        delay: 0
-        dispatcher: FALLBACK
-      security:
-      - oauth2Bearer: []
-    servers:
-    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
-      description: AIOps for NGFW BPA API production server.
-  /get/pcap:
-    post:
-      operationId: getPcap
-      summary: Palo Alto Networks Get PCAP File
-      description: Downloads the network packet capture (PCAP) file recorded during sandbox analysis of the specified sample. PCAP files contain the network traffic generated by the malware during detonation.
-      tags:
-      - Report
-      requestBody:
-        required: true
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              type: object
-              required:
-              - apikey
-              - hash
-              - platform
-              properties:
-                apikey:
-                  type: string
-                  description: WildFire API key for authentication.
-                hash:
-                  type: string
-                  description: MD5 or SHA-256 hash of the analyzed sample.
-                type:
-                  type: string
-                  enum:
-                  - md5
-                  - sha256
-                platform:
-                  type: string
-                  description: Analysis platform identifier (e.g., 100 for Windows XP, 200 for Windows 7, 400 for Android).
-            examples:
-              GetPcapRequestExample:
-                summary: Default getPcap request
-                x-microcks-default: true
-                value:
-                  apikey: example-apikey
-                  hash: example-hash
-                  type: md5
-                  platform: example-platform
-      responses:
-        '200':
-          description: PCAP file returned successfully.
-          content:
-            application/octet-stream:
-              schema:
-                type: string
-                format: binary
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-      x-microcks-operation:
-        delay: 0
-        dispatcher: FALLBACK
-      security:
-      - oauth2Bearer: []
-    servers:
-    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
-      description: AIOps for NGFW BPA API production server.
   /v1/report/static/{job_id}/list-attacks:
     get:
       tags:
@@ -416,7 +206,7 @@ paths:
       tags:
       - Report
       summary: Get attack library report
-      description: Get attack library report for a job.  Raises ForbiddenError if report is partially complete and locked.
+      description: Get attack library report for a job. Raises ForbiddenError if report is partially complete and locked.
       operationId: get_attack_report_v1_report_static__job_id__report_get
       parameters:
       - name: job_id
@@ -819,7 +609,7 @@ paths:
       tags:
       - Report
       summary: Generate partial scan report
-      description: 'Unlock a partial report by consuming a quota credit.  This endpoint: - Validates the job is PARTIALLY_COMPLETE - Consumes 1 quota credit of the job type - Unlocks the report for viewing  **Returns:** - Updated job information with unlocked report'
+      description: 'Unlock a partial report by consuming a quota credit. This endpoint: - Validates the job is PARTIALLY_COMPLETE - Consumes 1 quota credit of the job type - Unlocks the report for viewing **Returns:** - Updated job information with unlocked report'
       operationId: generate_partial_job_report_v1_report__job_id__generate_partial_report_post
       parameters:
       - name: job_id
@@ -884,1111 +674,228 @@ paths:
       - bearerAuth: []
     servers:
     - url: https://api.sase.paloaltonetworks.com/ai-red-teaming/data-plane
+  /get/report:
+    post:
+      operationId: getReport
+      summary: Palo Alto Networks Get Analysis Report
+      description: Retrieves the full WildFire analysis report for a sample identified by its MD5 or SHA-256 hash. Reports include behavioral analysis, network activity, file system changes, registry modifications, and process information. Reports are available in XML or PDF format.
+      tags:
+      - Report
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - apikey
+              - hash
+              - format
+              properties:
+                apikey:
+                  type: string
+                  description: WildFire API key for authentication.
+                hash:
+                  type: string
+                  description: MD5 or SHA-256 hash of the analyzed sample.
+                format:
+                  type: string
+                  enum:
+                  - xml
+                  - pdf
+                  description: Report output format.
+                type:
+                  type: string
+                  description: Hash type. If omitted, WildFire auto-detects based on hash length.
+                  enum:
+                  - md5
+                  - sha256
+            examples:
+              GetReportRequestExample:
+                summary: Default getReport request
+                x-microcks-default: true
+                value:
+                  apikey: example-apikey
+                  hash: example-hash
+                  format: pdf
+                  type: sha256
+      responses:
+        '200':
+          description: Analysis report returned successfully.
+          content:
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/AnalysisReport'
+              examples:
+                GetReport200Example:
+                  summary: Default getReport 200 response
+                  x-microcks-default: true
+                  value:
+                    wildfire:
+                      version: 2.3.1
+                      file_info:
+                        file_stype: standard
+                        size: 531
+                        md5: fe002567a9904394d4ceafd8a4fb3f00
+                        sha256: 59258b8b3904457b736c4ebf1128de54a88068379c519afe5c7cae56cb75cd1e
+                        create_time: '2025-07-04T20:04:29Z'
+                      task_info:
+                        report: example-report
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+    servers:
+    - url: https://wildfire.paloaltonetworks.com/publicapi
+      description: WildFire global cloud (US).
+    - url: https://wildfire.{region}.paloaltonetworks.com/publicapi
+      description: WildFire regional cloud endpoint.
+      variables:
+        region:
+          description: Regional deployment (e.g., eu, jp).
+          default: eu
+  /get/sample:
+    post:
+      operationId: getSample
+      summary: Palo Alto Networks Download Sample
+      description: Downloads the original sample file identified by its hash. Only available for samples where the verdict is malware or grayware. Requires an API key with sample download permissions.
+      tags:
+      - Report
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - apikey
+              - hash
+              properties:
+                apikey:
+                  type: string
+                  description: WildFire API key with sample download permissions.
+                hash:
+                  type: string
+                  description: MD5 or SHA-256 hash of the sample to download.
+                type:
+                  type: string
+                  enum:
+                  - md5
+                  - sha256
+            examples:
+              GetSampleRequestExample:
+                summary: Default getSample request
+                x-microcks-default: true
+                value:
+                  apikey: example-apikey
+                  hash: example-hash
+                  type: md5
+      responses:
+        '200':
+          description: Sample file returned successfully.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+    servers:
+    - url: https://wildfire.paloaltonetworks.com/publicapi
+      description: WildFire global cloud (US).
+    - url: https://wildfire.{region}.paloaltonetworks.com/publicapi
+      description: WildFire regional cloud endpoint.
+      variables:
+        region:
+          description: Regional deployment (e.g., eu, jp).
+          default: eu
+  /get/pcap:
+    post:
+      operationId: getPcap
+      summary: Palo Alto Networks Get PCAP File
+      description: Downloads the network packet capture (PCAP) file recorded during sandbox analysis of the specified sample. PCAP files contain the network traffic generated by the malware during detonation.
+      tags:
+      - Report
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - apikey
+              - hash
+              - platform
+              properties:
+                apikey:
+                  type: string
+                  description: WildFire API key for authentication.
+                hash:
+                  type: string
+                  description: MD5 or SHA-256 hash of the analyzed sample.
+                type:
+                  type: string
+                  enum:
+                  - md5
+                  - sha256
+                platform:
+                  type: string
+                  description: Analysis platform identifier (e.g., 100 for Windows XP, 200 for Windows 7, 400 for Android).
+            examples:
+              GetPcapRequestExample:
+                summary: Default getPcap request
+                x-microcks-default: true
+                value:
+                  apikey: example-apikey
+                  hash: example-hash
+                  type: md5
+                  platform: example-platform
+      responses:
+        '200':
+          description: PCAP file returned successfully.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-microcks-operation:
+        delay: 0
+        dispatcher: FALLBACK
+    servers:
+    - url: https://wildfire.paloaltonetworks.com/publicapi
+      description: WildFire global cloud (US).
+    - url: https://wildfire.{region}.paloaltonetworks.com/publicapi
+      description: WildFire regional cloud endpoint.
+      variables:
+        region:
+          description: Regional deployment (e.g., eu, jp).
+          default: eu
 components:
-  responses:
-    Forbidden:
-      description: Valid API key but insufficient permissions for the requested operation (e.g., sample download requires elevated permissions).
-      content:
-        application/xml:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    BadRequest:
-      description: Malformed request, missing required parameters, or invalid API key format.
-      content:
-        application/xml:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Unauthorized:
-      description: Missing API key or API key is invalid.
-      content:
-        application/xml:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    NotFound:
-      description: No analysis result found for the specified hash.
-      content:
-        application/xml:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
   schemas:
-    AnalysisReport:
-      type: object
-      description: Detailed WildFire analysis report including behavioral analysis, network activity, and system changes observed during sandbox execution.
-      properties:
-        wildfire:
-          type: object
-          properties:
-            version:
-              type: string
-              example: 7.4.8
-            file_info:
-              type: object
-              properties:
-                file_stype:
-                  type: string
-                  example: standard
-                size:
-                  type: integer
-                  example: 922
-                md5:
-                  type: string
-                  example: db68a8bb1f10612a7b71092b35e4a545
-                sha256:
-                  type: string
-                  example: 51031294c848b48ea0dc621ed7f3a86a61174866d4df7f6f379875b2415e918c
-                create_time:
-                  type: string
-                  format: date-time
-                  example: '2025-09-02T12:12:51Z'
-              example:
-                file_stype: standard
-                size: 897
-                md5: cb973a5cae8352a4a0e24ef1084a3b40
-                sha256: 33e4e05c75f8845fc07508f405087c2628fafecb25faffccdd91728a00239652
-                create_time: '2024-11-03T13:49:56Z'
-            task_info:
-              type: object
-              properties:
-                report:
-                  oneOf:
-                  - $ref: '#/components/schemas/SandboxReport'
-                  - type: array
-                    items:
-                      $ref: '#/components/schemas/SandboxReport'
-                  example: example-report
-              example:
-                report: example-report
-          example:
-            version: 2.3.1
-            file_info:
-              file_stype: standard
-              size: 531
-              md5: fe002567a9904394d4ceafd8a4fb3f00
-              sha256: 59258b8b3904457b736c4ebf1128de54a88068379c519afe5c7cae56cb75cd1e
-              create_time: '2025-07-04T20:04:29Z'
-            task_info:
-              report: example-report
-    ErrorResponse:
-      type: object
-      description: Error response returned when a request fails.
-      properties:
-        error:
-          type: object
-          properties:
-            error-message:
-              type: string
-              description: Human-readable error message.
-              example: example-error-message
-          example:
-            error-message: example-error-message
-    SandboxReport:
-      type: object
-      description: Analysis results from a single sandbox execution environment.
-      properties:
-        platform:
-          type: string
-          description: Platform identifier (e.g., 100 for Windows XP SP3).
-          example: example-platform
-        software:
-          type: string
-          description: Sandbox software environment.
-          example: example-software
-        version:
-          type: string
-          example: 10.9.8
-        summary:
-          type: object
-          properties:
-            '@verdict':
-              type: string
-              enum:
-              - benign
-              - malware
-              - grayware
-              - phishing
-              example: grayware
-          example:
-            '@verdict': grayware
-        network:
-          type: object
-          properties:
-            dns:
-              type: array
-              items:
-                type: object
-                properties:
-                  '@query':
-                    type: string
-                    example: example-@query
-                  '@response':
-                    type: string
-                    example: example-@response
-              example:
-              - '@query': example-@query
-                '@response': example-@response
-            tcp:
-              type: array
-              items:
-                type: object
-                properties:
-                  '@ip':
-                    type: string
-                    example: example-@ip
-                  '@port':
-                    type: integer
-                    example: 344
-                  '@country':
-                    type: string
-                    example: JP
-              example:
-              - '@ip': example-@ip
-                '@port': 823
-                '@country': DE
-              - '@ip': example-@ip
-                '@port': 728
-                '@country': JP
-            http:
-              type: array
-              items:
-                type: object
-                properties:
-                  '@request':
-                    type: string
-                    example: example-@request
-                  '@response':
-                    type: string
-                    example: example-@response
-              example:
-              - '@request': example-@request
-                '@response': example-@response
-              - '@request': example-@request
-                '@response': example-@response
-          example:
-            dns:
-            - '@query': example-@query
-              '@response': example-@response
-            tcp:
-            - '@ip': example-@ip
-              '@port': 719
-              '@country': JP
-            http:
-            - '@request': example-@request
-              '@response': example-@response
-        process_list:
-          type: object
-          properties:
-            process:
-              type: array
-              items:
-                type: object
-                properties:
-                  '@name':
-                    type: string
-                    example: Corporate Sensor 01
-                  '@pid':
-                    type: string
-                    example: '394815'
-                  '@text':
-                    type: string
-                    example: example-@text
-              example:
-              - '@name': Branch Agent 68
-                '@pid': '593743'
-                '@text': example-@text
-              - '@name': Primary Agent 67
-                '@pid': '145182'
-                '@text': example-@text
-          example:
-            process:
-            - '@name': Branch Policy 87
-              '@pid': '603246'
-              '@text': example-@text
-    RuntimeSecurityPolicySchema:
-      properties:
-        policy_id:
-          $ref: '#/components/schemas/PolicyType'
-          description: Runtime Security Policy type
-        display_name:
-          type: string
-          title: Display Name
-          description: Runtime Security Policy display name
-        config:
-          anyOf:
-          - $ref: '#/components/schemas/PromptInjectionGuardrailSchema'
-          - $ref: '#/components/schemas/ToxicContentGuardrailSchema'
-          - $ref: '#/components/schemas/CustomTopicGuardrailsSchema'
-          - $ref: '#/components/schemas/MaliciousCodeDetectionSchema'
-          - $ref: '#/components/schemas/MaliciousURLDetectionSchema'
-          - $ref: '#/components/schemas/SensitiveDataProtectionSchema'
-          title: Config
-          description: Runtime Security Policy configuration
-      type: object
-      required:
-      - policy_id
-      - display_name
-      - config
-      title: RuntimeSecurityPolicySchema
-      description: Runtime security policy configuration.
-    GoalType:
-      type: string
-      enum:
-      - BASE
-      - TOOL_MISUSE
-      - GOAL_MANIPULATION
-      - PRIVILEGE_MISUSE
-      - TOOL_CHAINING
-      title: GoalType
-    MaliciousCodeDetectionSchema:
-      properties:
-        action:
-          $ref: '#/components/schemas/GuardrailAction'
-          description: 'Action to take: ''allow'', ''block'''
-          default: BLOCK
-      type: object
-      title: MaliciousCodeDetectionSchema
-      description: Guardrail configuration for malicious code detection.
-    StatusQueryParam:
-      type: string
-      enum:
-      - SUCCESSFUL
-      - FAILED
-      - ERROR
-      title: StatusQueryParam
-    TechniqueModel:
-      properties:
-        id:
-          type: string
-          title: Id
-          description: Technique unique identifier
-        display_name:
-          type: string
-          title: Display Name
-          description: Technique display name for frontend
-        compliance_id:
-          type: string
-          title: Compliance Id
-          description: Associated compliance framework ID
-        description:
-          type: string
-          title: Description
-          description: Technique description
-        link:
-          type: string
-          title: Link
-          description: Technique documentation link
-        version:
-          type: string
-          title: Version
-          description: Technique version
-        active:
-          type: boolean
-          title: Active
-          description: Whether technique is active
-      type: object
-      required:
-      - id
-      - display_name
-      - compliance_id
-      - description
-      - link
-      - version
-      - active
-      title: TechniqueModel
-      description: Pydantic model for technique data
-    PrerequisiteModel:
-      properties:
-        id:
-          type: string
-          title: Id
-          description: Prerequisite unique identifier
-        display_name:
-          type: string
-          title: Display Name
-          description: Prerequisite display name for frontend
-        description:
-          type: string
-          title: Description
-          description: Prerequisite description
-      type: object
-      required:
-      - id
-      - display_name
-      - description
-      title: PrerequisiteModel
-      description: Pydantic model for prerequisite data
-    PolicyType:
-      type: string
-      enum:
-      - PROMPT_INJECTION
-      - TOXIC_CONTENT
-      - CUSTOM_TOPIC_GUARDRAILS
-      - MALICIOUS_CODE_DETECTION
-      - MALICIOUS_URL_DETECTION
-      - SENSITIVE_DATA_PROTECTION
-      title: PolicyType
-      description: Policy types with metadata.
-    SafetySubCategory:
-      type: string
-      enum:
-      - BIAS
-      - CBRN
-      - CYBERCRIME
-      - DRUGS
-      - HATE_TOXIC_ABUSE
-      - NON_VIOLENT_CRIMES
-      - POLITICAL
-      - SELF_HARM
-      - SEXUAL
-      - VIOLENT_CRIMES_WEAPONS
-      title: SafetySubCategory
-    AttackStatus:
-      type: string
-      enum:
-      - INIT
-      - ATTACK
-      - DETECTION
-      - REPORT
-      - COMPLETED
-      - FAILED
-      title: AttackStatus
-    ToxicContentGuardrailSchema:
-      properties:
-        moderate:
-          $ref: '#/components/schemas/GuardrailAction'
-          description: 'Action for moderate toxicity: ''allow'', ''block'''
-          default: BLOCK
-        high:
-          $ref: '#/components/schemas/GuardrailAction'
-          description: 'Action for high toxicity: ''allow'', ''block'''
-          default: BLOCK
-      type: object
-      title: ToxicContentGuardrailSchema
-      description: Guardrail configuration for toxic content with severity levels.
-    StaticJobRemediationRecommendationSchema:
-      properties:
-        runtime_security_policy_configuration:
-          anyOf:
-          - items:
-              $ref: '#/components/schemas/RuntimeSecurityPolicySchema'
-            type: array
-          - type: 'null'
-          title: Runtime Security Policy Configuration
-          description: Recommended runtime security policy configuration
-        other_measures:
-          items:
-            $ref: '#/components/schemas/StaticJobRemediationSchema'
-          type: array
-          title: Other Measures
-          description: List of applicable remediations for static job
-      type: object
-      title: StaticJobRemediationRecommendationSchema
-      description: Remediation recommendations with security profile and other remediations. To build and store in db
-    FileFormat:
-      type: string
-      enum:
-      - CSV
-      - JSON
-      - ALL
-      title: FileFormat
-      description: File format options for report downloads.
-    StreamDetailResponseSchema:
-      properties:
-        uuid:
-          type: string
-          format: uuid
-          title: Uuid
-        tsg_id:
-          type: string
-          title: Tsg Id
-        job_id:
-          type: string
-          format: uuid
-          title: Job Id
-          description: Job identifier
-        target_id:
-          type: string
-          format: uuid
-          title: Target Id
-          description: Target identifier
-        stream_idx:
-          type: integer
-          title: Stream Idx
-          description: Stream index
-          default: 0
-        iteration:
-          type: integer
-          title: Iteration
-          description: Iteration
-          default: 0
-        goal_id:
-          type: string
-          format: uuid
-          title: Goal Id
-          description: Goal identifier
-        goal:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Goal
-          description: Goal to use in the backend
-        marked_safe:
-          type: boolean
-          title: Marked Safe
-          description: Marked safe
-          default: false
-        stream_type:
-          anyOf:
-          - $ref: '#/components/schemas/StreamType'
-          - type: 'null'
-          default: NORMAL
-        threat:
-          type: boolean
-          title: Threat
-          description: Indicates if it is a threat
-          default: false
-        first_threat_iteration:
-          anyOf:
-          - $ref: '#/components/schemas/StreamIterationDataSchema'
-          - type: 'null'
-          description: First threat iteration data (denormalized JSONB for performance)
-        created_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Created At
-        updated_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Updated At
-        extra_info:
-          additionalProperties: true
-          type: object
-          title: Extra Info
-          description: Extra information
-        version:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Version
-          description: Stream schema version
-        error:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Error
-          description: Whether this stream encountered errors
-        error_message:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Error Message
-          description: Error message details
-        iterations:
-          items:
-            $ref: '#/components/schemas/StreamIterationDataResponseSchema'
-          type: array
-          title: Iterations
-          description: List of iterations
-        goal_category:
-          anyOf:
-          - $ref: '#/components/schemas/GoalCategory'
-          - type: 'null'
-          description: Goal category for filtering and allocation
-        goal_metadata:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Goal Metadata
-          description: Per-goal metadata (e.g. TOOL_CHAINING tool_sequence, trigger_text, data_flow_narrative, success_markers)
-      type: object
-      required:
-      - uuid
-      - tsg_id
-      - job_id
-      - target_id
-      - goal_id
-      title: StreamDetailResponseSchema
-    StaticJobReportSchema:
-      properties:
-        asr:
-          anyOf:
-          - type: number
-            maximum: 100.0
-            minimum: 0.0
-          - type: 'null'
-          title: Asr
-          description: Attack Success Rate percentage (0-100)
-        score:
-          anyOf:
-          - type: number
-            maximum: 100.0
-            minimum: 0.0
-          - type: 'null'
-          title: Score
-          description: Overall job performance score (0-100)
-        security_report:
-          anyOf:
-          - $ref: '#/components/schemas/CategoryReportSchema'
-          - type: 'null'
-          description: Security risk overview widget
-        safety_report:
-          anyOf:
-          - $ref: '#/components/schemas/CategoryReportSchema'
-          - type: 'null'
-          description: Safety risk overview widget
-        brand_report:
-          anyOf:
-          - $ref: '#/components/schemas/CategoryReportSchema'
-          - type: 'null'
-          description: Brand reputation risk overview widget
-        compliance_report:
-          anyOf:
-          - items:
-              $ref: '#/components/schemas/ComplianceReportSchema'
-            type: array
-          - type: 'null'
-          title: Compliance Report
-          description: Compliance widget with all frameworks
-        severity_report:
-          $ref: '#/components/schemas/SeverityReportSchema'
-          description: Breakdown of all successful attacks by severity level for the entire job
-        report_summary:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Report Summary
-          description: Report summary from the LLM for the statics job run
-        recommendations:
-          anyOf:
-          - $ref: '#/components/schemas/StaticJobRemediationRecommendationSchema'
-          - type: 'null'
-          description: Remediation recommendations with security profile and actionable fixes
-      type: object
-      required:
-      - severity_report
-      title: StaticJobReportSchema
-      description: Complete static job report data structure.
-    RemediationResponseSchema:
-      properties:
-        remediations:
-          items:
-            $ref: '#/components/schemas/RemediationDetailSchema'
-          type: array
-          title: Remediations
-          description: List of applicable remediation recommendations for static and dynamic jobs
-      type: object
-      title: RemediationResponseSchema
-    AttackMultiTurnDetailResponseSchema:
-      properties:
-        uuid:
-          type: string
-          format: uuid
-          title: Uuid
-        tsg_id:
-          type: string
-          title: Tsg Id
-        job_id:
-          type: string
-          format: uuid
-          title: Job Id
-          description: Associated job UUID
-        target_id:
-          type: string
-          format: uuid
-          title: Target Id
-          description: Target UUID
-        prompt:
-          type: string
-          title: Prompt
-          description: The actual prompt text used
-        status:
-          $ref: '#/components/schemas/AttackStatus'
-          description: Attack status
-          default: INIT
-        marked_safe:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Marked Safe
-          description: Manual safety marking
-        extra_info:
-          additionalProperties: true
-          type: object
-          title: Extra Info
-          description: Additional metadata
-        threat:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Threat
-          description: Threat detection result
-        attack_type:
-          $ref: '#/components/schemas/AttackType'
-          description: Type of attack
-          default: NORMAL
-        multi_turn:
-          type: boolean
-          title: Multi Turn
-          description: Multi-turn conversation flag
-          default: false
-        asr:
-          anyOf:
-          - type: number
-            maximum: 100.0
-            minimum: 0.0
-          - type: 'null'
-          title: Asr
-          description: Attack Success Rate (0-100)
-        version:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Version
-          description: Attack version
-        error:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Error
-          description: True if all attack attempts failed (zero outputs produced)
-        prompt_mapping_id:
-          type: string
-          format: uuid
-          title: Prompt Mapping Id
-          description: Prompt mapping UUID
-        prompt_id:
-          type: string
-          format: uuid
-          title: Prompt Id
-          description: Prompt UUID
-        category:
-          $ref: '#/components/schemas/Category'
-          description: Attack category
-        sub_category:
-          anyOf:
-          - $ref: '#/components/schemas/SecuritySubCategory'
-          - $ref: '#/components/schemas/SafetySubCategory'
-          - $ref: '#/components/schemas/BrandSubCategory'
-          - $ref: '#/components/schemas/ComplianceSubCategory'
-          title: Sub Category
-          description: Attack subcategory
-        severity:
-          type: string
-          description: Attack severity level
-        category_display_name:
-          type: string
-          title: Category Display Name
-        sub_category_display_name:
-          type: string
-          title: Sub Category Display Name
-        compliance_frameworks:
-          items:
-            $ref: '#/components/schemas/ComplianceWithTechniqueModel'
-          type: array
-          title: Compliance Frameworks
-        outputs:
-          items:
-            items:
-              $ref: '#/components/schemas/AttackMultiTurnOutputResponseSchema'
-            type: array
-          type: array
-          title: Outputs
-          description: List of conversations, where each conversation is a list of turns ordered by turn number. Each inner list represents one generation of the multi-turn attack.
-        goal:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Goal
-        attack_modality:
-          $ref: '#/components/schemas/AttackModality'
-          description: FILE if the attack carries a document, else TEXT
-          default: TEXT
-        file:
-          anyOf:
-          - $ref: '#/components/schemas/AttackFileSchema'
-          - type: 'null'
-          description: File-attack document (name + signed download URL + short type); null for text attacks
-      type: object
-      required:
-      - uuid
-      - tsg_id
-      - job_id
-      - target_id
-      - prompt
-      - prompt_mapping_id
-      - prompt_id
-      - category
-      - sub_category
-      - category_display_name
-      - sub_category_display_name
-      - compliance_frameworks
-      - goal
-      title: AttackMultiTurnDetailResponseSchema
-    StreamSchema:
-      properties:
-        uuid:
-          type: string
-          format: uuid
-          title: Uuid
-        tsg_id:
-          type: string
-          title: Tsg Id
-        job_id:
-          type: string
-          format: uuid
-          title: Job Id
-          description: Job identifier
-        target_id:
-          type: string
-          format: uuid
-          title: Target Id
-          description: Target identifier
-        stream_idx:
-          type: integer
-          title: Stream Idx
-          description: Stream index
-          default: 0
-        iteration:
-          type: integer
-          title: Iteration
-          description: Iteration
-          default: 0
-        goal_id:
-          type: string
-          format: uuid
-          title: Goal Id
-          description: Goal identifier
-        goal:
-          anyOf:
-          - $ref: '#/components/schemas/GoalSchema'
-          - type: string
-          - type: 'null'
-          title: Goal
-          description: Goal to use in the backend
-        marked_safe:
-          type: boolean
-          title: Marked Safe
-          description: Marked safe
-          default: false
-        stream_type:
-          anyOf:
-          - $ref: '#/components/schemas/StreamType'
-          - type: 'null'
-          default: NORMAL
-        threat:
-          type: boolean
-          title: Threat
-          description: Indicates if it is a threat
-          default: false
-        first_threat_iteration:
-          anyOf:
-          - $ref: '#/components/schemas/StreamIterationDataSchema'
-          - type: 'null'
-          description: First threat iteration data (denormalized JSONB for performance)
-        created_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Created At
-        updated_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Updated At
-        extra_info:
-          additionalProperties: true
-          type: object
-          title: Extra Info
-          description: Extra information
-        version:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Version
-          description: Stream schema version
-        error:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Error
-          description: Whether this stream encountered errors
-        error_message:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Error Message
-          description: Error message details
-      type: object
-      required:
-      - uuid
-      - tsg_id
-      - job_id
-      - target_id
-      - goal_id
-      title: StreamSchema
-    SensitiveDataProtectionSchema:
-      properties:
-        action:
-          $ref: '#/components/schemas/GuardrailAction'
-          description: 'Action to take: ''allow'', ''block'''
-          default: BLOCK
-        masking_sensitive_data:
-          type: boolean
-          title: Masking Sensitive Data
-          description: Whether to mask sensitive data in responses
-          default: true
-      type: object
-      title: SensitiveDataProtectionSchema
-      description: Guardrail configuration for sensitive data protection.
-    AttackListSchema:
-      properties:
-        uuid:
-          type: string
-          format: uuid
-          title: Uuid
-        tsg_id:
-          type: string
-          title: Tsg Id
-        job_id:
-          type: string
-          format: uuid
-          title: Job Id
-          description: Associated job UUID
-        target_id:
-          type: string
-          format: uuid
-          title: Target Id
-          description: Target UUID
-        prompt:
-          type: string
-          title: Prompt
-          description: The actual prompt text used
-        status:
-          $ref: '#/components/schemas/AttackStatus'
-          description: Attack status
-          default: INIT
-        marked_safe:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Marked Safe
-          description: Manual safety marking
-        extra_info:
-          additionalProperties: true
-          type: object
-          title: Extra Info
-          description: Additional metadata
-        threat:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Threat
-          description: Threat detection result
-        attack_type:
-          $ref: '#/components/schemas/AttackType'
-          description: Type of attack
-          default: NORMAL
-        multi_turn:
-          type: boolean
-          title: Multi Turn
-          description: Multi-turn conversation flag
-          default: false
-        asr:
-          anyOf:
-          - type: number
-            maximum: 100.0
-            minimum: 0.0
-          - type: 'null'
-          title: Asr
-          description: Attack Success Rate (0-100)
-        version:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Version
-          description: Attack version
-        error:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Error
-          description: True if all attack attempts failed (zero outputs produced)
-        prompt_mapping_id:
-          type: string
-          format: uuid
-          title: Prompt Mapping Id
-          description: Prompt mapping UUID
-        prompt_id:
-          type: string
-          format: uuid
-          title: Prompt Id
-          description: Prompt UUID
-        category:
-          $ref: '#/components/schemas/Category'
-          description: Attack category
-        sub_category:
-          anyOf:
-          - $ref: '#/components/schemas/SecuritySubCategory'
-          - $ref: '#/components/schemas/SafetySubCategory'
-          - $ref: '#/components/schemas/BrandSubCategory'
-          - $ref: '#/components/schemas/ComplianceSubCategory'
-          title: Sub Category
-          description: Attack subcategory
-        severity:
-          type: string
-          description: Attack severity level
-        category_display_name:
-          type: string
-          title: Category Display Name
-        sub_category_display_name:
-          type: string
-          title: Sub Category Display Name
-        attack_modality:
-          $ref: '#/components/schemas/AttackModality'
-          description: FILE if the attack carries a document, else TEXT
-          default: TEXT
-      type: object
-      required:
-      - uuid
-      - tsg_id
-      - job_id
-      - target_id
-      - prompt
-      - prompt_mapping_id
-      - prompt_id
-      - category
-      - sub_category
-      - category_display_name
-      - sub_category_display_name
-      title: AttackListSchema
-    GoalCategory:
-      type: string
-      enum:
-      - GOAL_MANIPULATION
-      - PRIVILEGE_MISUSE
-      - TOOL_MISUSE
-      - TOOL_CHAINING
-      - TOXIC_CONTENT_GENERATION
-      - CUSTOM
-      title: GoalCategory
-    GuardrailAction:
-      type: string
-      enum:
-      - ALLOW
-      - BLOCK
-      title: GuardrailAction
-      description: Actions that can be taken by guardrails.
-    GoalSchema:
-      properties:
-        goal:
-          type: string
-          title: Goal
-          description: The test goal/prompt
-        goal_english:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Goal English
-          description: English version of goal for judge
-        safe_response:
-          type: string
-          title: Safe Response
-          description: The complete safe response with proper refusal
-        jailbroken_response:
-          type: string
-          minLength: 1
-          title: Jailbroken Response
-          description: The complete jailbroken response without disclaimers
-        goal_metadata:
-          additionalProperties: true
-          type: object
-          title: Goal Metadata
-          description: Additional metadata
-        custom_goal:
-          type: boolean
-          title: Custom Goal
-          description: Indicates if it is a custom goal
-          default: false
-        goal_type:
-          $ref: '#/components/schemas/GoalType'
-          description: 'Goal type: BASE, TOOL_MISUSE, GOAL_MANIPULATION, PRIVILEGE_MISUSE, TOOL_CHAINING'
-          default: BASE
-        goal_category:
-          anyOf:
-          - $ref: '#/components/schemas/GoalCategory'
-          - type: 'null'
-          description: Goal category for customizable allocation and filtering
-        uuid:
-          type: string
-          format: uuid
-          title: Uuid
-        tsg_id:
-          type: string
-          title: Tsg Id
-        job_id:
-          type: string
-          format: uuid
-          title: Job Id
-          description: Job identifier
-        goal_to_show:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Goal To Show
-          description: Goal to use in the backend
-        threat:
-          type: boolean
-          title: Threat
-          description: Indicates if it is a threat
-          default: false
-        version:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Version
-          description: Goal schema version
-        extra_info:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Extra Info
-          description: Extra info
-        error:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Error
-          description: Whether this goal has errors
-      type: object
-      required:
-      - goal
-      - safe_response
-      - jailbroken_response
-      - uuid
-      - tsg_id
-      - job_id
-      title: GoalSchema
-    AttackModality:
-      type: string
-      enum:
-      - TEXT
-      - FILE
-      title: AttackModality
-      description: 'Per-attack delivery modality for report display + filtering.
-
-
-        FILE = the attack carries a document (file_url set); TEXT = text-only. This is
-
-        a per-row value (distinct from the scan-level include_file_attacks toggle).
-
-        '
     ComplianceTechniqueSchema:
       properties:
         id:
@@ -2045,178 +952,6 @@ components:
       - active
       title: ComplianceTechniqueSchema
       description: Compliance Technique Model
-    StreamType:
-      type: string
-      enum:
-      - NORMAL
-      - ADVERSARIAL
-      title: StreamType
-    MaliciousURLDetectionSchema:
-      properties:
-        action:
-          $ref: '#/components/schemas/GuardrailAction'
-          description: 'Action to take: ''allow'', ''block'''
-          default: BLOCK
-      type: object
-      title: MaliciousURLDetectionSchema
-      description: Guardrail configuration for malicious URL detection.
-    GoalListResponseSchema:
-      properties:
-        pagination:
-          $ref: '#/components/schemas/PaginationSchema'
-        data:
-          items:
-            $ref: '#/components/schemas/GoalResponseSchema'
-          type: array
-          title: Data
-          description: List of Goals
-      type: object
-      required:
-      - pagination
-      - data
-      title: GoalListResponseSchema
-      description: Response schema for listing attacks following common pagination pattern.
-    SubCategoryStatsSchema:
-      properties:
-        id:
-          type: string
-          title: Id
-          description: Unique identifier
-        display_name:
-          type: string
-          title: Display Name
-          description: Frontend display name
-        description:
-          type: string
-          title: Description
-          description: Description
-        preselect:
-          type: boolean
-          title: Preselect
-          description: Whether this subcategory should be preselected in UI
-          default: true
-        prerequisites:
-          anyOf:
-          - items:
-              $ref: '#/components/schemas/PrerequisiteModel'
-            type: array
-          - type: 'null'
-          title: Prerequisites
-          description: List of prerequisites for this subcategory
-        active:
-          type: boolean
-          title: Active
-          description: Whether this subcategory is active
-          default: true
-        file_supported:
-          type: boolean
-          title: File Supported
-          description: Whether this subcategory has multimodal file (document) attacks in the library — drives the file-upload icon in the scan wizard
-          default: false
-        successful:
-          type: integer
-          title: Successful
-          description: Number of successful attacks (threat=True)
-        failed:
-          type: integer
-          title: Failed
-          description: Number of failed attacks (threat=False)
-        total:
-          type: integer
-          title: Total
-          description: Total attacks for this subcategory (successful + failed)
-          default: 0
-      type: object
-      required:
-      - id
-      - display_name
-      - description
-      - successful
-      - failed
-      title: SubCategoryStatsSchema
-      description: Statistics for a specific subcategory.
-    AttackMultiTurnOutputResponseSchema:
-      properties:
-        uuid:
-          type: string
-          format: uuid
-          title: Uuid
-        tsg_id:
-          type: string
-          title: Tsg Id
-        attack_id:
-          type: string
-          format: uuid
-          title: Attack Id
-          description: Associated attack UUID
-        job_id:
-          type: string
-          format: uuid
-          title: Job Id
-          description: Associated job UUID
-        target_id:
-          type: string
-          format: uuid
-          title: Target Id
-          description: Target UUID
-        output:
-          type: string
-          title: Output
-          description: Attack output. String for single-turn, dict for multi-turn.
-        threat:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Threat
-          description: Threat detection result
-        marked_safe:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Marked Safe
-          description: Manual safety marking
-        prompt:
-          type: string
-          title: Prompt
-          description: User prompt for this turn
-        turn:
-          type: integer
-          title: Turn
-          description: Current turn number in multi-turn conversation
-        generation:
-          type: integer
-          title: Generation
-          description: Generation/conversation number (1-based) for grouping multi-turn outputs
-          default: 1
-        multi_turn:
-          type: boolean
-          title: Multi Turn
-          description: Multi-turn conversation flag
-          default: true
-        error:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Error
-          description: Whether this output is an error
-        error_message:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Error Message
-          description: 'Error message in format ''errType: description'''
-      type: object
-      required:
-      - uuid
-      - tsg_id
-      - attack_id
-      - job_id
-      - target_id
-      - output
-      - prompt
-      - turn
-      title: AttackMultiTurnOutputResponseSchema
-      description: API response schema — excludes internal/debug fields from client responses.
     RuntimeSecurityProfileResponseSchema:
       properties:
         runtime_security_profile:
@@ -2229,6 +964,15 @@ components:
           description: Recommended runtime security profile configuration
       type: object
       title: RuntimeSecurityProfileResponseSchema
+    PaginationSchema:
+      properties:
+        total_items:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Total Items
+      type: object
+      title: PaginationSchema
     StreamIterationDataResponseSchema:
       properties:
         uuid:
@@ -2357,55 +1101,128 @@ components:
       - summary
       title: StreamIterationDataResponseSchema
       description: API response schema for Stream Iteration Data.
-    DynamicJobReportSchema:
+    AttackOutputResponseSchema:
       properties:
-        total_goals:
-          type: integer
-          minimum: 0.0
-          title: Total Goals
-          description: Total number of goals tested
-          default: 0
-        total_streams:
-          type: integer
-          minimum: 0.0
-          title: Total Streams
-          description: Total number of attack streams
-          default: 0
-        total_threats:
-          type: integer
-          minimum: 0.0
-          title: Total Threats
-          description: Total number of threats detected
-          default: 0
-        goals_achieved:
-          type: integer
-          minimum: 0.0
-          title: Goals Achieved
-          description: Number of goals with at least one threat
-          default: 0
-        report_summary:
+        uuid:
+          type: string
+          format: uuid
+          title: Uuid
+        tsg_id:
+          type: string
+          title: Tsg Id
+        attack_id:
+          type: string
+          format: uuid
+          title: Attack Id
+          description: Associated attack UUID
+        job_id:
+          type: string
+          format: uuid
+          title: Job Id
+          description: Associated job UUID
+        target_id:
+          type: string
+          format: uuid
+          title: Target Id
+          description: Target UUID
+        output:
+          type: string
+          title: Output
+          description: Attack output. String for single-turn, dict for multi-turn.
+        threat:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Threat
+          description: Threat detection result
+        marked_safe:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Marked Safe
+          description: Manual safety marking
+        error:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Error
+          description: Whether this output is an error
+        error_message:
           anyOf:
           - type: string
           - type: 'null'
-          title: Report Summary
-          description: LLM-generated executive summary for the dynamic job
-        score:
-          type: number
-          maximum: 100.0
-          minimum: 0.0
-          title: Score
-          description: Overall security score (0-100)
-          default: 0.0
-        asr:
-          type: number
-          maximum: 100.0
-          minimum: 0.0
-          title: Asr
-          description: Attack Success Rate (0-100)
-          default: 0.0
+          title: Error Message
+          description: 'Error message in format ''errType: description'''
       type: object
-      title: DynamicJobReportSchema
-      description: Core metrics for report generation.
+      required:
+      - uuid
+      - tsg_id
+      - attack_id
+      - job_id
+      - target_id
+      - output
+      title: AttackOutputResponseSchema
+      description: API response schema — excludes internal/debug fields from client responses.
+    AttackModality:
+      type: string
+      enum:
+      - TEXT
+      - FILE
+      title: AttackModality
+      description: 'Per-attack delivery modality for report display + filtering.
+
+
+        FILE = the attack carries a document (file_url set); TEXT = text-only. This is
+
+        a per-row value (distinct from the scan-level include_file_attacks toggle).
+
+        '
+    ComplianceReportSchema:
+      properties:
+        id:
+          type: string
+          title: Id
+          description: Compliance framework unique identifier
+        display_name:
+          type: string
+          title: Display Name
+          description: Compliance framework display name for frontend
+        description:
+          type: string
+          title: Description
+          description: Compliance framework description
+        active:
+          type: boolean
+          title: Active
+          description: Whether compliance framework is active
+        version:
+          type: string
+          title: Version
+          description: Compliance framework version
+        link:
+          type: string
+          title: Link
+          description: Compliance framework documentation link
+        techniques:
+          items:
+            $ref: '#/components/schemas/ComplianceTechniqueSchema'
+          type: array
+          title: Techniques
+        score:
+          type: integer
+          title: Score
+          description: 'Compliance score: (1 - ASR%) % 5'
+          default: 0
+      type: object
+      required:
+      - id
+      - display_name
+      - description
+      - active
+      - version
+      - link
+      - techniques
+      title: ComplianceReportSchema
     PromptInjectionGuardrailSchema:
       properties:
         action:
@@ -2415,6 +1232,34 @@ components:
       type: object
       title: PromptInjectionGuardrailSchema
       description: Guardrail configuration for prompt injection.
+    SeverityReportSchema:
+      properties:
+        stats:
+          items:
+            $ref: '#/components/schemas/SeverityStatsSchema'
+          type: array
+          title: Stats
+          description: List of severity statistics
+        successful:
+          type: integer
+          title: Successful
+          description: Total successful attacks across all severities
+          default: 0
+        failed:
+          type: integer
+          title: Failed
+          description: Total failed attacks across all severities
+          default: 0
+        total_attacks:
+          type: integer
+          title: Total Attacks
+          description: Total number of attacks across all severities
+          default: 0
+      type: object
+      required:
+      - stats
+      title: SeverityReportSchema
+      description: Attack Severity statistics with breakdown by severity level.
     ComplianceWithTechniqueModel:
       properties:
         id:
@@ -2457,15 +1302,44 @@ components:
       - link
       - techniques
       title: ComplianceWithTechniqueModel
-    HTTPValidationError:
+    RemediationDetailSchema:
       properties:
-        detail:
+        remediation:
+          type: string
+          title: Remediation
+          description: Remediation recommendation title
+        description:
+          type: string
+          title: Description
+          description: Detailed description of the remediation
+        resource_links:
           items:
-            $ref: '#/components/schemas/ValidationError'
+            type: string
           type: array
-          title: Detail
+          title: Resource Links
+          description: URLs for additional resources and documentation
+        priority_level:
+          type: string
+          description: Priority level for this remediation
+        ease_of_implementation_level:
+          type: string
+          description: Ease of implementation level for this remediation
+        effectiveness_level:
+          type: string
+          description: Effectiveness rating for this remediation
       type: object
-      title: HTTPValidationError
+      required:
+      - remediation
+      - description
+      title: RemediationDetailSchema
+    ComplianceSubCategory:
+      type: string
+      enum:
+      - OWASP
+      - MITRE_ATLAS
+      - NIST
+      - DASF_V2
+      title: ComplianceSubCategory
     CategoryReportSchema:
       properties:
         id:
@@ -2526,211 +1400,6 @@ components:
       - failed
       title: CategoryReportSchema
       description: Security or Safety risk overview widget data.
-    ValidationError:
-      properties:
-        loc:
-          items:
-            anyOf:
-            - type: string
-            - type: integer
-          type: array
-          title: Location
-        msg:
-          type: string
-          title: Message
-        type:
-          type: string
-          title: Error Type
-      type: object
-      required:
-      - loc
-      - msg
-      - type
-      title: ValidationError
-    PaginationSchema:
-      properties:
-        total_items:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Total Items
-      type: object
-      title: PaginationSchema
-    ComplianceReportSchema:
-      properties:
-        id:
-          type: string
-          title: Id
-          description: Compliance framework unique identifier
-        display_name:
-          type: string
-          title: Display Name
-          description: Compliance framework display name for frontend
-        description:
-          type: string
-          title: Description
-          description: Compliance framework description
-        active:
-          type: boolean
-          title: Active
-          description: Whether compliance framework is active
-        version:
-          type: string
-          title: Version
-          description: Compliance framework version
-        link:
-          type: string
-          title: Link
-          description: Compliance framework documentation link
-        techniques:
-          items:
-            $ref: '#/components/schemas/ComplianceTechniqueSchema'
-          type: array
-          title: Techniques
-        score:
-          type: integer
-          title: Score
-          description: 'Compliance score: (1 - ASR%) % 5'
-          default: 0
-      type: object
-      required:
-      - id
-      - display_name
-      - description
-      - active
-      - version
-      - link
-      - techniques
-      title: ComplianceReportSchema
-    GoalTypeQueryParam:
-      type: string
-      enum:
-      - AGENT
-      - HUMAN_AUGMENTED
-      title: GoalTypeQueryParam
-    BrandSubCategory:
-      type: string
-      enum:
-      - COMPETITOR_ENDORSEMENTS
-      - BRAND_TARNISHING_SELF_CRITICISM
-      - DISCRIMINATING_CLAIMS
-      - POLITICAL_ENDORSEMENTS
-      title: BrandSubCategory
-    CustomTopicGuardrailsSchema:
-      properties:
-        action:
-          $ref: '#/components/schemas/GuardrailAction'
-          description: 'Action to take: ''allow'', ''block'''
-          default: BLOCK
-        blocked_topics:
-          items:
-            type: string
-          type: array
-          title: Blocked Topics
-          description: List of blocked topics
-      type: object
-      title: CustomTopicGuardrailsSchema
-      description: Custom topic guardrails with blocked topics.
-    SecuritySubCategory:
-      type: string
-      enum:
-      - ADVERSARIAL_SUFFIX
-      - EVASION
-      - INDIRECT_PROMPT_INJECTION
-      - JAILBREAK
-      - MULTI_TURN
-      - PROMPT_INJECTION
-      - REMOTE_CODE_EXECUTION
-      - SYSTEM_PROMPT_LEAK
-      - TOOL_LEAK
-      - MALWARE_GENERATION
-      title: SecuritySubCategory
-    GoalResponseSchema:
-      properties:
-        goal:
-          type: string
-          title: Goal
-          description: The test goal/prompt
-        safe_response:
-          type: string
-          title: Safe Response
-          description: The complete safe response with proper refusal
-        jailbroken_response:
-          type: string
-          minLength: 1
-          title: Jailbroken Response
-          description: The complete jailbroken response without disclaimers
-        goal_metadata:
-          additionalProperties: true
-          type: object
-          title: Goal Metadata
-          description: Additional metadata
-        custom_goal:
-          type: boolean
-          title: Custom Goal
-          description: Indicates if it is a custom goal
-          default: false
-        goal_type:
-          $ref: '#/components/schemas/GoalType'
-          description: 'Goal type: BASE, TOOL_MISUSE, GOAL_MANIPULATION, PRIVILEGE_MISUSE, TOOL_CHAINING'
-          default: BASE
-        goal_category:
-          anyOf:
-          - $ref: '#/components/schemas/GoalCategory'
-          - type: 'null'
-          description: Goal category for customizable allocation and filtering
-        uuid:
-          type: string
-          format: uuid
-          title: Uuid
-        tsg_id:
-          type: string
-          title: Tsg Id
-        job_id:
-          type: string
-          format: uuid
-          title: Job Id
-          description: Job identifier
-        goal_to_show:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Goal To Show
-          description: Goal to use in the backend
-        threat:
-          type: boolean
-          title: Threat
-          description: Indicates if it is a threat
-          default: false
-        version:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Version
-          description: Goal schema version
-        extra_info:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Extra Info
-          description: Extra info
-        error:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Error
-          description: Whether this goal has errors
-      type: object
-      required:
-      - goal
-      - safe_response
-      - jailbroken_response
-      - uuid
-      - tsg_id
-      - job_id
-      title: GoalResponseSchema
-      description: API response schema for Goals.
     AttackType:
       type: string
       enum:
@@ -2881,15 +1550,1256 @@ components:
       - compliance_frameworks
       - goal
       title: AttackDetailResponseSchema
-    SeverityFilter:
+    GoalTypeQueryParam:
       type: string
       enum:
-      - LOW
-      - MEDIUM
-      - HIGH
-      - CRITICAL
-      title: SeverityFilter
-      description: Severity filter enum for API filtering - uses string values.
+      - AGENT
+      - HUMAN_AUGMENTED
+      title: GoalTypeQueryParam
+    RemediationResponseSchema:
+      properties:
+        remediations:
+          items:
+            $ref: '#/components/schemas/RemediationDetailSchema'
+          type: array
+          title: Remediations
+          description: List of applicable remediation recommendations for static and dynamic jobs
+      type: object
+      title: RemediationResponseSchema
+    GoalListResponseSchema:
+      properties:
+        pagination:
+          $ref: '#/components/schemas/PaginationSchema'
+        data:
+          items:
+            $ref: '#/components/schemas/GoalResponseSchema'
+          type: array
+          title: Data
+          description: List of Goals
+      type: object
+      required:
+      - pagination
+      - data
+      title: GoalListResponseSchema
+      description: Response schema for listing attacks following common pagination pattern.
+    SensitiveDataProtectionSchema:
+      properties:
+        action:
+          $ref: '#/components/schemas/GuardrailAction'
+          description: 'Action to take: ''allow'', ''block'''
+          default: BLOCK
+        masking_sensitive_data:
+          type: boolean
+          title: Masking Sensitive Data
+          description: Whether to mask sensitive data in responses
+          default: true
+      type: object
+      title: SensitiveDataProtectionSchema
+      description: Guardrail configuration for sensitive data protection.
+    DynamicJobReportSchema:
+      properties:
+        total_goals:
+          type: integer
+          minimum: 0.0
+          title: Total Goals
+          description: Total number of goals tested
+          default: 0
+        total_streams:
+          type: integer
+          minimum: 0.0
+          title: Total Streams
+          description: Total number of attack streams
+          default: 0
+        total_threats:
+          type: integer
+          minimum: 0.0
+          title: Total Threats
+          description: Total number of threats detected
+          default: 0
+        goals_achieved:
+          type: integer
+          minimum: 0.0
+          title: Goals Achieved
+          description: Number of goals with at least one threat
+          default: 0
+        report_summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Report Summary
+          description: LLM-generated executive summary for the dynamic job
+        score:
+          type: number
+          maximum: 100.0
+          minimum: 0.0
+          title: Score
+          description: Overall security score (0-100)
+          default: 0.0
+        asr:
+          type: number
+          maximum: 100.0
+          minimum: 0.0
+          title: Asr
+          description: Attack Success Rate (0-100)
+          default: 0.0
+      type: object
+      title: DynamicJobReportSchema
+      description: Core metrics for report generation.
+    AttackMultiTurnDetailResponseSchema:
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          title: Uuid
+        tsg_id:
+          type: string
+          title: Tsg Id
+        job_id:
+          type: string
+          format: uuid
+          title: Job Id
+          description: Associated job UUID
+        target_id:
+          type: string
+          format: uuid
+          title: Target Id
+          description: Target UUID
+        prompt:
+          type: string
+          title: Prompt
+          description: The actual prompt text used
+        status:
+          $ref: '#/components/schemas/AttackStatus'
+          description: Attack status
+          default: INIT
+        marked_safe:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Marked Safe
+          description: Manual safety marking
+        extra_info:
+          additionalProperties: true
+          type: object
+          title: Extra Info
+          description: Additional metadata
+        threat:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Threat
+          description: Threat detection result
+        attack_type:
+          $ref: '#/components/schemas/AttackType'
+          description: Type of attack
+          default: NORMAL
+        multi_turn:
+          type: boolean
+          title: Multi Turn
+          description: Multi-turn conversation flag
+          default: false
+        asr:
+          anyOf:
+          - type: number
+            maximum: 100.0
+            minimum: 0.0
+          - type: 'null'
+          title: Asr
+          description: Attack Success Rate (0-100)
+        version:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Version
+          description: Attack version
+        error:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Error
+          description: True if all attack attempts failed (zero outputs produced)
+        prompt_mapping_id:
+          type: string
+          format: uuid
+          title: Prompt Mapping Id
+          description: Prompt mapping UUID
+        prompt_id:
+          type: string
+          format: uuid
+          title: Prompt Id
+          description: Prompt UUID
+        category:
+          $ref: '#/components/schemas/Category'
+          description: Attack category
+        sub_category:
+          anyOf:
+          - $ref: '#/components/schemas/SecuritySubCategory'
+          - $ref: '#/components/schemas/SafetySubCategory'
+          - $ref: '#/components/schemas/BrandSubCategory'
+          - $ref: '#/components/schemas/ComplianceSubCategory'
+          title: Sub Category
+          description: Attack subcategory
+        severity:
+          type: string
+          description: Attack severity level
+        category_display_name:
+          type: string
+          title: Category Display Name
+        sub_category_display_name:
+          type: string
+          title: Sub Category Display Name
+        compliance_frameworks:
+          items:
+            $ref: '#/components/schemas/ComplianceWithTechniqueModel'
+          type: array
+          title: Compliance Frameworks
+        outputs:
+          items:
+            items:
+              $ref: '#/components/schemas/AttackMultiTurnOutputResponseSchema'
+            type: array
+          type: array
+          title: Outputs
+          description: List of conversations, where each conversation is a list of turns ordered by turn number. Each inner list represents one generation of the multi-turn attack.
+        goal:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Goal
+        attack_modality:
+          $ref: '#/components/schemas/AttackModality'
+          description: FILE if the attack carries a document, else TEXT
+          default: TEXT
+        file:
+          anyOf:
+          - $ref: '#/components/schemas/AttackFileSchema'
+          - type: 'null'
+          description: File-attack document (name + signed download URL + short type); null for text attacks
+      type: object
+      required:
+      - uuid
+      - tsg_id
+      - job_id
+      - target_id
+      - prompt
+      - prompt_mapping_id
+      - prompt_id
+      - category
+      - sub_category
+      - category_display_name
+      - sub_category_display_name
+      - compliance_frameworks
+      - goal
+      title: AttackMultiTurnDetailResponseSchema
+    RuntimeSecurityPolicySchema:
+      properties:
+        policy_id:
+          $ref: '#/components/schemas/PolicyType'
+          description: Runtime Security Policy type
+        display_name:
+          type: string
+          title: Display Name
+          description: Runtime Security Policy display name
+        config:
+          anyOf:
+          - $ref: '#/components/schemas/PromptInjectionGuardrailSchema'
+          - $ref: '#/components/schemas/ToxicContentGuardrailSchema'
+          - $ref: '#/components/schemas/CustomTopicGuardrailsSchema'
+          - $ref: '#/components/schemas/MaliciousCodeDetectionSchema'
+          - $ref: '#/components/schemas/MaliciousURLDetectionSchema'
+          - $ref: '#/components/schemas/SensitiveDataProtectionSchema'
+          title: Config
+          description: Runtime Security Policy configuration
+      type: object
+      required:
+      - policy_id
+      - display_name
+      - config
+      title: RuntimeSecurityPolicySchema
+      description: Runtime security policy configuration.
+    StreamListResponseSchema:
+      properties:
+        pagination:
+          $ref: '#/components/schemas/PaginationSchema'
+        data:
+          items:
+            $ref: '#/components/schemas/StreamSchema'
+          type: array
+          title: Data
+          description: List of streams
+      type: object
+      required:
+      - pagination
+      - data
+      title: StreamListResponseSchema
+      description: Response schema for listing attacks following common pagination pattern.
+    PolicyType:
+      type: string
+      enum:
+      - PROMPT_INJECTION
+      - TOXIC_CONTENT
+      - CUSTOM_TOPIC_GUARDRAILS
+      - MALICIOUS_CODE_DETECTION
+      - MALICIOUS_URL_DETECTION
+      - SENSITIVE_DATA_PROTECTION
+      title: PolicyType
+      description: Policy types with metadata.
+    BrandSubCategory:
+      type: string
+      enum:
+      - COMPETITOR_ENDORSEMENTS
+      - BRAND_TARNISHING_SELF_CRITICISM
+      - DISCRIMINATING_CLAIMS
+      - POLITICAL_ENDORSEMENTS
+      title: BrandSubCategory
+    SecuritySubCategory:
+      type: string
+      enum:
+      - ADVERSARIAL_SUFFIX
+      - EVASION
+      - INDIRECT_PROMPT_INJECTION
+      - JAILBREAK
+      - MULTI_TURN
+      - PROMPT_INJECTION
+      - REMOTE_CODE_EXECUTION
+      - SYSTEM_PROMPT_LEAK
+      - TOOL_LEAK
+      - MALWARE_GENERATION
+      title: SecuritySubCategory
+    SubCategoryStatsSchema:
+      properties:
+        id:
+          type: string
+          title: Id
+          description: Unique identifier
+        display_name:
+          type: string
+          title: Display Name
+          description: Frontend display name
+        description:
+          type: string
+          title: Description
+          description: Description
+        preselect:
+          type: boolean
+          title: Preselect
+          description: Whether this subcategory should be preselected in UI
+          default: true
+        prerequisites:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/PrerequisiteModel'
+            type: array
+          - type: 'null'
+          title: Prerequisites
+          description: List of prerequisites for this subcategory
+        active:
+          type: boolean
+          title: Active
+          description: Whether this subcategory is active
+          default: true
+        file_supported:
+          type: boolean
+          title: File Supported
+          description: Whether this subcategory has multimodal file (document) attacks in the library — drives the file-upload icon in the scan wizard
+          default: false
+        successful:
+          type: integer
+          title: Successful
+          description: Number of successful attacks (threat=True)
+        failed:
+          type: integer
+          title: Failed
+          description: Number of failed attacks (threat=False)
+        total:
+          type: integer
+          title: Total
+          description: Total attacks for this subcategory (successful + failed)
+          default: 0
+      type: object
+      required:
+      - id
+      - display_name
+      - description
+      - successful
+      - failed
+      title: SubCategoryStatsSchema
+      description: Statistics for a specific subcategory.
+    MaliciousCodeDetectionSchema:
+      properties:
+        action:
+          $ref: '#/components/schemas/GuardrailAction'
+          description: 'Action to take: ''allow'', ''block'''
+          default: BLOCK
+      type: object
+      title: MaliciousCodeDetectionSchema
+      description: Guardrail configuration for malicious code detection.
+    StaticJobRemediationRecommendationSchema:
+      properties:
+        runtime_security_policy_configuration:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/RuntimeSecurityPolicySchema'
+            type: array
+          - type: 'null'
+          title: Runtime Security Policy Configuration
+          description: Recommended runtime security policy configuration
+        other_measures:
+          items:
+            $ref: '#/components/schemas/StaticJobRemediationSchema'
+          type: array
+          title: Other Measures
+          description: List of applicable remediations for static job
+      type: object
+      title: StaticJobRemediationRecommendationSchema
+      description: Remediation recommendations with security profile and other remediations. To build and store in db
+    TechniqueModel:
+      properties:
+        id:
+          type: string
+          title: Id
+          description: Technique unique identifier
+        display_name:
+          type: string
+          title: Display Name
+          description: Technique display name for frontend
+        compliance_id:
+          type: string
+          title: Compliance Id
+          description: Associated compliance framework ID
+        description:
+          type: string
+          title: Description
+          description: Technique description
+        link:
+          type: string
+          title: Link
+          description: Technique documentation link
+        version:
+          type: string
+          title: Version
+          description: Technique version
+        active:
+          type: boolean
+          title: Active
+          description: Whether technique is active
+      type: object
+      required:
+      - id
+      - display_name
+      - compliance_id
+      - description
+      - link
+      - version
+      - active
+      title: TechniqueModel
+      description: Pydantic model for technique data
+    FileFormat:
+      type: string
+      enum:
+      - CSV
+      - JSON
+      - ALL
+      title: FileFormat
+      description: File format options for report downloads.
+    Category:
+      type: string
+      enum:
+      - SECURITY
+      - SAFETY
+      - COMPLIANCE
+      - BRAND
+      title: Category
+    PrerequisiteModel:
+      properties:
+        id:
+          type: string
+          title: Id
+          description: Prerequisite unique identifier
+        display_name:
+          type: string
+          title: Display Name
+          description: Prerequisite display name for frontend
+        description:
+          type: string
+          title: Description
+          description: Prerequisite description
+      type: object
+      required:
+      - id
+      - display_name
+      - description
+      title: PrerequisiteModel
+      description: Pydantic model for prerequisite data
+    StreamType:
+      type: string
+      enum:
+      - NORMAL
+      - ADVERSARIAL
+      title: StreamType
+    StreamSchema:
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          title: Uuid
+        tsg_id:
+          type: string
+          title: Tsg Id
+        job_id:
+          type: string
+          format: uuid
+          title: Job Id
+          description: Job identifier
+        target_id:
+          type: string
+          format: uuid
+          title: Target Id
+          description: Target identifier
+        stream_idx:
+          type: integer
+          title: Stream Idx
+          description: Stream index
+          default: 0
+        iteration:
+          type: integer
+          title: Iteration
+          description: Iteration
+          default: 0
+        goal_id:
+          type: string
+          format: uuid
+          title: Goal Id
+          description: Goal identifier
+        goal:
+          anyOf:
+          - $ref: '#/components/schemas/GoalSchema'
+          - type: string
+          - type: 'null'
+          title: Goal
+          description: Goal to use in the backend
+        marked_safe:
+          type: boolean
+          title: Marked Safe
+          description: Marked safe
+          default: false
+        stream_type:
+          anyOf:
+          - $ref: '#/components/schemas/StreamType'
+          - type: 'null'
+          default: NORMAL
+        threat:
+          type: boolean
+          title: Threat
+          description: Indicates if it is a threat
+          default: false
+        first_threat_iteration:
+          anyOf:
+          - $ref: '#/components/schemas/StreamIterationDataSchema'
+          - type: 'null'
+          description: First threat iteration data (denormalized JSONB for performance)
+        created_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Created At
+        updated_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Updated At
+        extra_info:
+          additionalProperties: true
+          type: object
+          title: Extra Info
+          description: Extra information
+        version:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Version
+          description: Stream schema version
+        error:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Error
+          description: Whether this stream encountered errors
+        error_message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error Message
+          description: Error message details
+      type: object
+      required:
+      - uuid
+      - tsg_id
+      - job_id
+      - target_id
+      - goal_id
+      title: StreamSchema
+    AttackListSchema:
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          title: Uuid
+        tsg_id:
+          type: string
+          title: Tsg Id
+        job_id:
+          type: string
+          format: uuid
+          title: Job Id
+          description: Associated job UUID
+        target_id:
+          type: string
+          format: uuid
+          title: Target Id
+          description: Target UUID
+        prompt:
+          type: string
+          title: Prompt
+          description: The actual prompt text used
+        status:
+          $ref: '#/components/schemas/AttackStatus'
+          description: Attack status
+          default: INIT
+        marked_safe:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Marked Safe
+          description: Manual safety marking
+        extra_info:
+          additionalProperties: true
+          type: object
+          title: Extra Info
+          description: Additional metadata
+        threat:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Threat
+          description: Threat detection result
+        attack_type:
+          $ref: '#/components/schemas/AttackType'
+          description: Type of attack
+          default: NORMAL
+        multi_turn:
+          type: boolean
+          title: Multi Turn
+          description: Multi-turn conversation flag
+          default: false
+        asr:
+          anyOf:
+          - type: number
+            maximum: 100.0
+            minimum: 0.0
+          - type: 'null'
+          title: Asr
+          description: Attack Success Rate (0-100)
+        version:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Version
+          description: Attack version
+        error:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Error
+          description: True if all attack attempts failed (zero outputs produced)
+        prompt_mapping_id:
+          type: string
+          format: uuid
+          title: Prompt Mapping Id
+          description: Prompt mapping UUID
+        prompt_id:
+          type: string
+          format: uuid
+          title: Prompt Id
+          description: Prompt UUID
+        category:
+          $ref: '#/components/schemas/Category'
+          description: Attack category
+        sub_category:
+          anyOf:
+          - $ref: '#/components/schemas/SecuritySubCategory'
+          - $ref: '#/components/schemas/SafetySubCategory'
+          - $ref: '#/components/schemas/BrandSubCategory'
+          - $ref: '#/components/schemas/ComplianceSubCategory'
+          title: Sub Category
+          description: Attack subcategory
+        severity:
+          type: string
+          description: Attack severity level
+        category_display_name:
+          type: string
+          title: Category Display Name
+        sub_category_display_name:
+          type: string
+          title: Sub Category Display Name
+        attack_modality:
+          $ref: '#/components/schemas/AttackModality'
+          description: FILE if the attack carries a document, else TEXT
+          default: TEXT
+      type: object
+      required:
+      - uuid
+      - tsg_id
+      - job_id
+      - target_id
+      - prompt
+      - prompt_mapping_id
+      - prompt_id
+      - category
+      - sub_category
+      - category_display_name
+      - sub_category_display_name
+      title: AttackListSchema
+    GoalType:
+      type: string
+      enum:
+      - BASE
+      - TOOL_MISUSE
+      - GOAL_MANIPULATION
+      - PRIVILEGE_MISUSE
+      - TOOL_CHAINING
+      title: GoalType
+    StreamDetailResponseSchema:
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          title: Uuid
+        tsg_id:
+          type: string
+          title: Tsg Id
+        job_id:
+          type: string
+          format: uuid
+          title: Job Id
+          description: Job identifier
+        target_id:
+          type: string
+          format: uuid
+          title: Target Id
+          description: Target identifier
+        stream_idx:
+          type: integer
+          title: Stream Idx
+          description: Stream index
+          default: 0
+        iteration:
+          type: integer
+          title: Iteration
+          description: Iteration
+          default: 0
+        goal_id:
+          type: string
+          format: uuid
+          title: Goal Id
+          description: Goal identifier
+        goal:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Goal
+          description: Goal to use in the backend
+        marked_safe:
+          type: boolean
+          title: Marked Safe
+          description: Marked safe
+          default: false
+        stream_type:
+          anyOf:
+          - $ref: '#/components/schemas/StreamType'
+          - type: 'null'
+          default: NORMAL
+        threat:
+          type: boolean
+          title: Threat
+          description: Indicates if it is a threat
+          default: false
+        first_threat_iteration:
+          anyOf:
+          - $ref: '#/components/schemas/StreamIterationDataSchema'
+          - type: 'null'
+          description: First threat iteration data (denormalized JSONB for performance)
+        created_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Created At
+        updated_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Updated At
+        extra_info:
+          additionalProperties: true
+          type: object
+          title: Extra Info
+          description: Extra information
+        version:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Version
+          description: Stream schema version
+        error:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Error
+          description: Whether this stream encountered errors
+        error_message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error Message
+          description: Error message details
+        iterations:
+          items:
+            $ref: '#/components/schemas/StreamIterationDataResponseSchema'
+          type: array
+          title: Iterations
+          description: List of iterations
+        goal_category:
+          anyOf:
+          - $ref: '#/components/schemas/GoalCategory'
+          - type: 'null'
+          description: Goal category for filtering and allocation
+        goal_metadata:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Goal Metadata
+          description: Per-goal metadata (e.g. TOOL_CHAINING tool_sequence, trigger_text, data_flow_narrative, success_markers)
+      type: object
+      required:
+      - uuid
+      - tsg_id
+      - job_id
+      - target_id
+      - goal_id
+      title: StreamDetailResponseSchema
+    AttackMultiTurnOutputResponseSchema:
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          title: Uuid
+        tsg_id:
+          type: string
+          title: Tsg Id
+        attack_id:
+          type: string
+          format: uuid
+          title: Attack Id
+          description: Associated attack UUID
+        job_id:
+          type: string
+          format: uuid
+          title: Job Id
+          description: Associated job UUID
+        target_id:
+          type: string
+          format: uuid
+          title: Target Id
+          description: Target UUID
+        output:
+          type: string
+          title: Output
+          description: Attack output. String for single-turn, dict for multi-turn.
+        threat:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Threat
+          description: Threat detection result
+        marked_safe:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Marked Safe
+          description: Manual safety marking
+        prompt:
+          type: string
+          title: Prompt
+          description: User prompt for this turn
+        turn:
+          type: integer
+          title: Turn
+          description: Current turn number in multi-turn conversation
+        generation:
+          type: integer
+          title: Generation
+          description: Generation/conversation number (1-based) for grouping multi-turn outputs
+          default: 1
+        multi_turn:
+          type: boolean
+          title: Multi Turn
+          description: Multi-turn conversation flag
+          default: true
+        error:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Error
+          description: Whether this output is an error
+        error_message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error Message
+          description: 'Error message in format ''errType: description'''
+      type: object
+      required:
+      - uuid
+      - tsg_id
+      - attack_id
+      - job_id
+      - target_id
+      - output
+      - prompt
+      - turn
+      title: AttackMultiTurnOutputResponseSchema
+      description: API response schema — excludes internal/debug fields from client responses.
+    GuardrailAction:
+      type: string
+      enum:
+      - ALLOW
+      - BLOCK
+      title: GuardrailAction
+      description: Actions that can be taken by guardrails.
+    ToxicContentGuardrailSchema:
+      properties:
+        moderate:
+          $ref: '#/components/schemas/GuardrailAction'
+          description: 'Action for moderate toxicity: ''allow'', ''block'''
+          default: BLOCK
+        high:
+          $ref: '#/components/schemas/GuardrailAction'
+          description: 'Action for high toxicity: ''allow'', ''block'''
+          default: BLOCK
+      type: object
+      title: ToxicContentGuardrailSchema
+      description: Guardrail configuration for toxic content with severity levels.
+    AttackStatus:
+      type: string
+      enum:
+      - INIT
+      - ATTACK
+      - DETECTION
+      - REPORT
+      - COMPLETED
+      - FAILED
+      title: AttackStatus
+    StaticJobReportSchema:
+      properties:
+        asr:
+          anyOf:
+          - type: number
+            maximum: 100.0
+            minimum: 0.0
+          - type: 'null'
+          title: Asr
+          description: Attack Success Rate percentage (0-100)
+        score:
+          anyOf:
+          - type: number
+            maximum: 100.0
+            minimum: 0.0
+          - type: 'null'
+          title: Score
+          description: Overall job performance score (0-100)
+        security_report:
+          anyOf:
+          - $ref: '#/components/schemas/CategoryReportSchema'
+          - type: 'null'
+          description: Security risk overview widget
+        safety_report:
+          anyOf:
+          - $ref: '#/components/schemas/CategoryReportSchema'
+          - type: 'null'
+          description: Safety risk overview widget
+        brand_report:
+          anyOf:
+          - $ref: '#/components/schemas/CategoryReportSchema'
+          - type: 'null'
+          description: Brand reputation risk overview widget
+        compliance_report:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/ComplianceReportSchema'
+            type: array
+          - type: 'null'
+          title: Compliance Report
+          description: Compliance widget with all frameworks
+        severity_report:
+          $ref: '#/components/schemas/SeverityReportSchema'
+          description: Breakdown of all successful attacks by severity level for the entire job
+        report_summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Report Summary
+          description: Report summary from the LLM for the statics job run
+        recommendations:
+          anyOf:
+          - $ref: '#/components/schemas/StaticJobRemediationRecommendationSchema'
+          - type: 'null'
+          description: Remediation recommendations with security profile and actionable fixes
+      type: object
+      required:
+      - severity_report
+      title: StaticJobReportSchema
+      description: Complete static job report data structure.
+    AttackFileSchema:
+      properties:
+        file_name:
+          type: string
+          title: File Name
+          description: Document filename (basename of the GCS object key)
+        signed_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Signed Url
+          description: Short-lived signed GCS download URL; null if the object could not be signed (e.g. missing signBlob permission).
+        file_type:
+          type: string
+          title: File Type
+          description: Short document type, e.g. PDF / DOCX / MD
+      type: object
+      required:
+      - file_name
+      - file_type
+      title: AttackFileSchema
+      description: 'Structured file reference for a multimodal (document) attack in the report.
+
+
+        Exposed only on the attack **detail** response. The list response conveys type via
+
+        ``attack_modality`` (FILE/TEXT) and carries no file object.
+
+        '
+    SeverityStatsSchema:
+      properties:
+        severity:
+          type: string
+          description: Severity level (LOW, MEDIUM, HIGH, CRITICAL)
+        successful:
+          type: integer
+          title: Successful
+          description: Number of successful attacks at this severity
+          default: 0
+        failed:
+          type: integer
+          title: Failed
+          description: Number of failed attacks at this severity
+          default: 0
+      type: object
+      required:
+      - severity
+      title: SeverityStatsSchema
+      description: Breakdown for a single severity level.
+    GoalSchema:
+      properties:
+        goal:
+          type: string
+          title: Goal
+          description: The test goal/prompt
+        goal_english:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Goal English
+          description: English version of goal for judge
+        safe_response:
+          type: string
+          title: Safe Response
+          description: The complete safe response with proper refusal
+        jailbroken_response:
+          type: string
+          minLength: 1
+          title: Jailbroken Response
+          description: The complete jailbroken response without disclaimers
+        goal_metadata:
+          additionalProperties: true
+          type: object
+          title: Goal Metadata
+          description: Additional metadata
+        custom_goal:
+          type: boolean
+          title: Custom Goal
+          description: Indicates if it is a custom goal
+          default: false
+        goal_type:
+          $ref: '#/components/schemas/GoalType'
+          description: 'Goal type: BASE, TOOL_MISUSE, GOAL_MANIPULATION, PRIVILEGE_MISUSE, TOOL_CHAINING'
+          default: BASE
+        goal_category:
+          anyOf:
+          - $ref: '#/components/schemas/GoalCategory'
+          - type: 'null'
+          description: Goal category for customizable allocation and filtering
+        uuid:
+          type: string
+          format: uuid
+          title: Uuid
+        tsg_id:
+          type: string
+          title: Tsg Id
+        job_id:
+          type: string
+          format: uuid
+          title: Job Id
+          description: Job identifier
+        goal_to_show:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Goal To Show
+          description: Goal to use in the backend
+        threat:
+          type: boolean
+          title: Threat
+          description: Indicates if it is a threat
+          default: false
+        version:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Version
+          description: Goal schema version
+        extra_info:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Extra Info
+          description: Extra info
+        error:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Error
+          description: Whether this goal has errors
+      type: object
+      required:
+      - goal
+      - safe_response
+      - jailbroken_response
+      - uuid
+      - tsg_id
+      - job_id
+      title: GoalSchema
+    GoalResponseSchema:
+      properties:
+        goal:
+          type: string
+          title: Goal
+          description: The test goal/prompt
+        safe_response:
+          type: string
+          title: Safe Response
+          description: The complete safe response with proper refusal
+        jailbroken_response:
+          type: string
+          minLength: 1
+          title: Jailbroken Response
+          description: The complete jailbroken response without disclaimers
+        goal_metadata:
+          additionalProperties: true
+          type: object
+          title: Goal Metadata
+          description: Additional metadata
+        custom_goal:
+          type: boolean
+          title: Custom Goal
+          description: Indicates if it is a custom goal
+          default: false
+        goal_type:
+          $ref: '#/components/schemas/GoalType'
+          description: 'Goal type: BASE, TOOL_MISUSE, GOAL_MANIPULATION, PRIVILEGE_MISUSE, TOOL_CHAINING'
+          default: BASE
+        goal_category:
+          anyOf:
+          - $ref: '#/components/schemas/GoalCategory'
+          - type: 'null'
+          description: Goal category for customizable allocation and filtering
+        uuid:
+          type: string
+          format: uuid
+          title: Uuid
+        tsg_id:
+          type: string
+          title: Tsg Id
+        job_id:
+          type: string
+          format: uuid
+          title: Job Id
+          description: Job identifier
+        goal_to_show:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Goal To Show
+          description: Goal to use in the backend
+        threat:
+          type: boolean
+          title: Threat
+          description: Indicates if it is a threat
+          default: false
+        version:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Version
+          description: Goal schema version
+        extra_info:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Extra Info
+          description: Extra info
+        error:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Error
+          description: Whether this goal has errors
+      type: object
+      required:
+      - goal
+      - safe_response
+      - jailbroken_response
+      - uuid
+      - tsg_id
+      - job_id
+      title: GoalResponseSchema
+      description: API response schema for Goals.
+    GoalCategory:
+      type: string
+      enum:
+      - GOAL_MANIPULATION
+      - PRIVILEGE_MISUSE
+      - TOOL_MISUSE
+      - TOOL_CHAINING
+      - TOXIC_CONTENT_GENERATION
+      - CUSTOM
+      title: GoalCategory
     StreamIterationDataSchema:
       properties:
         uuid:
@@ -3030,6 +2940,53 @@ components:
       - summary
       title: StreamIterationDataSchema
       description: Main stream iteration data - one row per iteration.
+    SafetySubCategory:
+      type: string
+      enum:
+      - BIAS
+      - CBRN
+      - CYBERCRIME
+      - DRUGS
+      - HATE_TOXIC_ABUSE
+      - NON_VIOLENT_CRIMES
+      - POLITICAL
+      - SELF_HARM
+      - SEXUAL
+      - VIOLENT_CRIMES_WEAPONS
+      title: SafetySubCategory
+    SeverityFilter:
+      type: string
+      enum:
+      - LOW
+      - MEDIUM
+      - HIGH
+      - CRITICAL
+      title: SeverityFilter
+      description: Severity filter enum for API filtering - uses string values.
+    MaliciousURLDetectionSchema:
+      properties:
+        action:
+          $ref: '#/components/schemas/GuardrailAction'
+          description: 'Action to take: ''allow'', ''block'''
+          default: BLOCK
+      type: object
+      title: MaliciousURLDetectionSchema
+      description: Guardrail configuration for malicious URL detection.
+    CustomTopicGuardrailsSchema:
+      properties:
+        action:
+          $ref: '#/components/schemas/GuardrailAction'
+          description: 'Action to take: ''allow'', ''block'''
+          default: BLOCK
+        blocked_topics:
+          items:
+            type: string
+          type: array
+          title: Blocked Topics
+          description: List of blocked topics
+      type: object
+      title: CustomTopicGuardrailsSchema
+      description: Custom topic guardrails with blocked topics.
     AttackListResponseSchema:
       properties:
         pagination:
@@ -3046,97 +3003,6 @@ components:
       - data
       title: AttackListResponseSchema
       description: Response schema for listing attacks following common pagination pattern.
-    AttackFileSchema:
-      properties:
-        file_name:
-          type: string
-          title: File Name
-          description: Document filename (basename of the GCS object key)
-        signed_url:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Signed Url
-          description: Short-lived signed GCS download URL; null if the object could not be signed (e.g. missing signBlob permission).
-        file_type:
-          type: string
-          title: File Type
-          description: Short document type, e.g. PDF / DOCX / MD
-      type: object
-      required:
-      - file_name
-      - file_type
-      title: AttackFileSchema
-      description: 'Structured file reference for a multimodal (document) attack in the report.
-
-
-        Exposed only on the attack **detail** response. The list response conveys type via
-
-        ``attack_modality`` (FILE/TEXT) and carries no file object.
-
-        '
-    AttackOutputResponseSchema:
-      properties:
-        uuid:
-          type: string
-          format: uuid
-          title: Uuid
-        tsg_id:
-          type: string
-          title: Tsg Id
-        attack_id:
-          type: string
-          format: uuid
-          title: Attack Id
-          description: Associated attack UUID
-        job_id:
-          type: string
-          format: uuid
-          title: Job Id
-          description: Associated job UUID
-        target_id:
-          type: string
-          format: uuid
-          title: Target Id
-          description: Target UUID
-        output:
-          type: string
-          title: Output
-          description: Attack output. String for single-turn, dict for multi-turn.
-        threat:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Threat
-          description: Threat detection result
-        marked_safe:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Marked Safe
-          description: Manual safety marking
-        error:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Error
-          description: Whether this output is an error
-        error_message:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Error Message
-          description: 'Error message in format ''errType: description'''
-      type: object
-      required:
-      - uuid
-      - tsg_id
-      - attack_id
-      - job_id
-      - target_id
-      - output
-      title: AttackOutputResponseSchema
-      description: API response schema — excludes internal/debug fields from client responses.
     StaticJobRemediationSchema:
       properties:
         mapping_remediation_id:
@@ -3196,127 +3062,265 @@ components:
       - description
       title: StaticJobRemediationSchema
       description: Static Job Individual remediation.
-    SeverityReportSchema:
+    HTTPValidationError:
       properties:
-        stats:
+        detail:
           items:
-            $ref: '#/components/schemas/SeverityStatsSchema'
+            $ref: '#/components/schemas/ValidationError'
           type: array
-          title: Stats
-          description: List of severity statistics
-        successful:
-          type: integer
-          title: Successful
-          description: Total successful attacks across all severities
-          default: 0
-        failed:
-          type: integer
-          title: Failed
-          description: Total failed attacks across all severities
-          default: 0
-        total_attacks:
-          type: integer
-          title: Total Attacks
-          description: Total number of attacks across all severities
-          default: 0
+          title: Detail
       type: object
-      required:
-      - stats
-      title: SeverityReportSchema
-      description: Attack Severity statistics with breakdown by severity level.
-    RemediationDetailSchema:
-      properties:
-        remediation:
-          type: string
-          title: Remediation
-          description: Remediation recommendation title
-        description:
-          type: string
-          title: Description
-          description: Detailed description of the remediation
-        resource_links:
-          items:
-            type: string
-          type: array
-          title: Resource Links
-          description: URLs for additional resources and documentation
-        priority_level:
-          type: string
-          description: Priority level for this remediation
-        ease_of_implementation_level:
-          type: string
-          description: Ease of implementation level for this remediation
-        effectiveness_level:
-          type: string
-          description: Effectiveness rating for this remediation
-      type: object
-      required:
-      - remediation
-      - description
-      title: RemediationDetailSchema
-    Category:
+      title: HTTPValidationError
+    StatusQueryParam:
       type: string
       enum:
-      - SECURITY
-      - SAFETY
-      - COMPLIANCE
-      - BRAND
-      title: Category
-    ComplianceSubCategory:
-      type: string
-      enum:
-      - OWASP
-      - MITRE_ATLAS
-      - NIST
-      - DASF_V2
-      title: ComplianceSubCategory
-    SeverityStatsSchema:
+      - SUCCESSFUL
+      - FAILED
+      - ERROR
+      title: StatusQueryParam
+    ValidationError:
       properties:
-        severity:
-          type: string
-          description: Severity level (LOW, MEDIUM, HIGH, CRITICAL)
-        successful:
-          type: integer
-          title: Successful
-          description: Number of successful attacks at this severity
-          default: 0
-        failed:
-          type: integer
-          title: Failed
-          description: Number of failed attacks at this severity
-          default: 0
-      type: object
-      required:
-      - severity
-      title: SeverityStatsSchema
-      description: Breakdown for a single severity level.
-    StreamListResponseSchema:
-      properties:
-        pagination:
-          $ref: '#/components/schemas/PaginationSchema'
-        data:
+        loc:
           items:
-            $ref: '#/components/schemas/StreamSchema'
+            anyOf:
+            - type: string
+            - type: integer
           type: array
-          title: Data
-          description: List of streams
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
       type: object
       required:
-      - pagination
-      - data
-      title: StreamListResponseSchema
-      description: Response schema for listing attacks following common pagination pattern.
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    SandboxReport:
+      type: object
+      description: Analysis results from a single sandbox execution environment.
+      properties:
+        platform:
+          type: string
+          description: Platform identifier (e.g., 100 for Windows XP SP3).
+          example: example-platform
+        software:
+          type: string
+          description: Sandbox software environment.
+          example: example-software
+        version:
+          type: string
+          example: 10.9.8
+        summary:
+          type: object
+          properties:
+            '@verdict':
+              type: string
+              enum:
+              - benign
+              - malware
+              - grayware
+              - phishing
+              example: grayware
+          example:
+            '@verdict': grayware
+        network:
+          type: object
+          properties:
+            dns:
+              type: array
+              items:
+                type: object
+                properties:
+                  '@query':
+                    type: string
+                    example: example-@query
+                  '@response':
+                    type: string
+                    example: example-@response
+              example:
+              - '@query': example-@query
+                '@response': example-@response
+            tcp:
+              type: array
+              items:
+                type: object
+                properties:
+                  '@ip':
+                    type: string
+                    example: example-@ip
+                  '@port':
+                    type: integer
+                    example: 344
+                  '@country':
+                    type: string
+                    example: JP
+              example:
+              - '@ip': example-@ip
+                '@port': 823
+                '@country': DE
+              - '@ip': example-@ip
+                '@port': 728
+                '@country': JP
+            http:
+              type: array
+              items:
+                type: object
+                properties:
+                  '@request':
+                    type: string
+                    example: example-@request
+                  '@response':
+                    type: string
+                    example: example-@response
+              example:
+              - '@request': example-@request
+                '@response': example-@response
+              - '@request': example-@request
+                '@response': example-@response
+          example:
+            dns:
+            - '@query': example-@query
+              '@response': example-@response
+            tcp:
+            - '@ip': example-@ip
+              '@port': 719
+              '@country': JP
+            http:
+            - '@request': example-@request
+              '@response': example-@response
+        process_list:
+          type: object
+          properties:
+            process:
+              type: array
+              items:
+                type: object
+                properties:
+                  '@name':
+                    type: string
+                    example: Corporate Sensor 01
+                  '@pid':
+                    type: string
+                    example: '394815'
+                  '@text':
+                    type: string
+                    example: example-@text
+              example:
+              - '@name': Branch Agent 68
+                '@pid': '593743'
+                '@text': example-@text
+              - '@name': Primary Agent 67
+                '@pid': '145182'
+                '@text': example-@text
+          example:
+            process:
+            - '@name': Branch Policy 87
+              '@pid': '603246'
+              '@text': example-@text
+    AnalysisReport:
+      type: object
+      description: Detailed WildFire analysis report including behavioral analysis, network activity, and system changes observed during sandbox execution.
+      properties:
+        wildfire:
+          type: object
+          properties:
+            version:
+              type: string
+              example: 7.4.8
+            file_info:
+              type: object
+              properties:
+                file_stype:
+                  type: string
+                  example: standard
+                size:
+                  type: integer
+                  example: 922
+                md5:
+                  type: string
+                  example: db68a8bb1f10612a7b71092b35e4a545
+                sha256:
+                  type: string
+                  example: 51031294c848b48ea0dc621ed7f3a86a61174866d4df7f6f379875b2415e918c
+                create_time:
+                  type: string
+                  format: date-time
+                  example: '2025-09-02T12:12:51Z'
+              example:
+                file_stype: standard
+                size: 897
+                md5: cb973a5cae8352a4a0e24ef1084a3b40
+                sha256: 33e4e05c75f8845fc07508f405087c2628fafecb25faffccdd91728a00239652
+                create_time: '2024-11-03T13:49:56Z'
+            task_info:
+              type: object
+              properties:
+                report:
+                  oneOf:
+                  - $ref: '#/components/schemas/SandboxReport'
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/SandboxReport'
+                  example: example-report
+              example:
+                report: example-report
+          example:
+            version: 2.3.1
+            file_info:
+              file_stype: standard
+              size: 531
+              md5: fe002567a9904394d4ceafd8a4fb3f00
+              sha256: 59258b8b3904457b736c4ebf1128de54a88068379c519afe5c7cae56cb75cd1e
+              create_time: '2025-07-04T20:04:29Z'
+            task_info:
+              report: example-report
+    ErrorResponse:
+      type: object
+      description: Error response returned when a request fails.
+      properties:
+        error:
+          type: object
+          properties:
+            error-message:
+              type: string
+              description: Human-readable error message.
+              example: example-error-message
+          example:
+            error-message: example-error-message
+  responses:
+    Unauthorized:
+      description: Missing API key or API key is invalid.
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Malformed request, missing required parameters, or invalid API key format.
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Valid API key but insufficient permissions for the requested operation (e.g., sample download requires elevated permissions).
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: No analysis result found for the specified hash.
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   securitySchemes:
-    oauth2Bearer:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
 x-refined-from:
-- palo-alto-networks-report-api-openapi.yml
 - palo-alto-prisma-airs-redteam-data-plane-dp-openapi-openapi.yaml
 - palo-alto-wildfire-api-openapi-original.yml

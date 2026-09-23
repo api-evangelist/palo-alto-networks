@@ -1,11 +1,14 @@
 openapi: 3.2.0
 info:
-  title: Palo Alto Networks Rule Stacks API
+  title: Palo Alto Networks Cloud NGFW for AWS REST Rule Stacks API
+  description: REST API for managing Palo Alto Networks Cloud Next-Generation Firewall (Cloud NGFW) deployments on Amazon Web Services.
   version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/cloudngfw/aws/
   license:
     name: Proprietary
     url: https://www.paloaltonetworks.com/legal
-  description: 'Operations tagged RuleStacks across 2 of this provider''s published API definitions: palo-alto-cloud-ngfw-api-openapi-original.yml, palo-alto-networks-rulestacks-api-openapi.yml. Each path carries the servers of the definition it was published in.'
 servers:
 - url: https://api.{region}.aws.cloudngfw.paloaltonetworks.com/v1
   description: Cloud NGFW for AWS regional API endpoint.
@@ -13,8 +16,8 @@ servers:
     region:
       description: AWS region where Cloud NGFW is deployed (e.g., us-east-1, us-west-2, eu-west-1).
       default: us-east-1
-- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
-  description: AIOps for NGFW BPA API production server.
+security:
+- awsSigV4: []
 tags:
 - name: RuleStacks
   description: Rule stack management. Rule stacks contain the security policy applied to Cloud NGFW instances.
@@ -95,8 +98,6 @@ paths:
       x-microcks-operation:
         delay: 0
         dispatcher: FALLBACK
-      security:
-      - awsSigV4: []
     post:
       operationId: createRuleStack
       summary: Palo Alto Networks Create Rule Stack
@@ -167,15 +168,6 @@ paths:
       x-microcks-operation:
         delay: 0
         dispatcher: FALLBACK
-      security:
-      - awsSigV4: []
-    servers:
-    - url: https://api.{region}.aws.cloudngfw.paloaltonetworks.com/v1
-      description: Cloud NGFW for AWS regional API endpoint.
-      variables:
-        region:
-          description: AWS region where Cloud NGFW is deployed (e.g., us-east-1, us-west-2, eu-west-1).
-          default: us-east-1
   /config/rulestacks/{rulestack}:
     get:
       operationId: getRuleStack
@@ -233,8 +225,6 @@ paths:
       x-microcks-operation:
         delay: 0
         dispatcher: FALLBACK
-      security:
-      - awsSigV4: []
     put:
       operationId: updateRuleStack
       summary: Palo Alto Networks Update Rule Stack
@@ -307,8 +297,6 @@ paths:
       x-microcks-operation:
         delay: 0
         dispatcher: FALLBACK
-      security:
-      - awsSigV4: []
     delete:
       operationId: deleteRuleStack
       summary: Palo Alto Networks Delete Rule Stack
@@ -344,15 +332,6 @@ paths:
       x-microcks-operation:
         delay: 0
         dispatcher: FALLBACK
-      security:
-      - awsSigV4: []
-    servers:
-    - url: https://api.{region}.aws.cloudngfw.paloaltonetworks.com/v1
-      description: Cloud NGFW for AWS regional API endpoint.
-      variables:
-        region:
-          description: AWS region where Cloud NGFW is deployed (e.g., us-east-1, us-west-2, eu-west-1).
-          default: us-east-1
   /config/rulestacks/{rulestack}/commit:
     post:
       operationId: commitRuleStack
@@ -404,51 +383,16 @@ paths:
       x-microcks-operation:
         delay: 0
         dispatcher: FALLBACK
-      security:
-      - awsSigV4: []
-    servers:
-    - url: https://api.{region}.aws.cloudngfw.paloaltonetworks.com/v1
-      description: Cloud NGFW for AWS regional API endpoint.
-      variables:
-        region:
-          description: AWS region where Cloud NGFW is deployed (e.g., us-east-1, us-west-2, eu-west-1).
-          default: us-east-1
 components:
-  parameters:
-    rulestack:
-      name: rulestack
-      in: path
-      required: true
-      description: Name of the rule stack.
-      schema:
-        type: string
   responses:
-    InternalServerError:
-      description: An internal server error occurred.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Forbidden:
-      description: Insufficient IAM permissions for the requested operation.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    BadRequest:
-      description: Malformed request or invalid parameters.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
     Unauthorized:
       description: Missing or invalid AWS credentials.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-    NotFound:
-      description: The requested resource was not found.
+    InternalServerError:
+      description: An internal server error occurred.
       content:
         application/json:
           schema:
@@ -459,7 +403,79 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Malformed request or invalid parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient IAM permissions for the requested operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   schemas:
+    RuleStackRequest:
+      type: object
+      required:
+      - RuleStackName
+      - RuleStackEntry
+      properties:
+        RuleStackName:
+          type: string
+          example: Branch Policy 33
+        RuleStackEntry:
+          type: object
+          properties:
+            Description:
+              type: string
+              example: Endpoint activity incident network monitoring investigation.
+            Scope:
+              type: string
+              enum:
+              - Local
+              - Global
+              default: Local
+              example: Local
+            MinAppIdVersion:
+              type: string
+              example: 8.8.3
+            Profile:
+              type: object
+              properties:
+                AntiSpywareProfile:
+                  type: string
+                  example: Network Printer
+                AntiVirusProfile:
+                  type: string
+                  example: IP Camera
+                VulnerabilityProfile:
+                  type: string
+                  example: IP Camera
+                URLFilteringProfile:
+                  type: string
+                  example: IP Camera
+              example:
+                AntiSpywareProfile: IP Camera
+                AntiVirusProfile: Network Printer
+                VulnerabilityProfile: IP Camera
+                URLFilteringProfile: Network Printer
+          example:
+            Description: Firewall endpoint applied malware violation network activity detected violation threat.
+            Scope: Local
+            MinAppIdVersion: 2.0.3
+            Profile:
+              AntiSpywareProfile: HVAC Controller
+              AntiVirusProfile: HVAC Controller
+              VulnerabilityProfile: HVAC Controller
+              URLFilteringProfile: HVAC Controller
     RuleStack:
       type: object
       description: A rule stack containing security policy for Cloud NGFW firewall instances.
@@ -529,87 +545,6 @@ components:
           type: string
           description: Optimistic lock token for concurrent modification detection.
           example: example-UpdateToken
-    ErrorResponse:
-      type: object
-      properties:
-        ResponseStatus:
-          type: object
-          properties:
-            ErrorCode:
-              type: integer
-              example: 869
-            Reason:
-              type: string
-              example: Blocked investigation activity firewall activity malware network on applied.
-          example:
-            ErrorCode: 719
-            Reason: Alert incident applied violation rule blocked alert violation incident suspicious suspicious.
-    RuleStackRequest:
-      type: object
-      required:
-      - RuleStackName
-      - RuleStackEntry
-      properties:
-        RuleStackName:
-          type: string
-          example: Branch Policy 33
-        RuleStackEntry:
-          type: object
-          properties:
-            Description:
-              type: string
-              example: Endpoint activity incident network monitoring investigation.
-            Scope:
-              type: string
-              enum:
-              - Local
-              - Global
-              default: Local
-              example: Local
-            MinAppIdVersion:
-              type: string
-              example: 8.8.3
-            Profile:
-              type: object
-              properties:
-                AntiSpywareProfile:
-                  type: string
-                  example: Network Printer
-                AntiVirusProfile:
-                  type: string
-                  example: IP Camera
-                VulnerabilityProfile:
-                  type: string
-                  example: IP Camera
-                URLFilteringProfile:
-                  type: string
-                  example: IP Camera
-              example:
-                AntiSpywareProfile: IP Camera
-                AntiVirusProfile: Network Printer
-                VulnerabilityProfile: IP Camera
-                URLFilteringProfile: Network Printer
-          example:
-            Description: Firewall endpoint applied malware violation network activity detected violation threat.
-            Scope: Local
-            MinAppIdVersion: 2.0.3
-            Profile:
-              AntiSpywareProfile: HVAC Controller
-              AntiVirusProfile: HVAC Controller
-              VulnerabilityProfile: HVAC Controller
-              URLFilteringProfile: HVAC Controller
-    ResponseStatus:
-      type: object
-      description: Standard API response status envelope included in all responses.
-      properties:
-        ErrorCode:
-          type: integer
-          description: Error code. 0 indicates success.
-          example: 0
-        Reason:
-          type: string
-          description: Human-readable status message.
-          example: ''
     RuleStackSummary:
       type: object
       properties:
@@ -629,17 +564,44 @@ components:
           - INACTIVE
           - ERROR
           example: ACTIVE
+    ErrorResponse:
+      type: object
+      properties:
+        ResponseStatus:
+          type: object
+          properties:
+            ErrorCode:
+              type: integer
+              example: 869
+            Reason:
+              type: string
+              example: Blocked investigation activity firewall activity malware network on applied.
+          example:
+            ErrorCode: 719
+            Reason: Alert incident applied violation rule blocked alert violation incident suspicious suspicious.
+    ResponseStatus:
+      type: object
+      description: Standard API response status envelope included in all responses.
+      properties:
+        ErrorCode:
+          type: integer
+          description: Error code. 0 indicates success.
+          example: 0
+        Reason:
+          type: string
+          description: Human-readable status message.
+          example: ''
+  parameters:
+    rulestack:
+      name: rulestack
+      in: path
+      required: true
+      description: Name of the rule stack.
+      schema:
+        type: string
   securitySchemes:
     awsSigV4:
       type: apiKey
       in: header
       name: Authorization
       description: AWS Signature Version 4 (SigV4) signed request. Use an AWS IAM role or user with CloudNGFW IAM permissions. Sign requests using the service name cloudngfw and the target AWS region. Include x-amz-date and x-amz-security-token headers as required.
-    oauth2Bearer:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
-x-refined-from:
-- palo-alto-cloud-ngfw-api-openapi-original.yml
-- palo-alto-networks-rulestacks-api-openapi.yml

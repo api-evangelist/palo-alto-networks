@@ -1,16 +1,19 @@
 openapi: 3.2.0
 info:
-  title: Palo Alto Networks Threats API
+  title: Palo Alto Networks Threat Vault Threats API
+  description: REST API for querying Palo Alto Networks threat intelligence including threat signature metadata, ATP (Advanced Threat Prevention) analysis reports, content release notes, and API usage statistics.
   version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/threat-vault/
   license:
     name: Proprietary
     url: https://www.paloaltonetworks.com/legal
-  description: 'Operations tagged Threats across 2 of this provider''s published API definitions: palo-alto-networks-threats-api-openapi.yml, palo-alto-threat-vault-api-openapi-original.yml. Each path carries the servers of the definition it was published in.'
 servers:
-- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
-  description: AIOps for NGFW BPA API production server.
 - url: https://api.threatvault.paloaltonetworks.com/service/v1
   description: Threat Vault API production endpoint.
+security:
+- apiKey: []
 tags:
 - name: Threats
   description: Threat signature lookup and metadata retrieval.
@@ -139,11 +142,6 @@ paths:
       x-microcks-operation:
         delay: 0
         dispatcher: FALLBACK
-      security:
-      - oauth2Bearer: []
-    servers:
-    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
-      description: AIOps for NGFW BPA API production server.
   /threats/history:
     get:
       operationId: getThreatHistory
@@ -221,15 +219,10 @@ paths:
       x-microcks-operation:
         delay: 0
         dispatcher: FALLBACK
-      security:
-      - oauth2Bearer: []
-    servers:
-    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
-      description: AIOps for NGFW BPA API production server.
 components:
   responses:
-    Forbidden:
-      description: Insufficient API key permissions or quota exceeded.
+    Unauthorized:
+      description: Missing or invalid API key.
       content:
         application/json:
           schema:
@@ -246,8 +239,8 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-    Unauthorized:
-      description: Missing or invalid API key.
+    Forbidden:
+      description: Insufficient API key permissions or quota exceeded.
       content:
         application/json:
           schema:
@@ -284,20 +277,36 @@ components:
           - modified
           - deprecated
           example: deprecated
-    ErrorResponse:
+    ThreatHistoryList:
       type: object
       properties:
         success:
           type: boolean
           example: false
-        message:
-          type: string
-          description: Human-readable error message.
-          example: Threat applied violation endpoint activity violation activity incident applied.
-        error_code:
-          type: string
-          description: Machine-readable error code.
-          example: example-error_code
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ThreatHistoryEntry'
+          example:
+          - id: 915
+            name: Branch Agent 35
+            version: 4.1.4
+            release_time: '2026-12-25T01:36:47Z'
+            action: deprecated
+          - id: 915
+            name: Branch Agent 35
+            version: 4.1.4
+            release_time: '2026-12-25T01:36:47Z'
+            action: deprecated
+        total:
+          type: integer
+          example: 799
+        offset:
+          type: integer
+          example: 559
+        limit:
+          type: integer
+          example: 217
     ThreatSignature:
       type: object
       description: Threat signature metadata record.
@@ -399,36 +408,20 @@ components:
           example:
           - example-sha256_item
           - example-sha256_item
-    ThreatHistoryList:
+    ErrorResponse:
       type: object
       properties:
         success:
           type: boolean
           example: false
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/ThreatHistoryEntry'
-          example:
-          - id: 915
-            name: Branch Agent 35
-            version: 4.1.4
-            release_time: '2026-12-25T01:36:47Z'
-            action: deprecated
-          - id: 915
-            name: Branch Agent 35
-            version: 4.1.4
-            release_time: '2026-12-25T01:36:47Z'
-            action: deprecated
-        total:
-          type: integer
-          example: 799
-        offset:
-          type: integer
-          example: 559
-        limit:
-          type: integer
-          example: 217
+        message:
+          type: string
+          description: Human-readable error message.
+          example: Threat applied violation endpoint activity violation activity incident applied.
+        error_code:
+          type: string
+          description: Machine-readable error code.
+          example: example-error_code
     ThreatList:
       type: object
       properties:
@@ -519,16 +512,8 @@ components:
           type: integer
           example: 625
   securitySchemes:
-    oauth2Bearer:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
     apiKey:
       type: apiKey
       in: header
       name: X-API-KEY
       description: Threat Vault API key. Generate your API key from the Palo Alto Networks customer support portal or the Developer Portal at pan.dev. The API key controls access level and daily quota limits.
-x-refined-from:
-- palo-alto-networks-threats-api-openapi.yml
-- palo-alto-threat-vault-api-openapi-original.yml

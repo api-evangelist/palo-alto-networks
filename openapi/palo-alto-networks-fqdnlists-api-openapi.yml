@@ -1,11 +1,14 @@
 openapi: 3.2.0
 info:
-  title: Palo Alto Networks FQDN Lists API
+  title: Palo Alto Networks Cloud NGFW for AWS REST FQDN Lists API
+  description: REST API for managing Palo Alto Networks Cloud Next-Generation Firewall (Cloud NGFW) deployments on Amazon Web Services.
   version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/cloudngfw/aws/
   license:
     name: Proprietary
     url: https://www.paloaltonetworks.com/legal
-  description: 'Operations tagged FQDNLists across 2 of this provider''s published API definitions: palo-alto-cloud-ngfw-api-openapi-original.yml, palo-alto-networks-fqdnlists-api-openapi.yml. Each path carries the servers of the definition it was published in.'
 servers:
 - url: https://api.{region}.aws.cloudngfw.paloaltonetworks.com/v1
   description: Cloud NGFW for AWS regional API endpoint.
@@ -13,8 +16,8 @@ servers:
     region:
       description: AWS region where Cloud NGFW is deployed (e.g., us-east-1, us-west-2, eu-west-1).
       default: us-east-1
-- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
-  description: AIOps for NGFW BPA API production server.
+security:
+- awsSigV4: []
 tags:
 - name: FQDNLists
   description: FQDN list management for use in security rule destination criteria.
@@ -77,8 +80,6 @@ paths:
       x-microcks-operation:
         delay: 0
         dispatcher: FALLBACK
-      security:
-      - awsSigV4: []
     post:
       operationId: createFqdnList
       summary: Palo Alto Networks Create FQDN List
@@ -140,25 +141,39 @@ paths:
       x-microcks-operation:
         delay: 0
         dispatcher: FALLBACK
-      security:
-      - awsSigV4: []
-    servers:
-    - url: https://api.{region}.aws.cloudngfw.paloaltonetworks.com/v1
-      description: Cloud NGFW for AWS regional API endpoint.
-      variables:
-        region:
-          description: AWS region where Cloud NGFW is deployed (e.g., us-east-1, us-west-2, eu-west-1).
-          default: us-east-1
 components:
-  parameters:
-    rulestack:
-      name: rulestack
-      in: path
-      required: true
-      description: Name of the rule stack.
-      schema:
-        type: string
+  responses:
+    Unauthorized:
+      description: Missing or invalid AWS credentials.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: A resource with the specified name already exists or cannot be modified.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Malformed request or invalid parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   schemas:
+    FqdnListSummary:
+      type: object
+      properties:
+        FqdnListName:
+          type: string
+          example: Primary Firewall 80
     FqdnList:
       type: object
       description: An FQDN list containing domain name entries for use in security rule destination criteria.
@@ -187,39 +202,6 @@ components:
         UpdateToken:
           type: string
           example: example-UpdateToken
-    FqdnListSummary:
-      type: object
-      properties:
-        FqdnListName:
-          type: string
-          example: Primary Firewall 80
-    ErrorResponse:
-      type: object
-      properties:
-        ResponseStatus:
-          type: object
-          properties:
-            ErrorCode:
-              type: integer
-              example: 869
-            Reason:
-              type: string
-              example: Blocked investigation activity firewall activity malware network on applied.
-          example:
-            ErrorCode: 719
-            Reason: Alert incident applied violation rule blocked alert violation incident suspicious suspicious.
-    ResponseStatus:
-      type: object
-      description: Standard API response status envelope included in all responses.
-      properties:
-        ErrorCode:
-          type: integer
-          description: Error code. 0 indicates success.
-          example: 0
-        Reason:
-          type: string
-          description: Human-readable status message.
-          example: ''
     FqdnListRequest:
       type: object
       required:
@@ -249,42 +231,44 @@ components:
             FqdnList:
             - example-FqdnList_item
             - example-FqdnList_item
-  responses:
-    BadRequest:
-      description: Malformed request or invalid parameters.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Unauthorized:
-      description: Missing or invalid AWS credentials.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    NotFound:
-      description: The requested resource was not found.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Conflict:
-      description: A resource with the specified name already exists or cannot be modified.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
+    ErrorResponse:
+      type: object
+      properties:
+        ResponseStatus:
+          type: object
+          properties:
+            ErrorCode:
+              type: integer
+              example: 869
+            Reason:
+              type: string
+              example: Blocked investigation activity firewall activity malware network on applied.
+          example:
+            ErrorCode: 719
+            Reason: Alert incident applied violation rule blocked alert violation incident suspicious suspicious.
+    ResponseStatus:
+      type: object
+      description: Standard API response status envelope included in all responses.
+      properties:
+        ErrorCode:
+          type: integer
+          description: Error code. 0 indicates success.
+          example: 0
+        Reason:
+          type: string
+          description: Human-readable status message.
+          example: ''
+  parameters:
+    rulestack:
+      name: rulestack
+      in: path
+      required: true
+      description: Name of the rule stack.
+      schema:
+        type: string
   securitySchemes:
     awsSigV4:
       type: apiKey
       in: header
       name: Authorization
       description: AWS Signature Version 4 (SigV4) signed request. Use an AWS IAM role or user with CloudNGFW IAM permissions. Sign requests using the service name cloudngfw and the target AWS region. Include x-amz-date and x-amz-security-token headers as required.
-    oauth2Bearer:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
-x-refined-from:
-- palo-alto-cloud-ngfw-api-openapi-original.yml
-- palo-alto-networks-fqdnlists-api-openapi.yml

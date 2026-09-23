@@ -1045,55 +1045,6 @@ components:
               help: https://docs.paloaltonetworks.com/compliance-center/api/errors#API_CF_E00003
             _request_id: eb18eb0c-d5b7-43f3-9e38-38464ee11e2f
   schemas:
-    ErrorResponse:
-      type: object
-      description: Standard error response format
-      properties:
-        _errors:
-          type: array
-          description: List of error details
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-          minItems: 1
-        _request_id:
-          type: string
-          description: Unique request identifier for troubleshooting
-          format: uuid
-          example: eb18eb0c-d5b7-43f3-9e38-38464ee11e2f
-      required:
-      - _errors
-      - _request_id
-    ErrorDetail:
-      type: object
-      description: Individual error information
-      properties:
-        code:
-          type: string
-          description: Machine-readable error code following format API_CF_{severity}{number}
-          pattern: ^API_CF_[EWI][0-9]{5}
-          example: API_CF_E00001
-        message:
-          type: string
-          description: Human-readable error summary
-          minLength: 1
-          example: Invalid query parameter
-        details:
-          type: array
-          description: Detailed error explanations
-          items:
-            type: string
-            minLength: 1
-          minItems: 1
-          example:
-          - Invalid value for parameter 'cf-id'
-        help:
-          type: string
-          description: Documentation URL for error resolution
-          format: uri
-          example: https://docs.paloaltonetworks.com/compliance-center/api/errors#API_CF_E00001
-      required:
-      - code
-      - message
     CFSummaryResponse:
       type: object
       description: Compliance framework summary response
@@ -1239,6 +1190,82 @@ components:
             image: data:image/png;base64,iVBORw0KGg...
             type: image/png
             name: nist.png
+    ErrorDetail:
+      type: object
+      description: Individual error information
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code following format API_CF_{severity}{number}
+          pattern: ^API_CF_[EWI][0-9]{5}
+          example: API_CF_E00001
+        message:
+          type: string
+          description: Human-readable error summary
+          minLength: 1
+          example: Invalid query parameter
+        details:
+          type: array
+          description: Detailed error explanations
+          items:
+            type: string
+            minLength: 1
+          minItems: 1
+          example:
+          - Invalid value for parameter 'cf-id'
+        help:
+          type: string
+          description: Documentation URL for error resolution
+          format: uri
+          example: https://docs.paloaltonetworks.com/compliance-center/api/errors#API_CF_E00001
+      required:
+      - code
+      - message
+    ErrorResponse:
+      type: object
+      description: Standard error response format
+      properties:
+        _errors:
+          type: array
+          description: List of error details
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+          minItems: 1
+        _request_id:
+          type: string
+          description: Unique request identifier for troubleshooting
+          format: uuid
+          example: eb18eb0c-d5b7-43f3-9e38-38464ee11e2f
+      required:
+      - _errors
+      - _request_id
+    Error:
+      type: object
+      properties:
+        _errors:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+                description: The error code representing a specific error condition.
+              message:
+                type: string
+                description: A brief description of the error condition.
+              details:
+                type: array
+                items:
+                  type: string
+                description: An explanation of the error condition.
+              help:
+                type: string
+                format: uri
+                description: A URL link to documentation describing the error condition.
+        _request_id:
+          type: string
+          format: uuid
+          description: The request ID for troubleshooting purposes.
     OverallComplianceResponse:
       type: object
       properties:
@@ -1256,31 +1283,38 @@ components:
           enum:
           - PCF
           - CCF
-    ConfigurationsAssessedResponse:
+    ProductCompliance:
       type: object
       properties:
-        configurations_assessed:
+        name:
+          type: string
+        data_available:
+          type: boolean
+        compliance:
           type: object
           properties:
-            checks:
+            overall_score:
               type: integer
-            assessments:
+            industry_score:
               type: integer
-            total_exceptions:
-              type: integer
-            expiring_exceptions:
-              type: integer
-    ComplianceTimelineResponse:
-      type: object
-      properties:
-        timeline_30_days:
+        categories:
           type: array
           items:
-            $ref: '#/components/schemas/TimelineDataPoint'
-        timeline_1_year:
-          type: array
-          items:
-            $ref: '#/components/schemas/TimelineDataPoint'
+            type: object
+            properties:
+              name:
+                type: string
+                enum:
+                - network
+                - infra
+                - security
+              compliance:
+                type: object
+                properties:
+                  overall_score:
+                    type: integer
+                  industry_score:
+                    type: integer
     ComplianceFrameworkSummaryResponse:
       type: object
       properties:
@@ -1355,6 +1389,43 @@ components:
                     type: string
                   name:
                     type: string
+    ComplianceTimelineResponse:
+      type: object
+      properties:
+        timeline_30_days:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimelineDataPoint'
+        timeline_1_year:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimelineDataPoint'
+    ConfigurationsAssessedResponse:
+      type: object
+      properties:
+        configurations_assessed:
+          type: object
+          properties:
+            checks:
+              type: integer
+            assessments:
+              type: integer
+            total_exceptions:
+              type: integer
+            expiring_exceptions:
+              type: integer
+    TimelineDataPoint:
+      type: object
+      properties:
+        ts:
+          type: integer
+          format: int64
+          description: Timestamp in microseconds (epoch).
+        compliance_score:
+          type: integer
+          description: Compliance score (0-100).
+        data_available:
+          type: boolean
     ComplianceControlsResponse:
       type: object
       properties:
@@ -1407,77 +1478,6 @@ components:
               group_stats:
                 type: object
                 additionalProperties: true
-    ProductCompliance:
-      type: object
-      properties:
-        name:
-          type: string
-        data_available:
-          type: boolean
-        compliance:
-          type: object
-          properties:
-            overall_score:
-              type: integer
-            industry_score:
-              type: integer
-        categories:
-          type: array
-          items:
-            type: object
-            properties:
-              name:
-                type: string
-                enum:
-                - network
-                - infra
-                - security
-              compliance:
-                type: object
-                properties:
-                  overall_score:
-                    type: integer
-                  industry_score:
-                    type: integer
-    TimelineDataPoint:
-      type: object
-      properties:
-        ts:
-          type: integer
-          format: int64
-          description: Timestamp in microseconds (epoch).
-        compliance_score:
-          type: integer
-          description: Compliance score (0-100).
-        data_available:
-          type: boolean
-    Error:
-      type: object
-      properties:
-        _errors:
-          type: array
-          items:
-            type: object
-            properties:
-              code:
-                type: string
-                description: The error code representing a specific error condition.
-              message:
-                type: string
-                description: A brief description of the error condition.
-              details:
-                type: array
-                items:
-                  type: string
-                description: An explanation of the error condition.
-              help:
-                type: string
-                format: uri
-                description: A URL link to documentation describing the error condition.
-        _request_id:
-          type: string
-          format: uuid
-          description: The request ID for troubleshooting purposes.
   securitySchemes:
     BearerAuth:
       type: http

@@ -1,13 +1,17 @@
 openapi: 3.2.0
 info:
-  title: Palo Alto Networks Data Resources API
-  version: '1.0'
-  description: 'Operations tagged Data Resources across 2 of this provider''s published API definitions: palo-alto-networks-data-resources-api-openapi.yml, palo-alto-prisma-access-insights-api-openapi-original.yml. Each path carries the servers of the definition it was published in.'
+  title: Palo Alto Networks Prisma Access Insights Data Resources API
+  description: REST API for querying the health and performance of Prisma Access network deployments. Available across three API versions (v1.0, v2.0, v3.0), the Insights API supports data resource queries for tunnel status, bandwidth utilization, connected user analytics, site health, accelerated application performance, and PAB events. Designed for both cloud-managed (TSG-based) and Panorama-managed Prisma Access customers.
+  version: '3.0'
+  contact:
+    name: Palo Alto Networks Support
+    url: https://www.paloaltonetworks.com/services/support
+  termsOfService: https://www.paloaltonetworks.com/legal
 servers:
-- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
-  description: AIOps for NGFW BPA API production server.
 - url: https://api.sase.paloaltonetworks.com
   description: Prisma SASE Production API Server
+security:
+- bearerAuth: []
 tags:
 - name: Data Resources
   description: Query Prisma Access deployment health and performance data resources
@@ -91,15 +95,10 @@ paths:
       x-microcks-operation:
         delay: 0
         dispatcher: FALLBACK
-      security:
-      - oauth2Bearer: []
-    servers:
-    - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
-      description: AIOps for NGFW BPA API production server.
 components:
   responses:
-    Forbidden:
-      description: Forbidden — insufficient permissions for the requested resource
+    Unauthorized:
+      description: Unauthorized — missing or invalid access token
       content:
         application/json:
           schema:
@@ -116,8 +115,8 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-    Unauthorized:
-      description: Unauthorized — missing or invalid access token
+    Forbidden:
+      description: Forbidden — insufficient permissions for the requested resource
       content:
         application/json:
           schema:
@@ -129,55 +128,6 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
   schemas:
-    TimeRange:
-      type: object
-      description: Time range specification for the query
-      required:
-      - type
-      properties:
-        type:
-          type: string
-          description: Type of time range (absolute or relative)
-          enum:
-          - ABSOLUTE
-          - RELATIVE
-          example: RELATIVE
-        value:
-          type: object
-          description: Time range value (required for ABSOLUTE type)
-          properties:
-            from:
-              type: string
-              format: date-time
-              description: Start of the time range (ISO 8601)
-              example: '2024-08-09T03:25:39Z'
-            to:
-              type: string
-              format: date-time
-              description: End of the time range (ISO 8601)
-              example: '2025-11-03T11:39:36Z'
-          example:
-            from: '2024-09-24T21:35:19Z'
-            to: '2026-05-23T17:35:52Z'
-        last:
-          type: object
-          description: Relative time range (required for RELATIVE type)
-          properties:
-            units:
-              type: string
-              enum:
-              - HOURS
-              - DAYS
-              - WEEKS
-              description: Unit of time for relative range
-              example: WEEKS
-            value:
-              type: integer
-              description: Number of units for relative range
-              example: 651
-          example:
-            units: WEEKS
-            value: 233
     DataResourceResponse:
       type: object
       description: Response containing data resource query results
@@ -232,24 +182,56 @@ components:
           example:
             offset: 507
             limit: 195
-    ErrorResponse:
+    QueryFilter:
       type: object
-      description: Standard error response structure
+      description: Filter criteria for the data resource query
       properties:
-        error:
-          type: object
-          properties:
-            code:
-              type: string
-              description: Machine-readable error code
-              example: example-code
-            message:
-              type: string
-              description: Human-readable error description
-              example: Malware firewall blocked threat on policy.
+        operator:
+          type: string
+          description: Logical operator for combining filter rules
+          enum:
+          - AND
+          - OR
+          example: OR
+        rules:
+          type: array
+          description: List of filter rules
+          items:
+            type: object
+            properties:
+              property:
+                type: string
+                description: Property name to filter on
+                example: example-property
+              operator:
+                type: string
+                description: Comparison operator
+                enum:
+                - equals
+                - not_equals
+                - contains
+                - in
+                - not_in
+                - greater_than
+                - less_than
+                example: greater_than
+              values:
+                type: array
+                description: Values to match against
+                items:
+                  type: string
+                example:
+                - example-values_item
+                - example-values_item
           example:
-            code: example-code
-            message: Network network network network malware monitoring traffic monitoring investigation on suspicious.
+          - property: example-property
+            operator: in
+            values:
+            - example-values_item
+          - property: example-property
+            operator: greater_than
+            values:
+            - example-values_item
     DataResourceQuery:
       type: object
       description: Query parameters for a data resource request
@@ -343,56 +325,73 @@ components:
           example:
             order: asc
             property: example-property
-    QueryFilter:
+    TimeRange:
       type: object
-      description: Filter criteria for the data resource query
+      description: Time range specification for the query
+      required:
+      - type
       properties:
-        operator:
+        type:
           type: string
-          description: Logical operator for combining filter rules
+          description: Type of time range (absolute or relative)
           enum:
-          - AND
-          - OR
-          example: OR
-        rules:
-          type: array
-          description: List of filter rules
-          items:
-            type: object
-            properties:
-              property:
-                type: string
-                description: Property name to filter on
-                example: example-property
-              operator:
-                type: string
-                description: Comparison operator
-                enum:
-                - equals
-                - not_equals
-                - contains
-                - in
-                - not_in
-                - greater_than
-                - less_than
-                example: greater_than
-              values:
-                type: array
-                description: Values to match against
-                items:
-                  type: string
-                example:
-                - example-values_item
-                - example-values_item
+          - ABSOLUTE
+          - RELATIVE
+          example: RELATIVE
+        value:
+          type: object
+          description: Time range value (required for ABSOLUTE type)
+          properties:
+            from:
+              type: string
+              format: date-time
+              description: Start of the time range (ISO 8601)
+              example: '2024-08-09T03:25:39Z'
+            to:
+              type: string
+              format: date-time
+              description: End of the time range (ISO 8601)
+              example: '2025-11-03T11:39:36Z'
           example:
-          - property: example-property
-            operator: in
-            values:
-            - example-values_item
-          - property: example-property
-            operator: greater_than
-            values:
-            - example-values_item
+            from: '2024-09-24T21:35:19Z'
+            to: '2026-05-23T17:35:52Z'
+        last:
+          type: object
+          description: Relative time range (required for RELATIVE type)
+          properties:
+            units:
+              type: string
+              enum:
+              - HOURS
+              - DAYS
+              - WEEKS
+              description: Unit of time for relative range
+              example: WEEKS
+            value:
+              type: integer
+              description: Number of units for relative range
+              example: 651
+          example:
+            units: WEEKS
+            value: 233
+    ErrorResponse:
+      type: object
+      description: Standard error response structure
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code
+              example: example-code
+            message:
+              type: string
+              description: Human-readable error description
+              example: Malware firewall blocked threat on policy.
+          example:
+            code: example-code
+            message: Network network network network malware monitoring traffic monitoring investigation on suspicious.
   parameters:
     ResourceName:
       name: resource_name
@@ -413,11 +412,6 @@ components:
         - alerts
         - sdwan_sites
   securitySchemes:
-    oauth2Bearer:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
     bearerAuth:
       type: http
       scheme: bearer
@@ -426,6 +420,3 @@ components:
 externalDocs:
   description: Prisma Access Insights API Documentation
   url: https://pan.dev/access/api/insights/
-x-refined-from:
-- palo-alto-networks-data-resources-api-openapi.yml
-- palo-alto-prisma-access-insights-api-openapi-original.yml

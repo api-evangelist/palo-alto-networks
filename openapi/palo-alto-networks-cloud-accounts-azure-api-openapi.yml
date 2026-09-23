@@ -21,14 +21,20 @@ servers:
 - url: https://api.fr.prismacloud.io
 tags:
 - name: Cloud Accounts (Azure)
-  description: "To monitor the resources on your Azure cloud infrastructure, you must first add your Azure accounts to Prisma Cloud. When you add your cloud account to Prisma Cloud, the API integration between Azure and Prisma Cloud is established and you can begin monitoring the resources and identify potential security risks.\n\nThe Cloud Account (Azure) APIs enable you to add and manage Azure accounts on Prisma Cloud. For end to end workflow to onboarding an Azure account using APIs, see [Automate Azure Cloud Account Onboarding](/prisma-cloud/docs/cspm/azure-account-onboarding/).\n For common operations related to cloud accounts, see [Cloud Accounts (All)](/prisma-cloud/api/cspm/cloud-accounts-all/).\n"
+  description: To monitor the resources on your Azure cloud infrastructure, you must first add your Azure accounts to Prisma Cloud.
 paths:
   /cas/v1/azure_account:
     post:
       tags:
       - Cloud Accounts (Azure)
       summary: Add Cloud Account (Azure)
-      description: "Onboard a new azure cloud account onto the Prisma Cloud platform. \n\n**Prerequisite**: Generate and download the Terraform template by calling Generate and Download the Azure Terraform Template. \n\n**Note**: For Azure China, Terraform template generation is not supported. You must create the app registration and the required roles manually."
+      description: 'Onboard a new azure cloud account onto the Prisma Cloud platform.
+
+
+        **Prerequisite**: Generate and download the Terraform template by calling Generate and Download the Azure Terraform Template.
+
+
+        **Note**: For Azure China, Terraform template generation is not supported. You must create the app registration and the required roles manually.'
       operationId: add-azure-cloud-account
       parameters:
       - name: skipStatusChecks
@@ -337,29 +343,6 @@ paths:
     - url: https://api.fr.prismacloud.io
 components:
   schemas:
-    AzureHierarchyNodeModel:
-      type: object
-      properties:
-        id:
-          type: string
-          description: Node ID
-        type:
-          type: string
-          description: Node type
-          enum:
-          - TENANT
-          - MANAGEMENT_GROUP
-          - ACCOUNT
-        displayName:
-          type: string
-          description: Display name
-        parent:
-          type: string
-          description: Parent
-        hasChild:
-          type: boolean
-          description: true = Has child
-      description: Model for AzureNode in the Tenant Hierarchy
     AzureCloudAccountRequestModelCloudAccount:
       type: object
       required:
@@ -389,26 +372,28 @@ components:
           description: Account Group Ids for this account.
           items:
             type: string
-    AzureListChildrenRequestModelCloudAccount:
+    AzureHierarchySelectionModel:
       type: object
-      required:
-      - accountType
       properties:
-        accountId:
+        resourceId:
           type: string
-          description: Azure account ID
-        accountType:
+          example: root
+          description: 'To get the list of resource IDs and its details, Refer [List Children of Parent (Azure)](/prisma-cloud/api/cspm/list-children-under-parent/) '
+        displayName:
           type: string
-          description: Cloud Account Type
+          example: Root
+          description: To get the display name of resource, Refer [List Children of Parent (Azure)](/prisma-cloud/api/cspm/list-children-under-parent/)
+        nodeType:
+          type: string
+          description: Member account node type. Supported values are SUBSCRIPTION, MANAGEMENT_GROUP, or TENANT
+        selectionType:
+          type: string
+          description: "Organization Member accounts Selection type. \n\n**ALL**: Include the resource and all its children \n\n**INCLUDE**: Include the specified resource\n\n**EXCLUDE**: Exclude the specified resource"
           enum:
-          - tenant
-    AccountStatusMessage:
-      type: object
-      properties:
-        message:
-          type: string
-        staticMessage:
-          type: boolean
+          - ALL
+          - INCLUDE
+          - EXCLUDE
+      description: Model for HierarchySelection for Azure
     Feature:
       type: object
       properties:
@@ -429,6 +414,29 @@ components:
           - enabled
           - disabled
       description: Model for Feature
+    AzureHierarchyNodeModel:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Node ID
+        type:
+          type: string
+          description: Node type
+          enum:
+          - TENANT
+          - MANAGEMENT_GROUP
+          - ACCOUNT
+        displayName:
+          type: string
+          description: Display name
+        parent:
+          type: string
+          description: Parent
+        hasChild:
+          type: boolean
+          description: true = Has child
+      description: Model for AzureNode in the Tenant Hierarchy
     CloudAccountStatus:
       type: object
       properties:
@@ -440,6 +448,19 @@ components:
           type: string
         statusMessage:
           $ref: '#/components/schemas/AccountStatusMessage'
+    AzureListChildrenRequestModelCloudAccount:
+      type: object
+      required:
+      - accountType
+      properties:
+        accountId:
+          type: string
+          description: Azure account ID
+        accountType:
+          type: string
+          description: Cloud Account Type
+          enum:
+          - tenant
     AzureAncestorsModel:
       type: object
       properties:
@@ -462,45 +483,13 @@ components:
           items:
             type: string
       description: Resources Model for Identifying Ancestors
-    AzureListChildrenRequestModel:
+    AccountStatusMessage:
       type: object
-      required:
-      - clientId
-      - cloudAccount
-      - environmentType
-      - key
-      - rootSyncEnabled
-      - servicePrincipalId
-      - tenantId
       properties:
-        cloudAccount:
-          $ref: '#/components/schemas/AzureListChildrenRequestModelCloudAccount'
-        clientId:
+        message:
           type: string
-          description: Application (Client) ID
-        environmentType:
-          type: string
-          description: "* **azure** -  Commercial deployment type.\nApplicable for Prisma Commercial and Government stacks\n\n * **azure_gov** - Government deployment type.\nApplicable for Prisma Commercial and Government stacks..\n\n * **azure_china** - Applicable for Prisma China Stack."
-          enum:
-          - azure
-          - azure_gov
-          - azure_china
-        key:
-          type: string
-          description: Application key/client secret
-        monitorFlowLogs:
+        staticMessage:
           type: boolean
-          description: Automatically ingest flow logs
-        servicePrincipalId:
-          type: string
-          description: Service Principal ID
-        tenantId:
-          type: string
-          description: Directory (Tenant) ID
-        rootSyncEnabled:
-          type: boolean
-          description: true = Azure tenant has children. Must be true.
-      description: Model containing the request for List children of Azure Tenant Cloud Account
     AzureCloudAccountRequestModel:
       type: object
       required:
@@ -564,28 +553,88 @@ components:
           - MANUAL
           - AUTOMAP
       description: Model containing the request for Azure Standalone and Tenant Cloud Account
-    AzureHierarchySelectionModel:
+    AzureListChildrenRequestModel:
+      type: object
+      required:
+      - clientId
+      - cloudAccount
+      - environmentType
+      - key
+      - rootSyncEnabled
+      - servicePrincipalId
+      - tenantId
+      properties:
+        cloudAccount:
+          $ref: '#/components/schemas/AzureListChildrenRequestModelCloudAccount'
+        clientId:
+          type: string
+          description: Application (Client) ID
+        environmentType:
+          type: string
+          description: "* **azure** -  Commercial deployment type.\nApplicable for Prisma Commercial and Government stacks\n\n * **azure_gov** - Government deployment type.\nApplicable for Prisma Commercial and Government stacks..\n\n * **azure_china** - Applicable for Prisma China Stack."
+          enum:
+          - azure
+          - azure_gov
+          - azure_china
+        key:
+          type: string
+          description: Application key/client secret
+        monitorFlowLogs:
+          type: boolean
+          description: Automatically ingest flow logs
+        servicePrincipalId:
+          type: string
+          description: Service Principal ID
+        tenantId:
+          type: string
+          description: Directory (Tenant) ID
+        rootSyncEnabled:
+          type: boolean
+          description: true = Azure tenant has children. Must be true.
+      description: Model containing the request for List children of Azure Tenant Cloud Account
+    AzureTemplateGenRequest:
+      required:
+      - accountType
+      - tenantId
       type: object
       properties:
-        resourceId:
+        accountType:
           type: string
-          example: root
-          description: 'To get the list of resource IDs and its details, Refer [List Children of Parent (Azure)](/prisma-cloud/api/cspm/list-children-under-parent/) '
-        displayName:
-          type: string
-          example: Root
-          description: To get the display name of resource, Refer [List Children of Parent (Azure)](/prisma-cloud/api/cspm/list-children-under-parent/)
-        nodeType:
-          type: string
-          description: Member account node type. Supported values are SUBSCRIPTION, MANAGEMENT_GROUP, or TENANT
-        selectionType:
-          type: string
-          description: "Organization Member accounts Selection type. \n\n**ALL**: Include the resource and all its children \n\n**INCLUDE**: Include the specified resource\n\n**EXCLUDE**: Exclude the specified resource"
+          description: "Cloud account type. \n\n **account** = Azure Subscription \n\n**tenant** = Azure Tenant"
+          example: null
           enum:
-          - ALL
-          - INCLUDE
-          - EXCLUDE
-      description: Model for HierarchySelection for Azure
+          - account
+          - tenant
+        subscriptionId:
+          type: string
+          description: "*Required field for accountType: **account***.\n\n Azure Subscription ID"
+          example: null
+        tenantId:
+          type: string
+          description: Azure Directory (Tenant) ID
+          example: null
+        rootSyncEnabled:
+          type: boolean
+          description: "*Applicable only for accountType: **tenant***\n\n In order to onboard the account type **tenant** and its associated **management groups** and **subscriptions**, ```rootSyncEnabled``` must be set to ```true```"
+          example: null
+        features:
+          uniqueItems: true
+          type: array
+          description: "Features for which the permissions should be generated and included in the template. \n\n To get a list of all the supported features, call **[Get Supported Features](/prisma-cloud/api/cspm/fetch-supported-features)** endpoint"
+          example:
+          - Remediation
+          items:
+            type: string
+            description: "Features for which the permissions should be generated and included in the template. \n\n To get a list of all the supported features, call **[Get Supported Features](/prisma-cloud/api/cspm/fetch-supported-features)** endpoint"
+            example: '["Remediation"]'
+        deploymentType:
+          type: string
+          description: "*Applicable only for Prisma Commercial and Government stacks* \n\n**azure** = Commercial deployment type\n\n**azure_gov** = Government deployment type"
+          example: null
+          enum:
+          - azure
+          - azure_gov
+      example: null
     ApiError:
       type: object
       properties:
@@ -671,49 +720,6 @@ components:
         debugMessage:
           type: string
           example: null
-      example: null
-    AzureTemplateGenRequest:
-      required:
-      - accountType
-      - tenantId
-      type: object
-      properties:
-        accountType:
-          type: string
-          description: "Cloud account type. \n\n **account** = Azure Subscription \n\n**tenant** = Azure Tenant"
-          example: null
-          enum:
-          - account
-          - tenant
-        subscriptionId:
-          type: string
-          description: "*Required field for accountType: **account***.\n\n Azure Subscription ID"
-          example: null
-        tenantId:
-          type: string
-          description: Azure Directory (Tenant) ID
-          example: null
-        rootSyncEnabled:
-          type: boolean
-          description: "*Applicable only for accountType: **tenant***\n\n In order to onboard the account type **tenant** and its associated **management groups** and **subscriptions**, ```rootSyncEnabled``` must be set to ```true```"
-          example: null
-        features:
-          uniqueItems: true
-          type: array
-          description: "Features for which the permissions should be generated and included in the template. \n\n To get a list of all the supported features, call **[Get Supported Features](/prisma-cloud/api/cspm/fetch-supported-features)** endpoint"
-          example:
-          - Remediation
-          items:
-            type: string
-            description: "Features for which the permissions should be generated and included in the template. \n\n To get a list of all the supported features, call **[Get Supported Features](/prisma-cloud/api/cspm/fetch-supported-features)** endpoint"
-            example: '["Remediation"]'
-        deploymentType:
-          type: string
-          description: "*Applicable only for Prisma Commercial and Government stacks* \n\n**azure** = Commercial deployment type\n\n**azure_gov** = Government deployment type"
-          example: null
-          enum:
-          - azure
-          - azure_gov
       example: null
   requestBodies:
     AzureCloudAccountRequestModel:

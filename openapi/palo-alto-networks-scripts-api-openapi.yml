@@ -1,11 +1,14 @@
 openapi: 3.2.0
 info:
-  title: Palo Alto Networks Scripts API
+  title: Palo Alto Networks Cortex XDR REST Scripts API
+  description: REST API for the Cortex XDR extended detection and response platform.
   version: '1.0'
+  contact:
+    name: Palo Alto Networks Developer Support
+    url: https://pan.dev/cortex/docs/xdr/
   license:
     name: Proprietary
     url: https://www.paloaltonetworks.com/legal
-  description: 'Operations tagged Scripts across 2 of this provider''s published API definitions: palo-alto-cortex-xdr-api-openapi-original.yml, palo-alto-networks-scripts-api-openapi.yml. Each path carries the servers of the definition it was published in.'
 servers:
 - url: https://api-{fqdn}/public_api/v1
   description: Cortex XDR tenant API endpoint.
@@ -13,8 +16,8 @@ servers:
     fqdn:
       description: Tenant FQDN from the Cortex XDR settings page (e.g., example.xdr.us.paloaltonetworks.com).
       default: example.xdr.us.paloaltonetworks.com
-- url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
-  description: AIOps for NGFW BPA API production server.
+security:
+- xdrAuth: []
 tags:
 - name: Scripts
   description: Script execution and results retrieval.
@@ -106,15 +109,6 @@ paths:
       x-microcks-operation:
         delay: 0
         dispatcher: FALLBACK
-      security:
-      - xdrAuth: []
-    servers:
-    - url: https://api-{fqdn}/public_api/v1
-      description: Cortex XDR tenant API endpoint.
-      variables:
-        fqdn:
-          description: Tenant FQDN from the Cortex XDR settings page (e.g., example.xdr.us.paloaltonetworks.com).
-          default: example.xdr.us.paloaltonetworks.com
   /scripts/get_script_execution_results:
     post:
       operationId: getScriptExecutionResults
@@ -229,30 +223,27 @@ paths:
       x-microcks-operation:
         delay: 0
         dispatcher: FALLBACK
-      security:
-      - xdrAuth: []
-    servers:
-    - url: https://api-{fqdn}/public_api/v1
-      description: Cortex XDR tenant API endpoint.
-      variables:
-        fqdn:
-          description: Tenant FQDN from the Cortex XDR settings page (e.g., example.xdr.us.paloaltonetworks.com).
-          default: example.xdr.us.paloaltonetworks.com
 components:
-  responses:
-    BadRequest:
-      description: Malformed request body or invalid parameters.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Unauthorized:
-      description: Missing or invalid authentication headers.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
   schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        reply:
+          type: object
+          properties:
+            err_code:
+              type: integer
+              example: 782
+            err_msg:
+              type: string
+              example: example-err_msg
+            err_extra:
+              type: string
+              example: example-err_extra
+          example:
+            err_code: 270
+            err_msg: example-err_msg
+            err_extra: example-err_extra
     Filter:
       type: object
       description: A filter criterion for querying XDR resources.
@@ -287,36 +278,22 @@ components:
               - type: string
               - type: integer
           example: example-value
-    ErrorResponse:
-      type: object
-      properties:
-        reply:
-          type: object
-          properties:
-            err_code:
-              type: integer
-              example: 782
-            err_msg:
-              type: string
-              example: example-err_msg
-            err_extra:
-              type: string
-              example: example-err_extra
-          example:
-            err_code: 270
-            err_msg: example-err_msg
-            err_extra: example-err_extra
+  responses:
+    Unauthorized:
+      description: Missing or invalid authentication headers.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Malformed request body or invalid parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   securitySchemes:
     xdrAuth:
       type: apiKey
       in: header
       name: x-xdr-hmac-v2
       description: 'Cortex XDR uses a custom HMAC-SHA256 authentication scheme. Each request requires four headers: x-xdr-auth-id (API key ID), x-xdr-nonce (64-character random string), x-xdr-timestamp (Unix epoch milliseconds), and x-xdr-hmac-v2 (SHA-256 hash of apikey + nonce + timestamp). Generate API keys from Cortex XDR Settings > Configurations > API Keys.'
-    oauth2Bearer:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: OAuth 2.0 Bearer token for SASE platform authentication. Obtain using the client_credentials grant with your SASE service account client ID and client secret.
-x-refined-from:
-- palo-alto-cortex-xdr-api-openapi-original.yml
-- palo-alto-networks-scripts-api-openapi.yml
