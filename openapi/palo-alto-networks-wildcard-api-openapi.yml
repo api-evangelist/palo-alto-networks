@@ -164,38 +164,215 @@ paths:
       - Wildcard
       operationId: list.wildcard.filters.v2
 components:
+  parameters:
+    query.field:
+      name: field
+      description: String that represents a static filter field. Call any of the /filters endpoints without specifying a field to get a list of all available fields.
+      in: query
+      schema:
+        type: string
+        example: connector_group
+    query.sort:
+      name: sort
+      description: List of fields from item response to sort by.
+      in: query
+      schema:
+        type: string
+      examples:
+        threeItems:
+          value: A[asc],B[desc],C
+          summary: An example sort list that sorts first by A in ascending order, then B in descending order, and finally C in ascending order.
+    query.search:
+      name: search
+      description: String to filter list results by. Is searched over multiple fields in each object. Multiple searches can be specified.
+      in: query
+      schema:
+        type: string
+        example: connector1
+    pagination.offset:
+      name: offset
+      description: 'A 0-based offset into the collection.
+
+        It is the index of the starting entry of the page
+
+        '
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+    pagination.limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+      description: The max count in result entry (count per page)
+    x-panw-region:
+      name: x-panw-region
+      description: The region of the tenant
+      in: header
+      schema:
+        type: string
+        enum:
+        - ae
+        - americas
+        - au
+        - br
+        - ca
+        - ch
+        - cn
+        - de
+        - es
+        - europe
+        - fr
+        - id
+        - il
+        - in
+        - it
+        - jp
+        - kr
+        - pl
+        - qa
+        - sa
+        - sg
+        - tw
+        - uk
+        - za
+    path.oid:
+      name: oid
+      in: path
+      description: Object ID
+      required: true
+      schema:
+        type: string
+    query.filters:
+      name: filters
+      description: String to filter list results by searching one specified field of an object. Multiple filters can be specified.
+      in: query
+      schema:
+        type: string
+      examples:
+        freeFormFilter:
+          value: '{"field":"name","search":"abc"}'
+          summary: A free form filter on the field name searching for a substring match of abc.
+        staticFilter:
+          value: '{"field":"connector_group","filter":"abc"}'
+          summary: A static filter on the field connector_group searching for an exact match of abc.
   schemas:
-    error_response:
+    wildcard-new:
       type: object
-      description: Error response payload
       properties:
-        error:
-          $ref: '#/components/schemas/error_object'
+        name:
+          type: string
+          description: 'Name of the wildcard.
+
+
+            It can only be 64 characters long
+
+            and contain unicode text, space, dash, or underscore, or period.'
+          maxLength: 64
+          minLength: 1
+          pattern: ^[\p{L}\p{N}\p{P}\s,.:_-]*$
+        description:
+          type: string
+          maxLength: 64
+          pattern: ^[\p{L}\p{N}\p{P}\s,.:_-]*$
+        group:
+          type: string
+          description: A comma separated list of [connector group id](#tag/connector-group/operation/list.connector_group.v2)
+        fqdn:
+          type: string
+          description: The wildcard to match.
+        tcp_port:
+          type: string
+          description: 'TCP port number(s).
+
+
+            It can be a single port number, multiple port numbers separated by comma,
+
+            or a port range like 8000-9000.
+
+
+            If both tcp_port and udp_port are omitted, tcp_port defaults to 443.'
+        udp_port:
+          type: string
+          description: 'UDP port number(s).
+
+
+            It can be a single port number, multiple port numbers separated by comma,
+
+            or a port range like 8000-9000.
+
+
+            If both tcp_port and udp_port are omitted, tcp_port defaults to 443.'
+        probe_type:
+          type: string
+          enum:
+          - tcp_ping
+          - icmp_ping
+          description: 'The probing type.
+
+
+            The value can be `tcp_ping`, `icmp_ping`, or omitted.'
+        probe_port:
+          type: string
+          description: The probing port if the `probe_type` is `tcp_ping`.
+        app_enabled:
+          type: boolean
+          description: 'Whether the wildcard is enabled.
+
+
+            If omitted, defaults to false.'
+        icmp_allowed:
+          type: boolean
+          description: 'Whether ICMP is allowed for this wildcard.
+
+
+            If omitted, defaults to true.'
+        enable_policy:
+          type: boolean
+          description: 'Whether policy is enabled for this wildcard.
+
+
+            If omitted, defaults to false.'
+        use_dc_ip:
+          type: boolean
+          description: 'Whether to use datacenter IP for this wildcard.
+
+
+            If omitted, defaults to false.'
       required:
-      - error
-    error_detail:
+      - name
+      - group
+      - fqdn
+    wildcard.list:
       type: object
-      description: Error detail information following Google Cloud API CauseInfo format
       properties:
-        '@type':
-          type: string
-          description: Type identifier for the detail object
-          example: google-cloud-api/CauseInfo
-        message:
-          type: string
-          description: Detailed error message
-        causes:
+        data:
           type: array
-          description: Array of cause information objects
           items:
-            type: object
-            properties:
-              message:
-                type: string
-                description: Cause message
-              module:
-                type: string
-                description: Module where the cause originated
+            allOf:
+            - $ref: '#/components/schemas/wildcard-existing'
+            - $ref: '#/components/schemas/entity_meta'
+        total:
+          $ref: '#/components/schemas/pagination.total'
+        limit:
+          $ref: '#/components/schemas/pagination.limit'
+        offset:
+          $ref: '#/components/schemas/pagination.offset'
+      required:
+      - data
+      - total
+      - offset
+      - limit
+    pagination.offset:
+      type: integer
+      title: The offset into the total number of objects
+    pagination.total:
+      type: integer
+      title: The total number of objects
     wildcard-existing:
       type: object
       properties:
@@ -294,9 +471,13 @@ components:
       - name
       - group
       - fqdn
-    pagination.offset:
+    pagination.limit:
       type: integer
-      title: The offset into the total number of objects
+      title: The manimum number of objects to return
+    filters:
+      type: array
+      items:
+        type: string
     entity_meta:
       type: object
       properties:
@@ -304,6 +485,14 @@ components:
           type: string
         updated_time:
           type: string
+    error_response:
+      type: object
+      description: Error response payload
+      properties:
+        error:
+          $ref: '#/components/schemas/error_object'
+      required:
+      - error
     error_object:
       type: object
       description: Error object following Google Cloud API error format
@@ -321,125 +510,46 @@ components:
           description: Additional error details
           items:
             $ref: '#/components/schemas/error_detail'
-    pagination.limit:
-      type: integer
-      title: The manimum number of objects to return
-    wildcard-new:
+    error_detail:
       type: object
+      description: Error detail information following Google Cloud API CauseInfo format
       properties:
-        name:
+        '@type':
           type: string
-          description: 'Name of the wildcard.
-
-
-            It can only be 64 characters long
-
-            and contain unicode text, space, dash, or underscore, or period.'
-          maxLength: 64
-          minLength: 1
-          pattern: ^[\p{L}\p{N}\p{P}\s,.:_-]*$
-        description:
+          description: Type identifier for the detail object
+          example: google-cloud-api/CauseInfo
+        message:
           type: string
-          maxLength: 64
-          pattern: ^[\p{L}\p{N}\p{P}\s,.:_-]*$
-        group:
-          type: string
-          description: A comma separated list of [connector group id](#tag/connector-group/operation/list.connector_group.v2)
-        fqdn:
-          type: string
-          description: The wildcard to match.
-        tcp_port:
-          type: string
-          description: 'TCP port number(s).
-
-
-            It can be a single port number, multiple port numbers separated by comma,
-
-            or a port range like 8000-9000.
-
-
-            If both tcp_port and udp_port are omitted, tcp_port defaults to 443.'
-        udp_port:
-          type: string
-          description: 'UDP port number(s).
-
-
-            It can be a single port number, multiple port numbers separated by comma,
-
-            or a port range like 8000-9000.
-
-
-            If both tcp_port and udp_port are omitted, tcp_port defaults to 443.'
-        probe_type:
-          type: string
-          enum:
-          - tcp_ping
-          - icmp_ping
-          description: 'The probing type.
-
-
-            The value can be `tcp_ping`, `icmp_ping`, or omitted.'
-        probe_port:
-          type: string
-          description: The probing port if the `probe_type` is `tcp_ping`.
-        app_enabled:
-          type: boolean
-          description: 'Whether the wildcard is enabled.
-
-
-            If omitted, defaults to false.'
-        icmp_allowed:
-          type: boolean
-          description: 'Whether ICMP is allowed for this wildcard.
-
-
-            If omitted, defaults to true.'
-        enable_policy:
-          type: boolean
-          description: 'Whether policy is enabled for this wildcard.
-
-
-            If omitted, defaults to false.'
-        use_dc_ip:
-          type: boolean
-          description: 'Whether to use datacenter IP for this wildcard.
-
-
-            If omitted, defaults to false.'
-      required:
-      - name
-      - group
-      - fqdn
-    pagination.total:
-      type: integer
-      title: The total number of objects
-    filters:
-      type: array
-      items:
-        type: string
-    wildcard.list:
-      type: object
-      properties:
-        data:
+          description: Detailed error message
+        causes:
           type: array
+          description: Array of cause information objects
           items:
-            allOf:
-            - $ref: '#/components/schemas/wildcard-existing'
-            - $ref: '#/components/schemas/entity_meta'
-        total:
-          $ref: '#/components/schemas/pagination.total'
-        limit:
-          $ref: '#/components/schemas/pagination.limit'
-        offset:
-          $ref: '#/components/schemas/pagination.offset'
-      required:
-      - data
-      - total
-      - offset
-      - limit
+            type: object
+            properties:
+              message:
+                type: string
+                description: Cause message
+              module:
+                type: string
+                description: Module where the cause originated
+  examples:
+    filter:
+      summary: common scenario
+      value:
+      - value 1
+      - value 2
+    filter-empty:
+      summary: when no filter value is available
+      value: []
   responses:
-    error-401:
-      description: Unauthorized
+    http.201_created:
+      x-summary: Created
+      description: '[201 Created](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/201)
+
+        '
+    error-403:
+      description: Forbidden
       content:
         application/json:
           schema:
@@ -449,30 +559,14 @@ components:
       description: '[200 OK](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/200)
 
         '
+    error-401:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/error_response'
     error-409:
       description: Conflict
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/error_response'
-    error-400:
-      description: Bad Request
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/error_response'
-    http.201_created:
-      x-summary: Created
-      description: '[201 Created](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/201)
-
-        '
-    http.202_accepted:
-      x-summary: Accepted
-      description: '[202 Accepted](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202)
-
-        '
-    error-403:
-      description: Forbidden
       content:
         application/json:
           schema:
@@ -483,111 +577,17 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/error_response'
-  parameters:
-    query.filters:
-      name: filters
-      description: String to filter list results by searching one specified field of an object. Multiple filters can be specified.
-      in: query
-      schema:
-        type: string
-      examples:
-        freeFormFilter:
-          value: '{"field":"name","search":"abc"}'
-          summary: A free form filter on the field name searching for a substring match of abc.
-        staticFilter:
-          value: '{"field":"connector_group","filter":"abc"}'
-          summary: A static filter on the field connector_group searching for an exact match of abc.
-    pagination.limit:
-      name: limit
-      in: query
-      required: false
-      schema:
-        type: integer
-        minimum: 0
-      description: The max count in result entry (count per page)
-    query.search:
-      name: search
-      description: String to filter list results by. Is searched over multiple fields in each object. Multiple searches can be specified.
-      in: query
-      schema:
-        type: string
-        example: connector1
-    query.sort:
-      name: sort
-      description: List of fields from item response to sort by.
-      in: query
-      schema:
-        type: string
-      examples:
-        threeItems:
-          value: A[asc],B[desc],C
-          summary: An example sort list that sorts first by A in ascending order, then B in descending order, and finally C in ascending order.
-    path.oid:
-      name: oid
-      in: path
-      description: Object ID
-      required: true
-      schema:
-        type: string
-    query.field:
-      name: field
-      description: String that represents a static filter field. Call any of the /filters endpoints without specifying a field to get a list of all available fields.
-      in: query
-      schema:
-        type: string
-        example: connector_group
-    pagination.offset:
-      name: offset
-      description: 'A 0-based offset into the collection.
-
-        It is the index of the starting entry of the page
+    http.202_accepted:
+      x-summary: Accepted
+      description: '[202 Accepted](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202)
 
         '
-      in: query
-      required: false
-      schema:
-        type: integer
-        minimum: 0
-    x-panw-region:
-      name: x-panw-region
-      description: The region of the tenant
-      in: header
-      schema:
-        type: string
-        enum:
-        - ae
-        - americas
-        - au
-        - br
-        - ca
-        - ch
-        - cn
-        - de
-        - es
-        - europe
-        - fr
-        - id
-        - il
-        - in
-        - it
-        - jp
-        - kr
-        - pl
-        - qa
-        - sa
-        - sg
-        - tw
-        - uk
-        - za
-  examples:
-    filter-empty:
-      summary: when no filter value is available
-      value: []
-    filter:
-      summary: common scenario
-      value:
-      - value 1
-      - value 2
+    error-400:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/error_response'
   securitySchemes:
     bearerAuth:
       type: http

@@ -195,25 +195,8 @@ paths:
       - Issuer Configurations
 components:
   schemas:
-    ErrorResponse7:
-      properties:
-        errors:
-          items:
-            $ref: '#/components/schemas/ErrorInformation7'
-          type: array
-      type: object
-    ConfigurationDeleteResponse:
-      properties:
-        id:
-          description: UUID of the configuration
-          example: 7268d820-a08d-11ed-bbc0-252385d6d389
-          format: uuid
-          type: string
-        name:
-          description: Name of the configuration
-          example: Some configuration
-          type: string
-      type: object
+    AnyValue7:
+      description: Can be any value - string, number, boolean, array or object.
     JwtJwksAuthenticationInformation:
       allOf:
       - $ref: '#/components/schemas/ClientAuthenticationInformation'
@@ -230,6 +213,34 @@ components:
       required:
       - urls
       type: object
+    SubCaProviderPkcs11ConfigurationInformation:
+      properties:
+        allowedClientLibraries:
+          description: A collection of strings each of which represents SHA256 hash of an allowed HSM client library
+          example:
+          - c34d199f2e30bb679cd9b8533b99975465aefe8b023be1b37972f1ab43ab7b2d
+          items:
+            type: string
+          type: array
+        partitionLabel:
+          description: HSM Partition Label
+          example: workload-identity-manager-hsm-partition
+          type: string
+        partitionSerialNumber:
+          description: HSM Partition Serial Number
+          example: '1444210958933'
+          pattern: ^[A-Fa-fx0-9]{0,18}$
+          type: string
+        pin:
+          description: HSM PIN
+          example: '1234'
+          type: string
+          writeOnly: true
+        signingEnabled:
+          description: Indicates whether HSM signing is enabled or not
+          example: true
+          type: boolean
+      type: object
     JwtJwksAuthenticationOpenApi:
       allOf:
       - $ref: '#/components/schemas/ClientAuthenticationOpenApi'
@@ -243,63 +254,45 @@ components:
             type: array
         type: object
       type: object
-    ErrorInformation7:
+    AzureCloudProviderInformation:
       properties:
-        args:
+        subscriptionIds:
+          description: Array of Azure subscription IDs each of which should be UUID
+          example:
+          - 8d10da13-8125-4ba9-a717-bf7490507b3d
           items:
-            $ref: '#/components/schemas/AnyValue7'
-          type: array
-        code:
-          format: int32
-          type: integer
-        message:
-          type: string
-      type: object
-    KeyAlgorithmInformation:
-      description: Key algorithm
-      properties:
-        allowedValues:
-          description: Key algorithm allowed values
-          items:
-            enum:
-            - RSA_2048
-            - RSA_3072
-            - RSA_4096
-            - EC_P256
-            - EC_P384
-            - EC_P521
-            - EC_ED25519
+            format: uuid
             type: string
           minItems: 1
           type: array
-        defaultValue:
-          description: Key algorithm default value
-          enum:
-          - RSA_2048
-          - RSA_3072
-          - RSA_4096
-          - EC_P256
-          - EC_P384
-          - EC_P521
-          - EC_ED25519
-          example: RSA_4096
-          type: string
       required:
-      - allowedValues
-      - defaultValue
+      - subscriptionIds
       type: object
-    ClientAuthenticationInformation:
-      discriminator:
-        propertyName: type
-      oneOf:
-      - $ref: '#/components/schemas/JwtStandardClaimsAuthenticationInformation'
-      - $ref: '#/components/schemas/JwtJwksAuthenticationInformation'
-      - $ref: '#/components/schemas/JwtOidcAuthenticationInformation'
+    JwtOidcAuthenticationOpenApi:
+      allOf:
+      - $ref: '#/components/schemas/ClientAuthenticationOpenApi'
+      - properties:
+          audience:
+            description: OpenId audience
+            example: Alpha testers
+            type: string
+          baseUrl:
+            description: JWT OpenId base URL
+            example: https://oidc.example.com/
+            type: string
+        type: object
+      type: object
+    ConfigurationDeleteResponse:
       properties:
-        type:
+        id:
+          description: UUID of the configuration
+          example: 7268d820-a08d-11ed-bbc0-252385d6d389
+          format: uuid
           type: string
-      required:
-      - type
+        name:
+          description: Name of the configuration
+          example: Some configuration
+          type: string
       type: object
     ClientAuthenticationRequestOpenApi:
       properties:
@@ -309,6 +302,94 @@ components:
           - $ref: '#/components/schemas/JwtJwksAuthenticationOpenApi'
           - $ref: '#/components/schemas/JwtOidcAuthenticationOpenApi'
           type: object
+      type: object
+    ClientAuthorizationInformation:
+      properties:
+        customClaimsAliases:
+          $ref: '#/components/schemas/CustomClaimsAliasesInformation'
+      type: object
+    GoogleCloudProviderInformation:
+      properties:
+        projectIdentifiers:
+          description: Array of Google project identifiers each of which should be a string with int64 number or 6 to 30 lowercase letters, digits, or hyphens, should start with a letter and not contain trailing hyphens
+          example:
+          - '415104041262'
+          - tokyo-rain-123
+          items:
+            type: string
+          minItems: 1
+          type: array
+        regions:
+          description: Array of Google regions
+          example:
+          - us-west1
+          items:
+            enum:
+            - asia-east1
+            - asia-east2
+            - asia-northeast1
+            - asia-northeast2
+            - asia-northeast3
+            - asia-south1
+            - asia-south2
+            - asia-southeast1
+            - asia-southeast2
+            - australia-southeast1
+            - australia-southeast2
+            - europe-central2
+            - europe-north1
+            - europe-southwest1
+            - europe-west1
+            - europe-west12
+            - europe-west2
+            - europe-west3
+            - europe-west4
+            - europe-west6
+            - europe-west8
+            - europe-west9
+            - me-central1
+            - me-west1
+            - northamerica-northeast1
+            - northamerica-northeast2
+            - southamerica-east1
+            - southamerica-west1
+            - us-central1
+            - us-east1
+            - us-east4
+            - us-east5
+            - us-south1
+            - us-west1
+            - us-west2
+            - us-west3
+            - us-west4
+            type: string
+          type: array
+      required:
+      - projectIdentifiers
+      - regions
+      type: object
+    SansInformation:
+      description: Subject alternative names
+      properties:
+        dnsNames:
+          $ref: '#/components/schemas/PropertyInformation'
+        ipAddresses:
+          $ref: '#/components/schemas/PropertyInformation'
+        rfc822Names:
+          $ref: '#/components/schemas/PropertyInformation'
+        uniformResourceIdentifiers:
+          $ref: '#/components/schemas/PropertyInformation'
+      type: object
+    ClientAuthenticationOpenApi:
+      discriminator:
+        mapping:
+          JWT_JWKS: '#/components/schemas/JwtJwksAuthenticationOpenApi'
+          JWT_OIDC: '#/components/schemas/JwtOidcAuthenticationOpenApi'
+          JWT_STANDARD_CLAIMS: '#/components/schemas/JwtStandardClaimsAuthenticationOpenApi'
+        propertyName: type
+      properties:
+        type:
+          type: string
       type: object
     ConfigurationCreateRequest:
       properties:
@@ -355,240 +436,6 @@ components:
       - name
       - policyIds
       - subCaProviderId
-      type: object
-    ExtendedConfigurationInformation:
-      properties:
-        advancedSettings:
-          $ref: '#/components/schemas/AdvancedSettingsInformation'
-        clientAuthentication:
-          $ref: '#/components/schemas/ClientAuthenticationInformation'
-        clientAuthorization:
-          $ref: '#/components/schemas/ClientAuthorizationInformation'
-        cloudProviders:
-          $ref: '#/components/schemas/CloudProvidersInformation'
-        companyId:
-          description: UUID specific to your company
-          example: 03eb6e61-9806-11ed-84f2-c747fb71e467
-          format: uuid
-          type: string
-        controllerAllowedPolicyIds:
-          description: Array of UUIDs of policies that the kubernetes controller is permitted to use
-          example:
-          - 8ae92800-b1e0-11ed-859d-b39255f965ee
-          format: uuid
-          items:
-            format: uuid
-            type: string
-          type: array
-        creationDate:
-          description: When the configuration was initially created
-          example: '2022-10-10T14:50:41.710+00:00'
-          type: string
-        id:
-          description: UUID of the configuration
-          example: 7268d820-a08d-11ed-bbc0-252385d6d389
-          format: uuid
-          type: string
-        longLivedCertCount:
-          description: Number of long lived certificates
-          example: 2
-          format: int64
-          type: integer
-        minTlsVersion:
-          description: Minimum required TLS protocol version
-          enum:
-          - TLS12
-          - TLS13
-          type: string
-        modificationDate:
-          description: When the configuration was last modified
-          example: '2023-12-12T20:00:10.500+00:00'
-          type: string
-        name:
-          description: Name of the configuration
-          example: Some configuration
-          type: string
-        policies:
-          items:
-            $ref: '#/components/schemas/PolicyInformation'
-          type: array
-        policyDefinitions:
-          items:
-            $ref: '#/components/schemas/PolicyInformation'
-          type: array
-        policyIds:
-          description: Array of UUIDs of policies to associate with the configuration
-          example:
-          - 8ae92800-b1e0-11ed-859d-b39255f965ee
-          format: uuid
-          items:
-            format: uuid
-            type: string
-          type: array
-        serviceAccountIds:
-          items:
-            format: uuid
-            type: string
-          type: array
-        shortLivedCertCount:
-          description: Number of short lived certificates
-          example: 20
-          format: int64
-          type: integer
-        subCaProvider:
-          $ref: '#/components/schemas/SubCaProviderInformation'
-        subTsgId:
-          description: Sub-TSG ID that owns this configuration (null for Primary TSG)
-          example: a007d406bf
-          type: string
-        ultraShortLivedCertCount:
-          description: Number of ultra short lived certificates
-          example: 200
-          format: int64
-          type: integer
-        unixSocketAllowedPolicyIds:
-          description: Array of UUIDs of policies that are permitted to be used when using the unix socket
-          example:
-          - 8ae92800-b1e0-11ed-859d-b39255f965ee
-          format: uuid
-          items:
-            format: uuid
-            type: string
-          type: array
-      type: object
-    JwtOidcAuthenticationOpenApi:
-      allOf:
-      - $ref: '#/components/schemas/ClientAuthenticationOpenApi'
-      - properties:
-          audience:
-            description: OpenId audience
-            example: Alpha testers
-            type: string
-          baseUrl:
-            description: JWT OpenId base URL
-            example: https://oidc.example.com/
-            type: string
-        type: object
-      type: object
-    JwtOidcAuthenticationInformation:
-      allOf:
-      - $ref: '#/components/schemas/ClientAuthenticationInformation'
-      - properties:
-          audience:
-            description: OpenId audience
-            example: Client1
-            maxLength: 256
-            type: string
-          baseUrl:
-            description: JWT OpenId base URL
-            example: https://openid.example.com
-            maxLength: 2048
-            type: string
-        type: object
-      required:
-      - audience
-      - baseUrl
-      type: object
-    JwtStandardClaimsAuthenticationOpenApi:
-      allOf:
-      - $ref: '#/components/schemas/ClientAuthenticationOpenApi'
-      - properties:
-          audience:
-            description: Recipients that the JWT is intended for
-            example: Client1
-            type: string
-          clients:
-            description: List with clients, identified by processing JWTs that include standard/registered claims
-            items:
-              $ref: '#/components/schemas/JwtClient'
-            type: array
-        type: object
-      type: object
-    JwtStandardClaimsAuthenticationInformation:
-      allOf:
-      - $ref: '#/components/schemas/ClientAuthenticationInformation'
-      - properties:
-          audience:
-            description: Recipients that the JWT is intended for
-            example: Client1
-            maxLength: 256
-            type: string
-          clients:
-            description: List with clients, identified by processing JWTs that include standard/registered claims
-            items:
-              $ref: '#/components/schemas/JwtClientInformation'
-            minItems: 1
-            type: array
-        type: object
-      required:
-      - audience
-      - clients
-      type: object
-    JwtClientInformation:
-      properties:
-        allowedPolicyIds:
-          description: Array of UUIDs of policies that the client is permitted to use
-          example:
-          - 8ae92800-b1e0-11ed-859d-b39255f965ee
-          format: uuid
-          items:
-            format: uuid
-            type: string
-          minItems: 1
-          type: array
-        issuer:
-          description: Issuer of the JWT
-          example: https://kubernetes.default.svc
-          maxLength: 2048
-          type: string
-        jwksUri:
-          description: URL used to pull the trusted singing keys used for validation
-          example: https://www.example.com:6443/jwks
-          maxLength: 2048
-          type: string
-        name:
-          description: Name of the client
-          example: Some client
-          maxLength: 64
-          type: string
-        subjects:
-          description: Array of subjects of the JWT
-          example:
-          - system:serviceaccount:venafi:application-team-1
-          items:
-            type: string
-          minItems: 1
-          type: array
-      required:
-      - allowedPolicyIds
-      - issuer
-      - name
-      - subjects
-      type: object
-    PropertyInformation:
-      properties:
-        allowedValues:
-          items:
-            type: string
-          type: array
-        defaultValues:
-          items:
-            type: string
-          type: array
-        maxOccurrences:
-          format: int32
-          type: integer
-        minOccurrences:
-          format: int32
-          type: integer
-        type:
-          enum:
-          - IGNORED
-          - FORBIDDEN
-          - OPTIONAL
-          - REQUIRED
-          - LOCKED
-          type: string
       type: object
     SubCaProviderInformation:
       properties:
@@ -693,76 +540,140 @@ components:
           format: PnYnMnDTnHnMnS
           type: string
       type: object
-    GoogleCloudProviderInformation:
+    ErrorResponse7:
       properties:
-        projectIdentifiers:
-          description: Array of Google project identifiers each of which should be a string with int64 number or 6 to 30 lowercase letters, digits, or hyphens, should start with a letter and not contain trailing hyphens
-          example:
-          - '415104041262'
-          - tokyo-rain-123
+        errors:
           items:
-            type: string
-          minItems: 1
+            $ref: '#/components/schemas/ErrorInformation7'
           type: array
-        regions:
-          description: Array of Google regions
-          example:
-          - us-west1
-          items:
-            enum:
-            - asia-east1
-            - asia-east2
-            - asia-northeast1
-            - asia-northeast2
-            - asia-northeast3
-            - asia-south1
-            - asia-south2
-            - asia-southeast1
-            - asia-southeast2
-            - australia-southeast1
-            - australia-southeast2
-            - europe-central2
-            - europe-north1
-            - europe-southwest1
-            - europe-west1
-            - europe-west12
-            - europe-west2
-            - europe-west3
-            - europe-west4
-            - europe-west6
-            - europe-west8
-            - europe-west9
-            - me-central1
-            - me-west1
-            - northamerica-northeast1
-            - northamerica-northeast2
-            - southamerica-east1
-            - southamerica-west1
-            - us-central1
-            - us-east1
-            - us-east4
-            - us-east5
-            - us-south1
-            - us-west1
-            - us-west2
-            - us-west3
-            - us-west4
-            type: string
-          type: array
-      required:
-      - projectIdentifiers
-      - regions
       type: object
-    ClientAuthenticationOpenApi:
+    ExtendedConfigurationInformation:
+      properties:
+        advancedSettings:
+          $ref: '#/components/schemas/AdvancedSettingsInformation'
+        clientAuthentication:
+          $ref: '#/components/schemas/ClientAuthenticationInformation'
+        clientAuthorization:
+          $ref: '#/components/schemas/ClientAuthorizationInformation'
+        cloudProviders:
+          $ref: '#/components/schemas/CloudProvidersInformation'
+        companyId:
+          description: UUID specific to your company
+          example: 03eb6e61-9806-11ed-84f2-c747fb71e467
+          format: uuid
+          type: string
+        controllerAllowedPolicyIds:
+          description: Array of UUIDs of policies that the kubernetes controller is permitted to use
+          example:
+          - 8ae92800-b1e0-11ed-859d-b39255f965ee
+          format: uuid
+          items:
+            format: uuid
+            type: string
+          type: array
+        creationDate:
+          description: When the configuration was initially created
+          example: '2022-10-10T14:50:41.710+00:00'
+          type: string
+        id:
+          description: UUID of the configuration
+          example: 7268d820-a08d-11ed-bbc0-252385d6d389
+          format: uuid
+          type: string
+        longLivedCertCount:
+          description: Number of long lived certificates
+          example: 2
+          format: int64
+          type: integer
+        minTlsVersion:
+          description: Minimum required TLS protocol version
+          enum:
+          - TLS12
+          - TLS13
+          type: string
+        modificationDate:
+          description: When the configuration was last modified
+          example: '2023-12-12T20:00:10.500+00:00'
+          type: string
+        name:
+          description: Name of the configuration
+          example: Some configuration
+          type: string
+        policies:
+          items:
+            $ref: '#/components/schemas/PolicyInformation'
+          type: array
+        policyDefinitions:
+          items:
+            $ref: '#/components/schemas/PolicyInformation'
+          type: array
+        policyIds:
+          description: Array of UUIDs of policies to associate with the configuration
+          example:
+          - 8ae92800-b1e0-11ed-859d-b39255f965ee
+          format: uuid
+          items:
+            format: uuid
+            type: string
+          type: array
+        serviceAccountIds:
+          items:
+            format: uuid
+            type: string
+          type: array
+        shortLivedCertCount:
+          description: Number of short lived certificates
+          example: 20
+          format: int64
+          type: integer
+        subCaProvider:
+          $ref: '#/components/schemas/SubCaProviderInformation'
+        subTsgId:
+          description: Sub-TSG ID that owns this configuration (null for Primary TSG)
+          example: a007d406bf
+          type: string
+        ultraShortLivedCertCount:
+          description: Number of ultra short lived certificates
+          example: 200
+          format: int64
+          type: integer
+        unixSocketAllowedPolicyIds:
+          description: Array of UUIDs of policies that are permitted to be used when using the unix socket
+          example:
+          - 8ae92800-b1e0-11ed-859d-b39255f965ee
+          format: uuid
+          items:
+            format: uuid
+            type: string
+          type: array
+      type: object
+    JwtStandardClaimsAuthenticationOpenApi:
+      allOf:
+      - $ref: '#/components/schemas/ClientAuthenticationOpenApi'
+      - properties:
+          audience:
+            description: Recipients that the JWT is intended for
+            example: Client1
+            type: string
+          clients:
+            description: List with clients, identified by processing JWTs that include standard/registered claims
+            items:
+              $ref: '#/components/schemas/JwtClient'
+            type: array
+        type: object
+      type: object
+    ClientAuthenticationInformation:
       discriminator:
-        mapping:
-          JWT_JWKS: '#/components/schemas/JwtJwksAuthenticationOpenApi'
-          JWT_OIDC: '#/components/schemas/JwtOidcAuthenticationOpenApi'
-          JWT_STANDARD_CLAIMS: '#/components/schemas/JwtStandardClaimsAuthenticationOpenApi'
         propertyName: type
+      oneOf:
+      - $ref: '#/components/schemas/JwtStandardClaimsAuthenticationInformation'
+      - $ref: '#/components/schemas/JwtJwksAuthenticationInformation'
+      - $ref: '#/components/schemas/JwtOidcAuthenticationInformation'
       properties:
         type:
           type: string
+      required:
+      - type
       type: object
     SubjectAttributesInformation:
       description: Subject attributes
@@ -780,13 +691,6 @@ components:
         stateOrProvince:
           $ref: '#/components/schemas/PropertyInformation'
       type: object
-    AnyValue7:
-      description: Can be any value - string, number, boolean, array or object.
-    ClientAuthorizationInformation:
-      properties:
-        customClaimsAliases:
-          $ref: '#/components/schemas/CustomClaimsAliasesInformation'
-      type: object
     ConfigurationResponse:
       properties:
         configurations:
@@ -794,70 +698,25 @@ components:
             $ref: '#/components/schemas/ExtendedConfigurationInformation'
           type: array
       type: object
-    AwsCloudProviderInformation:
-      properties:
-        accountIds:
-          description: Array of AWS account IDs each of which should be a 12-digit identifier
-          example:
-          - '123456789012'
-          items:
+    JwtStandardClaimsAuthenticationInformation:
+      allOf:
+      - $ref: '#/components/schemas/ClientAuthenticationInformation'
+      - properties:
+          audience:
+            description: Recipients that the JWT is intended for
+            example: Client1
+            maxLength: 256
             type: string
-          minItems: 1
-          type: array
-        regions:
-          description: Array of AWS regions
-          example:
-          - us-west-1
-          items:
-            enum:
-            - us-east-1
-            - us-east-2
-            - us-west-1
-            - us-west-2
-            - af-south-1
-            - ap-east-1
-            - ap-south-2
-            - ap-southeast-3
-            - ap-southeast-4
-            - ap-south-1
-            - ap-northeast-3
-            - ap-northeast-2
-            - ap-southeast-1
-            - ap-southeast-2
-            - ap-northeast-1
-            - ca-central-1
-            - eu-central-1
-            - eu-west-1
-            - eu-west-2
-            - eu-south-1
-            - eu-west-3
-            - eu-south-2
-            - eu-north-1
-            - eu-central-2
-            - me-south-1
-            - me-central-1
-            - sa-east-1
-            - us-gov-east-1
-            - us-gov-west-1
-            type: string
-          type: array
+          clients:
+            description: List with clients, identified by processing JWTs that include standard/registered claims
+            items:
+              $ref: '#/components/schemas/JwtClientInformation'
+            minItems: 1
+            type: array
+        type: object
       required:
-      - accountIds
-      - regions
-      type: object
-    AzureCloudProviderInformation:
-      properties:
-        subscriptionIds:
-          description: Array of Azure subscription IDs each of which should be UUID
-          example:
-          - 8d10da13-8125-4ba9-a717-bf7490507b3d
-          items:
-            format: uuid
-            type: string
-          minItems: 1
-          type: array
-      required:
-      - subscriptionIds
+      - audience
+      - clients
       type: object
     PolicyInformation:
       properties:
@@ -954,30 +813,6 @@ components:
           format: PnYnMnDTnHnMnS
           type: string
       type: object
-    AdvancedSettingsInformation:
-      properties:
-        enableIssuanceAuditLog:
-          description: Whether audit log entries must be generated for each issued certificate
-          example: false
-          type: boolean
-        includeRawCertDataInAuditLog:
-          description: Whether the raw certificate data must be included in the audit log entry
-          example: false
-          type: boolean
-        requireFIPSCompliantBuild:
-          description: Whether FIPS-compliant build is required
-          example: false
-          type: boolean
-      type: object
-    CloudProvidersInformation:
-      properties:
-        aws:
-          $ref: '#/components/schemas/AwsCloudProviderInformation'
-        azure:
-          $ref: '#/components/schemas/AzureCloudProviderInformation'
-        google:
-          $ref: '#/components/schemas/GoogleCloudProviderInformation'
-      type: object
     JwtClient:
       properties:
         allowedPolicyIds:
@@ -1009,45 +844,61 @@ components:
             type: string
           type: array
       type: object
-    SansInformation:
-      description: Subject alternative names
+    PropertyInformation:
       properties:
-        dnsNames:
-          $ref: '#/components/schemas/PropertyInformation'
-        ipAddresses:
-          $ref: '#/components/schemas/PropertyInformation'
-        rfc822Names:
-          $ref: '#/components/schemas/PropertyInformation'
-        uniformResourceIdentifiers:
-          $ref: '#/components/schemas/PropertyInformation'
-      type: object
-    SubCaProviderPkcs11ConfigurationInformation:
-      properties:
-        allowedClientLibraries:
-          description: A collection of strings each of which represents SHA256 hash of an allowed HSM client library
-          example:
-          - c34d199f2e30bb679cd9b8533b99975465aefe8b023be1b37972f1ab43ab7b2d
+        allowedValues:
           items:
             type: string
           type: array
-        partitionLabel:
-          description: HSM Partition Label
-          example: workload-identity-manager-hsm-partition
+        defaultValues:
+          items:
+            type: string
+          type: array
+        maxOccurrences:
+          format: int32
+          type: integer
+        minOccurrences:
+          format: int32
+          type: integer
+        type:
+          enum:
+          - IGNORED
+          - FORBIDDEN
+          - OPTIONAL
+          - REQUIRED
+          - LOCKED
           type: string
-        partitionSerialNumber:
-          description: HSM Partition Serial Number
-          example: '1444210958933'
-          pattern: ^[A-Fa-fx0-9]{0,18}$
+      type: object
+    JwtOidcAuthenticationInformation:
+      allOf:
+      - $ref: '#/components/schemas/ClientAuthenticationInformation'
+      - properties:
+          audience:
+            description: OpenId audience
+            example: Client1
+            maxLength: 256
+            type: string
+          baseUrl:
+            description: JWT OpenId base URL
+            example: https://openid.example.com
+            maxLength: 2048
+            type: string
+        type: object
+      required:
+      - audience
+      - baseUrl
+      type: object
+    CustomClaimsAliasesInformation:
+      properties:
+        allowAllPolicies:
+          maxLength: 128
           type: string
-        pin:
-          description: HSM PIN
-          example: '1234'
+        allowedPolicies:
+          maxLength: 128
           type: string
-          writeOnly: true
-        signingEnabled:
-          description: Indicates whether HSM signing is enabled or not
-          example: true
-          type: boolean
+        configuration:
+          maxLength: 128
+          type: string
       type: object
     ConfigurationUpdateRequest:
       properties:
@@ -1090,17 +941,166 @@ components:
           format: uuid
           type: string
       type: object
-    CustomClaimsAliasesInformation:
+    AdvancedSettingsInformation:
       properties:
-        allowAllPolicies:
-          maxLength: 128
+        enableIssuanceAuditLog:
+          description: Whether audit log entries must be generated for each issued certificate
+          example: false
+          type: boolean
+        includeRawCertDataInAuditLog:
+          description: Whether the raw certificate data must be included in the audit log entry
+          example: false
+          type: boolean
+        requireFIPSCompliantBuild:
+          description: Whether FIPS-compliant build is required
+          example: false
+          type: boolean
+      type: object
+    JwtClientInformation:
+      properties:
+        allowedPolicyIds:
+          description: Array of UUIDs of policies that the client is permitted to use
+          example:
+          - 8ae92800-b1e0-11ed-859d-b39255f965ee
+          format: uuid
+          items:
+            format: uuid
+            type: string
+          minItems: 1
+          type: array
+        issuer:
+          description: Issuer of the JWT
+          example: https://kubernetes.default.svc
+          maxLength: 2048
           type: string
-        allowedPolicies:
-          maxLength: 128
+        jwksUri:
+          description: URL used to pull the trusted singing keys used for validation
+          example: https://www.example.com:6443/jwks
+          maxLength: 2048
           type: string
-        configuration:
-          maxLength: 128
+        name:
+          description: Name of the client
+          example: Some client
+          maxLength: 64
           type: string
+        subjects:
+          description: Array of subjects of the JWT
+          example:
+          - system:serviceaccount:venafi:application-team-1
+          items:
+            type: string
+          minItems: 1
+          type: array
+      required:
+      - allowedPolicyIds
+      - issuer
+      - name
+      - subjects
+      type: object
+    AwsCloudProviderInformation:
+      properties:
+        accountIds:
+          description: Array of AWS account IDs each of which should be a 12-digit identifier
+          example:
+          - '123456789012'
+          items:
+            type: string
+          minItems: 1
+          type: array
+        regions:
+          description: Array of AWS regions
+          example:
+          - us-west-1
+          items:
+            enum:
+            - us-east-1
+            - us-east-2
+            - us-west-1
+            - us-west-2
+            - af-south-1
+            - ap-east-1
+            - ap-south-2
+            - ap-southeast-3
+            - ap-southeast-4
+            - ap-south-1
+            - ap-northeast-3
+            - ap-northeast-2
+            - ap-southeast-1
+            - ap-southeast-2
+            - ap-northeast-1
+            - ca-central-1
+            - eu-central-1
+            - eu-west-1
+            - eu-west-2
+            - eu-south-1
+            - eu-west-3
+            - eu-south-2
+            - eu-north-1
+            - eu-central-2
+            - me-south-1
+            - me-central-1
+            - sa-east-1
+            - us-gov-east-1
+            - us-gov-west-1
+            type: string
+          type: array
+      required:
+      - accountIds
+      - regions
+      type: object
+    ErrorInformation7:
+      properties:
+        args:
+          items:
+            $ref: '#/components/schemas/AnyValue7'
+          type: array
+        code:
+          format: int32
+          type: integer
+        message:
+          type: string
+      type: object
+    CloudProvidersInformation:
+      properties:
+        aws:
+          $ref: '#/components/schemas/AwsCloudProviderInformation'
+        azure:
+          $ref: '#/components/schemas/AzureCloudProviderInformation'
+        google:
+          $ref: '#/components/schemas/GoogleCloudProviderInformation'
+      type: object
+    KeyAlgorithmInformation:
+      description: Key algorithm
+      properties:
+        allowedValues:
+          description: Key algorithm allowed values
+          items:
+            enum:
+            - RSA_2048
+            - RSA_3072
+            - RSA_4096
+            - EC_P256
+            - EC_P384
+            - EC_P521
+            - EC_ED25519
+            type: string
+          minItems: 1
+          type: array
+        defaultValue:
+          description: Key algorithm default value
+          enum:
+          - RSA_2048
+          - RSA_3072
+          - RSA_4096
+          - EC_P256
+          - EC_P384
+          - EC_P521
+          - EC_ED25519
+          example: RSA_4096
+          type: string
+      required:
+      - allowedValues
+      - defaultValue
       type: object
   securitySchemes:
     scmOAuth:

@@ -820,7 +820,7 @@ paths:
     - url: PATH_TO_CONSOLE
   /api/assets:
     get:
-      operationId: listAssets
+      operationId: getApiAssets
       summary: Palo Alto Networks List Scanned Assets
       description: Returns a paginated list of assets scanned across connected SaaS applications. Assets include files, folders, emails, and other content objects. Supports filtering by application, asset type, and exposure level indicating who can access the asset.
       tags:
@@ -972,6 +972,8 @@ paths:
         dispatcher: FALLBACK
       security:
       - oauth2Bearer: []
+      x-operation-id-source: normalized
+      x-operation-id-original: listAssets
     servers:
     - url: https://api.stratacloud.paloaltonetworks.com/aiops/bpa/v1
       description: AIOps for NGFW BPA API production server.
@@ -1082,6 +1084,12 @@ paths:
       description: AIOps for NGFW BPA API production server.
 components:
   responses:
+    BadRequest:
+      description: Malformed request body or invalid parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     Unauthorized:
       description: Missing or invalid authentication headers.
       content:
@@ -1094,8 +1102,8 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-    BadRequest:
-      description: Malformed request body or invalid parameters.
+    NotFound:
+      description: The requested resource was not found.
       content:
         application/json:
           schema:
@@ -1106,26 +1114,88 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-    NotFound:
-      description: The requested resource was not found.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
   schemas:
-    SortOrder:
+    ExposedService:
       type: object
-      description: Sorting specification for result sets.
+      description: An internet-exposed network service discovered on an asset.
       properties:
-        field:
+        service_id:
           type: string
-          example: example-field
-        keyword:
+          example: '336506'
+        service_name:
+          type: string
+          description: Service name or protocol (e.g., HTTPS, SSH, RDP).
+          example: Corporate Agent 50
+        service_type:
           type: string
           enum:
-          - asc
-          - desc
-          example: asc
+          - APPLICATION_SERVER
+          - CLOUD_STORAGE
+          - DATABASE
+          - NETWORKING
+          - REMOTE_DESKTOP
+          - UNCLASSIFIED
+          - WEB
+          example: NETWORKING
+        ip_address:
+          type: array
+          items:
+            type: string
+          example:
+          - 10.239.5.194
+        domain:
+          type: array
+          items:
+            type: string
+          example:
+          - example-domain_item
+          - example-domain_item
+        port:
+          type: integer
+          description: TCP/UDP port number.
+          example: 278
+        protocol:
+          type: string
+          enum:
+          - TCP
+          - UDP
+          example: TCP
+        provider:
+          type: array
+          items:
+            type: string
+          description: Cloud or hosting providers detected for this service.
+          example:
+          - example-provider_item
+        business_units:
+          type: array
+          items:
+            type: string
+          example:
+          - example-business_units_item
+          - example-business_units_item
+        created:
+          type: integer
+          description: Service first discovery timestamp as Unix epoch milliseconds.
+          example: 966
+        last_observed:
+          type: integer
+          example: 356
+        is_active:
+          type: string
+          enum:
+          - Active
+          - Inactive
+          - Unconfirmed
+          example: Unconfirmed
+        discovery_type:
+          type: string
+          enum:
+          - ColocatedOnIp
+          - DirectlyDiscovered
+          - CSP
+          - CertificateAssociation
+          example: DirectlyDiscovered
     AssetInternetExposureDetail:
       allOf:
       - $ref: '#/components/schemas/AssetInternetExposure'
@@ -1160,6 +1230,71 @@ components:
             type: array
             items:
               type: string
+    ErrorResponse:
+      type: object
+      properties:
+        reply:
+          type: object
+          properties:
+            err_code:
+              type: integer
+              example: 849
+            err_msg:
+              type: string
+              example: example-err_msg
+            err_extra:
+              type: string
+              example: example-err_extra
+          example:
+            err_code: 931
+            err_msg: example-err_msg
+            err_extra: example-err_extra
+    SortOrder:
+      type: object
+      description: Sorting specification for result sets.
+      properties:
+        field:
+          type: string
+          example: example-field
+        keyword:
+          type: string
+          enum:
+          - asc
+          - desc
+          example: asc
+    Filter:
+      type: object
+      description: A filter criterion for querying Xpanse resources.
+      required:
+      - field
+      - operator
+      - value
+      properties:
+        field:
+          type: string
+          description: Field name to filter on.
+          example: example-field
+        operator:
+          type: string
+          enum:
+          - in
+          - contains
+          - gte
+          - lte
+          - eq
+          - neq
+          example: contains
+        value:
+          description: Filter value (string, integer, or array for "in" operator).
+          oneOf:
+          - type: string
+          - type: integer
+          - type: array
+            items:
+              oneOf:
+              - type: string
+              - type: integer
+          example: example-value
     AssetInternetExposure:
       type: object
       description: Summary of an internet-exposed asset discovered by Xpanse.
@@ -1257,90 +1392,41 @@ components:
           type: integer
           description: Most recent observation timestamp as Unix epoch milliseconds.
           example: 958
-    ExposedService:
+    ErrorResponse_2:
       type: object
-      description: An internet-exposed network service discovered on an asset.
       properties:
-        service_id:
-          type: string
-          example: '336506'
-        service_name:
-          type: string
-          description: Service name or protocol (e.g., HTTPS, SSH, RDP).
-          example: Corporate Agent 50
-        service_type:
-          type: string
-          enum:
-          - APPLICATION_SERVER
-          - CLOUD_STORAGE
-          - DATABASE
-          - NETWORKING
-          - REMOTE_DESKTOP
-          - UNCLASSIFIED
-          - WEB
-          example: NETWORKING
-        ip_address:
-          type: array
-          items:
-            type: string
+        reply:
+          type: object
+          properties:
+            err_code:
+              type: integer
+              example: 140
+            err_msg:
+              type: string
+              example: example-err_msg
+            err_extra:
+              type: string
+              example: example-err_extra
           example:
-          - 10.239.5.194
-        domain:
-          type: array
-          items:
-            type: string
-          example:
-          - example-domain_item
-          - example-domain_item
-        port:
-          type: integer
-          description: TCP/UDP port number.
-          example: 278
-        protocol:
-          type: string
-          enum:
-          - TCP
-          - UDP
-          example: TCP
-        provider:
-          type: array
-          items:
-            type: string
-          description: Cloud or hosting providers detected for this service.
-          example:
-          - example-provider_item
-        business_units:
-          type: array
-          items:
-            type: string
-          example:
-          - example-business_units_item
-          - example-business_units_item
-        created:
-          type: integer
-          description: Service first discovery timestamp as Unix epoch milliseconds.
-          example: 966
-        last_observed:
-          type: integer
-          example: 356
-        is_active:
-          type: string
-          enum:
-          - Active
-          - Inactive
-          - Unconfirmed
-          example: Unconfirmed
-        discovery_type:
-          type: string
-          enum:
-          - ColocatedOnIp
-          - DirectlyDiscovered
-          - CSP
-          - CertificateAssociation
-          example: DirectlyDiscovered
-    Filter:
+            err_code: 33
+            err_msg: example-err_msg
+            err_extra: example-err_extra
+    SortOrder_2:
       type: object
-      description: A filter criterion for querying Xpanse resources.
+      description: Sorting specification for result sets.
+      properties:
+        field:
+          type: string
+          example: example-field
+        keyword:
+          type: string
+          enum:
+          - asc
+          - desc
+          example: desc
+    Filter_2:
+      type: object
+      description: A filter criterion for querying XSIAM resources.
       required:
       - field
       - operator
@@ -1359,9 +1445,9 @@ components:
           - lte
           - eq
           - neq
-          example: contains
+          example: eq
         value:
-          description: Filter value (string, integer, or array for "in" operator).
+          description: Filter value (string, integer, or array for the "in" operator).
           oneOf:
           - type: string
           - type: integer
@@ -1371,38 +1457,6 @@ components:
               - type: string
               - type: integer
           example: example-value
-    ErrorResponse:
-      type: object
-      properties:
-        reply:
-          type: object
-          properties:
-            err_code:
-              type: integer
-              example: 849
-            err_msg:
-              type: string
-              example: example-err_msg
-            err_extra:
-              type: string
-              example: example-err_extra
-          example:
-            err_code: 931
-            err_msg: example-err_msg
-            err_extra: example-err_extra
-    SortOrder_2:
-      type: object
-      description: Sorting specification for result sets.
-      properties:
-        field:
-          type: string
-          example: example-field
-        keyword:
-          type: string
-          enum:
-          - asc
-          - desc
-          example: desc
     Asset:
       type: object
       description: An asset tracked in the XSIAM asset inventory.
@@ -1455,58 +1509,16 @@ components:
           example:
           - example-sources_item
           - example-sources_item
-    Filter_2:
+    AssetDigTagDTO:
       type: object
-      description: A filter criterion for querying XSIAM resources.
-      required:
-      - field
-      - operator
-      - value
       properties:
-        field:
+        digTagId:
+          type: integer
+          format: int64
+        key:
           type: string
-          description: Field name to filter on.
-          example: example-field
-        operator:
-          type: string
-          enum:
-          - in
-          - contains
-          - gte
-          - lte
-          - eq
-          - neq
-          example: eq
         value:
-          description: Filter value (string, integer, or array for the "in" operator).
-          oneOf:
-          - type: string
-          - type: integer
-          - type: array
-            items:
-              oneOf:
-              - type: string
-              - type: integer
-          example: example-value
-    ErrorResponse_2:
-      type: object
-      properties:
-        reply:
-          type: object
-          properties:
-            err_code:
-              type: integer
-              example: 140
-            err_msg:
-              type: string
-              example: example-err_msg
-            err_extra:
-              type: string
-              example: example-err_extra
-          example:
-            err_code: 33
-            err_msg: example-err_msg
-            err_extra: example-err_extra
+          type: string
     ClassificationEntityOfficialApiDto:
       type: object
       properties:
@@ -1700,31 +1712,6 @@ components:
             $ref: '#/components/schemas/AssetDigTagDTO'
         id:
           type: string
-    AssetDigTagDTO:
-      type: object
-      properties:
-        digTagId:
-          type: integer
-          format: int64
-        key:
-          type: string
-        value:
-          type: string
-    ErrorResponse_3:
-      type: object
-      properties:
-        error:
-          type: string
-          description: Error code identifying the error type.
-          example: example-error
-        message:
-          type: string
-          description: Human-readable description of the error.
-          example: Configured monitoring network blocked investigation applied activity.
-        request_id:
-          type: string
-          description: Request identifier for support correlation.
-          example: 5cc3d66e-5479-4e15-bd64-849adde3cb60
     Asset_2:
       type: object
       properties:
@@ -1791,6 +1778,21 @@ components:
           type: string
           format: date-time
           example: '2026-10-13T08:39:47Z'
+    ErrorResponse_3:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code identifying the error type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable description of the error.
+          example: Configured monitoring network blocked investigation applied activity.
+        request_id:
+          type: string
+          description: Request identifier for support correlation.
+          example: 5cc3d66e-5479-4e15-bd64-849adde3cb60
     ErrorResponse_4:
       type: object
       properties:

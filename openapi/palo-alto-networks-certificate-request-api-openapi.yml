@@ -222,33 +222,130 @@ paths:
       - Certificate Request
 components:
   schemas:
-    AnyValue4:
-      description: Can be any value - string, number, boolean, array or object.
-    Order:
+    CustomAttributesInformation:
+      description: Represents custom attributes for certificate requests
       properties:
-        direction:
-          description: An ordering direction
-          enum:
-          - ASC
-          - DESC
-          example: DESC
-          type: string
-        field:
-          description: A field, that will be used for ordering
-          example: modificationDate
-          type: string
-      type: object
-    ErrorInformation4:
-      properties:
-        args:
+        dnsNames:
           items:
-            $ref: '#/components/schemas/AnyValue4'
+            type: string
           type: array
-        code:
-          format: int32
+          uniqueItems: true
+        overwriteSans:
+          description: Defines if the csr sans should be overwritten by the custom attributes dns sans
+          type: boolean
+      required:
+      - dnsNames
+      type: object
+    BaseFilter:
+      description: Root expression for filtering
+      oneOf:
+      - $ref: '#/components/schemas/FilterOperands'
+      - $ref: '#/components/schemas/FilterOperand'
+      - $ref: '#/components/schemas/Condition'
+      type: object
+    CertificateRequestDocumentResponse:
+      properties:
+        certificateRequests:
+          description: A collection of certificate request information
+          example:
+          - applicationId: 813700b0-c357-11ed-aea1-99c5a9067cde
+            caOrderId: 3a:5f:7e:9f:8c:e4:b6:f7:25:a7:81:0d:f0:ac:28:ec:fe:05:9b:30
+            certificateIds:
+            - a27dfc10-c357-11ed-946f-7db55f9ae03e
+            - a275beb0-c357-11ed-946f-7db55f9ae03e
+            - a24c16a0-c357-11ed-946f-7db55f9ae03e
+            certificateIssuingTemplateId: 73a22290-c357-11ed-a00c-e3953fcf04eb
+            certificateOwnerUserId: 9bf1e760-b797-11ed-a508-c13aa0641666
+            companyId: 98996d90-b797-11ed-a508-c13aa0641666
+            creationDate: '2023-03-15T17:34:26.466+00:00'
+            id: a1c0c690-c357-11ed-a00c-e3953fcf04eb
+            keyLength: 4096
+            keyType: RSA
+            modificationDate: '2023-03-15T17:34:27.479+00:00'
+            status: ISSUED
+            subjectAlternativeNamesByType:
+              dNSName:
+              - localhost
+            subjectCN: localhost
+            subjectDN: cn=localhost,ou=devops,o=venafi,c=MX,st=Yucatan,l=Merida
+            validityPeriod: P10D
+          items:
+            $ref: '#/components/schemas/CertificateRequestDocumentInformation'
+          type: array
+        numFound:
+          description: The number of certificate requests that were found
+          example: 10
+          format: int64
           type: integer
-        message:
+      type: object
+    CertificateRequestRequest:
+      properties:
+        apiClientInformation:
+          $ref: '#/components/schemas/ApiClientInformation'
+        applicationId:
+          description: Application UUID
+          example: b00701b0-886f-11ed-9f39-3d586ab80cf2
+          format: uuid
           type: string
+        certificateIssuingTemplateId:
+          description: Certificate issuing template UUID
+          example: a305d810-886f-11ed-9ccf-0dbf748eb1ae
+          format: uuid
+          type: string
+        certificateOwnerUserId:
+          description: Certificate owner UUID
+          example: a305d810-886f-11ed-9ccf-0dbf748eb1ae
+          format: uuid
+          type: string
+        certificateSigningRequest:
+          description: A certificate signing request(CSR) in PEM format. Required when reuseCSR and isVaaSGenerated are set to false.
+          type: string
+        certificateUsageMetadata:
+          description: A collection of certificate request metadata
+          example:
+          - appName: venafi app1
+            automationMetadata: automation data 008
+            nodeName: venafi node 007
+          - appName: venafi app2
+            automationMetadata: automation data 0013
+            nodeName: venafi node 005
+          items:
+            $ref: '#/components/schemas/CertificateUsageMetadata'
+          type: array
+        csrAttributes:
+          $ref: '#/components/schemas/CSRAttributesInformation'
+        customAttributes:
+          $ref: '#/components/schemas/CustomAttributesInformation'
+        existingCertificateId:
+          description: Existing certificate UUID. Required when reuseCSR is set to true.
+          example: b505d810-886f-11ed-9ccf-0dbf748eb1ae
+          format: uuid
+          type: string
+        isVaaSGenerated:
+          description: Specify whether VaaS should generate the request.
+          example: true
+          type: boolean
+        reuseCSR:
+          description: Specifies whether an existing CSR is reused
+          example: true
+          type: boolean
+        tags:
+          description: A collection of tags
+          example:
+          - test
+          - category:security
+          items:
+            type: string
+          type: array
+          uniqueItems: true
+        validityPeriod:
+          description: ISO8601 Period Format
+          example: P10M
+          type: string
+      required:
+      - applicationId
+      - certificateIssuingTemplateId
+      - isVaaSGenerated
       type: object
     CertificateRequestInformation2:
       properties:
@@ -411,6 +508,201 @@ components:
           example: P10M
           type: string
       type: object
+    BaseOrdering:
+      description: Specify the ordering of a search result
+      properties:
+        orders:
+          items:
+            $ref: '#/components/schemas/Order'
+          type: array
+      type: object
+    Condition:
+      description: A Condition for filtering
+      properties:
+        field:
+          description: Represents a field for filtering
+          example: certificateName
+          type: string
+        operator:
+          description: An operator for filtering
+          enum:
+          - EQ
+          - LT
+          - LTE
+          - GT
+          - GTE
+          - MATCH
+          - FIND
+          - IN
+          example: EQ
+          type: string
+        value:
+          description: represents a field's value
+          example: venafi.com
+          type: string
+        values:
+          description: represents a field's values
+          example:
+          - venafi.com
+          - www.venafi.com
+          items:
+            type: string
+          type: array
+      type: object
+    FilterOperands:
+      properties:
+        operands:
+          description: A list of conditions that will be used for filtering
+          example:
+          - field: certificateStatus
+            operator: EQ
+            value: ACTIVE
+          - field: certificateName
+            operator: EQ
+            value: venafi.com
+          items:
+            $ref: '#/components/schemas/BaseFilter'
+          type: array
+        operator:
+          description: An operator for filtering
+          enum:
+          - AND
+          - OR
+          example: OR
+          type: string
+      type: object
+    AnyValue4:
+      description: Can be any value - string, number, boolean, array or object.
+    Page1:
+      description: Specify pagination on the search request
+      properties:
+        pageNumber:
+          description: page number
+          example: 0
+          format: int32
+          type: integer
+        pageSize:
+          description: page size
+          example: 10
+          format: int32
+          type: integer
+      type: object
+    Order:
+      properties:
+        direction:
+          description: An ordering direction
+          enum:
+          - ASC
+          - DESC
+          example: DESC
+          type: string
+        field:
+          description: A field, that will be used for ordering
+          example: modificationDate
+          type: string
+      type: object
+    ErrorInformation4:
+      properties:
+        args:
+          items:
+            $ref: '#/components/schemas/AnyValue4'
+          type: array
+        code:
+          format: int32
+          type: integer
+        message:
+          type: string
+      type: object
+    CertificateUsageMetadata:
+      properties:
+        appName:
+          type: string
+        automationMetadata:
+          type: string
+        nodeName:
+          type: string
+      type: object
+    SubjectAlternativeNamesByType:
+      properties:
+        dnsNames:
+          items:
+            type: string
+          type: array
+        ipAddresses:
+          items:
+            type: string
+          type: array
+        rfc822Names:
+          items:
+            type: string
+          type: array
+        uniformResourceIdentifiers:
+          items:
+            type: string
+          type: array
+      type: object
+    FilterOperand:
+      properties:
+        operand:
+          $ref: '#/components/schemas/Condition'
+        operator:
+          description: An operator for filtering
+          enum:
+          - NOT
+          example: NOT
+          type: string
+      type: object
+    CertificateRequestResponse:
+      properties:
+        certificateRequests:
+          description: A collection of certificate information
+          example:
+          - applicationId: 813700b0-c357-11ed-aea1-99c5a9067cde
+            caOrderId: 3a:5f:7e:9f:8c:e4:b6:f7:25:a7:81:0d:f0:ac:28:ec:fe:05:9b:30
+            certificateIds:
+            - a27dfc10-c357-11ed-946f-7db55f9ae03e
+            - a275beb0-c357-11ed-946f-7db55f9ae03e
+            - a24c16a0-c357-11ed-946f-7db55f9ae03e
+            certificateIssuingTemplateId: 73a22290-c357-11ed-a00c-e3953fcf04eb
+            certificateOwnerUserId: 9bf1e760-b797-11ed-a508-c13aa0641666
+            companyId: 98996d90-b797-11ed-a508-c13aa0641666
+            creationDate: '2023-03-15T17:34:26.466+00:00'
+            id: a1c0c690-c357-11ed-a00c-e3953fcf04eb
+            keyLength: 4096
+            keyType: RSA
+            modificationDate: '2023-03-15T17:34:27.479+00:00'
+            status: ISSUED
+            subjectAlternativeNamesByType:
+              dNSName:
+              - localhost
+            subjectCN: localhost
+            subjectDN: cn=localhost,ou=devops,o=venafi,c=MX,st=Yucatan,l=Merida
+            validityPeriod: P10D
+          - applicationId: 813700b0-c357-11ed-aea1-99c5a9067cde
+            caOrderId: 6f:b7:27:c8:2c:bd:1a:b0:6f:43:fb:8a:6b:5b:a3:a6:c2:52:38:85
+            certificateIds:
+            - b767aef0-c357-11ed-946f-7db55f9ae03e
+            - a275beb0-c357-11ed-946f-7db55f9ae03e
+            - a24c16a0-c357-11ed-946f-7db55f9ae03e
+            certificateIssuingTemplateId: 73a22290-c357-11ed-a00c-e3953fcf04eb
+            certificateOwnerUserId: 9bf1e760-b797-11ed-a508-c13aa0641666
+            companyId: 98996d90-b797-11ed-a508-c13aa0641666
+            creationDate: '2023-03-15T17:35:02.384+00:00'
+            id: b7502f50-c357-11ed-a00c-e3953fcf04eb
+            keyLength: 4096
+            keyType: RSA
+            modificationDate: '2023-03-15T17:35:02.544+00:00'
+            status: ISSUED
+            subjectAlternativeNamesByType:
+              dNSName:
+              - venafi.com
+            subjectCN: venafi.com
+            subjectDN: cn=venafi.com,ou=devops,o=venafi,c=MX,st=Yucatan,l=Merida
+            validityPeriod: P12D
+          items:
+            $ref: '#/components/schemas/CertificateRequestInformation2'
+          type: array
+      type: object
     CertificationRequestInformation:
       properties:
         hashAlgorithm:
@@ -488,26 +780,80 @@ components:
           example: cn=www.venafi.com,o=Venafi, Inc.,c=US,st=Utah,l=Salt Lake City
           type: string
       type: object
-    Page1:
-      description: Specify pagination on the search request
+    ApiClientInformation:
+      description: Represents the information of the client that is calling the API
+      example:
+        identifier: 192.168.1.63
+        type: Venafi VCert CLI
       properties:
-        pageNumber:
-          description: page number
-          example: 0
-          format: int32
-          type: integer
-        pageSize:
-          description: page size
-          example: 10
-          format: int32
-          type: integer
+        identifier:
+          description: Client identifier
+          example: 199.121.8.74
+          type: string
+        type:
+          description: Client type
+          example: Venafi VCert CLI
+          type: string
       type: object
-    BaseFilter:
-      description: Root expression for filtering
-      oneOf:
-      - $ref: '#/components/schemas/FilterOperands'
-      - $ref: '#/components/schemas/FilterOperand'
-      - $ref: '#/components/schemas/Condition'
+    KeyTypeParameters2:
+      properties:
+        keyCurve:
+          enum:
+          - P256
+          - P384
+          - P521
+          - ED25519
+          - UNKNOWN
+          type: string
+        keyLength:
+          format: int32
+          type: integer
+        keyType:
+          enum:
+          - RSA
+          - EC
+          type: string
+      required:
+      - keyCurve
+      - keyLength
+      - keyType
+      type: object
+    CSRAttributesInformation:
+      description: Represents CSR attributes for certificate requests. Required when isVaaSGenerated is set to true and reuseCSR to false.
+      example:
+        commonName: localhost
+        country: MX
+        keyTypeParameters:
+          keyCurve: P256
+          keyLength: 4096
+          keyType: RSA
+        locality: Merida
+        organization: venafi
+        organizationalUnits:
+        - devops
+        state: Yucatan
+        subjectAlternativeNamesByType:
+          dnsNames:
+          - localhost
+      properties:
+        commonName:
+          type: string
+        country:
+          type: string
+        keyTypeParameters:
+          $ref: '#/components/schemas/KeyTypeParameters2'
+        locality:
+          type: string
+        organization:
+          type: string
+        organizationalUnits:
+          items:
+            type: string
+          type: array
+        state:
+          type: string
+        subjectAlternativeNamesByType:
+          $ref: '#/components/schemas/SubjectAlternativeNamesByType'
       type: object
     GeneralNamesData2:
       description: A certificate subject alternative name by type
@@ -552,223 +898,6 @@ components:
           items:
             type: string
           type: array
-      type: object
-    CustomAttributesInformation:
-      description: Represents custom attributes for certificate requests
-      properties:
-        dnsNames:
-          items:
-            type: string
-          type: array
-          uniqueItems: true
-        overwriteSans:
-          description: Defines if the csr sans should be overwritten by the custom attributes dns sans
-          type: boolean
-      required:
-      - dnsNames
-      type: object
-    CertificateRequestRequest:
-      properties:
-        apiClientInformation:
-          $ref: '#/components/schemas/ApiClientInformation'
-        applicationId:
-          description: Application UUID
-          example: b00701b0-886f-11ed-9f39-3d586ab80cf2
-          format: uuid
-          type: string
-        certificateIssuingTemplateId:
-          description: Certificate issuing template UUID
-          example: a305d810-886f-11ed-9ccf-0dbf748eb1ae
-          format: uuid
-          type: string
-        certificateOwnerUserId:
-          description: Certificate owner UUID
-          example: a305d810-886f-11ed-9ccf-0dbf748eb1ae
-          format: uuid
-          type: string
-        certificateSigningRequest:
-          description: A certificate signing request(CSR) in PEM format. Required when reuseCSR and isVaaSGenerated are set to false.
-          type: string
-        certificateUsageMetadata:
-          description: A collection of certificate request metadata
-          example:
-          - appName: venafi app1
-            automationMetadata: automation data 008
-            nodeName: venafi node 007
-          - appName: venafi app2
-            automationMetadata: automation data 0013
-            nodeName: venafi node 005
-          items:
-            $ref: '#/components/schemas/CertificateUsageMetadata'
-          type: array
-        csrAttributes:
-          $ref: '#/components/schemas/CSRAttributesInformation'
-        customAttributes:
-          $ref: '#/components/schemas/CustomAttributesInformation'
-        existingCertificateId:
-          description: Existing certificate UUID. Required when reuseCSR is set to true.
-          example: b505d810-886f-11ed-9ccf-0dbf748eb1ae
-          format: uuid
-          type: string
-        isVaaSGenerated:
-          description: Specify whether VaaS should generate the request.
-          example: true
-          type: boolean
-        reuseCSR:
-          description: Specifies whether an existing CSR is reused
-          example: true
-          type: boolean
-        tags:
-          description: A collection of tags
-          example:
-          - test
-          - category:security
-          items:
-            type: string
-          type: array
-          uniqueItems: true
-        validityPeriod:
-          description: ISO8601 Period Format
-          example: P10M
-          type: string
-      required:
-      - applicationId
-      - certificateIssuingTemplateId
-      - isVaaSGenerated
-      type: object
-    CSRAttributesInformation:
-      description: Represents CSR attributes for certificate requests. Required when isVaaSGenerated is set to true and reuseCSR to false.
-      example:
-        commonName: localhost
-        country: MX
-        keyTypeParameters:
-          keyCurve: P256
-          keyLength: 4096
-          keyType: RSA
-        locality: Merida
-        organization: venafi
-        organizationalUnits:
-        - devops
-        state: Yucatan
-        subjectAlternativeNamesByType:
-          dnsNames:
-          - localhost
-      properties:
-        commonName:
-          type: string
-        country:
-          type: string
-        keyTypeParameters:
-          $ref: '#/components/schemas/KeyTypeParameters2'
-        locality:
-          type: string
-        organization:
-          type: string
-        organizationalUnits:
-          items:
-            type: string
-          type: array
-        state:
-          type: string
-        subjectAlternativeNamesByType:
-          $ref: '#/components/schemas/SubjectAlternativeNamesByType'
-      type: object
-    FilterOperands:
-      properties:
-        operands:
-          description: A list of conditions that will be used for filtering
-          example:
-          - field: certificateStatus
-            operator: EQ
-            value: ACTIVE
-          - field: certificateName
-            operator: EQ
-            value: venafi.com
-          items:
-            $ref: '#/components/schemas/BaseFilter'
-          type: array
-        operator:
-          description: An operator for filtering
-          enum:
-          - AND
-          - OR
-          example: OR
-          type: string
-      type: object
-    CertificateRequestResponse:
-      properties:
-        certificateRequests:
-          description: A collection of certificate information
-          example:
-          - applicationId: 813700b0-c357-11ed-aea1-99c5a9067cde
-            caOrderId: 3a:5f:7e:9f:8c:e4:b6:f7:25:a7:81:0d:f0:ac:28:ec:fe:05:9b:30
-            certificateIds:
-            - a27dfc10-c357-11ed-946f-7db55f9ae03e
-            - a275beb0-c357-11ed-946f-7db55f9ae03e
-            - a24c16a0-c357-11ed-946f-7db55f9ae03e
-            certificateIssuingTemplateId: 73a22290-c357-11ed-a00c-e3953fcf04eb
-            certificateOwnerUserId: 9bf1e760-b797-11ed-a508-c13aa0641666
-            companyId: 98996d90-b797-11ed-a508-c13aa0641666
-            creationDate: '2023-03-15T17:34:26.466+00:00'
-            id: a1c0c690-c357-11ed-a00c-e3953fcf04eb
-            keyLength: 4096
-            keyType: RSA
-            modificationDate: '2023-03-15T17:34:27.479+00:00'
-            status: ISSUED
-            subjectAlternativeNamesByType:
-              dNSName:
-              - localhost
-            subjectCN: localhost
-            subjectDN: cn=localhost,ou=devops,o=venafi,c=MX,st=Yucatan,l=Merida
-            validityPeriod: P10D
-          - applicationId: 813700b0-c357-11ed-aea1-99c5a9067cde
-            caOrderId: 6f:b7:27:c8:2c:bd:1a:b0:6f:43:fb:8a:6b:5b:a3:a6:c2:52:38:85
-            certificateIds:
-            - b767aef0-c357-11ed-946f-7db55f9ae03e
-            - a275beb0-c357-11ed-946f-7db55f9ae03e
-            - a24c16a0-c357-11ed-946f-7db55f9ae03e
-            certificateIssuingTemplateId: 73a22290-c357-11ed-a00c-e3953fcf04eb
-            certificateOwnerUserId: 9bf1e760-b797-11ed-a508-c13aa0641666
-            companyId: 98996d90-b797-11ed-a508-c13aa0641666
-            creationDate: '2023-03-15T17:35:02.384+00:00'
-            id: b7502f50-c357-11ed-a00c-e3953fcf04eb
-            keyLength: 4096
-            keyType: RSA
-            modificationDate: '2023-03-15T17:35:02.544+00:00'
-            status: ISSUED
-            subjectAlternativeNamesByType:
-              dNSName:
-              - venafi.com
-            subjectCN: venafi.com
-            subjectDN: cn=venafi.com,ou=devops,o=venafi,c=MX,st=Yucatan,l=Merida
-            validityPeriod: P12D
-          items:
-            $ref: '#/components/schemas/CertificateRequestInformation2'
-          type: array
-      type: object
-    Filter:
-      properties:
-        expression:
-          $ref: '#/components/schemas/BaseFilter'
-        ordering:
-          $ref: '#/components/schemas/BaseOrdering'
-        paging:
-          $ref: '#/components/schemas/Page1'
-      type: object
-    ApiClientInformation:
-      description: Represents the information of the client that is calling the API
-      example:
-        identifier: 192.168.1.63
-        type: Venafi VCert CLI
-      properties:
-        identifier:
-          description: Client identifier
-          example: 199.121.8.74
-          type: string
-        type:
-          description: Client type
-          example: Venafi VCert CLI
-          type: string
       type: object
     CertificateRequestDocumentInformation:
       properties:
@@ -914,116 +1043,6 @@ components:
           example: P10M
           type: string
       type: object
-    KeyTypeParameters2:
-      properties:
-        keyCurve:
-          enum:
-          - P256
-          - P384
-          - P521
-          - ED25519
-          - UNKNOWN
-          type: string
-        keyLength:
-          format: int32
-          type: integer
-        keyType:
-          enum:
-          - RSA
-          - EC
-          type: string
-      required:
-      - keyCurve
-      - keyLength
-      - keyType
-      type: object
-    Condition:
-      description: A Condition for filtering
-      properties:
-        field:
-          description: Represents a field for filtering
-          example: certificateName
-          type: string
-        operator:
-          description: An operator for filtering
-          enum:
-          - EQ
-          - LT
-          - LTE
-          - GT
-          - GTE
-          - MATCH
-          - FIND
-          - IN
-          example: EQ
-          type: string
-        value:
-          description: represents a field's value
-          example: venafi.com
-          type: string
-        values:
-          description: represents a field's values
-          example:
-          - venafi.com
-          - www.venafi.com
-          items:
-            type: string
-          type: array
-      type: object
-    BaseOrdering:
-      description: Specify the ordering of a search result
-      properties:
-        orders:
-          items:
-            $ref: '#/components/schemas/Order'
-          type: array
-      type: object
-    SubjectAlternativeNamesByType:
-      properties:
-        dnsNames:
-          items:
-            type: string
-          type: array
-        ipAddresses:
-          items:
-            type: string
-          type: array
-        rfc822Names:
-          items:
-            type: string
-          type: array
-        uniformResourceIdentifiers:
-          items:
-            type: string
-          type: array
-      type: object
-    CertificateUsageMetadata:
-      properties:
-        appName:
-          type: string
-        automationMetadata:
-          type: string
-        nodeName:
-          type: string
-      type: object
-    ErrorResponse4:
-      properties:
-        errors:
-          items:
-            $ref: '#/components/schemas/ErrorInformation4'
-          type: array
-      type: object
-    FilterOperand:
-      properties:
-        operand:
-          $ref: '#/components/schemas/Condition'
-        operator:
-          description: An operator for filtering
-          enum:
-          - NOT
-          example: NOT
-          type: string
-      type: object
     CertificateRequestResubmissionRequest:
       properties:
         certificateIssuingTemplateId:
@@ -1053,41 +1072,6 @@ components:
           example: P10M
           type: string
       type: object
-    CertificateRequestDocumentResponse:
-      properties:
-        certificateRequests:
-          description: A collection of certificate request information
-          example:
-          - applicationId: 813700b0-c357-11ed-aea1-99c5a9067cde
-            caOrderId: 3a:5f:7e:9f:8c:e4:b6:f7:25:a7:81:0d:f0:ac:28:ec:fe:05:9b:30
-            certificateIds:
-            - a27dfc10-c357-11ed-946f-7db55f9ae03e
-            - a275beb0-c357-11ed-946f-7db55f9ae03e
-            - a24c16a0-c357-11ed-946f-7db55f9ae03e
-            certificateIssuingTemplateId: 73a22290-c357-11ed-a00c-e3953fcf04eb
-            certificateOwnerUserId: 9bf1e760-b797-11ed-a508-c13aa0641666
-            companyId: 98996d90-b797-11ed-a508-c13aa0641666
-            creationDate: '2023-03-15T17:34:26.466+00:00'
-            id: a1c0c690-c357-11ed-a00c-e3953fcf04eb
-            keyLength: 4096
-            keyType: RSA
-            modificationDate: '2023-03-15T17:34:27.479+00:00'
-            status: ISSUED
-            subjectAlternativeNamesByType:
-              dNSName:
-              - localhost
-            subjectCN: localhost
-            subjectDN: cn=localhost,ou=devops,o=venafi,c=MX,st=Yucatan,l=Merida
-            validityPeriod: P10D
-          items:
-            $ref: '#/components/schemas/CertificateRequestDocumentInformation'
-          type: array
-        numFound:
-          description: The number of certificate requests that were found
-          example: 10
-          format: int64
-          type: integer
-      type: object
     CustomAttributes2:
       description: Certificate request custom attributes
       example:
@@ -1102,6 +1086,22 @@ components:
           uniqueItems: true
         overwriteSans:
           type: boolean
+      type: object
+    Filter:
+      properties:
+        expression:
+          $ref: '#/components/schemas/BaseFilter'
+        ordering:
+          $ref: '#/components/schemas/BaseOrdering'
+        paging:
+          $ref: '#/components/schemas/Page1'
+      type: object
+    ErrorResponse4:
+      properties:
+        errors:
+          items:
+            $ref: '#/components/schemas/ErrorInformation4'
+          type: array
       type: object
   securitySchemes:
     scmOAuth:

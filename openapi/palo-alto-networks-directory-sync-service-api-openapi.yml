@@ -502,19 +502,43 @@ paths:
     servers:
     - url: https://api.sase.paloaltonetworks.com
 components:
+  responses:
+    400_bad_request:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              statusCode:
+                type: integer
+                example: 400
+              error:
+                type: string
+                example: Bad Request
+              message:
+                type: string
+                example: Required field is missing or invalid.
+    500_internal_error:
+      description: Internal service error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              result:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      error-message:
+                        type: string
+                        example: Internal Server Error
   schemas:
-    pagination_params:
-      type: object
-      description: Optional pagination parameters.
-      properties:
-        pageNum:
-          type: integer
-          description: Page number to retrieve (starting from page 1).
-          example: 1
-        pageSz:
-          type: integer
-          description: Number of records per page (max is 1000 per page).
-          example: 500
     attr_based_filter:
       type: object
       description: Attribute-based filter.
@@ -545,6 +569,65 @@ components:
           - equal
           - textSearch
           example: equal
+    check_user_in_particular_group:
+      description: Check if a specific group has a particular user in it, filtered using attribute-based filter (to filter the group) and group-based filter (to filter the user)
+      allOf:
+      - $ref: '#/components/schemas/list_all_groups_in_domain'
+      required:
+      - name
+      - filter
+      properties:
+        name:
+          $ref: '#/components/schemas/attr_based_filter'
+        filter:
+          type: object
+          required:
+          - type
+          - name
+          properties:
+            type:
+              type: string
+              enum:
+              - user
+              example: user
+            name:
+              $ref: '#/components/schemas/attr_based_filter'
+            attrs:
+              type: array
+              description: group attributes part of the response
+              items:
+                type: string
+              example:
+              - Common-Name
+              - Unique Identifier
+              - Name
+              - Distinguished Name
+              - SAM Account Name
+          example:
+            type: user
+            name:
+              attrName: Distinguished Name
+              attrValue: CN=Jack,UID=Park,DC=example,DC=com
+              match: equal
+            attrs:
+            - Common-Name
+            - Unique Identifier
+            - Name
+            - Distinguished Name
+            - SAM Account Name
+      example:
+        domain: paloaltonetworks.com
+        filter:
+          type: group
+          name:
+            attrName: Common-Name
+            attrValue: Admins
+            match: equal
+          level: recursive
+        name:
+          attrName: User Principal Name
+          attrValue: carol@paloaltonetworks.com
+          match: equal
     list_users_in_particular_group:
       description: Retrieve specific attributes for users belonging to a particular group, filtered using the group-based filter.
       allOf:
@@ -587,6 +670,68 @@ components:
         - Name
         - Distinguished Name
         - SAM Account Name
+    list_specific_groups:
+      description: Retrieve specific groups matching a name-based filter. Supports filtering of groups based on specific attributes and values (similar to the WHERE clause in SQL).
+      allOf:
+      - $ref: '#/components/schemas/list_all_groups_in_domain'
+      required:
+      - name
+      properties:
+        name:
+          $ref: '#/components/schemas/attr_based_filter'
+        attrs:
+          type: array
+          items:
+            type: string
+          description: group attributes part of the response
+          example:
+          - Common-Name
+          - Unique Identifier
+          - Name
+          - Distinguished Name
+          - SAM Account Name
+      example:
+        domain: paloaltonetworks.com
+        name:
+          attrName: Common-Name
+          enum:
+          - User Principal Name
+          - Common-Name
+          - Name
+          - Distinguished Name
+          - SAM Account Name
+          - Unique Identifier
+          attrValue: admins
+          match: equal
+        attrs:
+        - Common-Name
+        - Unique Identifier
+        - Name
+        - Distinguished Name
+        - SAM Account Name
+        useNormalizedAttrs: 'False'
+    check_group_membership:
+      description: Check if a specific user belongs to a particular group, filtered using attribute-based filter (to filter the user) and group-based filter (to filter the group)
+      allOf:
+      - $ref: '#/components/schemas/list_users_in_particular_group'
+      required:
+      - name
+      properties:
+        name:
+          $ref: '#/components/schemas/attr_based_filter'
+      example:
+        domain: paloaltonetworks.com
+        filter:
+          type: group
+          name:
+            attrName: Common-Name
+            attrValue: Admins
+            match: equal
+          level: recursive
+        name:
+          attrName: User Principal Name
+          attrValue: carol@paloaltonetworks.com
+          match: equal
     group_filter:
       type: object
       description: Group-based filter.
@@ -608,16 +753,92 @@ components:
           - immediate
           - recursive
           example: immediate
-    domain_param:
-      type: object
-      description: Domain name for a specific directory.
-      required:
-      - domain
+    list_all_users_in_domain:
+      description: Retrieve all users in a domain.
+      allOf:
+      - $ref: '#/components/schemas/domain_param'
+      - $ref: '#/components/schemas/pagination_params'
       properties:
-        domain:
+        attrs:
+          type: array
+          description: User attributes included as part of the response.
+          items:
+            type: string
+          example:
+          - Common-Name
+          - Mail
+          - Unique Identifier
+          - Manager
+          - User Principal Name
+          - Name
+          - Distinguished Name
+          - SAM Account Name
+        useNormalizedAttrs:
           type: string
-          description: Domain name of the target directory.
-          example: paloaltonetworks.com
+          enum:
+          - 'True'
+          - 'False'
+          example: 'True'
+      example:
+        domain: paloaltonetworks.com
+        attrs:
+        - Common-Name
+        - Unique Identifier
+        - Name
+        - Distinguished Name
+        - SAM Account Name
+        - Department
+        - Last Login
+        - LastLogonTime
+        - Location
+        - Mail
+        - Manager
+        - Title
+        - User Principal Name
+        - UserAccountControl
+        - WhenChanged
+        useNormalizedAttrs: 'True'
+    list_all_groups_in_domain:
+      description: Retrieve all groups in a particular domain.
+      allOf:
+      - $ref: '#/components/schemas/domain_param'
+      - $ref: '#/components/schemas/pagination_params'
+      required:
+      - attrs
+      properties:
+        attrs:
+          type: array
+          items:
+            type: string
+          description: Group attributes included as part of the response.
+          example:
+          - Common-Name
+          - Unique Identifier
+          - Name
+          - Distinguished Name
+          - SAM Account Name
+        useNormalizedAttrs:
+          type: string
+          enum:
+          - 'True'
+          - 'False'
+          example: 'False'
+      example:
+        domain: paloaltonetworks.com
+        pageNum: 1,
+        pageSz: 80
+    pagination_params:
+      type: object
+      description: Optional pagination parameters.
+      properties:
+        pageNum:
+          type: integer
+          description: Page number to retrieve (starting from page 1).
+          example: 1
+        pageSz:
+          type: integer
+          description: Number of records per page (max is 1000 per page).
+          example: 500
     list_groups_user_belongs_to:
       description: Retrieve all groups containing specific users based on user-filter.
       allOf:
@@ -693,28 +914,16 @@ components:
         - User Principal Name
         - UserAccountControl
         - WhenChanged
-    check_group_membership:
-      description: Check if a specific user belongs to a particular group, filtered using attribute-based filter (to filter the user) and group-based filter (to filter the group)
-      allOf:
-      - $ref: '#/components/schemas/list_users_in_particular_group'
+    domain_param:
+      type: object
+      description: Domain name for a specific directory.
       required:
-      - name
+      - domain
       properties:
-        name:
-          $ref: '#/components/schemas/attr_based_filter'
-      example:
-        domain: paloaltonetworks.com
-        filter:
-          type: group
-          name:
-            attrName: Common-Name
-            attrValue: Admins
-            match: equal
-          level: recursive
-        name:
-          attrName: User Principal Name
-          attrValue: carol@paloaltonetworks.com
-          match: equal
+        domain:
+          type: string
+          description: Domain name of the target directory.
+          example: paloaltonetworks.com
     list_specific_users:
       description: Retrieve specific users matching a name-based filter in a domain. Supports filtering of users based on specific attributes and values (similar to the WHERE clause in SQL).
       allOf:
@@ -786,10 +995,10 @@ components:
         - Distinguished Name
         - SAM Account Name
         useNormalizedAttrs: 'True'
-    check_user_in_particular_group:
+    check_user_in_particular_group_2:
       description: Check if a specific group has a particular user in it, filtered using attribute-based filter (to filter the group) and group-based filter (to filter the user)
       allOf:
-      - $ref: '#/components/schemas/list_all_groups_in_domain'
+      - $ref: '#/components/schemas/list_all_groups_in_domain_2'
       required:
       - name
       - filter
@@ -806,7 +1015,6 @@ components:
               type: string
               enum:
               - user
-              example: user
             name:
               $ref: '#/components/schemas/attr_based_filter'
             attrs:
@@ -820,18 +1028,6 @@ components:
               - Name
               - Distinguished Name
               - SAM Account Name
-          example:
-            type: user
-            name:
-              attrName: Distinguished Name
-              attrValue: CN=Jack,UID=Park,DC=example,DC=com
-              match: equal
-            attrs:
-            - Common-Name
-            - Unique Identifier
-            - Name
-            - Distinguished Name
-            - SAM Account Name
       example:
         domain: paloaltonetworks.com
         filter:
@@ -845,132 +1041,6 @@ components:
           attrName: User Principal Name
           attrValue: carol@paloaltonetworks.com
           match: equal
-    list_specific_groups:
-      description: Retrieve specific groups matching a name-based filter. Supports filtering of groups based on specific attributes and values (similar to the WHERE clause in SQL).
-      allOf:
-      - $ref: '#/components/schemas/list_all_groups_in_domain'
-      required:
-      - name
-      properties:
-        name:
-          $ref: '#/components/schemas/attr_based_filter'
-        attrs:
-          type: array
-          items:
-            type: string
-          description: group attributes part of the response
-          example:
-          - Common-Name
-          - Unique Identifier
-          - Name
-          - Distinguished Name
-          - SAM Account Name
-      example:
-        domain: paloaltonetworks.com
-        name:
-          attrName: Common-Name
-          enum:
-          - User Principal Name
-          - Common-Name
-          - Name
-          - Distinguished Name
-          - SAM Account Name
-          - Unique Identifier
-          attrValue: admins
-          match: equal
-        attrs:
-        - Common-Name
-        - Unique Identifier
-        - Name
-        - Distinguished Name
-        - SAM Account Name
-        useNormalizedAttrs: 'False'
-    list_all_users_in_domain:
-      description: Retrieve all users in a domain.
-      allOf:
-      - $ref: '#/components/schemas/domain_param'
-      - $ref: '#/components/schemas/pagination_params'
-      properties:
-        attrs:
-          type: array
-          description: User attributes included as part of the response.
-          items:
-            type: string
-          example:
-          - Common-Name
-          - Mail
-          - Unique Identifier
-          - Manager
-          - User Principal Name
-          - Name
-          - Distinguished Name
-          - SAM Account Name
-        useNormalizedAttrs:
-          type: string
-          enum:
-          - 'True'
-          - 'False'
-          example: 'True'
-      example:
-        domain: paloaltonetworks.com
-        attrs:
-        - Common-Name
-        - Unique Identifier
-        - Name
-        - Distinguished Name
-        - SAM Account Name
-        - Department
-        - Last Login
-        - LastLogonTime
-        - Location
-        - Mail
-        - Manager
-        - Title
-        - User Principal Name
-        - UserAccountControl
-        - WhenChanged
-        useNormalizedAttrs: 'True'
-    list_all_groups_in_domain:
-      description: Retrieve all groups in a particular domain.
-      allOf:
-      - $ref: '#/components/schemas/domain_param'
-      - $ref: '#/components/schemas/pagination_params'
-      required:
-      - attrs
-      properties:
-        attrs:
-          type: array
-          items:
-            type: string
-          description: Group attributes included as part of the response.
-          example:
-          - Common-Name
-          - Unique Identifier
-          - Name
-          - Distinguished Name
-          - SAM Account Name
-        useNormalizedAttrs:
-          type: string
-          enum:
-          - 'True'
-          - 'False'
-          example: 'False'
-      example:
-        domain: paloaltonetworks.com
-        pageNum: 1,
-        pageSz: 80
-    pagination_params_2:
-      type: object
-      description: Optional pagination parameters.
-      properties:
-        pageNum:
-          type: integer
-          description: Page number to retrieve (starting from page-1).
-          example: 1
-        pageSz:
-          type: integer
-          description: Number of records per page (max is 1000 per page).
-          example: 500
     group_filter_2:
       type: object
       description: Group-based filter.
@@ -990,6 +1060,46 @@ components:
           enum:
           - immediate
           - recursive
+    list_all_groups_in_domain_2:
+      description: Retrieve all groups in a particular domain.
+      allOf:
+      - $ref: '#/components/schemas/domain_param'
+      - $ref: '#/components/schemas/pagination_params_2'
+      required:
+      - attrs
+      properties:
+        attrs:
+          type: array
+          items:
+            type: string
+          description: Group attributes included as part of the response.
+          example:
+          - Common-Name
+          - Unique Identifier
+          - Name
+          - Distinguished Name
+          - SAM Account Name
+        useNormalizedAttrs:
+          type: string
+          enum:
+          - 'True'
+          - 'False'
+      example:
+        domain: paloaltonetworks.com
+        pageNum: 1,
+        pageSz: 80
+    pagination_params_2:
+      type: object
+      description: Optional pagination parameters.
+      properties:
+        pageNum:
+          type: integer
+          description: Page number to retrieve (starting from page-1).
+          example: 1
+        pageSz:
+          type: integer
+          description: Number of records per page (max is 1000 per page).
+          example: 500
     list_groups_user_belongs_to_2:
       description: Retrieve all groups containing specific users based on user-filter.
       allOf:
@@ -1052,116 +1162,6 @@ components:
         - User Principal Name
         - UserAccountControl
         - WhenChanged
-    check_user_in_particular_group_2:
-      description: Check if a specific group has a particular user in it, filtered using attribute-based filter (to filter the group) and group-based filter (to filter the user)
-      allOf:
-      - $ref: '#/components/schemas/list_all_groups_in_domain_2'
-      required:
-      - name
-      - filter
-      properties:
-        name:
-          $ref: '#/components/schemas/attr_based_filter'
-        filter:
-          type: object
-          required:
-          - type
-          - name
-          properties:
-            type:
-              type: string
-              enum:
-              - user
-            name:
-              $ref: '#/components/schemas/attr_based_filter'
-            attrs:
-              type: array
-              description: group attributes part of the response
-              items:
-                type: string
-              example:
-              - Common-Name
-              - Unique Identifier
-              - Name
-              - Distinguished Name
-              - SAM Account Name
-      example:
-        domain: paloaltonetworks.com
-        filter:
-          type: group
-          name:
-            attrName: Common-Name
-            attrValue: Admins
-            match: equal
-          level: recursive
-        name:
-          attrName: User Principal Name
-          attrValue: carol@paloaltonetworks.com
-          match: equal
-    list_all_groups_in_domain_2:
-      description: Retrieve all groups in a particular domain.
-      allOf:
-      - $ref: '#/components/schemas/domain_param'
-      - $ref: '#/components/schemas/pagination_params_2'
-      required:
-      - attrs
-      properties:
-        attrs:
-          type: array
-          items:
-            type: string
-          description: Group attributes included as part of the response.
-          example:
-          - Common-Name
-          - Unique Identifier
-          - Name
-          - Distinguished Name
-          - SAM Account Name
-        useNormalizedAttrs:
-          type: string
-          enum:
-          - 'True'
-          - 'False'
-      example:
-        domain: paloaltonetworks.com
-        pageNum: 1,
-        pageSz: 80
-  responses:
-    400_bad_request:
-      description: Invalid request parameters
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              statusCode:
-                type: integer
-                example: 400
-              error:
-                type: string
-                example: Bad Request
-              message:
-                type: string
-                example: Required field is missing or invalid.
-    500_internal_error:
-      description: Internal service error
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              success:
-                type: boolean
-                example: false
-              result:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      error-message:
-                        type: string
-                        example: Internal Server Error
 x-refined-from:
 - palo-alto-cloud-identity-engine-api-openapi-original.yml
 - palo-alto-scm-config-ciedss-cie-dss-r2-openapi.yaml

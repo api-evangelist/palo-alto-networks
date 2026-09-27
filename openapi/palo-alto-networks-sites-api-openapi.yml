@@ -452,7 +452,7 @@ paths:
         2. `site-group` - Filter by site group name
 
         3. `status` - Filter by claim status (applied after other filters)'
-      operationId: listSites
+      operationId: getSites
       parameters:
       - name: name
         in: query
@@ -513,6 +513,8 @@ paths:
           $ref: '#/components/responses/InternalServerError_2'
       security:
       - scmToken: []
+      x-operation-id-source: normalized
+      x-operation-id-original: listSites
     servers:
     - url: https://api.strata.paloaltonetworks.com/config/setup/device-onboarding/v1
       description: Current
@@ -657,6 +659,12 @@ paths:
       description: Current
 components:
   responses:
+    BadRequest:
+      description: Invalid request parameters or body.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     Unauthorized:
       description: Missing or invalid OAuth2 access token.
       content:
@@ -669,8 +677,8 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-    BadRequest:
-      description: Invalid request parameters or body.
+    NotFound:
+      description: The requested resource was not found.
       content:
         application/json:
           schema:
@@ -681,29 +689,6 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-    NotFound:
-      description: The requested resource was not found.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    InternalServerError_2:
-      description: Internal Server Error
-      content:
-        application/json:
-          schema:
-            type: object
-            required:
-            - status
-            - error
-            properties:
-              status:
-                type: string
-                enum:
-                - error
-              error:
-                type: string
-                description: Error message
     Conflict:
       description: Conflict
       content:
@@ -746,6 +731,23 @@ components:
               error:
                 type: string
                 description: Error message
+    InternalServerError_2:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - status
+            - error
+            properties:
+              status:
+                type: string
+                enum:
+                - error
+              error:
+                type: string
+                description: Error message
     NotFound_2:
       description: Not Found
       content:
@@ -763,21 +765,17 @@ components:
               error:
                 type: string
                 description: Error message
-    bad_request_errors_basic:
-      description: Bad Request
+    http_ok:
+      description: OK
+    not_found:
+      description: Not Found
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/generic_error'
           examples:
-            input_format_mismatch:
-              $ref: '#/components/examples/json_400_panui_restapi_input_format_mismatch'
-            output_format_mismatch:
-              $ref: '#/components/examples/json_400_panui_restapi_output_format_mismatch'
-            missing_query_parameter:
-              $ref: '#/components/examples/json_400_panui_restapi_missing_query_parameter'
-            invalid_query_parameter:
-              $ref: '#/components/examples/json_400_panui_restapi_invalid_query_parameter'
+            object_not_present:
+              $ref: '#/components/examples/json_404_panui_mgmt_object_not_present'
     bad_request_errors_basic_with_body:
       description: Bad Request
       content:
@@ -797,6 +795,21 @@ components:
               $ref: '#/components/examples/json_400_panui_restapi_missing_body'
             invalid_object:
               $ref: '#/components/examples/json_400_panui_mgmt_invalid_object'
+    bad_request_errors_basic:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/generic_error'
+          examples:
+            input_format_mismatch:
+              $ref: '#/components/examples/json_400_panui_restapi_input_format_mismatch'
+            output_format_mismatch:
+              $ref: '#/components/examples/json_400_panui_restapi_output_format_mismatch'
+            missing_query_parameter:
+              $ref: '#/components/examples/json_400_panui_restapi_missing_query_parameter'
+            invalid_query_parameter:
+              $ref: '#/components/examples/json_400_panui_restapi_invalid_query_parameter'
     conflict_errors:
       description: Conflict
       content:
@@ -810,43 +823,6 @@ components:
               $ref: '#/components/examples/json_409_panui_mgmt_name_not_unique'
             reference_not_zero:
               $ref: '#/components/examples/json_409_panui_mgmt_reference_not_zero'
-    http_ok:
-      description: OK
-    access_errors:
-      description: Forbidden
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/generic_error'
-          examples:
-            auth_unauthorized:
-              $ref: '#/components/examples/json_403_panui_auth_unauthorized'
-    auth_errors:
-      description: Unauthorized
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/generic_error'
-          examples:
-            auth_not_authenticated:
-              $ref: '#/components/examples/json_401_panui_auth_not_authenticated'
-            invalid_credential:
-              $ref: '#/components/examples/json_401_panui_auth_invalid_credential'
-            key_too_long:
-              $ref: '#/components/examples/json_401_panui_auth_key_too_long'
-            key_expired:
-              $ref: '#/components/examples/json_401_panui_auth_key_expired'
-            need_password_change:
-              $ref: '#/components/examples/json_401_panui_auth_need_password_change'
-    not_found:
-      description: Not Found
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/generic_error'
-          examples:
-            object_not_present:
-              $ref: '#/components/examples/json_404_panui_mgmt_object_not_present'
     default_errors:
       description: General Errors
       content:
@@ -868,6 +844,32 @@ components:
               $ref: '#/components/examples/json_400_panui_mgmt_malformed_command'
             session_timeout:
               $ref: '#/components/examples/json_504_panui_mgmt_session_timeout'
+    auth_errors:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/generic_error'
+          examples:
+            auth_not_authenticated:
+              $ref: '#/components/examples/json_401_panui_auth_not_authenticated'
+            invalid_credential:
+              $ref: '#/components/examples/json_401_panui_auth_invalid_credential'
+            key_too_long:
+              $ref: '#/components/examples/json_401_panui_auth_key_too_long'
+            key_expired:
+              $ref: '#/components/examples/json_401_panui_auth_key_expired'
+            need_password_change:
+              $ref: '#/components/examples/json_401_panui_auth_need_password_change'
+    access_errors:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/generic_error'
+          examples:
+            auth_unauthorized:
+              $ref: '#/components/examples/json_403_panui_auth_unauthorized'
   schemas:
     Site:
       type: object
@@ -980,31 +982,171 @@ components:
             message: Traffic activity blocked incident activity alert rule alert firewall incident.
           - code: example-code
             message: Traffic policy on violation blocked Security investigation blocked rule on malware network.
-    create_sites_request:
+    resolved_variable:
       type: object
       required:
-      - sites
+      - name
+      - type
+      - value
       properties:
-        sites:
+        name:
+          type: string
+          description: Variable name
+        type:
+          type: string
+          description: Variable type
+        value:
+          description: Resolved value (type varies)
+    update_site_request:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        site_group:
+          type: string
+        property_values:
+          type: object
+          additionalProperties: true
+    resource_validation_error:
+      type: object
+      required:
+      - type
+      - resource_id
+      - resource_name
+      - message
+      properties:
+        type:
+          type: string
+          enum:
+          - site
+          - rule
+          - name_conflict
+          description: Type of validation error
+        resource_id:
+          type: string
+          description: ID of the affected resource
+        resource_name:
+          type: string
+          description: Name of the affected resource
+        message:
+          type: string
+          description: Detailed error message
+    resolved_onboarding_rule:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        enabled:
+          type: boolean
+        rule_type:
+          type: string
+        site_group:
+          type: string
+        match_criteria:
+          type: object
+          additionalProperties: true
+        actions:
+          type: object
+          additionalProperties: true
+        variables:
           type: array
-          minItems: 1
           items:
-            type: object
-            required:
-            - name
-            - site_group
-            properties:
-              name:
-                type: string
-                maxLength: 255
-              site_group:
-                type: string
-              address:
-                type: string
-                description: Physical address of the site
-              property_values:
-                type: object
-                additionalProperties: true
+            $ref: '#/components/schemas/variable'
+          description: Original variables with resolution expression
+        resolved_variables:
+          type: array
+          items:
+            $ref: '#/components/schemas/resolved_variable'
+          description: Variables resolved to their actual values
+        resolution_errors:
+          type: array
+          items:
+            type: string
+          description: Errors encountered during variable resolution
+        generated_at:
+          type: string
+    resolution_rule:
+      type: object
+      required:
+      - expression
+      properties:
+        expression:
+          type: string
+          description: Expression to resolve the variable (can reference properties with ${property_name})
+    claim_with_resolved_history:
+      type: object
+      properties:
+        claim:
+          $ref: '#/components/schemas/claim'
+        resolution_rule:
+          $ref: '#/components/schemas/resolved_onboarding_rule'
+    claim:
+      type: object
+      required:
+      - id
+      - tenant_id
+      - site_id
+      - serial_number
+      - device_role
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+        site_id:
+          type: string
+          format: uuid
+        serial_number:
+          type: string
+          description: Device serial number
+        device_role:
+          type: string
+          enum:
+          - standalone
+          - primary
+          - secondary
+          description: Device role in HA configuration
+        onboarding_rule_id:
+          type: string
+          format: uuid
+        claimed_by:
+          type: string
+          description: User or service that claimed the device
+        claimed_at:
+          type: string
+          format: date-time
+    resource_validation_result:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Resource UUID
+        name:
+          type: string
+          description: Resource name
+        validation_errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/resource_validation_error'
+    site_with_claims:
+      type: object
+      properties:
+        site:
+          $ref: '#/components/schemas/site'
+        claims:
+          type: array
+          items:
+            $ref: '#/components/schemas/claim_with_resolved_history'
     site:
       type: object
       required:
@@ -1073,160 +1215,31 @@ components:
         last_updated:
           type: string
           format: date-time
-    resolved_variable:
+    create_sites_request:
       type: object
       required:
-      - name
-      - type
-      - value
+      - sites
       properties:
-        name:
-          type: string
-          description: Variable name
-        type:
-          type: string
-          description: Variable type
-        value:
-          description: Resolved value (type varies)
-    claim:
-      type: object
-      required:
-      - id
-      - tenant_id
-      - site_id
-      - serial_number
-      - device_role
-      properties:
-        id:
-          type: string
-          format: uuid
-        tenant_id:
-          type: string
-        site_id:
-          type: string
-          format: uuid
-        serial_number:
-          type: string
-          description: Device serial number
-        device_role:
-          type: string
-          enum:
-          - standalone
-          - primary
-          - secondary
-          description: Device role in HA configuration
-        onboarding_rule_id:
-          type: string
-          format: uuid
-        claimed_by:
-          type: string
-          description: User or service that claimed the device
-        claimed_at:
-          type: string
-          format: date-time
-    resolved_onboarding_rule:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        tenant_id:
-          type: string
-        name:
-          type: string
-        description:
-          type: string
-        enabled:
-          type: boolean
-        rule_type:
-          type: string
-        site_group:
-          type: string
-        match_criteria:
-          type: object
-          additionalProperties: true
-        actions:
-          type: object
-          additionalProperties: true
-        variables:
+        sites:
           type: array
+          minItems: 1
           items:
-            $ref: '#/components/schemas/variable'
-          description: Original variables with resolution expression
-        resolved_variables:
-          type: array
-          items:
-            $ref: '#/components/schemas/resolved_variable'
-          description: Variables resolved to their actual values
-        resolution_errors:
-          type: array
-          items:
-            type: string
-          description: Errors encountered during variable resolution
-        generated_at:
-          type: string
-    resource_validation_error:
-      type: object
-      required:
-      - type
-      - resource_id
-      - resource_name
-      - message
-      properties:
-        type:
-          type: string
-          enum:
-          - site
-          - rule
-          - name_conflict
-          description: Type of validation error
-        resource_id:
-          type: string
-          description: ID of the affected resource
-        resource_name:
-          type: string
-          description: Name of the affected resource
-        message:
-          type: string
-          description: Detailed error message
-    claim_with_resolved_history:
-      type: object
-      properties:
-        claim:
-          $ref: '#/components/schemas/claim'
-        resolution_rule:
-          $ref: '#/components/schemas/resolved_onboarding_rule'
-    resolution_rule:
-      type: object
-      required:
-      - expression
-      properties:
-        expression:
-          type: string
-          description: Expression to resolve the variable (can reference properties with ${property_name})
-    site_with_claims:
-      type: object
-      properties:
-        site:
-          $ref: '#/components/schemas/site'
-        claims:
-          type: array
-          items:
-            $ref: '#/components/schemas/claim_with_resolved_history'
-    resource_validation_result:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-          description: Resource UUID
-        name:
-          type: string
-          description: Resource name
-        validation_errors:
-          type: array
-          items:
-            $ref: '#/components/schemas/resource_validation_error'
+            type: object
+            required:
+            - name
+            - site_group
+            properties:
+              name:
+                type: string
+                maxLength: 255
+              site_group:
+                type: string
+              address:
+                type: string
+                description: Physical address of the site
+              property_values:
+                type: object
+                additionalProperties: true
     variable:
       type: object
       required:
@@ -1238,30 +1251,6 @@ components:
           description: Variable name
         resolution_rule:
           $ref: '#/components/schemas/resolution_rule'
-    update_site_request:
-      type: object
-      properties:
-        name:
-          type: string
-          maxLength: 255
-        site_group:
-          type: string
-        property_values:
-          type: object
-          additionalProperties: true
-    error_detail_cause_infos:
-      type: array
-      items:
-        $ref: '#/components/schemas/error_detail_cause_info'
-      x-examples: {}
-    generic_error:
-      type: object
-      properties:
-        _errors:
-          $ref: '#/components/schemas/error_detail_cause_infos'
-        _request_id:
-          type: string
-      x-examples: {}
     error_detail_cause_info:
       type: object
       title: Cause Info
@@ -1276,6 +1265,11 @@ components:
           - type: object
         help:
           type: string
+    error_detail_cause_infos:
+      type: array
+      items:
+        $ref: '#/components/schemas/error_detail_cause_info'
+      x-examples: {}
     sites:
       type: object
       required:
@@ -1382,6 +1376,14 @@ components:
           - FWAAS-SITE-250Mbps
           - FWAAS-SITE-1000Mbps
           - FWAAS-SITE-2500Mbps
+    generic_error:
+      type: object
+      properties:
+        _errors:
+          $ref: '#/components/schemas/error_detail_cause_infos'
+        _request_id:
+          type: string
+      x-examples: {}
   parameters:
     site_id:
       name: id
@@ -1392,6 +1394,13 @@ components:
         type: string
         format: uuid
       example: 550e8400-e29b-41d4-a716-446655440000
+    uuid:
+      name: id
+      in: path
+      description: The UUID of the configuration resource
+      required: true
+      schema:
+        type: string
     limit:
       name: limit
       in: query
@@ -1408,20 +1417,6 @@ components:
       schema:
         type: integer
         default: 0
-    name:
-      name: name
-      in: query
-      description: The name of the configuration resource
-      required: false
-      schema:
-        type: string
-    uuid:
-      name: id
-      in: path
-      description: The UUID of the configuration resource
-      required: true
-      schema:
-        type: string
     folder-remotenetworks:
       name: folder
       in: query
@@ -1433,133 +1428,20 @@ components:
         enum:
         - Remote Networks
         default: Remote Networks
+    name:
+      name: name
+      in: query
+      description: The name of the configuration resource
+      required: false
+      schema:
+        type: string
   examples:
-    json_400_panui_restapi_input_format_mismatch:
-      summary: Input Format Mismatch
+    json_400_panui_mgmt_invalid_object:
+      summary: Invalid Object
       value:
         _errors:
         - code: E003
-          message: 'Input Format Mismatch: input-format=json'
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_401_panui_auth_key_too_long:
-      summary: Key Too Long
-      value:
-        _errors:
-        - code: E016
-          message: Key Too Long
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_405_panui_restapi_action_not_supported:
-      summary: Action Not Supported
-      value:
-        _errors:
-        - code: E012
-          message: 'Action Not Supported: move'
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_504_panui_mgmt_session_timeout:
-      summary: Session Timeout
-      value:
-        _errors:
-        - code: '4'
-          message: Session Timeout
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_409_panui_mgmt_object_not_unique:
-      summary: Object Not Unique
-      value:
-        _errors:
-        - code: E016
-          message: Object Not Unique
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_restapi_missing_body:
-      summary: Missing Body
-      value:
-        _errors:
-        - code: E003
-          message: Missing Body
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_403_panui_auth_unauthorized:
-      summary: Unauthorized
-      value:
-        _errors:
-        - code: E007
-          message: Unauthorized
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_409_panui_mgmt_name_not_unique:
-      summary: Name Not Unique
-      value:
-        _errors:
-        - code: E006
-          message: Name Not Unique
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_restapi_invalid_query_parameter:
-      summary: Invalid Query Parameter
-      value:
-        _errors:
-        - code: E003
-          message: 'Invalid Query Parameter: location=invalid'
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_409_panui_mgmt_reference_not_zero:
-      summary: Reference Not Zero
-      value:
-        _errors:
-        - code: E009
-          message: Reference Not Zero
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_404_panui_mgmt_object_not_present:
-      summary: Object Not Present
-      value:
-        _errors:
-        - code: E005
-          message: Object Not Present
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_mgmt_invalid_command:
-      summary: Invalid Command
-      value:
-        _errors:
-        - code: E003
-          message: Invalid Command
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_401_panui_auth_need_password_change:
-      summary: Need Password Change
-      value:
-        _errors:
-        - code: E016
-          message: The password needs to be changed.
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_401_panui_auth_not_authenticated:
-      summary: Not Authenticated
-      value:
-        _errors:
-        - code: E016
-          message: Not Authenticated
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_501_panui_restapi_version_not_supported:
-      summary: Version Not Supported
-      value:
-        _errors:
-        - code: E012
-          message: Version Not Supported
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_401_panui_auth_invalid_credential:
-      summary: Invalid Credential
-      value:
-        _errors:
-        - code: E016
-          message: Invalid Credential
+          message: Invalid Object
           details: {}
         _request_id: 123e4567-e89b-12d3-a456-426655440000
     json_501_panui_restapi_method_not_supported:
@@ -1570,20 +1452,68 @@ components:
           message: Method Not Supported
           details: {}
         _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_mgmt_invalid_object:
-      summary: Invalid Object
+    json_405_panui_restapi_action_not_supported:
+      summary: Action Not Supported
       value:
         _errors:
-        - code: E003
-          message: Invalid Object
+        - code: E012
+          message: 'Action Not Supported: move'
           details: {}
         _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_mgmt_malformed_command:
-      summary: Malformed Command
+    json_404_panui_mgmt_object_not_present:
+      summary: Object Not Present
+      value:
+        _errors:
+        - code: E005
+          message: Object Not Present
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_409_panui_mgmt_object_not_unique:
+      summary: Object Not Unique
+      value:
+        _errors:
+        - code: E016
+          message: Object Not Unique
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_400_panui_mgmt_invalid_command:
+      summary: Invalid Command
       value:
         _errors:
         - code: E003
-          message: Malformed Command
+          message: Invalid Command
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_400_panui_restapi_invalid_query_parameter:
+      summary: Invalid Query Parameter
+      value:
+        _errors:
+        - code: E003
+          message: 'Invalid Query Parameter: location=invalid'
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_409_panui_mgmt_name_not_unique:
+      summary: Name Not Unique
+      value:
+        _errors:
+        - code: E006
+          message: Name Not Unique
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_409_panui_mgmt_reference_not_zero:
+      summary: Reference Not Zero
+      value:
+        _errors:
+        - code: E009
+          message: Reference Not Zero
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_401_panui_auth_invalid_credential:
+      summary: Invalid Credential
+      value:
+        _errors:
+        - code: E016
+          message: Invalid Credential
           details: {}
         _request_id: 123e4567-e89b-12d3-a456-426655440000
     json_401_panui_auth_key_expired:
@@ -1594,12 +1524,20 @@ components:
           message: Key Expired
           details: {}
         _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_mgmt_bad_xpath:
-      summary: Bad XPath
+    json_401_panui_auth_not_authenticated:
+      summary: Not Authenticated
       value:
         _errors:
-        - code: E013
-          message: Bad XPath
+        - code: E016
+          message: Not Authenticated
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_401_panui_auth_key_too_long:
+      summary: Key Too Long
+      value:
+        _errors:
+        - code: E016
+          message: Key Too Long
           details: {}
         _request_id: 123e4567-e89b-12d3-a456-426655440000
     json_400_panui_restapi_missing_query_parameter:
@@ -1610,12 +1548,76 @@ components:
           message: 'Missing Query Parameter: name'
           details: {}
         _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_400_panui_mgmt_malformed_command:
+      summary: Malformed Command
+      value:
+        _errors:
+        - code: E003
+          message: Malformed Command
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_504_panui_mgmt_session_timeout:
+      summary: Session Timeout
+      value:
+        _errors:
+        - code: '4'
+          message: Session Timeout
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_400_panui_mgmt_bad_xpath:
+      summary: Bad XPath
+      value:
+        _errors:
+        - code: E013
+          message: Bad XPath
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_400_panui_restapi_missing_body:
+      summary: Missing Body
+      value:
+        _errors:
+        - code: E003
+          message: Missing Body
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
     json_400_panui_restapi_output_format_mismatch:
       summary: Output Format Mismatch
       value:
         _errors:
         - code: E003
           message: 'Output Format Mismatch: output-format=json Accept=xml'
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_501_panui_restapi_version_not_supported:
+      summary: Version Not Supported
+      value:
+        _errors:
+        - code: E012
+          message: Version Not Supported
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_401_panui_auth_need_password_change:
+      summary: Need Password Change
+      value:
+        _errors:
+        - code: E016
+          message: The password needs to be changed.
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_403_panui_auth_unauthorized:
+      summary: Unauthorized
+      value:
+        _errors:
+        - code: E007
+          message: Unauthorized
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_400_panui_restapi_input_format_mismatch:
+      summary: Input Format Mismatch
+      value:
+        _errors:
+        - code: E003
+          message: 'Input Format Mismatch: input-format=json'
           details: {}
         _request_id: 123e4567-e89b-12d3-a456-426655440000
   securitySchemes:

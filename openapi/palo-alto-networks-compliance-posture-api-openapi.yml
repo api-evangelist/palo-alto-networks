@@ -1960,20 +1960,101 @@ paths:
     - url: https://api.fr.prismacloud.io
 components:
   schemas:
-    RequirementSummary:
-      description: Model for Compliance Requirement Summary on Posture API
+    NameValueIntegerString:
       properties:
         id:
-          description: Compliance Requirement ID
+          format: int32
+          type: integer
+        name:
+          type: string
+      type: object
+    FilterSuggestionModel:
+      description: Model for Filter Suggestions
+      properties:
+        filterName:
+          description: Filter name
+          type: string
+        query:
+          description: Case-insensitive fuzzy search autocomplete filter. Includes only items that contain the query as a substring.
+          type: string
+      required:
+      - filterName
+      type: object
+    TimeRangeConfigModel:
+      description: 'See the [Time Range Model](/prisma-cloud/api/cspm/api-time-range-model) for details.
+
+        '
+      discriminator:
+        mapping:
+          absolute: '#/components/schemas/AbsoluteTimeRangeConfigModel'
+          relative: '#/components/schemas/RelativeTimeRangeConfigModel'
+          to_now: '#/components/schemas/ToNowTimeRangeConfigModel'
+        propertyName: type
+      oneOf:
+      - $ref: '#/components/schemas/RelativeTimeRangeConfigModel'
+      - $ref: '#/components/schemas/AbsoluteTimeRangeConfigModel'
+      - $ref: '#/components/schemas/ToNowTimeRangeConfigModel'
+      properties:
+        type:
+          description: Time type
+          type: string
+      required:
+      - type
+      type: object
+    AbsoluteTimeRangeConfigModel:
+      allOf:
+      - $ref: '#/components/schemas/TimeRangeConfigModel'
+      - description: Model for AbsoluteTimeRangeConfig
+        properties:
+          type:
+            example: absolute
+            type: string
+          value:
+            allOf:
+            - $ref: '#/components/schemas/TimeModel'
+            - description: Time range object
+        required:
+        - value
+        type: object
+    FilterSuggestion:
+      description: Model for FilterSuggestion
+      properties:
+        nameValue:
+          description: Filter options
+          items:
+            $ref: '#/components/schemas/NameValueIntegerString'
+          type: array
+        options:
+          description: Filter options, which lists all the default options for static filters or all the recent options, if any, for non-static filters
+          items:
+            type: string
+          type: array
+          uniqueItems: true
+        staticFilter:
+          description: Filter is a static filter
+          type: boolean
+      type: object
+    SectionSummary:
+      description: Model for Compliance Section Summary on Posture API
+      properties:
+        failedResources:
+          description: Number of failed compliance section scanned resources
+          format: int64
+          type: integer
+        id:
+          description: Compliance section ID
           type: string
         name:
-          description: Compliance Requirement name
+          description: Compliance section name
           type: string
-        sectionSummaries:
-          description: Section Summary list for the compliance requirement
-          items:
-            $ref: '#/components/schemas/SectionSummary'
-          type: array
+        passedResources:
+          description: Number of passed compliance section scanned resources
+          format: int64
+          type: integer
+        totalResources:
+          description: Total number of compliance section scanned resources
+          format: int64
+          type: integer
       type: object
     TimeModel:
       description: Model for Time
@@ -1984,72 +2065,6 @@ components:
           type: integer
         startTime:
           description: Start timestamp
-          format: int64
-          type: integer
-      type: object
-    NameValueIntegerString:
-      properties:
-        id:
-          format: int32
-          type: integer
-        name:
-          type: string
-      type: object
-    RelativeTimeDurationModel:
-      description: Model for RelativeTimeDuration
-      properties:
-        amount:
-          description: Number of time units
-          format: int32
-          type: integer
-        unit:
-          description: Time unit
-          enum:
-          - minute
-          - hour
-          - day
-          - week
-          - month
-          - year
-          type: string
-      type: object
-    PostureSummary:
-      description: Model for Compliance Posture Summary
-      properties:
-        criticalSeverityFailedResources:
-          description: Number of scanned compliance resources whose highest policy failure is **critical**
-          format: int64
-          type: integer
-        failedResources:
-          description: Number of failed scanned compliance resources
-          format: int64
-          type: integer
-        highSeverityFailedResources:
-          description: Number of scanned compliance resources that failed high severity policies
-          format: int64
-          type: integer
-        informationalSeverityFailedResources:
-          description: Number of scanned compliance resources whose highest policy failure is **informational**
-          format: int64
-          type: integer
-        lowSeverityFailedResources:
-          description: Number of scanned compliance resources whose highest policy failure is **low**
-          format: int64
-          type: integer
-        mediumSeverityFailedResources:
-          description: Number of scanned compliance resources whose highest policy failure is **medium**
-          format: int64
-          type: integer
-        passedResources:
-          description: Number of passed scanned compliance resources
-          format: int64
-          type: integer
-        timestamp:
-          description: Timestamp
-          format: int64
-          type: integer
-        totalResources:
-          description: Total number of scanned compliance resources
           format: int64
           type: integer
       type: object
@@ -2074,18 +2089,52 @@ components:
         required:
         - value
         type: object
-    FilterSuggestionModel:
-      description: Model for Filter Suggestions
+    RelativeTimeDurationModel:
+      description: Model for RelativeTimeDuration
       properties:
-        filterName:
-          description: Filter name
+        amount:
+          description: Number of time units
+          format: int32
+          type: integer
+        unit:
+          description: Time unit
+          enum:
+          - minute
+          - hour
+          - day
+          - week
+          - month
+          - year
           type: string
-        query:
-          description: Case-insensitive fuzzy search autocomplete filter. Includes only items that contain the query as a substring.
-          type: string
-      required:
-      - filterName
       type: object
+    FilterModel:
+      allOf:
+      - $ref: '#/components/schemas/BaseFilterModel'
+      - description: Model for Filter
+        properties:
+          timeRange:
+            allOf:
+            - $ref: '#/components/schemas/TimeRangeConfigModel'
+            - description: Time range
+        type: object
+    ToNowTimeRangeConfigModel:
+      allOf:
+      - $ref: '#/components/schemas/TimeRangeConfigModel'
+      - description: Model for ToNowTimeRangeConfig
+        properties:
+          value:
+            description: Time range object
+            enum:
+            - MINUTE
+            - HOUR
+            - DAY
+            - WEEK
+            - MONTH
+            - YEAR
+            - EPOCH
+            - LOGIN
+            type: string
+        type: object
     CompliancePosture:
       description: Model for Compliance Posture
       properties:
@@ -2112,21 +2161,70 @@ components:
           format: int64
           type: integer
       type: object
-    AbsoluteTimeRangeConfigModel:
-      allOf:
-      - $ref: '#/components/schemas/TimeRangeConfigModel'
-      - description: Model for AbsoluteTimeRangeConfig
-        properties:
-          type:
-            example: absolute
+    ParsedTableFilter:
+      description: Model for parsed table filter
+      properties:
+        completeParameters:
+          items:
+            $ref: '#/components/schemas/UIFilterModel'
+          type: array
+        links:
+          description: JSON query builder links
+          type: string
+        needsOffsetUpdate:
+          description: Needs offset update (for internal use)
+          type: boolean
+        offset:
+          description: Offset within query
+          format: int32
+          type: integer
+        queryRemainder:
+          description: Query remainder
+          type: string
+        suggestions:
+          description: List of suggestions
+          items:
             type: string
-          value:
-            allOf:
-            - $ref: '#/components/schemas/TimeModel'
-            - description: Time range object
-        required:
-        - value
-        type: object
+          type: array
+        translate:
+          description: Translate (for internal use)
+          type: boolean
+        valid:
+          description: Query is valid
+          type: boolean
+      type: object
+    CompliancePostureFilterSuggestion:
+      description: Model for CompliancePostureFilterSuggestion
+      properties:
+        account.group:
+          allOf:
+          - $ref: '#/components/schemas/FilterSuggestion'
+          - description: Account group
+        cloud.account:
+          allOf:
+          - $ref: '#/components/schemas/FilterSuggestion'
+          - description: Cloud account
+        cloud.region:
+          allOf:
+          - $ref: '#/components/schemas/FilterSuggestion'
+          - description: Cloud region
+        cloud.type:
+          allOf:
+          - $ref: '#/components/schemas/FilterSuggestion'
+          - readOnly: true
+        policy.complianceRequirement:
+          allOf:
+          - $ref: '#/components/schemas/FilterSuggestion'
+          - description: Policy compliance requirement
+        policy.complianceSection:
+          allOf:
+          - $ref: '#/components/schemas/FilterSuggestion'
+          - description: Policy compliance section
+        policy.complianceStandard:
+          allOf:
+          - $ref: '#/components/schemas/FilterSuggestion'
+          - description: Policy compliance standard
+      type: object
     ComplianceDetail:
       description: Model for Compliance Detail on Posture API
       properties:
@@ -2179,127 +2277,46 @@ components:
           format: int64
           type: integer
       type: object
-    CompliancePostureFilterSuggestion:
-      description: Model for CompliancePostureFilterSuggestion
+    PostureSummary:
+      description: Model for Compliance Posture Summary
       properties:
-        account.group:
-          allOf:
-          - $ref: '#/components/schemas/FilterSuggestion'
-          - description: Account group
-        cloud.account:
-          allOf:
-          - $ref: '#/components/schemas/FilterSuggestion'
-          - description: Cloud account
-        cloud.region:
-          allOf:
-          - $ref: '#/components/schemas/FilterSuggestion'
-          - description: Cloud region
-        cloud.type:
-          allOf:
-          - $ref: '#/components/schemas/FilterSuggestion'
-          - readOnly: true
-        policy.complianceRequirement:
-          allOf:
-          - $ref: '#/components/schemas/FilterSuggestion'
-          - description: Policy compliance requirement
-        policy.complianceSection:
-          allOf:
-          - $ref: '#/components/schemas/FilterSuggestion'
-          - description: Policy compliance section
-        policy.complianceStandard:
-          allOf:
-          - $ref: '#/components/schemas/FilterSuggestion'
-          - description: Policy compliance standard
-      type: object
-    ParsedTableFilter:
-      description: Model for parsed table filter
-      properties:
-        completeParameters:
-          items:
-            $ref: '#/components/schemas/UIFilterModel'
-          type: array
-        links:
-          description: JSON query builder links
-          type: string
-        needsOffsetUpdate:
-          description: Needs offset update (for internal use)
-          type: boolean
-        offset:
-          description: Offset within query
-          format: int32
+        criticalSeverityFailedResources:
+          description: Number of scanned compliance resources whose highest policy failure is **critical**
+          format: int64
           type: integer
-        queryRemainder:
-          description: Query remainder
-          type: string
-        suggestions:
-          description: List of suggestions
-          items:
-            type: string
-          type: array
-        translate:
-          description: Translate (for internal use)
-          type: boolean
-        valid:
-          description: Query is valid
-          type: boolean
+        failedResources:
+          description: Number of failed scanned compliance resources
+          format: int64
+          type: integer
+        highSeverityFailedResources:
+          description: Number of scanned compliance resources that failed high severity policies
+          format: int64
+          type: integer
+        informationalSeverityFailedResources:
+          description: Number of scanned compliance resources whose highest policy failure is **informational**
+          format: int64
+          type: integer
+        lowSeverityFailedResources:
+          description: Number of scanned compliance resources whose highest policy failure is **low**
+          format: int64
+          type: integer
+        mediumSeverityFailedResources:
+          description: Number of scanned compliance resources whose highest policy failure is **medium**
+          format: int64
+          type: integer
+        passedResources:
+          description: Number of passed scanned compliance resources
+          format: int64
+          type: integer
+        timestamp:
+          description: Timestamp
+          format: int64
+          type: integer
+        totalResources:
+          description: Total number of scanned compliance resources
+          format: int64
+          type: integer
       type: object
-    TimeRangeConfigModel:
-      description: 'See the [Time Range Model](/prisma-cloud/api/cspm/api-time-range-model) for details.
-
-        '
-      discriminator:
-        mapping:
-          absolute: '#/components/schemas/AbsoluteTimeRangeConfigModel'
-          relative: '#/components/schemas/RelativeTimeRangeConfigModel'
-          to_now: '#/components/schemas/ToNowTimeRangeConfigModel'
-        propertyName: type
-      oneOf:
-      - $ref: '#/components/schemas/RelativeTimeRangeConfigModel'
-      - $ref: '#/components/schemas/AbsoluteTimeRangeConfigModel'
-      - $ref: '#/components/schemas/ToNowTimeRangeConfigModel'
-      properties:
-        type:
-          description: Time type
-          type: string
-      required:
-      - type
-      type: object
-    FilterSuggestion:
-      description: Model for FilterSuggestion
-      properties:
-        nameValue:
-          description: Filter options
-          items:
-            $ref: '#/components/schemas/NameValueIntegerString'
-          type: array
-        options:
-          description: Filter options, which lists all the default options for static filters or all the recent options, if any, for non-static filters
-          items:
-            type: string
-          type: array
-          uniqueItems: true
-        staticFilter:
-          description: Filter is a static filter
-          type: boolean
-      type: object
-    ToNowTimeRangeConfigModel:
-      allOf:
-      - $ref: '#/components/schemas/TimeRangeConfigModel'
-      - description: Model for ToNowTimeRangeConfig
-        properties:
-          value:
-            description: Time range object
-            enum:
-            - MINUTE
-            - HOUR
-            - DAY
-            - WEEK
-            - MONTH
-            - YEAR
-            - EPOCH
-            - LOGIN
-            type: string
-        type: object
     UIFilterModel:
       description: Model for UIFilter
       properties:
@@ -2315,38 +2332,21 @@ components:
           description: Value
           type: string
       type: object
-    SectionSummary:
-      description: Model for Compliance Section Summary on Posture API
+    RequirementSummary:
+      description: Model for Compliance Requirement Summary on Posture API
       properties:
-        failedResources:
-          description: Number of failed compliance section scanned resources
-          format: int64
-          type: integer
         id:
-          description: Compliance section ID
+          description: Compliance Requirement ID
           type: string
         name:
-          description: Compliance section name
+          description: Compliance Requirement name
           type: string
-        passedResources:
-          description: Number of passed compliance section scanned resources
-          format: int64
-          type: integer
-        totalResources:
-          description: Total number of compliance section scanned resources
-          format: int64
-          type: integer
+        sectionSummaries:
+          description: Section Summary list for the compliance requirement
+          items:
+            $ref: '#/components/schemas/SectionSummary'
+          type: array
       type: object
-    FilterModel:
-      allOf:
-      - $ref: '#/components/schemas/BaseFilterModel'
-      - description: Model for Filter
-        properties:
-          timeRange:
-            allOf:
-            - $ref: '#/components/schemas/TimeRangeConfigModel'
-            - description: Time range
-        type: object
     BaseFilterModel:
       description: Model for Filter
       discriminator:

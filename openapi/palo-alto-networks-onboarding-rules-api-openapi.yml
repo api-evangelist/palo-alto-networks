@@ -283,8 +283,8 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 components:
   responses:
-    InternalServerError:
-      description: Internal Server Error
+    Conflict:
+      description: Conflict
       content:
         application/json:
           schema:
@@ -297,6 +297,10 @@ components:
                 type: string
                 enum:
                 - error
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/resource_validation_result'
               error:
                 type: string
                 description: Error message
@@ -321,6 +325,23 @@ components:
               error:
                 type: string
                 description: Error message
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - status
+            - error
+            properties:
+              status:
+                type: string
+                enum:
+                - error
+              error:
+                type: string
+                description: Error message
     NotFound:
       description: Not Found
       content:
@@ -338,45 +359,44 @@ components:
               error:
                 type: string
                 description: Error message
-    Conflict:
-      description: Conflict
-      content:
-        application/json:
-          schema:
-            type: object
-            required:
-            - status
-            - error
-            properties:
-              status:
-                type: string
-                enum:
-                - error
-              data:
-                type: array
-                items:
-                  $ref: '#/components/schemas/resource_validation_result'
-              error:
-                type: string
-                description: Error message
   schemas:
-    move_onboarding_rule_request:
+    onboard_match_criteria:
+      type: object
+      properties:
+        models:
+          $ref: '#/components/schemas/model_criteria'
+    resource_validation_error:
       type: object
       required:
-      - position
+      - type
+      - resource_id
+      - resource_name
+      - message
       properties:
-        position:
+        type:
           type: string
           enum:
-          - before
-          - after
-          - top
-          - bottom
-          description: Position to move the rule to
-        reference:
+          - site
+          - rule
+          - name_conflict
+          description: Type of validation error
+        resource_id:
           type: string
-          format: uuid
-          description: UUID of reference rule (required for before/after positions)
+          description: ID of the affected resource
+        resource_name:
+          type: string
+          description: Name of the affected resource
+        message:
+          type: string
+          description: Detailed error message
+    resolution_rule:
+      type: object
+      required:
+      - expression
+      properties:
+        expression:
+          type: string
+          description: Expression to resolve the variable (can reference properties with ${property_name})
     onboard_rule_entry:
       type: object
       required:
@@ -419,32 +439,18 @@ components:
         last_updated:
           type: string
           format: date-time
-    model_criteria:
-      type: object
-      properties:
-        include_models:
-          type: array
-          items:
-            $ref: '#/components/schemas/device_model'
-        exclude_models:
-          type: array
-          items:
-            $ref: '#/components/schemas/device_model'
-    resolution_rule:
+    variable:
       type: object
       required:
-      - expression
-      properties:
-        expression:
-          type: string
-          description: Expression to resolve the variable (can reference properties with ${property_name})
-    device_model:
-      type: object
+      - name
+      - resolution_rule
       properties:
         name:
           type: string
-          description: Device model name
-    update_onboarding_rule_request:
+          description: Variable name
+        resolution_rule:
+          $ref: '#/components/schemas/resolution_rule'
+    create_onboarding_rule_request:
       type: object
       required:
       - name
@@ -454,11 +460,6 @@ components:
       - match_criteria
       - actions
       properties:
-        id:
-          type: string
-          format: uuid
-        tenant_id:
-          type: string
         name:
           type: string
         description:
@@ -477,10 +478,73 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/variable'
+    move_onboarding_rule_request:
+      type: object
+      required:
+      - position
+      properties:
+        position:
+          type: string
+          enum:
+          - before
+          - after
+          - top
+          - bottom
+          description: Position to move the rule to
+        reference:
+          type: string
+          format: uuid
+          description: UUID of reference rule (required for before/after positions)
+    device_model:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Device model name
     onboard_actions:
       type: object
       additionalProperties: true
       description: Actions to perform during onboarding
+    model_criteria:
+      type: object
+      properties:
+        include_models:
+          type: array
+          items:
+            $ref: '#/components/schemas/device_model'
+        exclude_models:
+          type: array
+          items:
+            $ref: '#/components/schemas/device_model'
+    resource_validation_result:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Resource UUID
+        name:
+          type: string
+          description: Resource name
+        validation_errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/resource_validation_error'
+    resolved_variable:
+      type: object
+      required:
+      - name
+      - type
+      - value
+      properties:
+        name:
+          type: string
+          description: Variable name
+        type:
+          type: string
+          description: Variable type
+        value:
+          description: Resolved value (type varies)
     resolved_onboarding_rule:
       type: object
       properties:
@@ -522,36 +586,7 @@ components:
           description: Errors encountered during variable resolution
         generated_at:
           type: string
-    resource_validation_error:
-      type: object
-      required:
-      - type
-      - resource_id
-      - resource_name
-      - message
-      properties:
-        type:
-          type: string
-          enum:
-          - site
-          - rule
-          - name_conflict
-          description: Type of validation error
-        resource_id:
-          type: string
-          description: ID of the affected resource
-        resource_name:
-          type: string
-          description: Name of the affected resource
-        message:
-          type: string
-          description: Detailed error message
-    onboard_match_criteria:
-      type: object
-      properties:
-        models:
-          $ref: '#/components/schemas/model_criteria'
-    create_onboarding_rule_request:
+    update_onboarding_rule_request:
       type: object
       required:
       - name
@@ -561,6 +596,11 @@ components:
       - match_criteria
       - actions
       properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
         name:
           type: string
         description:
@@ -579,46 +619,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/variable'
-    resource_validation_result:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-          description: Resource UUID
-        name:
-          type: string
-          description: Resource name
-        validation_errors:
-          type: array
-          items:
-            $ref: '#/components/schemas/resource_validation_error'
-    variable:
-      type: object
-      required:
-      - name
-      - resolution_rule
-      properties:
-        name:
-          type: string
-          description: Variable name
-        resolution_rule:
-          $ref: '#/components/schemas/resolution_rule'
-    resolved_variable:
-      type: object
-      required:
-      - name
-      - type
-      - value
-      properties:
-        name:
-          type: string
-          description: Variable name
-        type:
-          type: string
-          description: Variable type
-        value:
-          description: Resolved value (type varies)
   parameters:
     onboarding_rule_id:
       name: id

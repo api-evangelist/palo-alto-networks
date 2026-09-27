@@ -585,7 +585,7 @@ paths:
       x-bc-lambda-name: vcs-repository-api
       x-bc-permitted-roles: owner,admin,member,developer,auditor
     post:
-      operationId: getVCSRepositoryPage
+      operationId: postApiV1VcsRepositoryRepositories
       responses:
         '200':
           description: repositories
@@ -616,6 +616,8 @@ paths:
       x-bc-lambda-name: vcs-repository-api
       x-bc-permitted-roles: owner,admin,member,developer,auditor
       x-bc-docs-scope: standalone,prisma
+      x-operation-id-source: normalized
+      x-operation-id-original: getVCSRepositoryPage
     servers:
     - url: https://api.prismacloud.io
   /repositories:
@@ -864,48 +866,19 @@ paths:
       description: Prisma Cloud Code Security API (Canada).
 components:
   schemas:
-    Repository:
+    integrationResponse:
       additionalProperties: false
       properties:
-        creationDate:
-          type: string
-        customerName:
-          type: string
-        defaultBranch:
+        created:
           type: string
         id:
           type: string
-        isPublic:
-          type: boolean
-        lastScanDate:
-          type: string
-        owner:
-          type: string
-        repository:
-          type: string
-        selected:
-          type: boolean
-        source:
-          type: string
-        url:
+        updatedBy:
           type: string
       required:
       - id
-      - repository
-      - source
-      - customerName
-      - owner
-      - selected
-      type: object
-    DockerImage:
-      properties:
-        imageName:
-          type: string
-        repoName:
-          type: string
-      required:
-      - repoName
-      - imageName
+      - created
+      - updatedBy
       type: object
     RdsRepoInfo:
       properties:
@@ -1014,109 +987,71 @@ components:
       - casId
       - id
       type: object
-    RepoInfo:
-      allOf:
-      - $ref: '#/components/schemas/IVCSRepository'
-      - properties:
-          categorizedTechnologies:
-            $ref: '#/components/schemas/Technologies'
-          ciInstances:
-            additionalProperties:
-              $ref: '#/components/schemas/ICiInstanceInfo'
-            properties: {}
-            type: object
-          contributors:
-            items:
-              $ref: '#/components/schemas/Contributor'
-            type: array
-          contributorsCount:
-            format: double
-            type: number
-          dockerImages:
-            items:
-              $ref: '#/components/schemas/DockerImage'
-            type: array
-          issues:
-            $ref: '#/components/schemas/Issues'
-          weeklyCommitOnPrs:
-            items:
-              $ref: '#/components/schemas/WeeklyCommitOnPR'
-            type: array
-        required:
-        - weeklyCommitOnPrs
-        - issues
-        type: object
-    WeeklyCommitOnPrs:
+    SeverityIssues:
       properties:
-        branchName:
-          type: string
-        currWeeklyCommits:
-          format: double
-          type: number
-        prevWeeklyCommits:
-          format: double
-          type: number
-      required:
-      - prevWeeklyCommits
-      - currWeeklyCommits
-      - branchName
+        CRITICAL:
+          anyOf:
+          - format: double
+            type: number
+          - $ref: '#/components/schemas/SecurityModule'
+        HIGH:
+          anyOf:
+          - format: double
+            type: number
+          - $ref: '#/components/schemas/SecurityModule'
+        INFO:
+          anyOf:
+          - format: double
+            type: number
+          - $ref: '#/components/schemas/SecurityModule'
+        LOW:
+          anyOf:
+          - format: double
+            type: number
+          - $ref: '#/components/schemas/SecurityModule'
+        MEDIUM:
+          anyOf:
+          - format: double
+            type: number
+          - $ref: '#/components/schemas/SecurityModule'
       type: object
-    ICiInstanceInfo:
+    PipelineInfo:
+      properties:
+        instance:
+          type: string
+        pipeline:
+          type: string
+        system:
+          type: string
+      required:
+      - pipeline
+      - system
+      - instance
+      type: object
+    updateRepositoriesBody:
       additionalProperties: false
       properties:
-        ciType:
-          $ref: '#/components/schemas/CIType'
-          description: CI pipeline type
-        customerName:
-          description: Customer Prisma ID
-          type: string
+        data:
+          items:
+            type: string
+          type: array
         id:
           type: string
-        name:
-          description: CI pipeline name
-          type: string
-        pipelines:
-          items:
-            $ref: '#/components/schemas/PipelineInfo'
-          type: array
+        type:
+          $ref: '#/components/schemas/integrationType'
       required:
-      - ciType
-      - customerName
-      - id
-      - name
-      - pipelines
+      - data
       type: object
-    CIType:
+    integrationType:
       enum:
-      - githubActions
-      - circleci
-      - codebuild
-      - jenkins
+      - github
+      - githubEnterprise
+      - gitlab
+      - gitlabEnterprise
+      - bitbucket
+      - bitbucketEnterprise
+      - azureRepos
       type: string
-    WeeklyCommitOnPR:
-      properties:
-        branchName:
-          type: string
-        currWeeklyCommits:
-          format: double
-          type: number
-        prevWeeklyCommits:
-          format: double
-          type: number
-      required:
-      - prevWeeklyCommits
-      - currWeeklyCommits
-      - branchName
-      type: object
-    RepoRequestBody:
-      properties:
-        filters:
-          $ref: '#/components/schemas/RepoRequestFilters'
-        orderBy:
-          $ref: '#/components/schemas/OrderBy'
-        pageConfig:
-          $ref: '#/components/schemas/Pagination'
-      type: object
     ModuleIssues:
       properties:
         CICD:
@@ -1160,6 +1095,83 @@ components:
             - TOTAL
             type: object
       type: object
+    SecurityModule:
+      enum:
+      - IAC
+      - SCA
+      - SECRETS
+      - CICD
+      type: string
+    Branch:
+      additionalProperties: false
+      properties:
+        creationDate:
+          type:
+          - string
+          - 'null'
+        defaultBranch:
+          type: boolean
+        name:
+          type: string
+      required:
+      - name
+      - creationDate
+      - defaultBranch
+      type: object
+    RepoInfo:
+      allOf:
+      - $ref: '#/components/schemas/IVCSRepository'
+      - properties:
+          categorizedTechnologies:
+            $ref: '#/components/schemas/Technologies'
+          ciInstances:
+            additionalProperties:
+              $ref: '#/components/schemas/ICiInstanceInfo'
+            properties: {}
+            type: object
+          contributors:
+            items:
+              $ref: '#/components/schemas/Contributor'
+            type: array
+          contributorsCount:
+            format: double
+            type: number
+          dockerImages:
+            items:
+              $ref: '#/components/schemas/DockerImage'
+            type: array
+          issues:
+            $ref: '#/components/schemas/Issues'
+          weeklyCommitOnPrs:
+            items:
+              $ref: '#/components/schemas/WeeklyCommitOnPR'
+            type: array
+        required:
+        - weeklyCommitOnPrs
+        - issues
+        type: object
+    Contributor:
+      properties:
+        contributionsCounts:
+          description: Number of contributions
+          format: double
+          type: number
+        id:
+          type: string
+        lastPush:
+          format: double
+          type: number
+        name:
+          description: Contributor name
+          type: string
+        permission:
+          description: Contributor permission
+          type: string
+      required:
+      - contributionsCounts
+      - name
+      - id
+      type: object
     QueryRepositoriesRequest:
       additionalProperties: false
       properties:
@@ -1169,25 +1181,6 @@ components:
           type: array
       required:
       - repositoriesIds
-      type: object
-    integrationResponse:
-      additionalProperties: false
-      properties:
-        created:
-          type: string
-        id:
-          type: string
-        updatedBy:
-          type: string
-      required:
-      - id
-      - created
-      - updatedBy
-      type: object
-    CiInstancesHash:
-      additionalProperties:
-        $ref: '#/components/schemas/ICiInstanceInfo'
-      properties: {}
       type: object
     BranchesResponse:
       additionalProperties: false
@@ -1202,74 +1195,6 @@ components:
       - source
       - branches
       type: object
-    GetRepositorySearchResponse:
-      additionalProperties: false
-      properties:
-        data:
-          items:
-            $ref: '#/components/schemas/Repository'
-          type: array
-        hasNext:
-          type: boolean
-      required:
-      - data
-      - hasNext
-      type: object
-    updateRepositoriesBody:
-      additionalProperties: false
-      properties:
-        data:
-          items:
-            type: string
-          type: array
-        id:
-          type: string
-        type:
-          $ref: '#/components/schemas/integrationType'
-      required:
-      - data
-      type: object
-    PipelineInfo:
-      properties:
-        instance:
-          type: string
-        pipeline:
-          type: string
-        system:
-          type: string
-      required:
-      - pipeline
-      - system
-      - instance
-      type: object
-    Technology:
-      additionalProperties:
-        properties:
-          detectedDate:
-            format: date-time
-            type: string
-          percentage:
-            format: double
-            type: number
-        required:
-        - detectedDate
-        type: object
-      properties: {}
-      type: object
-    Pagination:
-      properties:
-        page:
-          format: double
-          type: number
-        pageSize:
-          format: double
-          type: number
-      required:
-      - pageSize
-      - page
-      type: object
-    RepositoryProvider:
-      type: string
     Issues:
       allOf:
       - $ref: '#/components/schemas/SeverityIssues'
@@ -1277,6 +1202,17 @@ components:
           moduleName:
             $ref: '#/components/schemas/SecurityModule'
         type: object
+    RepoIdToRepoName:
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        repository:
+          type: string
+      required:
+      - id
+      - repository
+      type: object
     RepositoryPrivacyLabel:
       enum:
       - public
@@ -1285,86 +1221,46 @@ components:
       type:
       - string
       - 'null'
-    OrderBy:
+    CIType:
+      enum:
+      - githubActions
+      - circleci
+      - codebuild
+      - jenkins
+      type: string
+    RepoRequestBody:
       properties:
-        fieldName:
-          type: string
-        isAsc:
-          type: boolean
-        type:
-          type: string
-      required:
-      - isAsc
-      - type
-      - fieldName
+        filters:
+          $ref: '#/components/schemas/RepoRequestFilters'
+        orderBy:
+          $ref: '#/components/schemas/OrderBy'
+        pageConfig:
+          $ref: '#/components/schemas/Pagination'
       type: object
-    RepositoriesResponse:
+    ICiInstanceInfo:
       additionalProperties: false
       properties:
-        creationDate:
+        ciType:
+          $ref: '#/components/schemas/CIType'
+          description: CI pipeline type
+        customerName:
+          description: Customer Prisma ID
           type: string
-        defaultBranch:
-          type: string
-        description:
-          type: string
-        errors:
-          format: double
-          type: number
         id:
           type: string
-        isPublic:
-          type: boolean
-        lastScanDate:
+        name:
+          description: CI pipeline name
           type: string
-        owner:
-          type: string
-        repository:
-          type: string
-        runs:
-          format: double
-          type: number
-        source:
-          type: string
-        url:
-          type: string
+        pipelines:
+          items:
+            $ref: '#/components/schemas/PipelineInfo'
+          type: array
       required:
+      - ciType
+      - customerName
       - id
-      - repository
-      - source
-      - owner
-      - runs
-      type: object
-    SecurityModule:
-      enum:
-      - IAC
-      - SCA
-      - SECRETS
-      - CICD
-      type: string
-    Technologies:
-      properties:
-        CICD:
-          $ref: '#/components/schemas/Technology'
-        Configuration:
-          $ref: '#/components/schemas/Technology'
-        Data:
-          $ref: '#/components/schemas/Technology'
-        Devops:
-          $ref: '#/components/schemas/Technology'
-        Documentation:
-          $ref: '#/components/schemas/Technology'
-        License:
-          $ref: '#/components/schemas/Technology'
-        Markup:
-          $ref: '#/components/schemas/Technology'
-        PackageManager:
-          $ref: '#/components/schemas/Technology'
-        Programming:
-          $ref: '#/components/schemas/Technology'
-        Prose:
-          $ref: '#/components/schemas/Technology'
-        Unknown:
-          $ref: '#/components/schemas/Technology'
+      - name
+      - pipelines
       type: object
     SourceTypes:
       enum:
@@ -1395,12 +1291,102 @@ components:
       - Transporter
       - OnPrem
       type: string
-    RiskFactors:
+    WeeklyCommitOnPR:
       properties:
-        isInternetExpose:
+        branchName:
+          type: string
+        currWeeklyCommits:
+          format: double
+          type: number
+        prevWeeklyCommits:
+          format: double
+          type: number
+      required:
+      - prevWeeklyCommits
+      - currWeeklyCommits
+      - branchName
+      type: object
+    Pagination:
+      properties:
+        page:
+          format: double
+          type: number
+        pageSize:
+          format: double
+          type: number
+      required:
+      - pageSize
+      - page
+      type: object
+    Technologies:
+      properties:
+        CICD:
+          $ref: '#/components/schemas/Technology'
+        Configuration:
+          $ref: '#/components/schemas/Technology'
+        Data:
+          $ref: '#/components/schemas/Technology'
+        Devops:
+          $ref: '#/components/schemas/Technology'
+        Documentation:
+          $ref: '#/components/schemas/Technology'
+        License:
+          $ref: '#/components/schemas/Technology'
+        Markup:
+          $ref: '#/components/schemas/Technology'
+        PackageManager:
+          $ref: '#/components/schemas/Technology'
+        Programming:
+          $ref: '#/components/schemas/Technology'
+        Prose:
+          $ref: '#/components/schemas/Technology'
+        Unknown:
+          $ref: '#/components/schemas/Technology'
+      type: object
+    Technology:
+      additionalProperties:
+        properties:
+          detectedDate:
+            format: date-time
+            type: string
+          percentage:
+            format: double
+            type: number
+        required:
+        - detectedDate
+        type: object
+      properties: {}
+      type: object
+    CiInstancesHash:
+      additionalProperties:
+        $ref: '#/components/schemas/ICiInstanceInfo'
+      properties: {}
+      type: object
+    GetRepositorySearchResponse:
+      additionalProperties: false
+      properties:
+        data:
+          items:
+            $ref: '#/components/schemas/Repository'
+          type: array
+        hasNext:
           type: boolean
-        isRepositoryDeployed:
+      required:
+      - data
+      - hasNext
+      type: object
+    OrderBy:
+      properties:
+        fieldName:
+          type: string
+        isAsc:
           type: boolean
+        type:
+          type: string
+      required:
+      - isAsc
+      - type
+      - fieldName
       type: object
     IVCSRepository:
       additionalProperties: false
@@ -1507,45 +1493,126 @@ components:
       - url
       - casId
       type: object
-    RepoIdToRepoName:
+    RepositoriesResponse:
       additionalProperties: false
       properties:
+        creationDate:
+          type: string
+        defaultBranch:
+          type: string
+        description:
+          type: string
+        errors:
+          format: double
+          type: number
         id:
           type: string
+        isPublic:
+          type: boolean
+        lastScanDate:
+          type: string
+        owner:
+          type: string
         repository:
+          type: string
+        runs:
+          format: double
+          type: number
+        source:
+          type: string
+        url:
           type: string
       required:
       - id
       - repository
+      - source
+      - owner
+      - runs
       type: object
-    SeverityIssues:
+    RiskFactorsType:
+      enum:
+      - isInternetExpose
+      - isRepositoryDeployed
+      type: string
+    Repository:
+      additionalProperties: false
       properties:
-        CRITICAL:
-          anyOf:
-          - format: double
-            type: number
-          - $ref: '#/components/schemas/SecurityModule'
-        HIGH:
-          anyOf:
-          - format: double
-            type: number
-          - $ref: '#/components/schemas/SecurityModule'
-        INFO:
-          anyOf:
-          - format: double
-            type: number
-          - $ref: '#/components/schemas/SecurityModule'
-        LOW:
-          anyOf:
-          - format: double
-            type: number
-          - $ref: '#/components/schemas/SecurityModule'
-        MEDIUM:
-          anyOf:
-          - format: double
-            type: number
-          - $ref: '#/components/schemas/SecurityModule'
+        creationDate:
+          type: string
+        customerName:
+          type: string
+        defaultBranch:
+          type: string
+        id:
+          type: string
+        isPublic:
+          type: boolean
+        lastScanDate:
+          type: string
+        owner:
+          type: string
+        repository:
+          type: string
+        selected:
+          type: boolean
+        source:
+          type: string
+        url:
+          type: string
+      required:
+      - id
+      - repository
+      - source
+      - customerName
+      - owner
+      - selected
       type: object
+    updateRepoResponse:
+      additionalProperties: false
+      properties:
+        integrations:
+          items:
+            $ref: '#/components/schemas/integrationResponse'
+          type: array
+        message:
+          type: string
+        success:
+          type: boolean
+      type: object
+    DockerImage:
+      properties:
+        imageName:
+          type: string
+        repoName:
+          type: string
+      required:
+      - repoName
+      - imageName
+      type: object
+    RiskFactors:
+      properties:
+        isInternetExpose:
+          type: boolean
+        isRepositoryDeployed:
+          type: boolean
+      type: object
+    WeeklyCommitOnPrs:
+      properties:
+        branchName:
+          type: string
+        currWeeklyCommits:
+          format: double
+          type: number
+        prevWeeklyCommits:
+          format: double
+          type: number
+      required:
+      - prevWeeklyCommits
+      - currWeeklyCommits
+      - branchName
+      type: object
+    RepositoryProvider:
+      type: string
     RepoRequestFilters:
       properties:
         archived:
@@ -1614,71 +1681,6 @@ components:
             type: string
           type: array
       type: object
-    updateRepoResponse:
-      additionalProperties: false
-      properties:
-        integrations:
-          items:
-            $ref: '#/components/schemas/integrationResponse'
-          type: array
-        message:
-          type: string
-        success:
-          type: boolean
-      type: object
-    Contributor:
-      properties:
-        contributionsCounts:
-          description: Number of contributions
-          format: double
-          type: number
-        id:
-          type: string
-        lastPush:
-          format: double
-          type: number
-        name:
-          description: Contributor name
-          type: string
-        permission:
-          description: Contributor permission
-          type: string
-      required:
-      - contributionsCounts
-      - name
-      - id
-      type: object
-    Branch:
-      additionalProperties: false
-      properties:
-        creationDate:
-          type:
-          - string
-          - 'null'
-        defaultBranch:
-          type: boolean
-        name:
-          type: string
-      required:
-      - name
-      - creationDate
-      - defaultBranch
-      type: object
-    RiskFactorsType:
-      enum:
-      - isInternetExpose
-      - isRepositoryDeployed
-      type: string
-    integrationType:
-      enum:
-      - github
-      - githubEnterprise
-      - gitlab
-      - gitlabEnterprise
-      - bitbucket
-      - bitbucketEnterprise
-      - azureRepos
-      type: string
     RdsRepoInfo_2:
       properties:
         applications:
@@ -1868,15 +1870,22 @@ components:
       - casId
       - id
       type: object
-    RepoRequestBody_2:
+    CasApplication:
       properties:
-        orderBy:
-          $ref: '#/components/schemas/OrderBy'
-        pageConfig:
-          $ref: '#/components/schemas/Pagination'
-        filters:
-          $ref: '#/components/schemas/VCSRepositoriesExternalFilters'
+        name:
+          type: string
+        id:
+          type: string
+      required:
+      - name
+      - id
       type: object
+    RepoImportanceScore:
+      enum:
+      - HIGH
+      - MEDIUM
+      - LOW
+      type: string
     VCSRepositoriesExternalFilters:
       properties:
         appIds:
@@ -1947,21 +1956,14 @@ components:
           type: string
           description: Search repositories by free text
       type: object
-    RepoImportanceScore:
-      enum:
-      - HIGH
-      - MEDIUM
-      - LOW
-      type: string
-    CasApplication:
+    RepoRequestBody_2:
       properties:
-        name:
-          type: string
-        id:
-          type: string
-      required:
-      - name
-      - id
+        orderBy:
+          $ref: '#/components/schemas/OrderBy'
+        pageConfig:
+          $ref: '#/components/schemas/Pagination'
+        filters:
+          $ref: '#/components/schemas/VCSRepositoriesExternalFilters'
       type: object
     Repository_2:
       type: object
@@ -2066,6 +2068,12 @@ components:
           description: Error code.
           example: example-error
   responses:
+    BadRequest:
+      description: Invalid request parameters or body.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     Unauthorized:
       description: Invalid or expired authentication token.
       content:
@@ -2078,20 +2086,14 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-    BadRequest:
-      description: Invalid request parameters or body.
+    NotFound:
+      description: The requested resource was not found.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
     Forbidden:
       description: Insufficient permissions for this operation.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    NotFound:
-      description: The requested resource was not found.
       content:
         application/json:
           schema:

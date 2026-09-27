@@ -128,15 +128,28 @@ paths:
         delay: 0
         dispatcher: FALLBACK
 components:
+  parameters:
+    ResourceName:
+      name: resource_name
+      in: path
+      required: true
+      description: The name of the data resource to query. Common resources include `tunnel_status`, `connected_users`, `site_bandwidth`, `app_experience`, `pa_browser_events`, `gp_mobile_users`, `ipsec_tunnels`, `bgp_routes`.
+      schema:
+        type: string
+        enum:
+        - tunnel_status
+        - connected_users
+        - site_bandwidth
+        - app_experience
+        - pa_browser_events
+        - gp_mobile_users
+        - ipsec_tunnels
+        - bgp_routes
+        - alerts
+        - sdwan_sites
   responses:
     Unauthorized:
       description: Unauthorized — missing or invalid access token
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    InternalServerError:
-      description: Internal server error
       content:
         application/json:
           schema:
@@ -147,8 +160,8 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-    Forbidden:
-      description: Forbidden — insufficient permissions for the requested resource
+    InternalServerError:
+      description: Internal server error
       content:
         application/json:
           schema:
@@ -159,29 +172,13 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Forbidden — insufficient permissions for the requested resource
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   schemas:
-    ExportJobResponse:
-      type: object
-      description: Response from a submitted export job
-      properties:
-        job_id:
-          type: string
-          description: Unique identifier for the export job
-          example: '828854'
-        status:
-          type: string
-          enum:
-          - PENDING
-          - RUNNING
-          - COMPLETED
-          - FAILED
-          description: Current job status
-          example: PENDING
-        submitted_at:
-          type: string
-          format: date-time
-          description: Job submission timestamp
-          example: '2025-09-08T01:27:01Z'
     QueryFilter:
       type: object
       description: Filter criteria for the data resource query
@@ -232,6 +229,126 @@ components:
             operator: greater_than
             values:
             - example-values_item
+    ExportJobResponse:
+      type: object
+      description: Response from a submitted export job
+      properties:
+        job_id:
+          type: string
+          description: Unique identifier for the export job
+          example: '828854'
+        status:
+          type: string
+          enum:
+          - PENDING
+          - RUNNING
+          - COMPLETED
+          - FAILED
+          description: Current job status
+          example: PENDING
+        submitted_at:
+          type: string
+          format: date-time
+          description: Job submission timestamp
+          example: '2025-09-08T01:27:01Z'
+    ExportJobStatus:
+      type: object
+      description: Status and result of an export job
+      properties:
+        job_id:
+          type: string
+          description: Export job identifier
+          example: '541044'
+        status:
+          type: string
+          enum:
+          - PENDING
+          - RUNNING
+          - COMPLETED
+          - FAILED
+          description: Current job status
+          example: COMPLETED
+        download_url:
+          type: string
+          format: uri
+          description: Signed URL to download the export file (available when COMPLETED)
+          example: https://login.acme-systems.org/ed2530
+        expires_at:
+          type: string
+          format: date-time
+          description: Expiration time of the download URL
+          example: '2025-08-14T12:57:10Z'
+        error_message:
+          type: string
+          description: Error description if the job failed
+          example: example-error_message
+    ErrorResponse:
+      type: object
+      description: Standard error response structure
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code
+              example: example-code
+            message:
+              type: string
+              description: Human-readable error description
+              example: Malware firewall blocked threat on policy.
+          example:
+            code: example-code
+            message: Network network network network malware monitoring traffic monitoring investigation on suspicious.
+    TimeRange:
+      type: object
+      description: Time range specification for the query
+      required:
+      - type
+      properties:
+        type:
+          type: string
+          description: Type of time range (absolute or relative)
+          enum:
+          - ABSOLUTE
+          - RELATIVE
+          example: RELATIVE
+        value:
+          type: object
+          description: Time range value (required for ABSOLUTE type)
+          properties:
+            from:
+              type: string
+              format: date-time
+              description: Start of the time range (ISO 8601)
+              example: '2024-08-09T03:25:39Z'
+            to:
+              type: string
+              format: date-time
+              description: End of the time range (ISO 8601)
+              example: '2025-11-03T11:39:36Z'
+          example:
+            from: '2024-09-24T21:35:19Z'
+            to: '2026-05-23T17:35:52Z'
+        last:
+          type: object
+          description: Relative time range (required for RELATIVE type)
+          properties:
+            units:
+              type: string
+              enum:
+              - HOURS
+              - DAYS
+              - WEEKS
+              description: Unit of time for relative range
+              example: WEEKS
+            value:
+              type: integer
+              description: Number of units for relative range
+              example: 651
+          example:
+            units: WEEKS
+            value: 233
     DataResourceQuery:
       type: object
       description: Query parameters for a data resource request
@@ -325,123 +442,6 @@ components:
           example:
             order: asc
             property: example-property
-    ExportJobStatus:
-      type: object
-      description: Status and result of an export job
-      properties:
-        job_id:
-          type: string
-          description: Export job identifier
-          example: '541044'
-        status:
-          type: string
-          enum:
-          - PENDING
-          - RUNNING
-          - COMPLETED
-          - FAILED
-          description: Current job status
-          example: COMPLETED
-        download_url:
-          type: string
-          format: uri
-          description: Signed URL to download the export file (available when COMPLETED)
-          example: https://login.acme-systems.org/ed2530
-        expires_at:
-          type: string
-          format: date-time
-          description: Expiration time of the download URL
-          example: '2025-08-14T12:57:10Z'
-        error_message:
-          type: string
-          description: Error description if the job failed
-          example: example-error_message
-    TimeRange:
-      type: object
-      description: Time range specification for the query
-      required:
-      - type
-      properties:
-        type:
-          type: string
-          description: Type of time range (absolute or relative)
-          enum:
-          - ABSOLUTE
-          - RELATIVE
-          example: RELATIVE
-        value:
-          type: object
-          description: Time range value (required for ABSOLUTE type)
-          properties:
-            from:
-              type: string
-              format: date-time
-              description: Start of the time range (ISO 8601)
-              example: '2024-08-09T03:25:39Z'
-            to:
-              type: string
-              format: date-time
-              description: End of the time range (ISO 8601)
-              example: '2025-11-03T11:39:36Z'
-          example:
-            from: '2024-09-24T21:35:19Z'
-            to: '2026-05-23T17:35:52Z'
-        last:
-          type: object
-          description: Relative time range (required for RELATIVE type)
-          properties:
-            units:
-              type: string
-              enum:
-              - HOURS
-              - DAYS
-              - WEEKS
-              description: Unit of time for relative range
-              example: WEEKS
-            value:
-              type: integer
-              description: Number of units for relative range
-              example: 651
-          example:
-            units: WEEKS
-            value: 233
-    ErrorResponse:
-      type: object
-      description: Standard error response structure
-      properties:
-        error:
-          type: object
-          properties:
-            code:
-              type: string
-              description: Machine-readable error code
-              example: example-code
-            message:
-              type: string
-              description: Human-readable error description
-              example: Malware firewall blocked threat on policy.
-          example:
-            code: example-code
-            message: Network network network network malware monitoring traffic monitoring investigation on suspicious.
-  parameters:
-    ResourceName:
-      name: resource_name
-      in: path
-      required: true
-      description: The name of the data resource to query. Common resources include `tunnel_status`, `connected_users`, `site_bandwidth`, `app_experience`, `pa_browser_events`, `gp_mobile_users`, `ipsec_tunnels`, `bgp_routes`.
-      schema:
-        type: string
-        enum:
-        - tunnel_status
-        - connected_users
-        - site_bandwidth
-        - app_experience
-        - pa_browser_events
-        - gp_mobile_users
-        - ipsec_tunnels
-        - bgp_routes
-        - alerts
-        - sdwan_sites
   securitySchemes:
     bearerAuth:
       type: http

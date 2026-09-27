@@ -386,9 +386,11 @@ paths:
       - Users
       x-prisma-cloud-target-env:
         permission: userManagement
-      operationId: get-users
+      operationId: getApiV3404Users
       summary: Get Users
       x-description-source: desc/users/get.md
+      x-operation-id-source: normalized
+      x-operation-id-original: get-users
     post:
       description: 'Add Users. POST /api/v34.04/users on the Users API. Takes an optional request body. Documented responses: 200.'
       requestBody:
@@ -405,9 +407,11 @@ paths:
       - Users
       x-prisma-cloud-target-env:
         permission: userManagement
-      operationId: post-users
+      operationId: postApiV3404Users
       summary: Add Users
       x-description-source: desc/users/post.md
+      x-operation-id-source: normalized
+      x-operation-id-original: post-users
     put:
       description: 'Update Users. PUT /api/v34.04/users on the Users API. Takes an optional request body. Documented responses: 200.'
       requestBody:
@@ -424,9 +428,11 @@ paths:
       - Users
       x-prisma-cloud-target-env:
         permission: userManagement
-      operationId: put-users
+      operationId: putApiV3404Users
       summary: Update Users
       x-description-source: desc/users/put.md
+      x-operation-id-source: normalized
+      x-operation-id-original: put-users
   /api/v34.04/users/password:
     put:
       description: 'Update User Password. PUT /api/v34.04/users/password on the Users API. Takes an optional request body. Documented responses: 200.'
@@ -444,9 +450,11 @@ paths:
       - Users
       x-prisma-cloud-target-env:
         permission: user
-      operationId: put-users-password
+      operationId: putApiV3404UsersPassword
       summary: Update User Password
       x-description-source: desc/users/password_put.md
+      x-operation-id-source: normalized
+      x-operation-id-original: put-users-password
   /api/v34.04/users/{id}:
     delete:
       description: 'Delete Users. DELETE /api/v34.04/users/{id} on the Users API. Takes 1 path parameter. Documented responses: 200.'
@@ -465,9 +473,11 @@ paths:
       - Users
       x-prisma-cloud-target-env:
         permission: userManagement
-      operationId: delete-users-id
+      operationId: deleteApiV3404UsersById
       summary: Delete Users
       x-description-source: desc/users/id_delete.md
+      x-operation-id-source: normalized
+      x-operation-id-original: delete-users-id
   /v1/users:
     get:
       operationId: listBrowserUsers
@@ -965,6 +975,73 @@ paths:
       description: AIOps for NGFW BPA API production server.
 components:
   schemas:
+    UserStatusChangeRequest:
+      type: object
+      properties:
+        userIds:
+          type: array
+          items:
+            type: string
+          description: List of user IDs
+          minItems: 1
+      required:
+      - userIds
+    Order:
+      type: string
+      description: The sort order
+      enum:
+      - asc
+      - desc
+    PageInfo:
+      type: object
+      properties:
+        hasNextPage:
+          type: boolean
+          description: When paginating forwards, are there more items?
+        cursor:
+          type:
+          - string
+          - 'null'
+          description: When paginating forwards, the cursor to continue.
+      required:
+      - hasNextPage
+    UserSuspendResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Users suspended successfully
+    UserStatus:
+      type: string
+      description: User status
+      enum:
+      - active
+      - suspended
+    UserForceReauthResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Force re-authentication initiated for 2 users
+    ErrorResponse:
+      type: object
+      required:
+      - message
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        missingDeviceIds:
+          type: array
+          items:
+            type: string
+          description: List of device IDs that were not found (only present for device not found errors)
+        missingUserIds:
+          type: array
+          items:
+            type: string
+          description: List of user IDs that were not found (only present for user not found errors)
     User:
       type: object
       properties:
@@ -1027,24 +1104,12 @@ components:
       - status
       - provider
       - externalId
-    Order:
-      type: string
-      description: The sort order
-      enum:
-      - asc
-      - desc
     UserResumeResponse:
       type: object
       properties:
         message:
           type: string
           example: Users resumed successfully
-    UserStatus:
-      type: string
-      description: User status
-      enum:
-      - active
-      - suspended
     UserGroup:
       type: object
       properties:
@@ -1071,61 +1136,39 @@ components:
       required:
       - id
       - name
-    UserStatusChangeRequest:
-      type: object
+    api.Permission:
+      description: 'Permission represents a user or group''s permission to access a specific resource.
+
+        Currently supported resources are:
+
+        - Project - Access to a specific project (if empty, the Master Project by default)
+
+        - Collection - The set of collections in the project that may be accessed (all if empty)
+
+        If no permissions are assigned, all projects and collections may be accessed'
       properties:
-        userIds:
-          type: array
+        collections:
+          description: 'List of collections the user can access.
+
+            '
           items:
-            type: string
-          description: List of user IDs
-          minItems: 1
-      required:
-      - userIds
-    PageInfo:
-      type: object
-      properties:
-        hasNextPage:
-          type: boolean
-          description: When paginating forwards, are there more items?
-        cursor:
-          type:
-          - string
-          - 'null'
-          description: When paginating forwards, the cursor to continue.
-      required:
-      - hasNextPage
-    ErrorResponse:
-      type: object
-      required:
-      - message
-      properties:
-        error:
-          type: string
-        message:
-          type: string
-        missingDeviceIds:
+            $ref: '#/components/schemas/string'
           type: array
-          items:
-            type: string
-          description: List of device IDs that were not found (only present for device not found errors)
-        missingUserIds:
-          type: array
-          items:
-            type: string
-          description: List of user IDs that were not found (only present for user not found errors)
-    UserSuspendResponse:
-      type: object
-      properties:
-        message:
+        project:
+          description: 'Names of projects which the user can access.
+
+            '
           type: string
-          example: Users suspended successfully
-    UserForceReauthResponse:
       type: object
-      properties:
-        message:
-          type: string
-          example: Force re-authentication initiated for 2 users
+    api.AuthType:
+      description: AuthType is the user authentication type
+      enum:
+      - - saml
+        - ldap
+        - basic
+        - oauth
+        - oidc
+      type: string
     api.User:
       description: User represents a user in Twistlock
       properties:
@@ -1160,45 +1203,15 @@ components:
             '
           type: string
       type: object
-    api.AuthType:
-      description: AuthType is the user authentication type
-      enum:
-      - - saml
-        - ldap
-        - basic
-        - oauth
-        - oidc
-      type: string
-    string:
-      type: string
-    api.Permission:
-      description: 'Permission represents a user or group''s permission to access a specific resource.
-
-        Currently supported resources are:
-
-        - Project - Access to a specific project (if empty, the Master Project by default)
-
-        - Collection - The set of collections in the project that may be accessed (all if empty)
-
-        If no permissions are assigned, all projects and collections may be accessed'
-      properties:
-        collections:
-          description: 'List of collections the user can access.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        project:
-          description: 'Names of projects which the user can access.
-
-            '
-          type: string
-      type: object
     api.UserList:
       description: UserList represents a list of users
       items:
         $ref: '#/components/schemas/api.User'
+      type: array
+    api.Permissions:
+      description: Permissions is a list of permissions
+      items:
+        $ref: '#/components/schemas/api.Permission'
       type: array
     types.UserPassword:
       description: UserPassword represents a new user password
@@ -1214,11 +1227,38 @@ components:
             '
           type: string
       type: object
-    api.Permissions:
-      description: Permissions is a list of permissions
-      items:
-        $ref: '#/components/schemas/api.Permission'
-      type: array
+    string:
+      type: string
+    ErrorResponse_3:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code identifying the error type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable description of the error.
+          example: Suspicious detected incident malware activity traffic traffic.
+        request_id:
+          type: string
+          description: Request identifier for support correlation.
+          example: a6ecb027-74a1-4efb-9882-cb98e9bab4bf
+    ErrorResponse_2:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code identifying the error type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable description of the error.
+          example: Configured monitoring network blocked investigation applied activity.
+        request_id:
+          type: string
+          description: Request identifier for support correlation.
+          example: 5cc3d66e-5479-4e15-bd64-849adde3cb60
     BrowserUser:
       type: object
       properties:
@@ -1247,6 +1287,46 @@ components:
           type: string
           format: date-time
           example: '2024-12-26T17:43:03Z'
+    UserActivity:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique activity record identifier.
+          example: example-id
+        user_id:
+          type: string
+          description: ID of the user who performed the action.
+          example: '269446'
+        app_id:
+          type: string
+          description: SaaS application where the activity occurred.
+          example: '356501'
+        action:
+          type: string
+          description: Type of action performed (e.g., file_download, share_external).
+          example: drop
+        asset_id:
+          type: string
+          description: ID of the asset involved in the activity.
+          example: '505071'
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp when the activity occurred.
+          example: '2026-12-27T04:51:36Z'
+        ip_address:
+          type: string
+          description: Source IP address of the activity.
+          example: 10.201.17.66
+        risk_level:
+          type: string
+          enum:
+          - low
+          - medium
+          - high
+          description: Risk level assigned to this activity.
+          example: low
     User_2:
       type: object
       properties:
@@ -1322,76 +1402,6 @@ components:
           type: string
           format: date-time
           example: '2026-07-09T16:25:54Z'
-    ErrorResponse_2:
-      type: object
-      properties:
-        error:
-          type: string
-          description: Error code identifying the error type.
-          example: example-error
-        message:
-          type: string
-          description: Human-readable description of the error.
-          example: Configured monitoring network blocked investigation applied activity.
-        request_id:
-          type: string
-          description: Request identifier for support correlation.
-          example: 5cc3d66e-5479-4e15-bd64-849adde3cb60
-    UserActivity:
-      type: object
-      properties:
-        id:
-          type: string
-          description: Unique activity record identifier.
-          example: example-id
-        user_id:
-          type: string
-          description: ID of the user who performed the action.
-          example: '269446'
-        app_id:
-          type: string
-          description: SaaS application where the activity occurred.
-          example: '356501'
-        action:
-          type: string
-          description: Type of action performed (e.g., file_download, share_external).
-          example: drop
-        asset_id:
-          type: string
-          description: ID of the asset involved in the activity.
-          example: '505071'
-        timestamp:
-          type: string
-          format: date-time
-          description: Timestamp when the activity occurred.
-          example: '2026-12-27T04:51:36Z'
-        ip_address:
-          type: string
-          description: Source IP address of the activity.
-          example: 10.201.17.66
-        risk_level:
-          type: string
-          enum:
-          - low
-          - medium
-          - high
-          description: Risk level assigned to this activity.
-          example: low
-    ErrorResponse_3:
-      type: object
-      properties:
-        error:
-          type: string
-          description: Error code identifying the error type.
-          example: example-error
-        message:
-          type: string
-          description: Human-readable description of the error.
-          example: Suspicious detected incident malware activity traffic traffic.
-        request_id:
-          type: string
-          description: Request identifier for support correlation.
-          example: a6ecb027-74a1-4efb-9882-cb98e9bab4bf
     ErrorResponse_4:
       type: object
       properties:
