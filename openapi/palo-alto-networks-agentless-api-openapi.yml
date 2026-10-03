@@ -251,101 +251,165 @@ paths:
       x-operation-id-original: post-agentless-templates
 components:
   schemas:
-    cred.AzureSPInfo:
-      description: AzureSPInfo contains the Azure credentials needed for certificate based authentications
+    cred.Type:
+      description: Type specifies the credential type
+      enum:
+      - - aws
+        - azure
+        - gcp
+        - ibmCloud
+        - oci
+        - apiToken
+        - basic
+        - dtr
+        - kubeconfig
+        - certificate
+        - gitlabToken
+      type: string
+    common.Secret:
+      description: Secret Stores the plain and encrypted version of a value. The plain version is not stored in a database
       properties:
-        clientId:
-          description: 'ClientID is the client identifier.
+        encrypted:
+          description: 'Specifies an encrypted value of the secret.
 
             '
           type: string
-        miType:
-          $ref: '#/components/schemas/cred.AzureMIType'
-        subscriptionId:
-          description: 'SubscriptionID is a GUID that uniquely identifies the subscription to use Azure services.
-
-            '
-          type: string
-        tenantId:
-          description: 'TenantID is the ID of the AAD directory in which the application was created.
+        plain:
+          description: 'Specifies the plain text value of the secret.
 
             '
           type: string
       type: object
-    agentless.SnapshotScanTime:
-      description: SnapshotScanTime represents the snapshot scan time statistics
+    agentless.RegionStatistics:
+      description: RegionStatistics represents the scan statistics for a region
       properties:
-        avg_sec:
-          description: 'AvgSec is the average duration in seconds per snapshot scan.
+        avg_batch_size_per_scanner:
+          description: 'AvgBatchSizePerScanner is the average batch size per scanner.
 
             '
           format: double
           type: number
-        longest_sec:
-          description: 'LongestSec is the longest duration in seconds spent scanning a single snapshot.
-
-            '
-          format: int64
-          type: integer
-        total_sec:
-          description: 'TotalSec is the total duration in seconds spent scanning snapshots.
-
-            '
-          format: int64
-          type: integer
-      type: object
-    agentless.DeployedScanners:
-      description: DeployedScanners represents the deployed scanner statistics
-      properties:
-        ondemand:
-          description: 'Ondemand is the number of on-demand scanner instances deployed.
-
-            '
-          format: int64
-          type: integer
-        spot:
-          description: 'Spot is the number of spot scanner instances deployed.
-
-            '
-          format: int64
-          type: integer
-      type: object
-    types.AgentlessResourceTemplatesRequest:
-      description: 'AgentlessResourceTemplatesRequest is the agentless resource templates request for populating
-
-        templates that are needed to be applied prior to an agentless scan with the credential'
-      properties:
-        awsRegionType:
-          $ref: '#/components/schemas/shared.RegionType'
-        credential:
-          $ref: '#/components/schemas/cred.Credential'
-        credentialID:
-          description: '(Required) Specifies the ID for which the templates are generated.
+        deployed_scanners:
+          $ref: '#/components/schemas/agentless.DeployedScanners'
+        disk_size:
+          $ref: '#/components/schemas/agentless.DiskSize'
+        region_id:
+          description: 'RegionID is the ID of the region.
 
             '
           type: string
-      type: object
-    agentless.ScanStatisticsResponse:
-      description: ScanStatisticsResponse represents the response structure for scan statistics
-      properties:
-        accounts:
-          description: 'Accounts holds scan statistics per cloud account.
-
-            '
-          items:
-            $ref: '#/components/schemas/agentless.AccountStatistics'
-          type: array
+        scanned_assets:
+          $ref: '#/components/schemas/agentless.ScannedAssets'
+        snapshot_creation_time:
+          $ref: '#/components/schemas/agentless.SnapshotCreationTime'
+        snapshot_scan_time:
+          $ref: '#/components/schemas/agentless.SnapshotScanTime'
         total_scan_time_sec:
-          description: 'TotalScanTimeSec is the total scan time in seconds.
+          description: 'TotalScanTimeSec Total scan time in seconds (including cleanup time).
 
             '
           format: int64
           type: integer
-        update_time:
-          description: 'UpdateTime represents the time of statistics update (ISO 8601 format).
+      type: object
+    shared.ScanType:
+      description: ScanType displays the components for an ongoing scan
+      enum:
+      - - image
+        - ciImage
+        - container
+        - host
+        - agentlessHost
+        - registry
+        - serverlessScan
+        - ciServerless
+        - vm
+        - tas
+        - ciTas
+        - cloudDiscovery
+        - serverlessRadar
+        - serverlessAutoDeploy
+        - hostAutoDeploy
+        - codeRepo
+        - ciCodeRepo
+      type: string
+    cred.TemporaryToken:
+      description: 'TemporaryToken is a temporary session token for cloud provider APIs
+
+        AWS - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp.html
+
+        GCP - https://cloud.google.com/iam/docs/creating-short-lived-service-account-credentials
+
+        Azure - https://docs.microsoft.com/en-us/azure/active-directory/manage-apps/what-is-single-sign-on'
+      properties:
+        awsAccessKeyId:
+          description: 'Specifies a temporary access key.
+
+            '
+          type: string
+        awsSecretAccessKey:
+          $ref: '#/components/schemas/common.Secret'
+        duration:
+          description: 'Specifies a duration for the token.
+
+            '
+          format: int64
+          type: integer
+        expirationTime:
+          description: 'Specifies an expiration time for the token.
 
             '
           format: date-time
+          type: string
+        token:
+          $ref: '#/components/schemas/common.Secret'
+      type: object
+    shared.RegionType:
+      description: RegionType specifies the region type that runs the Amazon services
+      enum:
+      - - regular
+        - gov
+        - china
+        - all
+      type: string
+    cred.AzureMIType:
+      enum:
+      - - user-assigned
+        - system-assigned
+      type: string
+    agentless.DiskSize:
+      description: DiskSize represents the disk size statistics
+      properties:
+        avg_gb:
+          description: 'AvgGB is the average size in GB across all scanned disks.
+
+            '
+          format: double
+          type: number
+        largest_gb:
+          description: 'LargestGB is the size in GB of the largest scanned disk.
+
+            '
+          format: int64
+          type: integer
+        total_gb:
+          description: 'TotalGB is the total size in GB of all scanned disks.
+
+            '
+          format: int64
+          type: integer
+      type: object
+    cred.OCICred:
+      description: OCICred are additional parameters required for OCI credentials
+      properties:
+        fingerprint:
+          description: 'Fingerprint is the public key signature.
+
+            '
+          type: string
+        tenancyId:
+          description: 'TenancyID is the OCID of the tenancy.
+
+            '
           type: string
       type: object
     shared.Progress:
@@ -410,45 +474,180 @@ components:
         type:
           $ref: '#/components/schemas/shared.ScanType'
       type: object
-    agentless.DiskSize:
-      description: DiskSize represents the disk size statistics
+    agentless.SnapshotScanTime:
+      description: SnapshotScanTime represents the snapshot scan time statistics
       properties:
-        avg_gb:
-          description: 'AvgGB is the average size in GB across all scanned disks.
+        avg_sec:
+          description: 'AvgSec is the average duration in seconds per snapshot scan.
 
             '
           format: double
           type: number
-        largest_gb:
-          description: 'LargestGB is the size in GB of the largest scanned disk.
+        longest_sec:
+          description: 'LongestSec is the longest duration in seconds spent scanning a single snapshot.
 
             '
           format: int64
           type: integer
-        total_gb:
-          description: 'TotalGB is the total size in GB of all scanned disks.
+        total_sec:
+          description: 'TotalSec is the total duration in seconds spent scanning snapshots.
 
             '
           format: int64
           type: integer
       type: object
-    types.AgentlessScanMaxScannersOptions:
-      description: AgentlessScanMaxScannersOptions holds query options for setting max agentless scanners
+    string:
+      type: string
+    agentless.DeployedScanners:
+      description: DeployedScanners represents the deployed scanner statistics
+      properties:
+        ondemand:
+          description: 'Ondemand is the number of on-demand scanner instances deployed.
+
+            '
+          format: int64
+          type: integer
+        spot:
+          description: 'Spot is the number of spot scanner instances deployed.
+
+            '
+          format: int64
+          type: integer
+      type: object
+    agentless.AccountStatistics:
+      description: AccountStatistics represents the scan statistics for an account
       properties:
         account_id:
-          description: 'AccountID is the ID of the account to set the max number of scanners.
+          description: 'AccountID is the ID of the account.
 
             '
           type: string
-        auto_scale:
-          description: 'AutoScale sets maximum number of scanners for the account to auto scale (takes precedence when true).
+        cloud_provider:
+          description: 'CloudProvider is the cloud provider of the account.
 
             '
-          type: boolean
-        max_scanners:
-          description: 'MaxScanners is the maximum number of scanners to be set for the account.
+          type: string
+        configured_max_scanners:
+          description: 'ConfiguredMaxScanners is the maximum number of scanners configured for the account.
 
             '
+          format: int64
+          type: integer
+        regions:
+          description: 'Regions holds the scan statistics per region.
+
+            '
+          items:
+            $ref: '#/components/schemas/agentless.RegionStatistics'
+          type: array
+        scan_end_time:
+          description: 'ScanEndTime holds the account scan end timestamp.
+
+            '
+          format: date-time
+          type: string
+        scan_start_time:
+          description: 'ScanStartTime holds the account scan start timestamp.
+
+            '
+          format: date-time
+          type: string
+        total_scan_time_sec:
+          description: 'TotalScanTimeSec is the total scan time in seconds.
+
+            '
+          format: int64
+          type: integer
+      type: object
+    cred.AzureSPInfo:
+      description: AzureSPInfo contains the Azure credentials needed for certificate based authentications
+      properties:
+        clientId:
+          description: 'ClientID is the client identifier.
+
+            '
+          type: string
+        miType:
+          $ref: '#/components/schemas/cred.AzureMIType'
+        subscriptionId:
+          description: 'SubscriptionID is a GUID that uniquely identifies the subscription to use Azure services.
+
+            '
+          type: string
+        tenantId:
+          description: 'TenantID is the ID of the AAD directory in which the application was created.
+
+            '
+          type: string
+      type: object
+    -_shared.Progress:
+      items:
+        $ref: '#/components/schemas/shared.Progress'
+      type: array
+    types.AgentlessResourceTemplatesRequest:
+      description: 'AgentlessResourceTemplatesRequest is the agentless resource templates request for populating
+
+        templates that are needed to be applied prior to an agentless scan with the credential'
+      properties:
+        awsRegionType:
+          $ref: '#/components/schemas/shared.RegionType'
+        credential:
+          $ref: '#/components/schemas/cred.Credential'
+        credentialID:
+          description: '(Required) Specifies the ID for which the templates are generated.
+
+            '
+          type: string
+      type: object
+    agentless.ScanStatisticsResponse:
+      description: ScanStatisticsResponse represents the response structure for scan statistics
+      properties:
+        accounts:
+          description: 'Accounts holds scan statistics per cloud account.
+
+            '
+          items:
+            $ref: '#/components/schemas/agentless.AccountStatistics'
+          type: array
+        total_scan_time_sec:
+          description: 'TotalScanTimeSec is the total scan time in seconds.
+
+            '
+          format: int64
+          type: integer
+        update_time:
+          description: 'UpdateTime represents the time of statistics update (ISO 8601 format).
+
+            '
+          format: date-time
+          type: string
+      type: object
+    agentless.ScannedAssets:
+      description: ScannedAssets represents the scanned assets statistics
+      properties:
+        binaries:
+          description: 'Binaries is the number of binaries scanned.
+
+            '
+          format: int64
+          type: integer
+        container_images:
+          description: 'ContainerImages is the number of container images scanned.
+
+            '
+          format: int64
+          type: integer
+        linux_hosts:
+          description: 'LinuxHosts is the number of Linux machines scanned.
+
+            '
+          format: int64
+          type: integer
+        windows_hosts:
+          description: 'WindowsHosts is the number of Windows machines scanned.
+
+            '
+          format: int64
           type: integer
       type: object
     cred.Credential:
@@ -587,62 +786,24 @@ components:
             '
           type: boolean
       type: object
-    cred.AzureMIType:
-      enum:
-      - - user-assigned
-        - system-assigned
-      type: string
-    shared.ScanType:
-      description: ScanType displays the components for an ongoing scan
-      enum:
-      - - image
-        - ciImage
-        - container
-        - host
-        - agentlessHost
-        - registry
-        - serverlessScan
-        - ciServerless
-        - vm
-        - tas
-        - ciTas
-        - cloudDiscovery
-        - serverlessRadar
-        - serverlessAutoDeploy
-        - hostAutoDeploy
-        - codeRepo
-        - ciCodeRepo
-      type: string
-    cred.Type:
-      description: Type specifies the credential type
-      enum:
-      - - aws
-        - azure
-        - gcp
-        - ibmCloud
-        - oci
-        - apiToken
-        - basic
-        - dtr
-        - kubeconfig
-        - certificate
-        - gitlabToken
-      type: string
-    string:
-      type: string
-    common.Secret:
-      description: Secret Stores the plain and encrypted version of a value. The plain version is not stored in a database
+    types.AgentlessScanMaxScannersOptions:
+      description: AgentlessScanMaxScannersOptions holds query options for setting max agentless scanners
       properties:
-        encrypted:
-          description: 'Specifies an encrypted value of the secret.
+        account_id:
+          description: 'AccountID is the ID of the account to set the max number of scanners.
 
             '
           type: string
-        plain:
-          description: 'Specifies the plain text value of the secret.
+        auto_scale:
+          description: 'AutoScale sets maximum number of scanners for the account to auto scale (takes precedence when true).
 
             '
-          type: string
+          type: boolean
+        max_scanners:
+          description: 'MaxScanners is the maximum number of scanners to be set for the account.
+
+            '
+          type: integer
       type: object
     agentless.SnapshotCreationTime:
       description: SnapshotCreationTime represents the snapshot creation time statistics
@@ -665,167 +826,6 @@ components:
             '
           format: int64
           type: integer
-      type: object
-    shared.RegionType:
-      description: RegionType specifies the region type that runs the Amazon services
-      enum:
-      - - regular
-        - gov
-        - china
-        - all
-      type: string
-    agentless.AccountStatistics:
-      description: AccountStatistics represents the scan statistics for an account
-      properties:
-        account_id:
-          description: 'AccountID is the ID of the account.
-
-            '
-          type: string
-        cloud_provider:
-          description: 'CloudProvider is the cloud provider of the account.
-
-            '
-          type: string
-        configured_max_scanners:
-          description: 'ConfiguredMaxScanners is the maximum number of scanners configured for the account.
-
-            '
-          format: int64
-          type: integer
-        regions:
-          description: 'Regions holds the scan statistics per region.
-
-            '
-          items:
-            $ref: '#/components/schemas/agentless.RegionStatistics'
-          type: array
-        scan_end_time:
-          description: 'ScanEndTime holds the account scan end timestamp.
-
-            '
-          format: date-time
-          type: string
-        scan_start_time:
-          description: 'ScanStartTime holds the account scan start timestamp.
-
-            '
-          format: date-time
-          type: string
-        total_scan_time_sec:
-          description: 'TotalScanTimeSec is the total scan time in seconds.
-
-            '
-          format: int64
-          type: integer
-      type: object
-    agentless.ScannedAssets:
-      description: ScannedAssets represents the scanned assets statistics
-      properties:
-        binaries:
-          description: 'Binaries is the number of binaries scanned.
-
-            '
-          format: int64
-          type: integer
-        container_images:
-          description: 'ContainerImages is the number of container images scanned.
-
-            '
-          format: int64
-          type: integer
-        linux_hosts:
-          description: 'LinuxHosts is the number of Linux machines scanned.
-
-            '
-          format: int64
-          type: integer
-        windows_hosts:
-          description: 'WindowsHosts is the number of Windows machines scanned.
-
-            '
-          format: int64
-          type: integer
-      type: object
-    cred.OCICred:
-      description: OCICred are additional parameters required for OCI credentials
-      properties:
-        fingerprint:
-          description: 'Fingerprint is the public key signature.
-
-            '
-          type: string
-        tenancyId:
-          description: 'TenancyID is the OCID of the tenancy.
-
-            '
-          type: string
-      type: object
-    agentless.RegionStatistics:
-      description: RegionStatistics represents the scan statistics for a region
-      properties:
-        avg_batch_size_per_scanner:
-          description: 'AvgBatchSizePerScanner is the average batch size per scanner.
-
-            '
-          format: double
-          type: number
-        deployed_scanners:
-          $ref: '#/components/schemas/agentless.DeployedScanners'
-        disk_size:
-          $ref: '#/components/schemas/agentless.DiskSize'
-        region_id:
-          description: 'RegionID is the ID of the region.
-
-            '
-          type: string
-        scanned_assets:
-          $ref: '#/components/schemas/agentless.ScannedAssets'
-        snapshot_creation_time:
-          $ref: '#/components/schemas/agentless.SnapshotCreationTime'
-        snapshot_scan_time:
-          $ref: '#/components/schemas/agentless.SnapshotScanTime'
-        total_scan_time_sec:
-          description: 'TotalScanTimeSec Total scan time in seconds (including cleanup time).
-
-            '
-          format: int64
-          type: integer
-      type: object
-    -_shared.Progress:
-      items:
-        $ref: '#/components/schemas/shared.Progress'
-      type: array
-    cred.TemporaryToken:
-      description: 'TemporaryToken is a temporary session token for cloud provider APIs
-
-        AWS - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp.html
-
-        GCP - https://cloud.google.com/iam/docs/creating-short-lived-service-account-credentials
-
-        Azure - https://docs.microsoft.com/en-us/azure/active-directory/manage-apps/what-is-single-sign-on'
-      properties:
-        awsAccessKeyId:
-          description: 'Specifies a temporary access key.
-
-            '
-          type: string
-        awsSecretAccessKey:
-          $ref: '#/components/schemas/common.Secret'
-        duration:
-          description: 'Specifies a duration for the token.
-
-            '
-          format: int64
-          type: integer
-        expirationTime:
-          description: 'Specifies an expiration time for the token.
-
-            '
-          format: date-time
-          type: string
-        token:
-          $ref: '#/components/schemas/common.Secret'
       type: object
 x-refined-from:
 - palo-alto-compute-34-03-openapi-34-03-138-sh-openapi.json

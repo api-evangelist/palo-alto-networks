@@ -201,18 +201,62 @@ paths:
       - Data Security Dashboard
 components:
   schemas:
-    DLPObject:
-      description: Model for DLPObject
+    ToNowTimeRangeConfigModel:
+      allOf:
+      - $ref: '#/components/schemas/TimeRangeConfigModel'
+      - description: Model for ToNowTimeRangeConfig
+        properties:
+          value:
+            description: Time range object
+            enum:
+            - MINUTE
+            - HOUR
+            - DAY
+            - WEEK
+            - MONTH
+            - YEAR
+            - EPOCH
+            - LOGIN
+            type: string
+        type: object
+    RelativeTimeDurationModel:
+      description: Model for RelativeTimeDuration
       properties:
-        classification:
-          description: Key and count data
-          items:
-            $ref: '#/components/schemas/KeyAndCountPair'
-          type: array
-        total:
-          description: Total
+        amount:
+          description: Number of time units
           format: int32
           type: integer
+        unit:
+          description: Time unit
+          enum:
+          - minute
+          - hour
+          - day
+          - week
+          - month
+          - year
+          type: string
+      type: object
+    TimeRangeConfigModel:
+      description: 'See the [Time Range Model](/prisma-cloud/api/cspm/api-time-range-model) for details.
+
+        '
+      discriminator:
+        mapping:
+          absolute: '#/components/schemas/AbsoluteTimeRangeConfigModel'
+          relative: '#/components/schemas/RelativeTimeRangeConfigModel'
+          to_now: '#/components/schemas/ToNowTimeRangeConfigModel'
+        propertyName: type
+      oneOf:
+      - $ref: '#/components/schemas/RelativeTimeRangeConfigModel'
+      - $ref: '#/components/schemas/AbsoluteTimeRangeConfigModel'
+      - $ref: '#/components/schemas/ToNowTimeRangeConfigModel'
+      properties:
+        type:
+          description: Time type
+          type: string
+      required:
+      - type
       type: object
     DLPDashboardFilterModel:
       description: Model for DLP Dashboard filters
@@ -253,6 +297,21 @@ components:
       - limit
       - timeRange
       type: object
+    AbsoluteTimeRangeConfigModel:
+      allOf:
+      - $ref: '#/components/schemas/TimeRangeConfigModel'
+      - description: Model for AbsoluteTimeRangeConfig
+        properties:
+          type:
+            example: absolute
+            type: string
+          value:
+            allOf:
+            - $ref: '#/components/schemas/TimeModel'
+            - description: Time range object
+        required:
+        - value
+        type: object
     TimeModel:
       description: Model for Time
       properties:
@@ -264,6 +323,22 @@ components:
           description: Start timestamp
           format: int64
           type: integer
+      type: object
+    DLPTotalResourceByExposureViewModel:
+      description: Model for DLP Resource Exposure
+      properties:
+        resources:
+          allOf:
+          - $ref: '#/components/schemas/DLPResource'
+          - description: Resource Data
+      type: object
+    DLPTotalSensitiveExposedObjectsViewModel:
+      description: Model for Sensitive Exposed Objects
+      properties:
+        objects:
+          allOf:
+          - $ref: '#/components/schemas/DLPObject'
+          - description: DLP Object data
       type: object
     DLPResource:
       description: Model for DLP Resource
@@ -278,30 +353,39 @@ components:
           format: int32
           type: integer
       type: object
-    DLPTotalSensitiveExposedObjectsViewModel:
-      description: Model for Sensitive Exposed Objects
+    KeyAndCountPair:
+      description: Model for Exposure
       properties:
-        objects:
-          allOf:
-          - $ref: '#/components/schemas/DLPObject'
-          - description: DLP Object data
-      type: object
-    RelativeTimeDurationModel:
-      description: Model for RelativeTimeDuration
-      properties:
-        amount:
-          description: Number of time units
+        count:
+          description: Count
           format: int32
           type: integer
-        unit:
-          description: Time unit
-          enum:
-          - minute
-          - hour
-          - day
-          - week
-          - month
-          - year
+        name:
+          description: Name
+          type: string
+      type: object
+    DLPObject:
+      description: Model for DLPObject
+      properties:
+        classification:
+          description: Key and count data
+          items:
+            $ref: '#/components/schemas/KeyAndCountPair'
+          type: array
+        total:
+          description: Total
+          format: int32
+          type: integer
+      type: object
+    DLPTopNObjectsByOwnerViewModel:
+      description: Model for DLP Object Owner
+      properties:
+        exposure:
+          allOf:
+          - $ref: '#/components/schemas/CountByExposure'
+          - description: Object Exposure
+        name:
+          description: Object Name
           type: string
       type: object
     DLPTopNObjectsByRegionViewModel:
@@ -330,27 +414,6 @@ components:
           description: Cloud region name
           type: string
       type: object
-    TimeRangeConfigModel:
-      description: 'See the [Time Range Model](/prisma-cloud/api/cspm/api-time-range-model) for details.
-
-        '
-      discriminator:
-        mapping:
-          absolute: '#/components/schemas/AbsoluteTimeRangeConfigModel'
-          relative: '#/components/schemas/RelativeTimeRangeConfigModel'
-          to_now: '#/components/schemas/ToNowTimeRangeConfigModel'
-        propertyName: type
-      oneOf:
-      - $ref: '#/components/schemas/RelativeTimeRangeConfigModel'
-      - $ref: '#/components/schemas/AbsoluteTimeRangeConfigModel'
-      - $ref: '#/components/schemas/ToNowTimeRangeConfigModel'
-      properties:
-        type:
-          description: Time type
-          type: string
-      required:
-      - type
-      type: object
     CountByExposure:
       description: Model for DLP Exposure count
       properties:
@@ -366,54 +429,6 @@ components:
           description: Public exposure count
           format: int64
           type: integer
-      type: object
-    ToNowTimeRangeConfigModel:
-      allOf:
-      - $ref: '#/components/schemas/TimeRangeConfigModel'
-      - description: Model for ToNowTimeRangeConfig
-        properties:
-          value:
-            description: Time range object
-            enum:
-            - MINUTE
-            - HOUR
-            - DAY
-            - WEEK
-            - MONTH
-            - YEAR
-            - EPOCH
-            - LOGIN
-            type: string
-        type: object
-    DLPTopNObjectsByOwnerViewModel:
-      description: Model for DLP Object Owner
-      properties:
-        exposure:
-          allOf:
-          - $ref: '#/components/schemas/CountByExposure'
-          - description: Object Exposure
-        name:
-          description: Object Name
-          type: string
-      type: object
-    KeyAndCountPair:
-      description: Model for Exposure
-      properties:
-        count:
-          description: Count
-          format: int32
-          type: integer
-        name:
-          description: Name
-          type: string
-      type: object
-    DLPTotalResourceByExposureViewModel:
-      description: Model for DLP Resource Exposure
-      properties:
-        resources:
-          allOf:
-          - $ref: '#/components/schemas/DLPResource'
-          - description: Resource Data
       type: object
     RelativeTimeRangeConfigModel:
       allOf:
@@ -432,21 +447,6 @@ components:
           value:
             allOf:
             - $ref: '#/components/schemas/RelativeTimeDurationModel'
-            - description: Time range object
-        required:
-        - value
-        type: object
-    AbsoluteTimeRangeConfigModel:
-      allOf:
-      - $ref: '#/components/schemas/TimeRangeConfigModel'
-      - description: Model for AbsoluteTimeRangeConfig
-        properties:
-          type:
-            example: absolute
-            type: string
-          value:
-            allOf:
-            - $ref: '#/components/schemas/TimeModel'
             - description: Time range object
         required:
         - value

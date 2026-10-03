@@ -682,17 +682,43 @@ paths:
       operationId: GetMtSp-interconnectSettings
 components:
   schemas:
-    SessionInitializationMode:
+    IPPoolRequest:
+      type: object
+      required:
+      - ipProvider
+      properties:
+        ipBlocks:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/IPBlockEntry'
+        ipProvider:
+          $ref: '#/components/schemas/IPProvider'
+    ConnectionType:
       type: string
       enum:
-      - ACTIVE
-      - PASSIVE
-      - DISABLED
-    IPBlockType:
+      - DEDICATED
+      - PARTNER
+    InterconnectUsage:
       type: string
       enum:
-      - PRIMARY
-      - SECONDARY
+      - SHARED
+      - PER_TENANT
+    IPBlockEntry:
+      type: object
+      required:
+      - cidr
+      properties:
+        edgeLocation:
+          type: string
+        cidr:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+        type:
+          $ref: '#/components/schemas/IPBlockType'
     VlanAttachmentCustomIpAddress:
       type: object
       description: Custom IP address configuration for VLAN attachment BGP peering. Both Cloud Router and Customer Router IP addresses must be provided together with matching prefix lengths (/29 or /30). IP addresses must not be in reserved ranges (RFC1918 private IPs, loopback, etc.) and must not be network or broadcast addresses.
@@ -714,45 +740,55 @@ components:
           $ref: '#/components/schemas/Bandwidth'
       required:
       - edgeAvailability
-    IPBlockEntry:
-      type: object
-      required:
-      - cidr
-      properties:
-        edgeLocation:
-          type: string
-        cidr:
-          type: array
-          minItems: 1
-          uniqueItems: true
-          items:
-            type: string
-        type:
-          $ref: '#/components/schemas/IPBlockType'
     IPProvider:
       type: string
       enum:
       - SP
       - PANW
-    SettingsEntry:
+    InterconnectRequest:
       type: object
       required:
-      - egressType
+      - name
+      - region
+      - partnerName
+      - partnerEmail
+      - usage
+      - cloudProvider
+      - type
       properties:
-        egressType:
+        name:
           type: string
-          pattern: SP|PA
-        cidr:
-          type: array
-          uniqueItems: true
-          items:
-            type: string
-            pattern: ^((25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})(\.(25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})){3})\/(3[0-2]|[1-2][0-9]|[0-9])$
-    PhysicalInterconnectLinkType:
+          pattern: ^([-0-9a-z]){1,13}$
+        region:
+          type: string
+          pattern: \\S+
+        partnerName:
+          type: string
+          pattern: ^([a-zA-Z0-9\s\-]){1,30}$
+        partnerEmail:
+          type: string
+          pattern: \\S
+        usage:
+          $ref: '#/components/schemas/InterconnectUsage'
+        tsgId:
+          type: string
+          pattern: ^[0-9-]+$
+        cloudProvider:
+          $ref: '#/components/schemas/CloudProvider'
+        type:
+          $ref: '#/components/schemas/ConnectionType'
+        ipPool:
+          $ref: '#/components/schemas/IPPoolRequest'
+        physicalConnection:
+          $ref: '#/components/schemas/PhysicalConnectionEntry'
+        vlanAttachment:
+          $ref: '#/components/schemas/VlanAttachmentRequest'
+    SessionInitializationMode:
       type: string
       enum:
-      - LINK_TYPE_ETHERNET_10G_LR
-      - LINK_TYPE_ETHERNET_100G_LR
+      - ACTIVE
+      - PASSIVE
+      - DISABLED
     PhysicalConnectionEntry:
       type: object
       required:
@@ -783,23 +819,6 @@ components:
         partnerEmail:
           type: string
           pattern: \\S
-    StackType:
-      type: string
-      enum:
-      - IPV4_ONLY
-      - IPV4_IPV6
-    IPPoolRequest:
-      type: object
-      required:
-      - ipProvider
-      properties:
-        ipBlocks:
-          type: array
-          uniqueItems: true
-          items:
-            $ref: '#/components/schemas/IPBlockEntry'
-        ipProvider:
-          $ref: '#/components/schemas/IPProvider'
     VlanAttachmentRequest:
       type: object
       required:
@@ -845,21 +864,6 @@ components:
           $ref: '#/components/schemas/VlanAttachmentCustomIpAddress'
         bgpPeerMd5AuthEnabled:
           type: boolean
-    ConnectionType:
-      type: string
-      enum:
-      - DEDICATED
-      - PARTNER
-    CloudProvider:
-      type: string
-      enum:
-      - GCP
-      - AWS
-    InterconnectUsage:
-      type: string
-      enum:
-      - SHARED
-      - PER_TENANT
     Bandwidth:
       type: string
       enum:
@@ -873,44 +877,40 @@ components:
       - BPS_2G
       - BPS_5G
       - BPS_10G
-    InterconnectRequest:
+    StackType:
+      type: string
+      enum:
+      - IPV4_ONLY
+      - IPV4_IPV6
+    IPBlockType:
+      type: string
+      enum:
+      - PRIMARY
+      - SECONDARY
+    SettingsEntry:
       type: object
       required:
-      - name
-      - region
-      - partnerName
-      - partnerEmail
-      - usage
-      - cloudProvider
-      - type
+      - egressType
       properties:
-        name:
+        egressType:
           type: string
-          pattern: ^([-0-9a-z]){1,13}$
-        region:
-          type: string
-          pattern: \\S+
-        partnerName:
-          type: string
-          pattern: ^([a-zA-Z0-9\s\-]){1,30}$
-        partnerEmail:
-          type: string
-          pattern: \\S
-        usage:
-          $ref: '#/components/schemas/InterconnectUsage'
-        tsgId:
-          type: string
-          pattern: ^[0-9-]+$
-        cloudProvider:
-          $ref: '#/components/schemas/CloudProvider'
-        type:
-          $ref: '#/components/schemas/ConnectionType'
-        ipPool:
-          $ref: '#/components/schemas/IPPoolRequest'
-        physicalConnection:
-          $ref: '#/components/schemas/PhysicalConnectionEntry'
-        vlanAttachment:
-          $ref: '#/components/schemas/VlanAttachmentRequest'
+          pattern: SP|PA
+        cidr:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            pattern: ^((25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})(\.(25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})){3})\/(3[0-2]|[1-2][0-9]|[0-9])$
+    PhysicalInterconnectLinkType:
+      type: string
+      enum:
+      - LINK_TYPE_ETHERNET_10G_LR
+      - LINK_TYPE_ETHERNET_100G_LR
+    CloudProvider:
+      type: string
+      enum:
+      - GCP
+      - AWS
   securitySchemes:
     authKey:
       type: http

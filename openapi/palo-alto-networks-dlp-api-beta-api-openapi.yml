@@ -355,20 +355,6 @@ paths:
           description: Internal Server Error
 components:
   schemas:
-    IncidentUpdateRequest:
-      type: object
-      properties:
-        incident_ids:
-          type: array
-          items:
-            type: string
-            format: uuid
-          minItems: 1
-        update_details:
-          $ref: '#/components/schemas/IncidentUpdateDetails'
-      required:
-      - incident_ids
-      - update_details
     IncidentInventoryRequest:
       type: object
       properties:
@@ -424,68 +410,76 @@ components:
           description: Maximum number of rows to return (optional, e.g., 1000)
       required:
       - time_range
-    ExposureDetails:
+    IncidentInventoryResponse:
       type: object
       properties:
-        is_exposed_by_parent_folder:
-          type: boolean
-        is_public_url:
-          type: boolean
-        is_shared_url:
-          type: boolean
-        is_sign_in_required:
-          type: boolean
-        cloud_url:
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/IncidentInventoryEntity'
+        status:
           type: string
-        public_url:
+          enum:
+          - READY
+          - PENDING
+        status_description:
           type: string
-    IncidentUpdateDetails:
-      type: object
-      properties:
-        notes:
+        query_token:
           type: string
-        assignee_id:
-          type: string
-        assignee_email:
-          type: string
-        assignee_display_name:
-          type: string
-        resolved_by:
-          type: string
-        resolution_status:
-          type: string
-        priority:
+        total_rows:
           type: integer
-          format: int32
-        tag:
-          type: string
-    DeviceInfo:
+          format: int64
+    ResultsDownloadRequest:
       type: object
       properties:
-        id:
+        filter:
           type: string
-        name:
+          description: "Filter expression string\n<br>Operators supported: =, in and AND\n<br>Pattern: {FilterName} = {value} or {FilterName} in ({value1}, {value2}, ...)\n<br>Supported FilterName values:\n- Action: Filter by action taken (e.g., 'block', 'allow')\n- ApplicationName: Filter by application name\n- Asset: Filter by asset name\n- AssigneeId: Filter by assignee user ID\n- AssigneeName: Filter by assignee display name\n- Channel: Filter by channel (e.g., 'PRISMA_ACCESS', 'NGFW')\n- DataPattern: Filter by detection types/data patterns (e.g., 'SSN', 'Credit Card')\n- DataProfile: Filter by data profile ID\n- Destination: Filter by destination\n- IncidentId: Filter by specific incident ID\n- Priority: Filter by priority level (numeric values 1-5)\n- ReportId: Filter by report ID\n- Severity: Filter by severity level\n        - 5 = Critical\n        - 4 = High\n        - 3 = Medium\n        - 2 = Low\n        - 1 = Informational\n- Source: Filter by source\n- Region: Filter by region (e.g., 'US', 'EU', 'UK', 'SG', 'IN', 'AU', 'CA', 'JP')\n- Status: Filter by incident status (e.g., 'New', 'open', 'under_investigation', 'closed')\n- UrlDomain: Filter by URL domain\n- Tag: Filter by incident tags\n\nExamples:\n- \"Tag = 'Needs Escalation'\"\n- \"Status in ('New','open','under_investigation')\"\n- \"UrlDomain = 'dlptest.com'\"\n- \"Channel = 'PRISMA_ACCESS' AND DataProfile in ('11995030','11995033')\"\n"
+          example: Tag = 'Needs Escalation'
+        time_range:
           type: string
-        ip:
-          type: string
-        serial_number:
-          type: string
-        loggedin_users:
+          enum:
+          - HOUR_1
+          - HOUR_3
+          - HOUR_24
+          - DAY_7
+          - DAY_30
+          - DAY_90
+          - CUSTOM
+        start_time:
+          type: integer
+          format: int64
+          writeOnly: true
+          description: Required when time_range is CUSTOM. Start time as Unix timestamp in milliseconds(ms).
+        end_time:
+          type: integer
+          format: int64
+          writeOnly: true
+          description: Required when time_range is CUSTOM. End time as Unix timestamp in milliseconds(ms).
+        columns:
           type: array
           items:
             type: string
-    ErrorInfo:
-      type: object
-      properties:
-        id:
+          writeOnly: true
+          description: Optional columns to include in the response
+        sort_by:
           type: string
-          minLength: 1
-        error_message:
+          writeOnly: true
+          description: Optional field to sort by
+        sort_order:
           type: string
-          minLength: 1
-        error_code:
+          writeOnly: true
+          description: Optional sort order (asc/desc)
+        max_rows:
+          type: integer
+          format: int32
+          writeOnly: true
+          example: 10000
+          description: Maximum number of rows to return (optional, e.g., 1000)
+        token:
           type: string
-          minLength: 1
+      required:
+      - time_range
     PeripheralInfo:
       type: object
       properties:
@@ -511,6 +505,14 @@ components:
           type: string
         vendor_id:
           type: string
+    IncidentUpdateResults:
+      type: object
+      properties:
+        success:
+          type: integer
+          format: int32
+        error:
+          $ref: '#/components/schemas/ErrorInfo'
     ResultsDownloadResponse:
       type: object
       properties:
@@ -572,25 +574,85 @@ components:
           type: string
         url_domain:
           type: string
-    IncidentInventoryResponse:
+    ErrorInfo:
       type: object
       properties:
-        rows:
+        id:
+          type: string
+          minLength: 1
+        error_message:
+          type: string
+          minLength: 1
+        error_code:
+          type: string
+          minLength: 1
+    IncidentUpdateDetails:
+      type: object
+      properties:
+        notes:
+          type: string
+        assignee_id:
+          type: string
+        assignee_email:
+          type: string
+        assignee_display_name:
+          type: string
+        resolved_by:
+          type: string
+        resolution_status:
+          type: string
+        priority:
+          type: integer
+          format: int32
+        tag:
+          type: string
+    DeviceInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        ip:
+          type: string
+        serial_number:
+          type: string
+        loggedin_users:
           type: array
           items:
-            $ref: '#/components/schemas/IncidentInventoryEntity'
-        status:
+            type: string
+    Policy:
+      type: object
+      properties:
+        policy_id:
           type: string
-          enum:
-          - READY
-          - PENDING
-        status_description:
+        policy_type:
           type: string
-        query_token:
+        policy_version:
           type: string
-        total_rows:
-          type: integer
-          format: int64
+    DataProfile:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        version:
+          type: string
+    IncidentUpdateRequest:
+      type: object
+      properties:
+        incident_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+        update_details:
+          $ref: '#/components/schemas/IncidentUpdateDetails'
+      required:
+      - incident_ids
+      - update_details
     IncidentDetailResponse:
       type: object
       properties:
@@ -607,6 +669,52 @@ components:
           type: string
         query_token:
           type: string
+    DataPattern:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        technique:
+          type: string
+        language:
+          type: string
+        category_score:
+          type: integer
+          format: int32
+        high_confidence_frequency:
+          type: integer
+          format: int32
+        medium_confidence_frequency:
+          type: integer
+          format: int32
+        low_confidence_frequency:
+          type: integer
+          format: int32
+        sub_category_score:
+          type: integer
+          format: int32
+        total_detection_frequency:
+          type: integer
+          format: int32
+        total_strict_detection_frequency:
+          type: integer
+          format: int32
+        strict_detection_frequency:
+          type: integer
+          format: int32
+        detection_frequency:
+          type: integer
+          format: int32
+        weighted_frequency:
+          type: integer
+          format: int32
+        version:
+          type: integer
+          format: int32
     IncidentDetailEntity:
       type: object
       properties:
@@ -717,74 +825,6 @@ components:
           type: string
         exposure_details:
           $ref: '#/components/schemas/ExposureDetails'
-    IncidentUpdateResults:
-      type: object
-      properties:
-        success:
-          type: integer
-          format: int32
-        error:
-          $ref: '#/components/schemas/ErrorInfo'
-    Policy:
-      type: object
-      properties:
-        policy_id:
-          type: string
-        policy_type:
-          type: string
-        policy_version:
-          type: string
-    ResultsDownloadRequest:
-      type: object
-      properties:
-        filter:
-          type: string
-          description: "Filter expression string\n<br>Operators supported: =, in and AND\n<br>Pattern: {FilterName} = {value} or {FilterName} in ({value1}, {value2}, ...)\n<br>Supported FilterName values:\n- Action: Filter by action taken (e.g., 'block', 'allow')\n- ApplicationName: Filter by application name\n- Asset: Filter by asset name\n- AssigneeId: Filter by assignee user ID\n- AssigneeName: Filter by assignee display name\n- Channel: Filter by channel (e.g., 'PRISMA_ACCESS', 'NGFW')\n- DataPattern: Filter by detection types/data patterns (e.g., 'SSN', 'Credit Card')\n- DataProfile: Filter by data profile ID\n- Destination: Filter by destination\n- IncidentId: Filter by specific incident ID\n- Priority: Filter by priority level (numeric values 1-5)\n- ReportId: Filter by report ID\n- Severity: Filter by severity level\n        - 5 = Critical\n        - 4 = High\n        - 3 = Medium\n        - 2 = Low\n        - 1 = Informational\n- Source: Filter by source\n- Region: Filter by region (e.g., 'US', 'EU', 'UK', 'SG', 'IN', 'AU', 'CA', 'JP')\n- Status: Filter by incident status (e.g., 'New', 'open', 'under_investigation', 'closed')\n- UrlDomain: Filter by URL domain\n- Tag: Filter by incident tags\n\nExamples:\n- \"Tag = 'Needs Escalation'\"\n- \"Status in ('New','open','under_investigation')\"\n- \"UrlDomain = 'dlptest.com'\"\n- \"Channel = 'PRISMA_ACCESS' AND DataProfile in ('11995030','11995033')\"\n"
-          example: Tag = 'Needs Escalation'
-        time_range:
-          type: string
-          enum:
-          - HOUR_1
-          - HOUR_3
-          - HOUR_24
-          - DAY_7
-          - DAY_30
-          - DAY_90
-          - CUSTOM
-        start_time:
-          type: integer
-          format: int64
-          writeOnly: true
-          description: Required when time_range is CUSTOM. Start time as Unix timestamp in milliseconds(ms).
-        end_time:
-          type: integer
-          format: int64
-          writeOnly: true
-          description: Required when time_range is CUSTOM. End time as Unix timestamp in milliseconds(ms).
-        columns:
-          type: array
-          items:
-            type: string
-          writeOnly: true
-          description: Optional columns to include in the response
-        sort_by:
-          type: string
-          writeOnly: true
-          description: Optional field to sort by
-        sort_order:
-          type: string
-          writeOnly: true
-          description: Optional sort order (asc/desc)
-        max_rows:
-          type: integer
-          format: int32
-          writeOnly: true
-          example: 10000
-          description: Maximum number of rows to return (optional, e.g., 1000)
-        token:
-          type: string
-      required:
-      - time_range
     EndpointOsInfo:
       type: object
       properties:
@@ -796,60 +836,20 @@ components:
           type: string
         os_version:
           type: string
-    DataPattern:
+    ExposureDetails:
       type: object
       properties:
-        id:
+        is_exposed_by_parent_folder:
+          type: boolean
+        is_public_url:
+          type: boolean
+        is_shared_url:
+          type: boolean
+        is_sign_in_required:
+          type: boolean
+        cloud_url:
           type: string
-        name:
-          type: string
-        type:
-          type: string
-        technique:
-          type: string
-        language:
-          type: string
-        category_score:
-          type: integer
-          format: int32
-        high_confidence_frequency:
-          type: integer
-          format: int32
-        medium_confidence_frequency:
-          type: integer
-          format: int32
-        low_confidence_frequency:
-          type: integer
-          format: int32
-        sub_category_score:
-          type: integer
-          format: int32
-        total_detection_frequency:
-          type: integer
-          format: int32
-        total_strict_detection_frequency:
-          type: integer
-          format: int32
-        strict_detection_frequency:
-          type: integer
-          format: int32
-        detection_frequency:
-          type: integer
-          format: int32
-        weighted_frequency:
-          type: integer
-          format: int32
-        version:
-          type: integer
-          format: int32
-    DataProfile:
-      type: object
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-        version:
+        public_url:
           type: string
   securitySchemes:
     JWTAuth:

@@ -560,6 +560,46 @@ paths:
       - Policy
 components:
   schemas:
+    NameValueIntegerString:
+      properties:
+        id:
+          format: int32
+          type: integer
+        name:
+          type: string
+      type: object
+    ParsedTableFilter:
+      description: Model for parsed table filter
+      properties:
+        completeParameters:
+          items:
+            $ref: '#/components/schemas/UIFilterModel'
+          type: array
+        links:
+          description: JSON query builder links
+          type: string
+        needsOffsetUpdate:
+          description: Needs offset update (for internal use)
+          type: boolean
+        offset:
+          description: Offset within query
+          format: int32
+          type: integer
+        queryRemainder:
+          description: Query remainder
+          type: string
+        suggestions:
+          description: List of suggestions
+          items:
+            type: string
+          type: array
+        translate:
+          description: Translate (for internal use)
+          type: boolean
+        valid:
+          description: Query is valid
+          type: boolean
+      type: object
     LegacyPolicyViewModel:
       description: Model for Policy View
       properties:
@@ -737,6 +777,224 @@ components:
       - rule
       - severity
       type: object
+    RemediationModel:
+      description: Model for Remediation
+      properties:
+        actions:
+          description: Policy Action
+          items:
+            $ref: '#/components/schemas/RemediationAction'
+          type: array
+        cliScriptTemplate:
+          description: CLI Script Template
+          type: string
+        description:
+          description: Description
+          type: string
+      type: object
+    PolicyModel:
+      description: Model for Policy
+      properties:
+        cloudType:
+          description: Cloud type (Required for config policies). Not case-sensitive. Default is **ALL**.
+          enum:
+          - ALL
+          - AWS
+          - AZURE
+          - GCP
+          - ALIBABA_CLOUD
+          - OCI
+          - IBM
+          type: string
+        complianceMetadata:
+          description: List of compliance data. Each item has compliance standard, requirement, and/or section information.
+          items:
+            $ref: '#/components/schemas/ComplianceMetadataModel'
+          type: array
+        createdBy:
+          description: Created by
+          readOnly: true
+          type: string
+        createdOn:
+          description: Created on this timestamp
+          format: int64
+          readOnly: true
+          type: integer
+        deleted:
+          description: Deleted
+          readOnly: true
+          type: boolean
+        description:
+          description: Policy description
+          type: string
+        enabled:
+          description: true=enabled. false=disabled.
+          type: boolean
+        findingTypes:
+          description: Finding Type
+          items:
+            type: string
+          type: array
+        labels:
+          description: Labels
+          items:
+            type: string
+          type: array
+          uniqueItems: true
+        lastModifiedBy:
+          description: Last modified by
+          readOnly: true
+          type: string
+        lastModifiedOn:
+          description: Last modified on this timestamp
+          format: int64
+          readOnly: true
+          type: integer
+        name:
+          description: Policy name
+          type: string
+        overridden:
+          description: Overridden
+          readOnly: true
+          type: boolean
+        policyId:
+          description: Policy ID
+          readOnly: true
+          type: string
+        policySubTypes:
+          description: Policy subtype
+          items:
+            enum:
+            - run
+            - build
+            - run_and_build
+            - audit
+            - data_classification
+            - dns
+            - malware
+            - network_event
+            - network
+            - ueba
+            - permissions
+            - network_config
+            - identity
+            type: string
+          readOnly: true
+          type: array
+          uniqueItems: true
+        policyType:
+          description: Policy type. Policy type **anomaly** is read-only.
+          enum:
+          - config
+          - network
+          - audit_event
+          - anomaly
+          - data
+          - iam
+          - workload_vulnerability
+          - workload_incident
+          - waas_event
+          - attack_path
+          type: string
+        policyUpi:
+          description: Policy UPI
+          readOnly: true
+          type: string
+        recommendation:
+          description: Remediation recommendation
+          type: string
+        remediable:
+          description: isRemediable
+          readOnly: true
+          type: boolean
+        remediation:
+          allOf:
+          - $ref: '#/components/schemas/RemediationModel'
+          - description: Auto remediation info. Available only if policy is remediable.
+        restrictAlertDismissal:
+          description: Restrict alert dismissal
+          readOnly: true
+          type: boolean
+        rule:
+          allOf:
+          - $ref: '#/components/schemas/RuleModel'
+          - description: Policy rule (Contains RQL search query or saved search)
+        ruleLastModifiedOn:
+          description: Rule last modified on
+          format: int64
+          readOnly: true
+          type: integer
+        severity:
+          description: Severity
+          enum:
+          - high
+          - medium
+          - low
+          type: string
+        systemDefault:
+          description: true = Policy is a Prisma Cloud system default policy
+          readOnly: true
+          type: boolean
+      required:
+      - name
+      - policyType
+      - rule
+      - severity
+      type: object
+    RuleModel:
+      description: Model for Rule
+      properties:
+        apiName:
+          description: API name
+          readOnly: true
+          type: string
+        cloudAccount:
+          description: Cloud account
+          readOnly: true
+          type: string
+        cloudType:
+          description: Cloud type
+          readOnly: true
+          type: string
+        criteria:
+          description: Saved search ID that defines the rule criteria.
+          type: string
+        dataCriteria:
+          allOf:
+          - $ref: '#/components/schemas/RuleCriteria'
+          - description: Rule criteria for DLP data policy
+        name:
+          description: Name
+          type: string
+        parameters:
+          additionalProperties:
+            type: string
+          description: 'Parameters (e.g. {"savedSearch": "true"})'
+          type: object
+        resourceIdPath:
+          description: Resource ID path
+          readOnly: true
+          type: string
+        resourceType:
+          description: Resource type
+          readOnly: true
+          type: string
+        type:
+          description: Type of rule or RQL query
+          enum:
+          - Config
+          - Network
+          - AuditEvent
+          - DLP
+          - IAM
+          - NetworkConfig
+          type: string
+      required:
+      - criteria
+      - name
+      - parameters
+      - type
+      type: object
     RuleCriteria:
       description: Criteria for Rule
       properties:
@@ -757,72 +1015,13 @@ components:
           type: array
           uniqueItems: true
       type: object
-    NameValueIntegerString:
+    RemediationAction:
+      description: Action for remediation for data policy.
       properties:
-        id:
-          format: int32
-          type: integer
-        name:
+        operation:
           type: string
-      type: object
-    RemediationModel:
-      description: Model for Remediation
-      properties:
-        actions:
-          description: Policy Action
-          items:
-            $ref: '#/components/schemas/RemediationAction'
-          type: array
-        cliScriptTemplate:
-          description: CLI Script Template
+        payload:
           type: string
-        description:
-          description: Description
-          type: string
-      type: object
-    FilterSuggestionModel:
-      description: Model for Filter Suggestions
-      properties:
-        filterName:
-          description: Filter name
-          type: string
-        query:
-          description: Case-insensitive fuzzy search autocomplete filter. Includes only items that contain the query as a substring.
-          type: string
-      required:
-      - filterName
-      type: object
-    ParsedTableFilter:
-      description: Model for parsed table filter
-      properties:
-        completeParameters:
-          items:
-            $ref: '#/components/schemas/UIFilterModel'
-          type: array
-        links:
-          description: JSON query builder links
-          type: string
-        needsOffsetUpdate:
-          description: Needs offset update (for internal use)
-          type: boolean
-        offset:
-          description: Offset within query
-          format: int32
-          type: integer
-        queryRemainder:
-          description: Query remainder
-          type: string
-        suggestions:
-          description: List of suggestions
-          items:
-            type: string
-          type: array
-        translate:
-          description: Translate (for internal use)
-          type: boolean
-        valid:
-          description: Query is valid
-          type: boolean
       type: object
     PolicyViewModel:
       description: Model for Policy View V2
@@ -997,6 +1196,82 @@ components:
       - rule
       - severity
       type: object
+    FilterSuggestionModel:
+      description: Model for Filter Suggestions
+      properties:
+        filterName:
+          description: Filter name
+          type: string
+        query:
+          description: Case-insensitive fuzzy search autocomplete filter. Includes only items that contain the query as a substring.
+          type: string
+      required:
+      - filterName
+      type: object
+    FilterSuggestion:
+      description: Model for FilterSuggestion
+      properties:
+        nameValue:
+          description: Filter options
+          items:
+            $ref: '#/components/schemas/NameValueIntegerString'
+          type: array
+        options:
+          description: Filter options, which lists all the default options for static filters or all the recent options, if any, for non-static filters
+          items:
+            type: string
+          type: array
+          uniqueItems: true
+        staticFilter:
+          description: Filter is a static filter
+          type: boolean
+      type: object
+    PolicyFilterSuggestion:
+      description: Model for PolicyFilterSuggestion
+      properties:
+        cloud.type:
+          allOf:
+          - $ref: '#/components/schemas/FilterSuggestion'
+          - readOnly: true
+        policy.category:
+          allOf:
+          - $ref: '#/components/schemas/FilterSuggestion'
+          - readOnly: true
+        policy.class:
+          $ref: '#/components/schemas/FilterSuggestion'
+        policy.complianceRequirement:
+          $ref: '#/components/schemas/FilterSuggestion'
+        policy.complianceSection:
+          $ref: '#/components/schemas/FilterSuggestion'
+        policy.complianceStandard:
+          $ref: '#/components/schemas/FilterSuggestion'
+        policy.enabled:
+          allOf:
+          - $ref: '#/components/schemas/FilterSuggestion'
+          - readOnly: true
+        policy.label:
+          $ref: '#/components/schemas/FilterSuggestion'
+        policy.name:
+          $ref: '#/components/schemas/FilterSuggestion'
+        policy.policyMode:
+          allOf:
+          - $ref: '#/components/schemas/FilterSuggestion'
+          - readOnly: true
+        policy.remediable:
+          allOf:
+          - $ref: '#/components/schemas/FilterSuggestion'
+          - readOnly: true
+        policy.rule.type:
+          $ref: '#/components/schemas/FilterSuggestion'
+        policy.severity:
+          $ref: '#/components/schemas/FilterSuggestion'
+        policy.subtype:
+          allOf:
+          - $ref: '#/components/schemas/FilterSuggestion'
+          - readOnly: true
+        policy.type:
+          $ref: '#/components/schemas/FilterSuggestion'
+      type: object
     ComplianceMetadataModel:
       description: Model for ComplianceMetadata
       properties:
@@ -1049,281 +1324,6 @@ components:
         value:
           description: Value
           type: string
-      type: object
-    RemediationAction:
-      description: Action for remediation for data policy.
-      properties:
-        operation:
-          type: string
-        payload:
-          type: string
-      type: object
-    FilterSuggestion:
-      description: Model for FilterSuggestion
-      properties:
-        nameValue:
-          description: Filter options
-          items:
-            $ref: '#/components/schemas/NameValueIntegerString'
-          type: array
-        options:
-          description: Filter options, which lists all the default options for static filters or all the recent options, if any, for non-static filters
-          items:
-            type: string
-          type: array
-          uniqueItems: true
-        staticFilter:
-          description: Filter is a static filter
-          type: boolean
-      type: object
-    RuleModel:
-      description: Model for Rule
-      properties:
-        apiName:
-          description: API name
-          readOnly: true
-          type: string
-        cloudAccount:
-          description: Cloud account
-          readOnly: true
-          type: string
-        cloudType:
-          description: Cloud type
-          readOnly: true
-          type: string
-        criteria:
-          description: Saved search ID that defines the rule criteria.
-          type: string
-        dataCriteria:
-          allOf:
-          - $ref: '#/components/schemas/RuleCriteria'
-          - description: Rule criteria for DLP data policy
-        name:
-          description: Name
-          type: string
-        parameters:
-          additionalProperties:
-            type: string
-          description: 'Parameters (e.g. {"savedSearch": "true"})'
-          type: object
-        resourceIdPath:
-          description: Resource ID path
-          readOnly: true
-          type: string
-        resourceType:
-          description: Resource type
-          readOnly: true
-          type: string
-        type:
-          description: Type of rule or RQL query
-          enum:
-          - Config
-          - Network
-          - AuditEvent
-          - DLP
-          - IAM
-          - NetworkConfig
-          type: string
-      required:
-      - criteria
-      - name
-      - parameters
-      - type
-      type: object
-    PolicyModel:
-      description: Model for Policy
-      properties:
-        cloudType:
-          description: Cloud type (Required for config policies). Not case-sensitive. Default is **ALL**.
-          enum:
-          - ALL
-          - AWS
-          - AZURE
-          - GCP
-          - ALIBABA_CLOUD
-          - OCI
-          - IBM
-          type: string
-        complianceMetadata:
-          description: List of compliance data. Each item has compliance standard, requirement, and/or section information.
-          items:
-            $ref: '#/components/schemas/ComplianceMetadataModel'
-          type: array
-        createdBy:
-          description: Created by
-          readOnly: true
-          type: string
-        createdOn:
-          description: Created on this timestamp
-          format: int64
-          readOnly: true
-          type: integer
-        deleted:
-          description: Deleted
-          readOnly: true
-          type: boolean
-        description:
-          description: Policy description
-          type: string
-        enabled:
-          description: true=enabled. false=disabled.
-          type: boolean
-        findingTypes:
-          description: Finding Type
-          items:
-            type: string
-          type: array
-        labels:
-          description: Labels
-          items:
-            type: string
-          type: array
-          uniqueItems: true
-        lastModifiedBy:
-          description: Last modified by
-          readOnly: true
-          type: string
-        lastModifiedOn:
-          description: Last modified on this timestamp
-          format: int64
-          readOnly: true
-          type: integer
-        name:
-          description: Policy name
-          type: string
-        overridden:
-          description: Overridden
-          readOnly: true
-          type: boolean
-        policyId:
-          description: Policy ID
-          readOnly: true
-          type: string
-        policySubTypes:
-          description: Policy subtype
-          items:
-            enum:
-            - run
-            - build
-            - run_and_build
-            - audit
-            - data_classification
-            - dns
-            - malware
-            - network_event
-            - network
-            - ueba
-            - permissions
-            - network_config
-            - identity
-            type: string
-          readOnly: true
-          type: array
-          uniqueItems: true
-        policyType:
-          description: Policy type. Policy type **anomaly** is read-only.
-          enum:
-          - config
-          - network
-          - audit_event
-          - anomaly
-          - data
-          - iam
-          - workload_vulnerability
-          - workload_incident
-          - waas_event
-          - attack_path
-          type: string
-        policyUpi:
-          description: Policy UPI
-          readOnly: true
-          type: string
-        recommendation:
-          description: Remediation recommendation
-          type: string
-        remediable:
-          description: isRemediable
-          readOnly: true
-          type: boolean
-        remediation:
-          allOf:
-          - $ref: '#/components/schemas/RemediationModel'
-          - description: Auto remediation info. Available only if policy is remediable.
-        restrictAlertDismissal:
-          description: Restrict alert dismissal
-          readOnly: true
-          type: boolean
-        rule:
-          allOf:
-          - $ref: '#/components/schemas/RuleModel'
-          - description: Policy rule (Contains RQL search query or saved search)
-        ruleLastModifiedOn:
-          description: Rule last modified on
-          format: int64
-          readOnly: true
-          type: integer
-        severity:
-          description: Severity
-          enum:
-          - high
-          - medium
-          - low
-          type: string
-        systemDefault:
-          description: true = Policy is a Prisma Cloud system default policy
-          readOnly: true
-          type: boolean
-      required:
-      - name
-      - policyType
-      - rule
-      - severity
-      type: object
-    PolicyFilterSuggestion:
-      description: Model for PolicyFilterSuggestion
-      properties:
-        cloud.type:
-          allOf:
-          - $ref: '#/components/schemas/FilterSuggestion'
-          - readOnly: true
-        policy.category:
-          allOf:
-          - $ref: '#/components/schemas/FilterSuggestion'
-          - readOnly: true
-        policy.class:
-          $ref: '#/components/schemas/FilterSuggestion'
-        policy.complianceRequirement:
-          $ref: '#/components/schemas/FilterSuggestion'
-        policy.complianceSection:
-          $ref: '#/components/schemas/FilterSuggestion'
-        policy.complianceStandard:
-          $ref: '#/components/schemas/FilterSuggestion'
-        policy.enabled:
-          allOf:
-          - $ref: '#/components/schemas/FilterSuggestion'
-          - readOnly: true
-        policy.label:
-          $ref: '#/components/schemas/FilterSuggestion'
-        policy.name:
-          $ref: '#/components/schemas/FilterSuggestion'
-        policy.policyMode:
-          allOf:
-          - $ref: '#/components/schemas/FilterSuggestion'
-          - readOnly: true
-        policy.remediable:
-          allOf:
-          - $ref: '#/components/schemas/FilterSuggestion'
-          - readOnly: true
-        policy.rule.type:
-          $ref: '#/components/schemas/FilterSuggestion'
-        policy.severity:
-          $ref: '#/components/schemas/FilterSuggestion'
-        policy.subtype:
-          allOf:
-          - $ref: '#/components/schemas/FilterSuggestion'
-          - readOnly: true
-        policy.type:
-          $ref: '#/components/schemas/FilterSuggestion'
       type: object
   securitySchemes:
     x-redlock-auth:

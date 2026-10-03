@@ -449,6 +449,12 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
+    red_team_shared__schemas__databricks__AuthType:
+      type: string
+      enum:
+      - OAUTH
+      - ACCESS_TOKEN
+      title: AuthType
     HTTPValidationError:
       properties:
         detail:
@@ -458,15 +464,184 @@ components:
           title: Detail
       type: object
       title: HTTPValidationError
-    PaginationSchema:
+    HeadersAuthConfig:
       properties:
-        total_items:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Total Items
+        auth_header:
+          additionalProperties:
+            type: string
+          type: object
+          title: Auth Header
+          description: 'Auth header as {name: value} dict'
+          examples:
+          - Authorization: Bearer sk-xxxxxxxxxxxx
+          - x-api-key: my-api-key
       type: object
-      title: PaginationSchema
+      required:
+      - auth_header
+      title: HeadersAuthConfig
+      description: Static header injection (API keys, bearer tokens).
+    OAuth2AuthConfigRedact:
+      properties:
+        oauth2_token_url:
+          type: string
+          title: Oauth2 Token Url
+          description: OAuth2 token endpoint URL
+          examples:
+          - https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token
+        oauth2_expiry_minutes:
+          type: integer
+          minimum: 0.0
+          title: Oauth2 Expiry Minutes
+          description: Token validity in minutes. System refreshes at expiry - 1 min.
+          default: 60
+        oauth2_headers:
+          additionalProperties: true
+          type: object
+          title: Oauth2 Headers
+          description: HTTP headers for the token request
+          examples:
+          - Authorization: Basic Y2xpZW50X2lkOmNsaWVudF9zZWNyZXQ=
+            Content-Type: application/x-www-form-urlencoded
+        oauth2_body_params:
+          additionalProperties: true
+          type: object
+          title: Oauth2 Body Params
+          description: Body parameters for the token request (nested JSON dict)
+          examples:
+          - client_id: my-client-id
+            client_secret: my-client-secret
+            grant_type: client_credentials
+            scope: api-access
+        oauth2_token_response_key:
+          type: string
+          title: Oauth2 Token Response Key
+          description: Dot-notation path to token in response JSON
+          default: access_token
+          examples:
+          - access_token
+          - data.credentials.access_token
+        oauth2_inject_header:
+          additionalProperties:
+            type: string
+          type: object
+          title: Oauth2 Inject Header
+          description: Header template with {TOKEN} placeholder
+          examples:
+          - Authorization: Bearer {TOKEN}
+      type: object
+      required:
+      - oauth2_token_url
+      - oauth2_inject_header
+      title: OAuth2AuthConfigRedact
+    AdapterVarBase:
+      properties:
+        key:
+          type: string
+          maxLength: 255
+          title: Key
+          description: Variable key
+        value:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Value
+          description: Variable value. On update, null means 'keep the existing value' — used for unchanged secrets, whose values are never returned.
+        type:
+          $ref: '#/components/schemas/AdapterVarType'
+          description: VAR (non-sensitive) or SECRET (sensitive)
+      type: object
+      required:
+      - key
+      - type
+      title: AdapterVarBase
+      description: A single adapter configuration variable (also the GSM-stored shape).
+    OAuth2AuthConfig:
+      properties:
+        oauth2_token_url:
+          type: string
+          title: Oauth2 Token Url
+          description: OAuth2 token endpoint URL
+          examples:
+          - https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token
+        oauth2_expiry_minutes:
+          type: integer
+          minimum: 0.0
+          title: Oauth2 Expiry Minutes
+          description: Token validity in minutes. System refreshes at expiry - 1 min.
+          default: 60
+        oauth2_headers:
+          additionalProperties: true
+          type: object
+          title: Oauth2 Headers
+          description: HTTP headers for the token request
+          examples:
+          - Authorization: Basic Y2xpZW50X2lkOmNsaWVudF9zZWNyZXQ=
+            Content-Type: application/x-www-form-urlencoded
+        oauth2_body_params:
+          additionalProperties: true
+          type: object
+          title: Oauth2 Body Params
+          description: Body parameters for the token request (nested JSON dict)
+          examples:
+          - client_id: my-client-id
+            client_secret: my-client-secret
+            grant_type: client_credentials
+            scope: api-access
+        oauth2_token_response_key:
+          type: string
+          title: Oauth2 Token Response Key
+          description: Dot-notation path to token in response JSON
+          default: access_token
+          examples:
+          - access_token
+          - data.credentials.access_token
+        oauth2_inject_header:
+          additionalProperties:
+            type: string
+          type: object
+          title: Oauth2 Inject Header
+          description: Header template with {TOKEN} placeholder
+          examples:
+          - Authorization: Bearer {TOKEN}
+      type: object
+      required:
+      - oauth2_token_url
+      - oauth2_inject_header
+      title: OAuth2AuthConfig
+      description: OAuth2 client credentials with proactive token refresh.
+    AiGeneratedItems:
+      properties:
+        languages_supported:
+          anyOf:
+          - $ref: '#/components/schemas/AiGeneratedLanguageListFieldInfo'
+          - type: 'null'
+        tools_accessible:
+          anyOf:
+          - $ref: '#/components/schemas/AiGeneratedListFieldInfo'
+          - type: 'null'
+        banned_keywords:
+          anyOf:
+          - $ref: '#/components/schemas/AiGeneratedListFieldInfo'
+          - type: 'null'
+        competitors:
+          anyOf:
+          - $ref: '#/components/schemas/AiGeneratedListFieldInfo'
+          - type: 'null'
+        base_model:
+          anyOf:
+          - $ref: '#/components/schemas/AiGeneratedStringFieldInfo'
+          - type: 'null'
+        core_architecture:
+          anyOf:
+          - $ref: '#/components/schemas/AiGeneratedStringFieldInfo'
+          - type: 'null'
+        system_prompt:
+          anyOf:
+          - $ref: '#/components/schemas/AiGeneratedStringFieldInfo'
+          - type: 'null'
+      type: object
+      title: AiGeneratedItems
+      description: Per-field AI tracking with item-level tags and counts.
     TargetSchema:
       properties:
         connection_params:
@@ -710,60 +885,115 @@ components:
         - additional_context: merged user + profiler values with source tracking
 
         '
-    ValidationError:
+    WebSocketConnectionParamsRedactBase:
       properties:
-        loc:
-          items:
-            anyOf:
-            - type: string
-            - type: integer
-          type: array
-          title: Location
-        msg:
+        api_endpoint:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Api Endpoint
+          description: API endpoint URL
+          examples:
+          - https://api.openai.com/v1/responses
+        request_headers:
+          additionalProperties: true
+          type: object
+          title: Request Headers
+          description: Request headers
+          default: {}
+          examples:
+          - Authorization: Bearer sk-xxx
+            Content-Type: application/json
+        request_json:
+          additionalProperties: true
+          type: object
+          title: Request Json
+          description: Request JSON
+          default: {}
+          examples:
+          - input:
+            - content:
+              - text: '{INPUT}'
+                type: input_text
+              role: user
+            model: gpt-4.1-nano
+        response_json:
+          additionalProperties: true
+          type: object
+          title: Response Json
+          description: Response JSON
+          default: {}
+          examples:
+          - content: '{RESPONSE}'
+        response_key:
           type: string
-          title: Message
-        type:
-          type: string
-          title: Error Type
+          title: Response Key
+          description: Response key
+          default: null
+          examples:
+          - content
+        target_connection_config:
+          anyOf:
+          - $ref: '#/components/schemas/OpenAIConnectionRedactParams'
+          - $ref: '#/components/schemas/HuggingfaceConnectionRedactParams'
+          - $ref: '#/components/schemas/DatabricksConnectionRedactParams'
+          - $ref: '#/components/schemas/BedrockAccessConnectionRedactParams'
+          - $ref: '#/components/schemas/MSCopilotStudioConnectionRedactParams'
+          - type: 'null'
+          title: Target Connection Config
+          description: Target Connection config of type openai/huggingface ..
+        curl:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Curl
+          description: Generated cURL command ready to use (redacted for security)
+          examples:
+          - 'curl "https://api.openai.com/v1/chat/completions" -H "Content-Type: application/json" -H "Authorization: Bearer ***" -d ''{"model":"gpt-4","messages":[{"role":"user","content":"{INPUT}"}]}'''
+        multi_turn_config:
+          anyOf:
+          - oneOf:
+            - $ref: '#/components/schemas/MultiTurnStatefulConfig'
+            - $ref: '#/components/schemas/MultiTurnStatelessConfig'
+            discriminator:
+              propertyName: type
+              mapping:
+                stateful: '#/components/schemas/MultiTurnStatefulConfig'
+                stateless: '#/components/schemas/MultiTurnStatelessConfig'
+          - type: 'null'
+          title: Multi Turn Config
+          description: Multi turn config for stateful or stateless target
+          examples:
+          - 'assistant_role: assistant'
+        ws_response_timeout:
+          type: number
+          title: Ws Response Timeout
+          description: Timeout in seconds for waiting for a WebSocket response message
+          default: 110.0
+          examples:
+          - 60.0
+          - 110.0
       type: object
-      required:
-      - loc
-      - msg
-      - type
-      title: ValidationError
-    OtherDetailsPrettified:
+      title: WebSocketConnectionParamsRedactBase
+      description: "Redacted connection parameters for WebSocket targets.\n\nMRO: WebSocketConnectionParamsRedactBase → RestConnectionParamsRedactBase\n     → WebSocketConnectionParamsBase → RestConnectionParamsBase.\nBoth RestConnectionParamsRedactBase and WebSocketConnectionParamsBase inherit\nfrom RestConnectionParamsBase (diamond). Pydantic v2 deduplicates field validators\nby name, so WebSocketConnectionParamsBase.validate_url (ws/wss) overrides\nRestConnectionParamsBase.validate_url (http/https) — ws:// URLs are accepted.\n"
+    PaginationSchema:
       properties:
-        execution_environment:
-          additionalProperties: true
-          type: object
-          title: Execution Environment
-        core_architecture_and_identity:
-          additionalProperties: true
-          type: object
-          title: Core Architecture And Identity
-        tools_and_integrations:
-          additionalProperties: true
-          type: object
-          title: Tools And Integrations
-        audience_and_governance:
-          additionalProperties: true
-          type: object
-          title: Audience And Governance
-        performance_and_metrics:
-          additionalProperties: true
-          type: object
-          title: Performance And Metrics
-        content_policy:
-          additionalProperties: true
-          type: object
-          title: Content Policy
-        other_discoveries:
-          additionalProperties: true
-          type: object
-          title: Other Discoveries
+        total_items:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Total Items
       type: object
-      title: OtherDetailsPrettified
-      description: Categorized view of profiler discoveries for FE display.
+      title: PaginationSchema
+    ResponseMode:
+      type: string
+      enum:
+      - REST
+      - STREAMING
+      - WEBSOCKET
+      - WEBSOCKET_STREAMING
+      title: ResponseMode
+      description: Response mode for target interactions.
     StreamingConnectionParamsBase-Input:
       properties:
         api_endpoint:
@@ -856,91 +1086,896 @@ components:
       - response_stop_value
       title: StreamingConnectionParamsBase
       description: Base streaming connection parameters without generated fields.
-    AiGeneratedItems:
+    BasicAuthAuthConfig:
       properties:
-        languages_supported:
+        basic_auth_location:
+          $ref: '#/components/schemas/BasicAuthLocation'
+          description: 'Where credentials are sent: HEADER or PAYLOAD'
+          default: HEADER
+        basic_auth_header:
           anyOf:
-          - $ref: '#/components/schemas/AiGeneratedLanguageListFieldInfo'
+          - additionalProperties:
+              type: string
+            type: object
           - type: 'null'
-        tools_accessible:
-          anyOf:
-          - $ref: '#/components/schemas/AiGeneratedListFieldInfo'
-          - type: 'null'
-        banned_keywords:
-          anyOf:
-          - $ref: '#/components/schemas/AiGeneratedListFieldInfo'
-          - type: 'null'
-        competitors:
-          anyOf:
-          - $ref: '#/components/schemas/AiGeneratedListFieldInfo'
-          - type: 'null'
-        base_model:
-          anyOf:
-          - $ref: '#/components/schemas/AiGeneratedStringFieldInfo'
-          - type: 'null'
-        core_architecture:
-          anyOf:
-          - $ref: '#/components/schemas/AiGeneratedStringFieldInfo'
-          - type: 'null'
-        system_prompt:
-          anyOf:
-          - $ref: '#/components/schemas/AiGeneratedStringFieldInfo'
-          - type: 'null'
+          title: Basic Auth Header
+          description: 'Auth header as {name: value} dict (required when location=HEADER)'
+          examples:
+          - Authorization: Basic dXNlcjpwYXNz
       type: object
-      title: AiGeneratedItems
-      description: Per-field AI tracking with item-level tags and counts.
-    ProfilingStatus:
-      type: string
-      enum:
-      - INIT
-      - QUEUED
-      - IN_PROGRESS
-      - COMPLETED
-      - FAILED
-      - PARTIALLY_COMPLETE
-      title: ProfilingStatus
-      description: Status of target profiling workflow.
-    DatabricksConnectionRedactParams:
+      title: BasicAuthAuthConfig
+      description: Basic Auth credentials — header or payload location.
+    OpenAIConnectionRedactParams:
       properties:
-        auth_type:
-          $ref: '#/components/schemas/red_team_shared__schemas__databricks__AuthType'
-          description: Auth type
-        access_token:
-          anyOf:
-          - type: string
-            format: password
-            writeOnly: true
-          - type: 'null'
-          title: Access Token
-          description: Databricks access token
-        client_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Client Id
-          description: Databricks client_id
-        secret:
-          anyOf:
-          - type: string
-            format: password
-            writeOnly: true
-          - type: 'null'
-          title: Secret
-          description: Databricks secret
-        workspace_url:
+        api_key:
           type: string
-          title: Workspace Url
-          description: Databricks workscpace_url
+          format: password
+          title: Api Key
+          description: OpenAI API key for authentication
+          writeOnly: true
+          examples:
+          - sk-abxx
         model_name:
           type: string
           title: Model Name
-          description: Databricks model name
+          description: OpenAI model name for API requests
+          examples:
+          - gpt-4.1-nano
       type: object
       required:
-      - auth_type
-      - workspace_url
+      - api_key
       - model_name
-      title: DatabricksConnectionRedactParams
+      title: OpenAIConnectionRedactParams
+      description: Connection parameters specific to OpenAI targets
+    NativeConnectionParamsRedactBase:
+      properties:
+        target_connection_config:
+          anyOf:
+          - $ref: '#/components/schemas/OpenAIConnectionRedactParams'
+          - $ref: '#/components/schemas/HuggingfaceConnectionRedactParams'
+          - $ref: '#/components/schemas/DatabricksConnectionRedactParams'
+          - $ref: '#/components/schemas/BedrockAccessConnectionRedactParams'
+          - $ref: '#/components/schemas/MSCopilotStudioConnectionRedactParams'
+          - type: 'null'
+          title: Target Connection Config
+          description: Provider-specific connection config (redacted)
+        multi_turn_config:
+          anyOf:
+          - oneOf:
+            - $ref: '#/components/schemas/MultiTurnStatefulConfig'
+            - $ref: '#/components/schemas/MultiTurnStatelessConfig'
+            discriminator:
+              propertyName: type
+              mapping:
+                stateful: '#/components/schemas/MultiTurnStatefulConfig'
+                stateless: '#/components/schemas/MultiTurnStatelessConfig'
+          - type: 'null'
+          title: Multi Turn Config
+          description: Multi-turn config for stateful or stateless target
+        multi_turn_supported:
+          type: boolean
+          title: Multi Turn Supported
+          description: Whether a native target that drives multi-turn internally supports it. Currently consumed only by custom target adapters, which have no multi_turn_config to infer it from; gates the multi-turn validation probe.
+          default: false
+      type: object
+      title: NativeConnectionParamsRedactBase
+      description: Redacted version of NativeConnectionParamsBase.
+    RestConnectionParamsRedactBase:
+      properties:
+        api_endpoint:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Api Endpoint
+          description: API endpoint URL
+          examples:
+          - https://api.openai.com/v1/responses
+        request_headers:
+          additionalProperties: true
+          type: object
+          title: Request Headers
+          description: Request headers
+          default: {}
+          examples:
+          - Authorization: Bearer sk-xxx
+            Content-Type: application/json
+        request_json:
+          additionalProperties: true
+          type: object
+          title: Request Json
+          description: Request JSON
+          default: {}
+          examples:
+          - input:
+            - content:
+              - text: '{INPUT}'
+                type: input_text
+              role: user
+            model: gpt-4.1-nano
+        response_json:
+          additionalProperties: true
+          type: object
+          title: Response Json
+          description: Response JSON
+          default: {}
+          examples:
+          - content: '{RESPONSE}'
+        response_key:
+          type: string
+          title: Response Key
+          description: Response key
+          default: null
+          examples:
+          - content
+        target_connection_config:
+          anyOf:
+          - $ref: '#/components/schemas/OpenAIConnectionRedactParams'
+          - $ref: '#/components/schemas/HuggingfaceConnectionRedactParams'
+          - $ref: '#/components/schemas/DatabricksConnectionRedactParams'
+          - $ref: '#/components/schemas/BedrockAccessConnectionRedactParams'
+          - $ref: '#/components/schemas/MSCopilotStudioConnectionRedactParams'
+          - type: 'null'
+          title: Target Connection Config
+          description: Target Connection config of type openai/huggingface ..
+        curl:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Curl
+          description: Generated cURL command ready to use (redacted for security)
+          examples:
+          - 'curl "https://api.openai.com/v1/chat/completions" -H "Content-Type: application/json" -H "Authorization: Bearer ***" -d ''{"model":"gpt-4","messages":[{"role":"user","content":"{INPUT}"}]}'''
+        multi_turn_config:
+          anyOf:
+          - oneOf:
+            - $ref: '#/components/schemas/MultiTurnStatefulConfig'
+            - $ref: '#/components/schemas/MultiTurnStatelessConfig'
+            discriminator:
+              propertyName: type
+              mapping:
+                stateful: '#/components/schemas/MultiTurnStatefulConfig'
+                stateless: '#/components/schemas/MultiTurnStatelessConfig'
+          - type: 'null'
+          title: Multi Turn Config
+          description: Multi turn config for stateful or stateless target
+          examples:
+          - 'assistant_role: assistant'
+      type: object
+      title: RestConnectionParamsRedactBase
+    BedrockAccessConnectionRedactParams:
+      properties:
+        access_id:
+          type: string
+          format: password
+          title: Access Id
+          description: AWS access key ID
+          writeOnly: true
+        access_secret:
+          type: string
+          format: password
+          title: Access Secret
+          description: AWS secret access key
+          writeOnly: true
+        session_token:
+          anyOf:
+          - type: string
+            format: password
+            writeOnly: true
+          - type: 'null'
+          title: Session Token
+          description: AWS session token (optional)
+        region:
+          type: string
+          title: Region
+          description: AWS region
+        model_id:
+          type: string
+          title: Model Id
+          description: Bedrock model ID
+      type: object
+      required:
+      - access_id
+      - access_secret
+      - region
+      - model_id
+      title: BedrockAccessConnectionRedactParams
+      description: AWS Bedrock access parameters stored in target_metadata.
+    OtherDetails:
+      properties:
+        items:
+          additionalProperties: true
+          type: object
+          title: Items
+      type: object
+      title: OtherDetails
+      description: 'Additional profiler discoveries. Read-only key-value pairs.
+
+
+        Examples: code_execution_capability, internet_access, etc.
+
+        '
+    OtherDetailsPrettified:
+      properties:
+        execution_environment:
+          additionalProperties: true
+          type: object
+          title: Execution Environment
+        core_architecture_and_identity:
+          additionalProperties: true
+          type: object
+          title: Core Architecture And Identity
+        tools_and_integrations:
+          additionalProperties: true
+          type: object
+          title: Tools And Integrations
+        audience_and_governance:
+          additionalProperties: true
+          type: object
+          title: Audience And Governance
+        performance_and_metrics:
+          additionalProperties: true
+          type: object
+          title: Performance And Metrics
+        content_policy:
+          additionalProperties: true
+          type: object
+          title: Content Policy
+        other_discoveries:
+          additionalProperties: true
+          type: object
+          title: Other Discoveries
+      type: object
+      title: OtherDetailsPrettified
+      description: Categorized view of profiler discoveries for FE display.
+    TargetResponseSchema:
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          title: Uuid
+        tsg_id:
+          type: string
+          title: Tsg Id
+        name:
+          type: string
+          title: Name
+          description: Target name
+          examples:
+          - GPT 4.1 Nano
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+          description: Optional target description
+          default: null
+          examples:
+          - AI model for testing
+        target_type:
+          anyOf:
+          - $ref: '#/components/schemas/TargetType'
+          - type: 'null'
+          description: Type of target
+        connection_type:
+          anyOf:
+          - $ref: '#/components/schemas/TargetConnectionType'
+          - type: 'null'
+          description: Connection type/provider for the target
+          examples:
+          - CUSTOM
+          - OPENAI
+          - BEDROCK
+        api_endpoint_type:
+          anyOf:
+          - $ref: '#/components/schemas/ApiEndpointType'
+          - type: 'null'
+          description: Accessibility type of the API endpoint
+          examples:
+          - PUBLIC
+          - PRIVATE
+          - NETWORK_BROKER
+        response_mode:
+          anyOf:
+          - $ref: '#/components/schemas/ResponseMode'
+          - type: 'null'
+          description: Response mode for API interactions
+          examples:
+          - REST
+          - STREAMING
+          - WEBSOCKET
+        auth_type:
+          anyOf:
+          - $ref: '#/components/schemas/red_team_shared__schemas__auth_config__AuthType'
+          - type: 'null'
+          description: Authentication method for target API access
+          examples:
+          - HEADERS
+          - BASIC_AUTH
+          - OAUTH2
+        session_supported:
+          type: boolean
+          title: Session Supported
+          description: Whether target supports session for multi-turn conversations
+          default: false
+        extra_info:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Extra Info
+          description: Additional configuration or metadata for the target
+          default: {}
+          examples:
+          - custom_key: custom_value
+        adapter_uuid:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Adapter Uuid
+          description: Custom adapter this target uses. Required when connection_type is CUSTOM_TARGET_ADAPTER; must be null for every other connection type.
+        status:
+          $ref: '#/components/schemas/TargetStatus'
+          description: Target status
+        active:
+          type: boolean
+          title: Active
+          description: Whether target is active
+        validated:
+          type: boolean
+          title: Validated
+          description: Whether target is validated
+        version:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Version
+          description: Configuration version
+        secret_version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Secret Version
+          description: Secret Manager version for connection_params. When present, sensitive connection data is stored in Secret Manager. When None, connection_params are stored in GCS (legacy).
+        created_by_user_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Created By User Id
+          description: User ID of target creator
+        updated_by_user_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Updated By User Id
+          description: User ID of last target updater
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+          description: Creation timestamp
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+          description: Last update timestamp
+        profiling_status:
+          anyOf:
+          - $ref: '#/components/schemas/ProfilingStatus'
+          - type: 'null'
+          description: Status of the profiling workflow
+        canonical_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Canonical Id
+          description: Partner-supplied stable identifier. Null for targets without partner integration metadata (most targets).
+        target_metadata:
+          $ref: '#/components/schemas/TargetMetadata'
+          description: Target metadata and configuration options
+        adapter_secret_version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Adapter Secret Version
+          description: Frozen Secret Manager version of the referenced adapter, pinned at scan (job) creation so an adapter edited mid-scan doesn't change the script/secrets that scan uses. Server-managed; null for non-adapter targets.
+        target_background:
+          anyOf:
+          - $ref: '#/components/schemas/TargetBackground'
+          - type: 'null'
+          description: 'Target background info: industry, use_case, competitors'
+        profiling_progress:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Profiling Progress
+          description: Profiling progress percentage (0–100)
+        additional_context:
+          anyOf:
+          - $ref: '#/components/schemas/TargetAdditionalContext'
+          - type: 'null'
+          description: Additional context with source tracking (user + profiler)
+      type: object
+      required:
+      - uuid
+      - tsg_id
+      - name
+      - status
+      - active
+      - validated
+      - created_at
+      - updated_at
+      title: TargetResponseSchema
+    NativeConnectionParamsBase-Input:
+      properties:
+        target_connection_config:
+          anyOf:
+          - $ref: '#/components/schemas/OpenAIConnectionParams'
+          - $ref: '#/components/schemas/HuggingfaceConnectionParams'
+          - $ref: '#/components/schemas/DatabricksConnectionParams'
+          - $ref: '#/components/schemas/BedrockAccessConnectionParams'
+          - $ref: '#/components/schemas/MSCopilotStudioConnectionParams'
+          - type: 'null'
+          title: Target Connection Config
+          description: Provider-specific connection config
+        multi_turn_config:
+          anyOf:
+          - oneOf:
+            - $ref: '#/components/schemas/MultiTurnStatefulConfig'
+            - $ref: '#/components/schemas/MultiTurnStatelessConfig'
+            discriminator:
+              propertyName: type
+              mapping:
+                stateful: '#/components/schemas/MultiTurnStatefulConfig'
+                stateless: '#/components/schemas/MultiTurnStatelessConfig'
+          - type: 'null'
+          title: Multi Turn Config
+          description: Multi-turn config for stateful or stateless target
+        multi_turn_supported:
+          type: boolean
+          title: Multi Turn Supported
+          description: Whether a native target that drives multi-turn internally supports it. Currently consumed only by custom target adapters, which have no multi_turn_config to infer it from; gates the multi-turn validation probe.
+          default: false
+      type: object
+      title: NativeConnectionParamsBase
+      description: 'Base connection parameters for native/SDK-based targets (no HTTP endpoint).
+
+
+        Used for no-code agent platforms like Microsoft Copilot Studio where
+
+        interaction is via a provider''s client library, not HTTP REST/streaming.
+
+
+        # TODO: Consider refactoring RestConnectionParamsBase and StreamingConnectionParamsBase
+
+        # to share a common base with this class (e.g., extract target_connection_config and
+
+        # multi_turn_config into a shared parent).
+
+        '
+    TargetContextUpdateSchema:
+      properties:
+        target_background:
+          anyOf:
+          - $ref: '#/components/schemas/TargetBackground'
+          - type: 'null'
+          description: 'Target background: industry, use_case, competitors'
+        additional_context:
+          anyOf:
+          - $ref: '#/components/schemas/TargetAdditionalContext'
+          - type: 'null'
+          description: 'Additional context: base_model, system_prompt, languages, etc.'
+      type: object
+      title: TargetContextUpdateSchema
+      description: 'Request schema for updating target profile (background + additional context).
+
+
+        Used by PUT /{target_uuid}/profile endpoint.
+
+        User provides plain values which are saved directly to DB and GCS.
+
+        '
+    TargetListItemSchema:
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          title: Uuid
+        tsg_id:
+          type: string
+          title: Tsg Id
+        name:
+          type: string
+          title: Name
+          description: Target name
+          examples:
+          - GPT 4.1 Nano
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+          description: Optional target description
+          default: null
+          examples:
+          - AI model for testing
+        target_type:
+          anyOf:
+          - $ref: '#/components/schemas/TargetType'
+          - type: 'null'
+          description: Type of target
+        connection_type:
+          anyOf:
+          - $ref: '#/components/schemas/TargetConnectionType'
+          - type: 'null'
+          description: Connection type/provider for the target
+          examples:
+          - CUSTOM
+          - OPENAI
+          - BEDROCK
+        api_endpoint_type:
+          anyOf:
+          - $ref: '#/components/schemas/ApiEndpointType'
+          - type: 'null'
+          description: Accessibility type of the API endpoint
+          examples:
+          - PUBLIC
+          - PRIVATE
+          - NETWORK_BROKER
+        response_mode:
+          anyOf:
+          - $ref: '#/components/schemas/ResponseMode'
+          - type: 'null'
+          description: Response mode for API interactions
+          examples:
+          - REST
+          - STREAMING
+          - WEBSOCKET
+        auth_type:
+          anyOf:
+          - $ref: '#/components/schemas/red_team_shared__schemas__auth_config__AuthType'
+          - type: 'null'
+          description: Authentication method for target API access
+          examples:
+          - HEADERS
+          - BASIC_AUTH
+          - OAUTH2
+        session_supported:
+          type: boolean
+          title: Session Supported
+          description: Whether target supports session for multi-turn conversations
+          default: false
+        extra_info:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Extra Info
+          description: Additional configuration or metadata for the target
+          default: {}
+          examples:
+          - custom_key: custom_value
+        adapter_uuid:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Adapter Uuid
+          description: Custom adapter this target uses. Required when connection_type is CUSTOM_TARGET_ADAPTER; must be null for every other connection type.
+        status:
+          $ref: '#/components/schemas/TargetStatus'
+          description: Target status
+        active:
+          type: boolean
+          title: Active
+          description: Whether target is active
+        validated:
+          type: boolean
+          title: Validated
+          description: Whether target is validated
+        version:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Version
+          description: Configuration version
+        secret_version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Secret Version
+          description: Secret Manager version for connection_params. When present, sensitive connection data is stored in Secret Manager. When None, connection_params are stored in GCS (legacy).
+        created_by_user_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Created By User Id
+          description: User ID of target creator
+        updated_by_user_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Updated By User Id
+          description: User ID of last target updater
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+          description: Creation timestamp
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+          description: Last update timestamp
+        profiling_status:
+          anyOf:
+          - $ref: '#/components/schemas/ProfilingStatus'
+          - type: 'null'
+          description: Status of the profiling workflow
+        canonical_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Canonical Id
+          description: Partner-supplied stable identifier. Null for targets without partner integration metadata (most targets).
+      type: object
+      required:
+      - uuid
+      - tsg_id
+      - name
+      - status
+      - active
+      - validated
+      - created_at
+      - updated_at
+      title: TargetListItemSchema
+    AiLanguageItemTag:
+      properties:
+        value:
+          type: string
+          title: Value
+        is_ai_generated:
+          type: boolean
+          title: Is Ai Generated
+        country_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Country Code
+      type: object
+      required:
+      - value
+      - is_ai_generated
+      title: AiLanguageItemTag
+      description: AI tracking tag for language items, includes ISO 639-1 code for flag display.
+    StreamingConnectionParamsRedactBase:
+      properties:
+        api_endpoint:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Api Endpoint
+          description: API endpoint URL
+          examples:
+          - https://api.openai.com/v1/responses
+        request_headers:
+          additionalProperties: true
+          type: object
+          title: Request Headers
+          description: Request headers
+          default: {}
+          examples:
+          - Authorization: Bearer sk-xxx
+            Content-Type: application/json
+        request_json:
+          additionalProperties: true
+          type: object
+          title: Request Json
+          description: Request JSON
+          default: {}
+          examples:
+          - input:
+            - content:
+              - text: '{INPUT}'
+                type: input_text
+              role: user
+            model: gpt-4.1-nano
+        response_json:
+          additionalProperties: true
+          type: object
+          title: Response Json
+          description: Response JSON
+          default: {}
+          examples:
+          - content: '{RESPONSE}'
+        response_key:
+          type: string
+          title: Response Key
+          description: Response key
+          default: null
+          examples:
+          - content
+        target_connection_config:
+          anyOf:
+          - $ref: '#/components/schemas/OpenAIConnectionRedactParams'
+          - $ref: '#/components/schemas/HuggingfaceConnectionRedactParams'
+          - $ref: '#/components/schemas/DatabricksConnectionRedactParams'
+          - $ref: '#/components/schemas/BedrockAccessConnectionRedactParams'
+          - $ref: '#/components/schemas/MSCopilotStudioConnectionRedactParams'
+          - type: 'null'
+          title: Target Connection Config
+          description: Target Connection config of type openai/huggingface ..
+        curl:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Curl
+          description: Generated cURL command ready to use (redacted for security)
+          examples:
+          - 'curl "https://api.openai.com/v1/chat/completions" -H "Content-Type: application/json" -H "Authorization: Bearer ***" -d ''{"model":"gpt-4","messages":[{"role":"user","content":"{INPUT}"}]}'''
+        multi_turn_config:
+          anyOf:
+          - oneOf:
+            - $ref: '#/components/schemas/MultiTurnStatefulConfig'
+            - $ref: '#/components/schemas/MultiTurnStatelessConfig'
+            discriminator:
+              propertyName: type
+              mapping:
+                stateful: '#/components/schemas/MultiTurnStatefulConfig'
+                stateless: '#/components/schemas/MultiTurnStatelessConfig'
+          - type: 'null'
+          title: Multi Turn Config
+          description: Multi turn config for stateful or stateless target
+          examples:
+          - 'assistant_role: assistant'
+        response_stop_key:
+          type: string
+          title: Response Stop Key
+        response_stop_value:
+          type: string
+          title: Response Stop Value
+      type: object
+      required:
+      - response_stop_key
+      - response_stop_value
+      title: StreamingConnectionParamsRedactBase
+    MSCopilotStudioTokenRequestSchema:
+      properties:
+        auth_response:
+          additionalProperties:
+            type: string
+          type: object
+          title: Auth Response
+          description: Full redirect query params from Microsoft (code, state, session_state, etc.)
+        token_json_uuid:
+          type: string
+          format: uuid
+          title: Token Json Uuid
+          description: UUID from POST /auth-url response
+        client_id:
+          type: string
+          title: Client Id
+          description: Azure App Registration Client ID
+        client_secret:
+          type: string
+          title: Client Secret
+          description: Azure App Registration Client Secret
+        tenant_id:
+          type: string
+          title: Tenant Id
+          description: Azure AD Tenant ID
+        target_uuid:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Target Uuid
+          description: Existing target UUID for resolving redacted client_secret on re-auth.
+      additionalProperties: false
+      type: object
+      required:
+      - auth_response
+      - token_json_uuid
+      - client_id
+      - client_secret
+      - tenant_id
+      title: MSCopilotStudioTokenRequestSchema
+      description: Request body for exchanging auth code for tokens (POST /token).
+    WebSocketConnectionParamsBase-Input:
+      properties:
+        api_endpoint:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Api Endpoint
+          description: API endpoint URL
+          examples:
+          - https://api.openai.com/v1/responses
+        request_headers:
+          additionalProperties: true
+          type: object
+          title: Request Headers
+          description: Request headers
+          default: {}
+          examples:
+          - Authorization: Bearer sk-xxx
+            Content-Type: application/json
+        request_json:
+          additionalProperties: true
+          type: object
+          title: Request Json
+          description: Request JSON
+          default: {}
+          examples:
+          - input:
+            - content:
+              - text: '{INPUT}'
+                type: input_text
+              role: user
+            model: gpt-4.1-nano
+        response_json:
+          additionalProperties: true
+          type: object
+          title: Response Json
+          description: Response JSON
+          default: {}
+          examples:
+          - content: '{RESPONSE}'
+        response_key:
+          type: string
+          title: Response Key
+          description: Response key
+          default: null
+          examples:
+          - content
+        target_connection_config:
+          anyOf:
+          - $ref: '#/components/schemas/OpenAIConnectionParams'
+          - $ref: '#/components/schemas/HuggingfaceConnectionParams'
+          - $ref: '#/components/schemas/DatabricksConnectionParams'
+          - $ref: '#/components/schemas/BedrockAccessConnectionParams'
+          - $ref: '#/components/schemas/MSCopilotStudioConnectionParams'
+          - type: 'null'
+          title: Target Connection Config
+          description: Target Connection config of type openai/huggingface ..
+        curl:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Curl
+          description: Generated cURL command ready to use (redacted for security)
+          examples:
+          - 'curl "https://api.openai.com/v1/chat/completions" -H "Content-Type: application/json" -H "Authorization: Bearer ***" -d ''{"model":"gpt-4","messages":[{"role":"user","content":"{INPUT}"}]}'''
+        multi_turn_config:
+          anyOf:
+          - oneOf:
+            - $ref: '#/components/schemas/MultiTurnStatefulConfig'
+            - $ref: '#/components/schemas/MultiTurnStatelessConfig'
+            discriminator:
+              propertyName: type
+              mapping:
+                stateful: '#/components/schemas/MultiTurnStatefulConfig'
+                stateless: '#/components/schemas/MultiTurnStatelessConfig'
+          - type: 'null'
+          title: Multi Turn Config
+          description: Multi turn config for stateful or stateless target
+          examples:
+          - 'assistant_role: assistant'
+        ws_response_timeout:
+          type: number
+          title: Ws Response Timeout
+          description: Timeout in seconds for waiting for a WebSocket response message
+          default: 110.0
+          examples:
+          - 60.0
+          - 110.0
+      type: object
+      title: WebSocketConnectionParamsBase
+      description: Connection parameters for WebSocket targets.
     TargetUpdateRequestSchema:
       properties:
         connection_params:
@@ -1097,196 +2132,88 @@ components:
       - name
       title: TargetUpdateRequestSchema
       description: Schema for both create and update operations.
-    NativeConnectionParamsBase-Input:
+    StartProfilingResponseSchema:
       properties:
-        target_connection_config:
-          anyOf:
-          - $ref: '#/components/schemas/OpenAIConnectionParams'
-          - $ref: '#/components/schemas/HuggingfaceConnectionParams'
-          - $ref: '#/components/schemas/DatabricksConnectionParams'
-          - $ref: '#/components/schemas/BedrockAccessConnectionParams'
-          - $ref: '#/components/schemas/MSCopilotStudioConnectionParams'
-          - type: 'null'
-          title: Target Connection Config
-          description: Provider-specific connection config
-        multi_turn_config:
-          anyOf:
-          - oneOf:
-            - $ref: '#/components/schemas/MultiTurnStatefulConfig'
-            - $ref: '#/components/schemas/MultiTurnStatelessConfig'
-            discriminator:
-              propertyName: type
-              mapping:
-                stateful: '#/components/schemas/MultiTurnStatefulConfig'
-                stateless: '#/components/schemas/MultiTurnStatelessConfig'
-          - type: 'null'
-          title: Multi Turn Config
-          description: Multi-turn config for stateful or stateless target
-        multi_turn_supported:
-          type: boolean
-          title: Multi Turn Supported
-          description: Whether a native target that drives multi-turn internally supports it. Currently consumed only by custom target adapters, which have no multi_turn_config to infer it from; gates the multi-turn validation probe.
-          default: false
-      type: object
-      title: NativeConnectionParamsBase
-      description: 'Base connection parameters for native/SDK-based targets (no HTTP endpoint).
-
-
-        Used for no-code agent platforms like Microsoft Copilot Studio where
-
-        interaction is via a provider''s client library, not HTTP REST/streaming.
-
-
-        # TODO: Consider refactoring RestConnectionParamsBase and StreamingConnectionParamsBase
-
-        # to share a common base with this class (e.g., extract target_connection_config and
-
-        # multi_turn_config into a shared parent).
-
-        '
-    BedrockAccessConnectionParams:
-      properties:
-        access_id:
+        message:
           type: string
-          title: Access Id
-          description: AWS access key ID
-        access_secret:
-          type: string
-          title: Access Secret
-          description: AWS secret access key
-        session_token:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Session Token
-          description: AWS session token (optional)
-        region:
-          type: string
-          title: Region
-          description: AWS region
-        model_id:
-          type: string
-          title: Model Id
-          description: Bedrock model ID
+          title: Message
+          description: Status message
       type: object
       required:
-      - access_id
-      - access_secret
-      - region
-      - model_id
-      title: BedrockAccessConnectionParams
-      description: AWS Bedrock access parameters stored in target_metadata.
-    WebSocketConnectionParamsBase-Input:
+      - message
+      title: StartProfilingResponseSchema
+      description: Response schema for start profiling action.
+    MSCopilotStudioTokenResponseSchema:
       properties:
-        api_endpoint:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Api Endpoint
-          description: API endpoint URL
-          examples:
-          - https://api.openai.com/v1/responses
-        request_headers:
-          additionalProperties: true
-          type: object
-          title: Request Headers
-          description: Request headers
-          default: {}
-          examples:
-          - Authorization: Bearer sk-xxx
-            Content-Type: application/json
-        request_json:
-          additionalProperties: true
-          type: object
-          title: Request Json
-          description: Request JSON
-          default: {}
-          examples:
-          - input:
-            - content:
-              - text: '{INPUT}'
-                type: input_text
-              role: user
-            model: gpt-4.1-nano
-        response_json:
-          additionalProperties: true
-          type: object
-          title: Response Json
-          description: Response JSON
-          default: {}
-          examples:
-          - content: '{RESPONSE}'
-        response_key:
+        token_json_uuid:
           type: string
-          title: Response Key
-          description: Response key
-          default: null
-          examples:
-          - content
-        target_connection_config:
-          anyOf:
-          - $ref: '#/components/schemas/OpenAIConnectionParams'
-          - $ref: '#/components/schemas/HuggingfaceConnectionParams'
-          - $ref: '#/components/schemas/DatabricksConnectionParams'
-          - $ref: '#/components/schemas/BedrockAccessConnectionParams'
-          - $ref: '#/components/schemas/MSCopilotStudioConnectionParams'
-          - type: 'null'
-          title: Target Connection Config
-          description: Target Connection config of type openai/huggingface ..
-        curl:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Curl
-          description: Generated cURL command ready to use (redacted for security)
-          examples:
-          - 'curl "https://api.openai.com/v1/chat/completions" -H "Content-Type: application/json" -H "Authorization: Bearer ***" -d ''{"model":"gpt-4","messages":[{"role":"user","content":"{INPUT}"}]}'''
-        multi_turn_config:
-          anyOf:
-          - oneOf:
-            - $ref: '#/components/schemas/MultiTurnStatefulConfig'
-            - $ref: '#/components/schemas/MultiTurnStatelessConfig'
-            discriminator:
-              propertyName: type
-              mapping:
-                stateful: '#/components/schemas/MultiTurnStatefulConfig'
-                stateless: '#/components/schemas/MultiTurnStatelessConfig'
-          - type: 'null'
-          title: Multi Turn Config
-          description: Multi turn config for stateful or stateless target
-          examples:
-          - 'assistant_role: assistant'
-        ws_response_timeout:
-          type: number
-          title: Ws Response Timeout
-          description: Timeout in seconds for waiting for a WebSocket response message
-          default: 110.0
-          examples:
-          - 60.0
-          - 110.0
+          format: uuid
+          title: Token Json Uuid
+          description: UUID referencing MSAL token cache in GSM
       type: object
-      title: WebSocketConnectionParamsBase
-      description: Connection parameters for WebSocket targets.
-    BasicAuthAuthConfig:
+      required:
+      - token_json_uuid
+      title: MSCopilotStudioTokenResponseSchema
+      description: Response after successful token exchange (POST/PUT /token).
+    MultiTurnStatefulConfig:
       properties:
-        basic_auth_location:
-          $ref: '#/components/schemas/BasicAuthLocation'
-          description: 'Where credentials are sent: HEADER or PAYLOAD'
-          default: HEADER
-        basic_auth_header:
-          anyOf:
-          - additionalProperties:
-              type: string
-            type: object
-          - type: 'null'
-          title: Basic Auth Header
-          description: 'Auth header as {name: value} dict (required when location=HEADER)'
+        type:
+          type: string
+          const: stateful
+          title: Type
+          default: stateful
+        response_id_field:
+          type: string
+          title: Response Id Field
+          description: JSON path to extract session ID from target response (e.g., 'id' for OpenAI responses API)
           examples:
-          - Authorization: Basic dXNlcjpwYXNz
+          - id
+          - conversation_id
+          - session.id
+        request_id_field:
+          type: string
+          title: Request Id Field
+          description: JSON path to inject session ID in next request (e.g., 'previous_response_id' for OpenAI)
+          examples:
+          - previous_response_id
+          - conversation_id
+          - session_id
       type: object
-      title: BasicAuthAuthConfig
-      description: Basic Auth credentials — header or payload location.
-    TargetProbeRequest:
+      required:
+      - response_id_field
+      - request_id_field
+      title: MultiTurnStatefulConfig
+      description: 'Configuration for stateful multi-turn targets (session_supported=true).
+
+
+        Stateful targets maintain conversation state on the server side using session IDs.
+
+        The session ID is extracted from responses and injected into subsequent requests.
+
+        '
+    HuggingfaceConnectionRedactParams:
+      properties:
+        api_key:
+          type: string
+          format: password
+          title: Api Key
+          description: Huggingface API key for authentication
+          writeOnly: true
+          examples:
+          - sk-abxx
+        model_name:
+          type: string
+          title: Model Name
+          description: Huggingface model name for API requests
+          examples:
+          - gpt-4.1-nano
+      type: object
+      required:
+      - api_key
+      - model_name
+      title: HuggingfaceConnectionRedactParams
+      description: Connection parameters specific to huggingface targets
+    TargetCreateRequestSchema:
       properties:
         connection_params:
           anyOf:
@@ -1436,52 +2363,381 @@ components:
           - type: 'null'
           title: Adapter Variable Overrides
           description: Target-level overrides for the adapter's variables and secrets, by key. A value wins over the adapter's base value; a null secret value keeps the existing override on update. Only valid when connection_type is CUSTOM_TARGET_ADAPTER.
-        uuid:
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      title: TargetCreateRequestSchema
+      description: Target create request schema for validating and defining target creation parameters.
+    MultiTurnStatelessConfig:
+      properties:
+        type:
+          type: string
+          const: stateless
+          title: Type
+          default: stateless
+        assistant_role:
           anyOf:
           - type: string
-            format: uuid
           - type: 'null'
-          title: Uuid
-          description: Target UUID. If provided, will be returned in response.
-        probe_fields:
+          title: Assistant Role
+          description: Role name for assistant messages in conversation history (e.g., 'assistant', 'bot', 'model')
+          examples:
+          - assistant
+          - bot
+          - model
+          - ai
+      type: object
+      title: MultiTurnStatelessConfig
+      description: 'Configuration for stateless multi-turn targets (session_supported=false).
+
+
+        Stateless targets require the client to maintain and send conversation history.
+
+        The assistant_role specifies the role name used for assistant messages in the history.
+
+        '
+    RestConnectionParamsBase-Output:
+      properties:
+        api_endpoint:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Api Endpoint
+          description: API endpoint URL
+          examples:
+          - https://api.openai.com/v1/responses
+        request_headers:
+          additionalProperties: true
+          type: object
+          title: Request Headers
+          description: Request headers
+          default: {}
+          examples:
+          - Authorization: Bearer sk-xxx
+            Content-Type: application/json
+        request_json:
+          additionalProperties: true
+          type: object
+          title: Request Json
+          description: Request JSON
+          default: {}
+          examples:
+          - input:
+            - content:
+              - text: '{INPUT}'
+                type: input_text
+              role: user
+            model: gpt-4.1-nano
+        response_json:
+          additionalProperties: true
+          type: object
+          title: Response Json
+          description: Response JSON
+          default: {}
+          examples:
+          - content: '{RESPONSE}'
+        response_key:
+          type: string
+          title: Response Key
+          description: Response key
+          default: null
+          examples:
+          - content
+        target_connection_config:
+          anyOf:
+          - $ref: '#/components/schemas/OpenAIConnectionParams'
+          - $ref: '#/components/schemas/HuggingfaceConnectionParams'
+          - $ref: '#/components/schemas/DatabricksConnectionParams'
+          - $ref: '#/components/schemas/BedrockAccessConnectionParams'
+          - $ref: '#/components/schemas/MSCopilotStudioConnectionParams'
+          - type: 'null'
+          title: Target Connection Config
+          description: Target Connection config of type openai/huggingface ..
+        curl:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Curl
+          description: Generated cURL command ready to use (redacted for security)
+          examples:
+          - 'curl "https://api.openai.com/v1/chat/completions" -H "Content-Type: application/json" -H "Authorization: Bearer ***" -d ''{"model":"gpt-4","messages":[{"role":"user","content":"{INPUT}"}]}'''
+        multi_turn_config:
+          anyOf:
+          - oneOf:
+            - $ref: '#/components/schemas/MultiTurnStatefulConfig'
+            - $ref: '#/components/schemas/MultiTurnStatelessConfig'
+            discriminator:
+              propertyName: type
+              mapping:
+                stateful: '#/components/schemas/MultiTurnStatefulConfig'
+                stateless: '#/components/schemas/MultiTurnStatelessConfig'
+          - type: 'null'
+          title: Multi Turn Config
+          description: Multi turn config for stateful or stateless target
+          examples:
+          - 'assistant_role: assistant'
+      type: object
+      title: RestConnectionParamsBase
+      description: Base connection parameters without generated fields.
+    ProfilingStatus:
+      type: string
+      enum:
+      - INIT
+      - QUEUED
+      - IN_PROGRESS
+      - COMPLETED
+      - FAILED
+      - PARTIALLY_COMPLETE
+      title: ProfilingStatus
+      description: Status of target profiling workflow.
+    AiGeneratedLanguageListFieldInfo:
+      properties:
+        ai_discovered_items:
+          items:
+            type: string
+          type: array
+          title: Ai Discovered Items
+        current_items:
+          items:
+            $ref: '#/components/schemas/AiLanguageItemTag'
+          type: array
+          title: Current Items
+        ai_count:
+          type: integer
+          title: Ai Count
+          default: 0
+        user_count:
+          type: integer
+          title: User Count
+          default: 0
+      type: object
+      required:
+      - ai_discovered_items
+      - current_items
+      title: AiGeneratedLanguageListFieldInfo
+      description: AI tracking for the languages_supported list field.
+    WebSocketConnectionParamsBase-Output:
+      properties:
+        api_endpoint:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Api Endpoint
+          description: API endpoint URL
+          examples:
+          - https://api.openai.com/v1/responses
+        request_headers:
+          additionalProperties: true
+          type: object
+          title: Request Headers
+          description: Request headers
+          default: {}
+          examples:
+          - Authorization: Bearer sk-xxx
+            Content-Type: application/json
+        request_json:
+          additionalProperties: true
+          type: object
+          title: Request Json
+          description: Request JSON
+          default: {}
+          examples:
+          - input:
+            - content:
+              - text: '{INPUT}'
+                type: input_text
+              role: user
+            model: gpt-4.1-nano
+        response_json:
+          additionalProperties: true
+          type: object
+          title: Response Json
+          description: Response JSON
+          default: {}
+          examples:
+          - content: '{RESPONSE}'
+        response_key:
+          type: string
+          title: Response Key
+          description: Response key
+          default: null
+          examples:
+          - content
+        target_connection_config:
+          anyOf:
+          - $ref: '#/components/schemas/OpenAIConnectionParams'
+          - $ref: '#/components/schemas/HuggingfaceConnectionParams'
+          - $ref: '#/components/schemas/DatabricksConnectionParams'
+          - $ref: '#/components/schemas/BedrockAccessConnectionParams'
+          - $ref: '#/components/schemas/MSCopilotStudioConnectionParams'
+          - type: 'null'
+          title: Target Connection Config
+          description: Target Connection config of type openai/huggingface ..
+        curl:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Curl
+          description: Generated cURL command ready to use (redacted for security)
+          examples:
+          - 'curl "https://api.openai.com/v1/chat/completions" -H "Content-Type: application/json" -H "Authorization: Bearer ***" -d ''{"model":"gpt-4","messages":[{"role":"user","content":"{INPUT}"}]}'''
+        multi_turn_config:
+          anyOf:
+          - oneOf:
+            - $ref: '#/components/schemas/MultiTurnStatefulConfig'
+            - $ref: '#/components/schemas/MultiTurnStatelessConfig'
+            discriminator:
+              propertyName: type
+              mapping:
+                stateful: '#/components/schemas/MultiTurnStatefulConfig'
+                stateless: '#/components/schemas/MultiTurnStatelessConfig'
+          - type: 'null'
+          title: Multi Turn Config
+          description: Multi turn config for stateful or stateless target
+          examples:
+          - 'assistant_role: assistant'
+        ws_response_timeout:
+          type: number
+          title: Ws Response Timeout
+          description: Timeout in seconds for waiting for a WebSocket response message
+          default: 110.0
+          examples:
+          - 60.0
+          - 110.0
+      type: object
+      title: WebSocketConnectionParamsBase
+      description: Connection parameters for WebSocket targets.
+    TargetProfileResponse:
+      properties:
+        target_id:
+          type: string
+          format: uuid
+          title: Target Id
+        target_version:
+          type: integer
+          title: Target Version
+        status:
+          type: string
+          title: Status
+        target_background:
+          anyOf:
+          - $ref: '#/components/schemas/TargetBackground'
+          - type: 'null'
+        additional_context:
+          anyOf:
+          - $ref: '#/components/schemas/TargetAdditionalContext'
+          - type: 'null'
+        other_details:
+          anyOf:
+          - $ref: '#/components/schemas/OtherDetails'
+          - type: 'null'
+        other_details_prettified:
+          anyOf:
+          - $ref: '#/components/schemas/OtherDetailsPrettified'
+          - type: 'null'
+        ai_generated_fields:
           anyOf:
           - items:
               type: string
             type: array
           - type: 'null'
-          title: Probe Fields
-          description: 'Specific probes to run. If None, runs all probes. Valid: industry, use_case, competitors, base_model, core_architecture, languages_supported, tools_accessible, system_prompt, banned_keywords'
-      additionalProperties: false
+          title: Ai Generated Fields
+          description: Field names populated by AI profiler (e.g., competitors, base_model, system_prompt)
+        ai_generated_items:
+          anyOf:
+          - $ref: '#/components/schemas/AiGeneratedItems'
+          - type: 'null'
+        profiling_completed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Profiling Completed At
+          description: When profiling finished
+        profiling_status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Profiling Status
+          description: Status of the profiling workflow
+        profiling_progress:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Profiling Progress
+          description: Profiling progress percentage (0–100)
       type: object
       required:
-      - name
-      title: TargetProbeRequest
-      description: 'Request to run profiling probes on a target.
+      - target_id
+      - target_version
+      - status
+      title: TargetProfileResponse
+      description: Combined response for profile view.
+    HuggingfaceConnectionParams:
+      properties:
+        api_key:
+          type: string
+          title: Api Key
+          description: Huggingface API key for authentication
+          examples:
+          - sk-abxx
+        model_name:
+          type: string
+          title: Model Name
+          description: Huggingface model name for API requests
+          examples:
+          - gpt-4.1-nano
+      type: object
+      required:
+      - api_key
+      - model_name
+      title: HuggingfaceConnectionParams
+      description: Connection parameters specific to huggingface targets
+    TargetAuthValidationResponseSchema:
+      properties:
+        validated:
+          type: boolean
+          title: Validated
+          description: Whether auth validation passed
+        token_preview:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token Preview
+          description: First 20 chars of token (OAuth2 only)
+        expires_in:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Expires In
+          description: Token expiry from response (OAuth2 only)
+      type: object
+      required:
+      - validated
+      title: TargetAuthValidationResponseSchema
+      description: 'Response schema from target authentication validation.
 
 
-        Inherits all target creation fields (connection params, metadata, etc.)
+        On failure, the service raises airs_common exceptions (ValidationError,
 
-        If probe_fields is None, runs all 9 probes. Otherwise runs only specified probes.
+        AuthError, etc.) which are converted to HTTP error responses by middleware.
 
         '
-    BasicAuthAuthConfigRedact:
+    AiItemTag:
       properties:
-        basic_auth_location:
-          $ref: '#/components/schemas/BasicAuthLocation'
-          description: 'Where credentials are sent: HEADER or PAYLOAD'
-          default: HEADER
-        basic_auth_header:
-          anyOf:
-          - additionalProperties:
-              type: string
-            type: object
-          - type: 'null'
-          title: Basic Auth Header
-          description: 'Auth header as {name: value} dict (required when location=HEADER)'
-          examples:
-          - Authorization: Basic dXNlcjpwYXNz
+        value:
+          type: string
+          title: Value
+        is_ai_generated:
+          type: boolean
+          title: Is Ai Generated
       type: object
-      title: BasicAuthAuthConfigRedact
+      required:
+      - value
+      - is_ai_generated
+      title: AiItemTag
+      description: Single item with AI tracking tag. FE renders directly.
     TargetRedactSchema:
       properties:
         connection_params:
@@ -1699,334 +2955,152 @@ components:
       - updated_at
       title: TargetRedactSchema
       description: Target redact Schema
-    TargetResponseSchema:
+    MSCopilotStudioAuthUrlResponseSchema:
       properties:
-        uuid:
+        auth_url:
+          type: string
+          title: Auth Url
+          description: OAuth authorization URL for user login
+        token_json_uuid:
           type: string
           format: uuid
-          title: Uuid
-        tsg_id:
+          title: Token Json Uuid
+          description: UUID referencing MSAL token cache in GSM
+        state:
           type: string
-          title: Tsg Id
-        name:
-          type: string
-          title: Name
-          description: Target name
-          examples:
-          - GPT 4.1 Nano
-        description:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Description
-          description: Optional target description
-          default: null
-          examples:
-          - AI model for testing
-        target_type:
-          anyOf:
-          - $ref: '#/components/schemas/TargetType'
-          - type: 'null'
-          description: Type of target
-        connection_type:
-          anyOf:
-          - $ref: '#/components/schemas/TargetConnectionType'
-          - type: 'null'
-          description: Connection type/provider for the target
-          examples:
-          - CUSTOM
-          - OPENAI
-          - BEDROCK
-        api_endpoint_type:
-          anyOf:
-          - $ref: '#/components/schemas/ApiEndpointType'
-          - type: 'null'
-          description: Accessibility type of the API endpoint
-          examples:
-          - PUBLIC
-          - PRIVATE
-          - NETWORK_BROKER
-        response_mode:
-          anyOf:
-          - $ref: '#/components/schemas/ResponseMode'
-          - type: 'null'
-          description: Response mode for API interactions
-          examples:
-          - REST
-          - STREAMING
-          - WEBSOCKET
-        auth_type:
-          anyOf:
-          - $ref: '#/components/schemas/red_team_shared__schemas__auth_config__AuthType'
-          - type: 'null'
-          description: Authentication method for target API access
-          examples:
-          - HEADERS
-          - BASIC_AUTH
-          - OAUTH2
-        session_supported:
-          type: boolean
-          title: Session Supported
-          description: Whether target supports session for multi-turn conversations
-          default: false
-        extra_info:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Extra Info
-          description: Additional configuration or metadata for the target
-          default: {}
-          examples:
-          - custom_key: custom_value
-        adapter_uuid:
-          anyOf:
-          - type: string
-            format: uuid
-          - type: 'null'
-          title: Adapter Uuid
-          description: Custom adapter this target uses. Required when connection_type is CUSTOM_TARGET_ADAPTER; must be null for every other connection type.
-        status:
-          $ref: '#/components/schemas/TargetStatus'
-          description: Target status
-        active:
-          type: boolean
-          title: Active
-          description: Whether target is active
-        validated:
-          type: boolean
-          title: Validated
-          description: Whether target is validated
-        version:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Version
-          description: Configuration version
-        secret_version:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Secret Version
-          description: Secret Manager version for connection_params. When present, sensitive connection data is stored in Secret Manager. When None, connection_params are stored in GCS (legacy).
-        created_by_user_id:
-          anyOf:
-          - type: string
-            format: uuid
-          - type: 'null'
-          title: Created By User Id
-          description: User ID of target creator
-        updated_by_user_id:
-          anyOf:
-          - type: string
-            format: uuid
-          - type: 'null'
-          title: Updated By User Id
-          description: User ID of last target updater
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-          description: Creation timestamp
-        updated_at:
-          type: string
-          format: date-time
-          title: Updated At
-          description: Last update timestamp
-        profiling_status:
-          anyOf:
-          - $ref: '#/components/schemas/ProfilingStatus'
-          - type: 'null'
-          description: Status of the profiling workflow
-        canonical_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Canonical Id
-          description: Partner-supplied stable identifier. Null for targets without partner integration metadata (most targets).
-        target_metadata:
-          $ref: '#/components/schemas/TargetMetadata'
-          description: Target metadata and configuration options
-        adapter_secret_version:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Adapter Secret Version
-          description: Frozen Secret Manager version of the referenced adapter, pinned at scan (job) creation so an adapter edited mid-scan doesn't change the script/secrets that scan uses. Server-managed; null for non-adapter targets.
-        target_background:
-          anyOf:
-          - $ref: '#/components/schemas/TargetBackground'
-          - type: 'null'
-          description: 'Target background info: industry, use_case, competitors'
-        profiling_progress:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Profiling Progress
-          description: Profiling progress percentage (0–100)
-        additional_context:
-          anyOf:
-          - $ref: '#/components/schemas/TargetAdditionalContext'
-          - type: 'null'
-          description: Additional context with source tracking (user + profiler)
+          title: State
+          description: MSAL-generated state for frontend session tracking (correlate auth callback with original request)
       type: object
       required:
-      - uuid
-      - tsg_id
-      - name
-      - status
-      - active
-      - validated
-      - created_at
-      - updated_at
-      title: TargetResponseSchema
-    TargetStatus:
-      type: string
-      enum:
-      - DRAFT
-      - VALIDATING
-      - VALIDATED
-      - ACTIVE
-      - INACTIVE
-      - FAILED
-      - PENDING_AUTH
-      title: TargetStatus
-      description: Status enumeration for scan targets.
-    red_team_shared__schemas__auth_config__AuthType:
-      type: string
-      enum:
-      - HEADERS
-      - BASIC_AUTH
-      - OAUTH2
-      - CUSTOM_TARGET_ADAPTER
-      title: AuthType
-      description: Authentication method for target API access.
-    MultiTurnStatelessConfig:
+      - auth_url
+      - token_json_uuid
+      - state
+      title: MSCopilotStudioAuthUrlResponseSchema
+      description: Response containing the generated OAuth auth URL.
+    AdapterVarResponseSchema:
       properties:
-        type:
+        key:
           type: string
-          const: stateless
-          title: Type
-          default: stateless
-        assistant_role:
+          maxLength: 255
+          title: Key
+          description: Variable key
+        value:
           anyOf:
           - type: string
           - type: 'null'
-          title: Assistant Role
-          description: Role name for assistant messages in conversation history (e.g., 'assistant', 'bot', 'model')
-          examples:
-          - assistant
-          - bot
-          - model
-          - ai
+          title: Value
+          description: Variable value. On update, null means 'keep the existing value' — used for unchanged secrets, whose values are never returned.
+        type:
+          $ref: '#/components/schemas/AdapterVarType'
+          description: VAR (non-sensitive) or SECRET (sensitive)
+        is_redacted:
+          type: boolean
+          title: Is Redacted
+          description: True when the value is hidden (secrets). Redacted values are returned as null.
+          default: false
       type: object
-      title: MultiTurnStatelessConfig
-      description: 'Configuration for stateless multi-turn targets (session_supported=false).
+      required:
+      - key
+      - type
+      title: AdapterVarResponseSchema
+      description: 'A variable returned in adapter responses.
 
 
-        Stateless targets require the client to maintain and send conversation history.
-
-        The assistant_role specifies the role name used for assistant messages in the history.
+        Secrets are masked: value is returned as null with is_redacted=true.
 
         '
-    TargetListSchema:
+    DatabricksConnectionParams:
       properties:
-        pagination:
-          $ref: '#/components/schemas/PaginationSchema'
-        data:
-          items:
-            $ref: '#/components/schemas/TargetListItemSchema'
-          type: array
-          title: Data
-          description: List of targets
+        auth_type:
+          $ref: '#/components/schemas/red_team_shared__schemas__databricks__AuthType'
+          description: Auth type
+        access_token:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Access Token
+          description: Databricks access token
+        client_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Client Id
+          description: Databricks client_id
+        secret:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Secret
+          description: Databricks secret
+        workspace_url:
+          type: string
+          title: Workspace Url
+          description: Databricks workscpace_url
+        model_name:
+          type: string
+          title: Model Name
+          description: Databricks model name
       type: object
       required:
-      - pagination
-      title: TargetListSchema
-      description: Schema returned by API for list target operations.
-    RestConnectionParamsBase-Output:
+      - auth_type
+      - workspace_url
+      - model_name
+      title: DatabricksConnectionParams
+    AiGeneratedStringFieldInfo:
       properties:
-        api_endpoint:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Api Endpoint
-          description: API endpoint URL
-          examples:
-          - https://api.openai.com/v1/responses
-        request_headers:
-          additionalProperties: true
-          type: object
-          title: Request Headers
-          description: Request headers
-          default: {}
-          examples:
-          - Authorization: Bearer sk-xxx
-            Content-Type: application/json
-        request_json:
-          additionalProperties: true
-          type: object
-          title: Request Json
-          description: Request JSON
-          default: {}
-          examples:
-          - input:
-            - content:
-              - text: '{INPUT}'
-                type: input_text
-              role: user
-            model: gpt-4.1-nano
-        response_json:
-          additionalProperties: true
-          type: object
-          title: Response Json
-          description: Response JSON
-          default: {}
-          examples:
-          - content: '{RESPONSE}'
-        response_key:
+        ai_discovered_value:
           type: string
-          title: Response Key
-          description: Response key
-          default: null
-          examples:
-          - content
-        target_connection_config:
+          title: Ai Discovered Value
+        is_ai_generated:
+          type: boolean
+          title: Is Ai Generated
+          default: false
+      type: object
+      required:
+      - ai_discovered_value
+      title: AiGeneratedStringFieldInfo
+      description: AI tracking for a string field (base_model, core_architecture, system_prompt).
+    DatabricksConnectionRedactParams:
+      properties:
+        auth_type:
+          $ref: '#/components/schemas/red_team_shared__schemas__databricks__AuthType'
+          description: Auth type
+        access_token:
           anyOf:
-          - $ref: '#/components/schemas/OpenAIConnectionParams'
-          - $ref: '#/components/schemas/HuggingfaceConnectionParams'
-          - $ref: '#/components/schemas/DatabricksConnectionParams'
-          - $ref: '#/components/schemas/BedrockAccessConnectionParams'
-          - $ref: '#/components/schemas/MSCopilotStudioConnectionParams'
+          - type: string
+            format: password
+            writeOnly: true
           - type: 'null'
-          title: Target Connection Config
-          description: Target Connection config of type openai/huggingface ..
-        curl:
+          title: Access Token
+          description: Databricks access token
+        client_id:
           anyOf:
           - type: string
           - type: 'null'
-          title: Curl
-          description: Generated cURL command ready to use (redacted for security)
-          examples:
-          - 'curl "https://api.openai.com/v1/chat/completions" -H "Content-Type: application/json" -H "Authorization: Bearer ***" -d ''{"model":"gpt-4","messages":[{"role":"user","content":"{INPUT}"}]}'''
-        multi_turn_config:
+          title: Client Id
+          description: Databricks client_id
+        secret:
           anyOf:
-          - oneOf:
-            - $ref: '#/components/schemas/MultiTurnStatefulConfig'
-            - $ref: '#/components/schemas/MultiTurnStatelessConfig'
-            discriminator:
-              propertyName: type
-              mapping:
-                stateful: '#/components/schemas/MultiTurnStatefulConfig'
-                stateless: '#/components/schemas/MultiTurnStatelessConfig'
+          - type: string
+            format: password
+            writeOnly: true
           - type: 'null'
-          title: Multi Turn Config
-          description: Multi turn config for stateful or stateless target
-          examples:
-          - 'assistant_role: assistant'
+          title: Secret
+          description: Databricks secret
+        workspace_url:
+          type: string
+          title: Workspace Url
+          description: Databricks workscpace_url
+        model_name:
+          type: string
+          title: Model Name
+          description: Databricks model name
       type: object
-      title: RestConnectionParamsBase
-      description: Base connection parameters without generated fields.
+      required:
+      - auth_type
+      - workspace_url
+      - model_name
+      title: DatabricksConnectionRedactParams
     TargetMetadata:
       properties:
         multi_turn:
@@ -2161,84 +3235,8 @@ components:
         refactor — which preserves the Restate journal bytes for pre-V4 in-flight scans.
 
         '
-    MSCopilotStudioAuthUrlResponseSchema:
+    NativeConnectionParamsBase-Output:
       properties:
-        auth_url:
-          type: string
-          title: Auth Url
-          description: OAuth authorization URL for user login
-        token_json_uuid:
-          type: string
-          format: uuid
-          title: Token Json Uuid
-          description: UUID referencing MSAL token cache in GSM
-        state:
-          type: string
-          title: State
-          description: MSAL-generated state for frontend session tracking (correlate auth callback with original request)
-      type: object
-      required:
-      - auth_url
-      - token_json_uuid
-      - state
-      title: MSCopilotStudioAuthUrlResponseSchema
-      description: Response containing the generated OAuth auth URL.
-    ResponseMode:
-      type: string
-      enum:
-      - REST
-      - STREAMING
-      - WEBSOCKET
-      - WEBSOCKET_STREAMING
-      title: ResponseMode
-      description: Response mode for target interactions.
-    WebSocketConnectionParamsBase-Output:
-      properties:
-        api_endpoint:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Api Endpoint
-          description: API endpoint URL
-          examples:
-          - https://api.openai.com/v1/responses
-        request_headers:
-          additionalProperties: true
-          type: object
-          title: Request Headers
-          description: Request headers
-          default: {}
-          examples:
-          - Authorization: Bearer sk-xxx
-            Content-Type: application/json
-        request_json:
-          additionalProperties: true
-          type: object
-          title: Request Json
-          description: Request JSON
-          default: {}
-          examples:
-          - input:
-            - content:
-              - text: '{INPUT}'
-                type: input_text
-              role: user
-            model: gpt-4.1-nano
-        response_json:
-          additionalProperties: true
-          type: object
-          title: Response Json
-          description: Response JSON
-          default: {}
-          examples:
-          - content: '{RESPONSE}'
-        response_key:
-          type: string
-          title: Response Key
-          description: Response key
-          default: null
-          examples:
-          - content
         target_connection_config:
           anyOf:
           - $ref: '#/components/schemas/OpenAIConnectionParams'
@@ -2248,15 +3246,7 @@ components:
           - $ref: '#/components/schemas/MSCopilotStudioConnectionParams'
           - type: 'null'
           title: Target Connection Config
-          description: Target Connection config of type openai/huggingface ..
-        curl:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Curl
-          description: Generated cURL command ready to use (redacted for security)
-          examples:
-          - 'curl "https://api.openai.com/v1/chat/completions" -H "Content-Type: application/json" -H "Authorization: Bearer ***" -d ''{"model":"gpt-4","messages":[{"role":"user","content":"{INPUT}"}]}'''
+          description: Provider-specific connection config
         multi_turn_config:
           anyOf:
           - oneOf:
@@ -2269,384 +3259,29 @@ components:
                 stateless: '#/components/schemas/MultiTurnStatelessConfig'
           - type: 'null'
           title: Multi Turn Config
-          description: Multi turn config for stateful or stateless target
-          examples:
-          - 'assistant_role: assistant'
-        ws_response_timeout:
-          type: number
-          title: Ws Response Timeout
-          description: Timeout in seconds for waiting for a WebSocket response message
-          default: 110.0
-          examples:
-          - 60.0
-          - 110.0
-      type: object
-      title: WebSocketConnectionParamsBase
-      description: Connection parameters for WebSocket targets.
-    red_team_shared__schemas__databricks__AuthType:
-      type: string
-      enum:
-      - OAUTH
-      - ACCESS_TOKEN
-      title: AuthType
-    AiLanguageItemTag:
-      properties:
-        value:
-          type: string
-          title: Value
-        is_ai_generated:
+          description: Multi-turn config for stateful or stateless target
+        multi_turn_supported:
           type: boolean
-          title: Is Ai Generated
-        country_code:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Country Code
-      type: object
-      required:
-      - value
-      - is_ai_generated
-      title: AiLanguageItemTag
-      description: AI tracking tag for language items, includes ISO 639-1 code for flag display.
-    ApiEndpointType:
-      type: string
-      enum:
-      - PUBLIC
-      - PRIVATE
-      - NETWORK_BROKER
-      title: ApiEndpointType
-      description: API endpoint accessibility type.
-    TargetAuthValidationResponseSchema:
-      properties:
-        validated:
-          type: boolean
-          title: Validated
-          description: Whether auth validation passed
-        token_preview:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Token Preview
-          description: First 20 chars of token (OAuth2 only)
-        expires_in:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Expires In
-          description: Token expiry from response (OAuth2 only)
-      type: object
-      required:
-      - validated
-      title: TargetAuthValidationResponseSchema
-      description: 'Response schema from target authentication validation.
-
-
-        On failure, the service raises airs_common exceptions (ValidationError,
-
-        AuthError, etc.) which are converted to HTTP error responses by middleware.
-
-        '
-    OAuth2AuthConfigRedact:
-      properties:
-        oauth2_token_url:
-          type: string
-          title: Oauth2 Token Url
-          description: OAuth2 token endpoint URL
-          examples:
-          - https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token
-        oauth2_expiry_minutes:
-          type: integer
-          minimum: 0.0
-          title: Oauth2 Expiry Minutes
-          description: Token validity in minutes. System refreshes at expiry - 1 min.
-          default: 60
-        oauth2_headers:
-          additionalProperties: true
-          type: object
-          title: Oauth2 Headers
-          description: HTTP headers for the token request
-          examples:
-          - Authorization: Basic Y2xpZW50X2lkOmNsaWVudF9zZWNyZXQ=
-            Content-Type: application/x-www-form-urlencoded
-        oauth2_body_params:
-          additionalProperties: true
-          type: object
-          title: Oauth2 Body Params
-          description: Body parameters for the token request (nested JSON dict)
-          examples:
-          - client_id: my-client-id
-            client_secret: my-client-secret
-            grant_type: client_credentials
-            scope: api-access
-        oauth2_token_response_key:
-          type: string
-          title: Oauth2 Token Response Key
-          description: Dot-notation path to token in response JSON
-          default: access_token
-          examples:
-          - access_token
-          - data.credentials.access_token
-        oauth2_inject_header:
-          additionalProperties:
-            type: string
-          type: object
-          title: Oauth2 Inject Header
-          description: Header template with {TOKEN} placeholder
-          examples:
-          - Authorization: Bearer {TOKEN}
-      type: object
-      required:
-      - oauth2_token_url
-      - oauth2_inject_header
-      title: OAuth2AuthConfigRedact
-    RestConnectionParamsRedactBase:
-      properties:
-        api_endpoint:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Api Endpoint
-          description: API endpoint URL
-          examples:
-          - https://api.openai.com/v1/responses
-        request_headers:
-          additionalProperties: true
-          type: object
-          title: Request Headers
-          description: Request headers
-          default: {}
-          examples:
-          - Authorization: Bearer sk-xxx
-            Content-Type: application/json
-        request_json:
-          additionalProperties: true
-          type: object
-          title: Request Json
-          description: Request JSON
-          default: {}
-          examples:
-          - input:
-            - content:
-              - text: '{INPUT}'
-                type: input_text
-              role: user
-            model: gpt-4.1-nano
-        response_json:
-          additionalProperties: true
-          type: object
-          title: Response Json
-          description: Response JSON
-          default: {}
-          examples:
-          - content: '{RESPONSE}'
-        response_key:
-          type: string
-          title: Response Key
-          description: Response key
-          default: null
-          examples:
-          - content
-        target_connection_config:
-          anyOf:
-          - $ref: '#/components/schemas/OpenAIConnectionRedactParams'
-          - $ref: '#/components/schemas/HuggingfaceConnectionRedactParams'
-          - $ref: '#/components/schemas/DatabricksConnectionRedactParams'
-          - $ref: '#/components/schemas/BedrockAccessConnectionRedactParams'
-          - $ref: '#/components/schemas/MSCopilotStudioConnectionRedactParams'
-          - type: 'null'
-          title: Target Connection Config
-          description: Target Connection config of type openai/huggingface ..
-        curl:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Curl
-          description: Generated cURL command ready to use (redacted for security)
-          examples:
-          - 'curl "https://api.openai.com/v1/chat/completions" -H "Content-Type: application/json" -H "Authorization: Bearer ***" -d ''{"model":"gpt-4","messages":[{"role":"user","content":"{INPUT}"}]}'''
-        multi_turn_config:
-          anyOf:
-          - oneOf:
-            - $ref: '#/components/schemas/MultiTurnStatefulConfig'
-            - $ref: '#/components/schemas/MultiTurnStatelessConfig'
-            discriminator:
-              propertyName: type
-              mapping:
-                stateful: '#/components/schemas/MultiTurnStatefulConfig'
-                stateless: '#/components/schemas/MultiTurnStatelessConfig'
-          - type: 'null'
-          title: Multi Turn Config
-          description: Multi turn config for stateful or stateless target
-          examples:
-          - 'assistant_role: assistant'
-      type: object
-      title: RestConnectionParamsRedactBase
-    BasicAuthLocation:
-      type: string
-      enum:
-      - HEADER
-      - PAYLOAD
-      title: BasicAuthLocation
-      description: Where Basic Auth credentials are sent.
-    OtherDetails:
-      properties:
-        items:
-          additionalProperties: true
-          type: object
-          title: Items
-      type: object
-      title: OtherDetails
-      description: 'Additional profiler discoveries. Read-only key-value pairs.
-
-
-        Examples: code_execution_capability, internet_access, etc.
-
-        '
-    RestConnectionParamsBase-Input:
-      properties:
-        api_endpoint:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Api Endpoint
-          description: API endpoint URL
-          examples:
-          - https://api.openai.com/v1/responses
-        request_headers:
-          additionalProperties: true
-          type: object
-          title: Request Headers
-          description: Request headers
-          default: {}
-          examples:
-          - Authorization: Bearer sk-xxx
-            Content-Type: application/json
-        request_json:
-          additionalProperties: true
-          type: object
-          title: Request Json
-          description: Request JSON
-          default: {}
-          examples:
-          - input:
-            - content:
-              - text: '{INPUT}'
-                type: input_text
-              role: user
-            model: gpt-4.1-nano
-        response_json:
-          additionalProperties: true
-          type: object
-          title: Response Json
-          description: Response JSON
-          default: {}
-          examples:
-          - content: '{RESPONSE}'
-        response_key:
-          type: string
-          title: Response Key
-          description: Response key
-          default: null
-          examples:
-          - content
-        target_connection_config:
-          anyOf:
-          - $ref: '#/components/schemas/OpenAIConnectionParams'
-          - $ref: '#/components/schemas/HuggingfaceConnectionParams'
-          - $ref: '#/components/schemas/DatabricksConnectionParams'
-          - $ref: '#/components/schemas/BedrockAccessConnectionParams'
-          - $ref: '#/components/schemas/MSCopilotStudioConnectionParams'
-          - type: 'null'
-          title: Target Connection Config
-          description: Target Connection config of type openai/huggingface ..
-        curl:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Curl
-          description: Generated cURL command ready to use (redacted for security)
-          examples:
-          - 'curl "https://api.openai.com/v1/chat/completions" -H "Content-Type: application/json" -H "Authorization: Bearer ***" -d ''{"model":"gpt-4","messages":[{"role":"user","content":"{INPUT}"}]}'''
-        multi_turn_config:
-          anyOf:
-          - oneOf:
-            - $ref: '#/components/schemas/MultiTurnStatefulConfig'
-            - $ref: '#/components/schemas/MultiTurnStatelessConfig'
-            discriminator:
-              propertyName: type
-              mapping:
-                stateful: '#/components/schemas/MultiTurnStatefulConfig'
-                stateless: '#/components/schemas/MultiTurnStatelessConfig'
-          - type: 'null'
-          title: Multi Turn Config
-          description: Multi turn config for stateful or stateless target
-          examples:
-          - 'assistant_role: assistant'
-      type: object
-      title: RestConnectionParamsBase
-      description: Base connection parameters without generated fields.
-    DatabricksConnectionParams:
-      properties:
-        auth_type:
-          $ref: '#/components/schemas/red_team_shared__schemas__databricks__AuthType'
-          description: Auth type
-        access_token:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Access Token
-          description: Databricks access token
-        client_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Client Id
-          description: Databricks client_id
-        secret:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Secret
-          description: Databricks secret
-        workspace_url:
-          type: string
-          title: Workspace Url
-          description: Databricks workscpace_url
-        model_name:
-          type: string
-          title: Model Name
-          description: Databricks model name
-      type: object
-      required:
-      - auth_type
-      - workspace_url
-      - model_name
-      title: DatabricksConnectionParams
-    AiGeneratedStringFieldInfo:
-      properties:
-        ai_discovered_value:
-          type: string
-          title: Ai Discovered Value
-        is_ai_generated:
-          type: boolean
-          title: Is Ai Generated
+          title: Multi Turn Supported
+          description: Whether a native target that drives multi-turn internally supports it. Currently consumed only by custom target adapters, which have no multi_turn_config to infer it from; gates the multi-turn validation probe.
           default: false
       type: object
-      required:
-      - ai_discovered_value
-      title: AiGeneratedStringFieldInfo
-      description: AI tracking for a string field (base_model, core_architecture, system_prompt).
-    StartProfilingResponseSchema:
-      properties:
-        message:
-          type: string
-          title: Message
-          description: Status message
-      type: object
-      required:
-      - message
-      title: StartProfilingResponseSchema
-      description: Response schema for start profiling action.
+      title: NativeConnectionParamsBase
+      description: 'Base connection parameters for native/SDK-based targets (no HTTP endpoint).
+
+
+        Used for no-code agent platforms like Microsoft Copilot Studio where
+
+        interaction is via a provider''s client library, not HTTP REST/streaming.
+
+
+        # TODO: Consider refactoring RestConnectionParamsBase and StreamingConnectionParamsBase
+
+        # to share a common base with this class (e.g., extract target_connection_config and
+
+        # multi_turn_config into a shared parent).
+
+        '
     TargetAuthValidationRequestSchema:
       properties:
         auth_type:
@@ -2679,324 +3314,126 @@ components:
       - auth_config
       title: TargetAuthValidationRequestSchema
       description: Request schema to validate target authentication configuration.
-    BedrockAccessConnectionRedactParams:
+    OpenAIConnectionParams:
       properties:
-        access_id:
+        api_key:
+          type: string
+          title: Api Key
+          description: OpenAI API key for authentication
+          examples:
+          - sk-abxx
+        model_name:
+          type: string
+          title: Model Name
+          description: OpenAI model name for API requests
+          examples:
+          - gpt-4.1-nano
+      type: object
+      required:
+      - api_key
+      - model_name
+      title: OpenAIConnectionParams
+      description: Connection parameters specific to OpenAI targets
+    TargetStatusFilter:
+      type: string
+      enum:
+      - DRAFT
+      - ACTIVE
+      - FAILED
+      - QUEUED
+      - IN_PROGRESS
+      - COMPLETED
+      - PARTIALLY_COMPLETE
+      title: TargetStatusFilter
+      description: 'Status values accepted by the list-targets ``status`` filter.
+
+
+        Unions the target status and profiling status values so a single ``status``
+
+        filter can match on either. A supplied value matches a target whose target
+
+        status or profiling status equals it.
+
+
+        Note (internal): keep members in sync with :class:`TargetStatus` and
+
+        :class:`ProfilingStatus`. ``FAILED`` is shared by both and defined once.
+
+        '
+    MSCopilotStudioConnectionRedactParams:
+      properties:
+        client_id:
+          type: string
+          title: Client Id
+          description: Azure App Registration Client ID
+        client_secret:
           type: string
           format: password
-          title: Access Id
-          description: AWS access key ID
+          title: Client Secret
+          description: Azure App Registration Client Secret
           writeOnly: true
-        access_secret:
+        tenant_id:
           type: string
-          format: password
-          title: Access Secret
-          description: AWS secret access key
-          writeOnly: true
-        session_token:
+          title: Tenant Id
+          description: Azure AD Tenant ID
+        schema_name:
+          type: string
+          title: Schema Name
+          description: Copilot Agent schema/identifier
+        environment_id:
+          type: string
+          title: Environment Id
+          description: Power Platform Environment ID
+        token_json_uuid:
           anyOf:
           - type: string
-            format: password
-            writeOnly: true
+            format: uuid
           - type: 'null'
-          title: Session Token
-          description: AWS session token (optional)
-        region:
-          type: string
-          title: Region
-          description: AWS region
-        model_id:
-          type: string
-          title: Model Id
-          description: Bedrock model ID
+          title: Token Json Uuid
+          description: UUID referencing MSAL token cache in GSM. Set after POST /ms-copilot-studio/token.
       type: object
       required:
-      - access_id
-      - access_secret
-      - region
-      - model_id
-      title: BedrockAccessConnectionRedactParams
-      description: AWS Bedrock access parameters stored in target_metadata.
-    HeadersAuthConfigRedact:
+      - client_id
+      - client_secret
+      - tenant_id
+      - schema_name
+      - environment_id
+      title: MSCopilotStudioConnectionRedactParams
+      description: Redacted version with SecretStr for sensitive fields.
+    BasicAuthAuthConfigRedact:
       properties:
-        auth_header:
-          additionalProperties:
-            type: string
-          type: object
-          title: Auth Header
-          description: 'Auth header as {name: value} dict'
-          examples:
-          - Authorization: Bearer sk-xxxxxxxxxxxx
-          - x-api-key: my-api-key
-      type: object
-      required:
-      - auth_header
-      title: HeadersAuthConfigRedact
-    WebSocketConnectionParamsRedactBase:
-      properties:
-        api_endpoint:
+        basic_auth_location:
+          $ref: '#/components/schemas/BasicAuthLocation'
+          description: 'Where credentials are sent: HEADER or PAYLOAD'
+          default: HEADER
+        basic_auth_header:
           anyOf:
-          - type: string
-          - type: 'null'
-          title: Api Endpoint
-          description: API endpoint URL
-          examples:
-          - https://api.openai.com/v1/responses
-        request_headers:
-          additionalProperties: true
-          type: object
-          title: Request Headers
-          description: Request headers
-          default: {}
-          examples:
-          - Authorization: Bearer sk-xxx
-            Content-Type: application/json
-        request_json:
-          additionalProperties: true
-          type: object
-          title: Request Json
-          description: Request JSON
-          default: {}
-          examples:
-          - input:
-            - content:
-              - text: '{INPUT}'
-                type: input_text
-              role: user
-            model: gpt-4.1-nano
-        response_json:
-          additionalProperties: true
-          type: object
-          title: Response Json
-          description: Response JSON
-          default: {}
-          examples:
-          - content: '{RESPONSE}'
-        response_key:
-          type: string
-          title: Response Key
-          description: Response key
-          default: null
-          examples:
-          - content
-        target_connection_config:
-          anyOf:
-          - $ref: '#/components/schemas/OpenAIConnectionRedactParams'
-          - $ref: '#/components/schemas/HuggingfaceConnectionRedactParams'
-          - $ref: '#/components/schemas/DatabricksConnectionRedactParams'
-          - $ref: '#/components/schemas/BedrockAccessConnectionRedactParams'
-          - $ref: '#/components/schemas/MSCopilotStudioConnectionRedactParams'
-          - type: 'null'
-          title: Target Connection Config
-          description: Target Connection config of type openai/huggingface ..
-        curl:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Curl
-          description: Generated cURL command ready to use (redacted for security)
-          examples:
-          - 'curl "https://api.openai.com/v1/chat/completions" -H "Content-Type: application/json" -H "Authorization: Bearer ***" -d ''{"model":"gpt-4","messages":[{"role":"user","content":"{INPUT}"}]}'''
-        multi_turn_config:
-          anyOf:
-          - oneOf:
-            - $ref: '#/components/schemas/MultiTurnStatefulConfig'
-            - $ref: '#/components/schemas/MultiTurnStatelessConfig'
-            discriminator:
-              propertyName: type
-              mapping:
-                stateful: '#/components/schemas/MultiTurnStatefulConfig'
-                stateless: '#/components/schemas/MultiTurnStatelessConfig'
-          - type: 'null'
-          title: Multi Turn Config
-          description: Multi turn config for stateful or stateless target
-          examples:
-          - 'assistant_role: assistant'
-        ws_response_timeout:
-          type: number
-          title: Ws Response Timeout
-          description: Timeout in seconds for waiting for a WebSocket response message
-          default: 110.0
-          examples:
-          - 60.0
-          - 110.0
-      type: object
-      title: WebSocketConnectionParamsRedactBase
-      description: "Redacted connection parameters for WebSocket targets.\n\nMRO: WebSocketConnectionParamsRedactBase → RestConnectionParamsRedactBase\n     → WebSocketConnectionParamsBase → RestConnectionParamsBase.\nBoth RestConnectionParamsRedactBase and WebSocketConnectionParamsBase inherit\nfrom RestConnectionParamsBase (diamond). Pydantic v2 deduplicates field validators\nby name, so WebSocketConnectionParamsBase.validate_url (ws/wss) overrides\nRestConnectionParamsBase.validate_url (http/https) — ws:// URLs are accepted.\n"
-    TargetContextUpdateSchema:
-      properties:
-        target_background:
-          anyOf:
-          - $ref: '#/components/schemas/TargetBackground'
-          - type: 'null'
-          description: 'Target background: industry, use_case, competitors'
-        additional_context:
-          anyOf:
-          - $ref: '#/components/schemas/TargetAdditionalContext'
-          - type: 'null'
-          description: 'Additional context: base_model, system_prompt, languages, etc.'
-      type: object
-      title: TargetContextUpdateSchema
-      description: 'Request schema for updating target profile (background + additional context).
-
-
-        Used by PUT /{target_uuid}/profile endpoint.
-
-        User provides plain values which are saved directly to DB and GCS.
-
-        '
-    OAuth2AuthConfig:
-      properties:
-        oauth2_token_url:
-          type: string
-          title: Oauth2 Token Url
-          description: OAuth2 token endpoint URL
-          examples:
-          - https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token
-        oauth2_expiry_minutes:
-          type: integer
-          minimum: 0.0
-          title: Oauth2 Expiry Minutes
-          description: Token validity in minutes. System refreshes at expiry - 1 min.
-          default: 60
-        oauth2_headers:
-          additionalProperties: true
-          type: object
-          title: Oauth2 Headers
-          description: HTTP headers for the token request
-          examples:
-          - Authorization: Basic Y2xpZW50X2lkOmNsaWVudF9zZWNyZXQ=
-            Content-Type: application/x-www-form-urlencoded
-        oauth2_body_params:
-          additionalProperties: true
-          type: object
-          title: Oauth2 Body Params
-          description: Body parameters for the token request (nested JSON dict)
-          examples:
-          - client_id: my-client-id
-            client_secret: my-client-secret
-            grant_type: client_credentials
-            scope: api-access
-        oauth2_token_response_key:
-          type: string
-          title: Oauth2 Token Response Key
-          description: Dot-notation path to token in response JSON
-          default: access_token
-          examples:
-          - access_token
-          - data.credentials.access_token
-        oauth2_inject_header:
-          additionalProperties:
-            type: string
-          type: object
-          title: Oauth2 Inject Header
-          description: Header template with {TOKEN} placeholder
-          examples:
-          - Authorization: Bearer {TOKEN}
-      type: object
-      required:
-      - oauth2_token_url
-      - oauth2_inject_header
-      title: OAuth2AuthConfig
-      description: OAuth2 client credentials with proactive token refresh.
-    TargetAdditionalContext:
-      properties:
-        base_model:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Base Model
-          description: Base model name (e.g., GPT-4, Claude)
-        core_architecture:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Core Architecture
-          description: Core architecture details
-        system_prompt:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: System Prompt
-          description: System prompt
-        languages_supported:
-          anyOf:
-          - items:
+          - additionalProperties:
               type: string
-            type: array
+            type: object
           - type: 'null'
-          title: Languages Supported
-          description: Supported languages
-        banned_keywords:
-          anyOf:
-          - items:
-              type: string
-            type: array
-          - type: 'null'
-          title: Banned Keywords
-          description: Banned keywords/phrases
-        tools_accessible:
-          anyOf:
-          - items:
-              type: string
-            type: array
-          - type: 'null'
-          title: Tools Accessible
-          description: Accessible tools/capabilities
+          title: Basic Auth Header
+          description: 'Auth header as {name: value} dict (required when location=HEADER)'
+          examples:
+          - Authorization: Basic dXNlcjpwYXNz
       type: object
-      title: TargetAdditionalContext
-      description: 'Additional context - used in create/update API requests and stored in DB/GCS.
-
-
-        Single value fields are strings.
-
-        List fields are lists of strings.
-
-        '
-    TargetBackground:
-      properties:
-        industry:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Industry
-          description: Target's industry (e.g., Healthcare, Finance)
-        use_case:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Use Case
-          description: Primary use case (e.g., Customer Support, Code Assistant)
-        competitors:
-          anyOf:
-          - items:
-              type: string
-            type: array
-          - type: 'null'
-          title: Competitors
-          description: Known competitor products
-        agentic_profiling_enabled:
-          type: boolean
-          title: Agentic Profiling Enabled
-          description: Whether agentic profiling is enabled for this target
-          default: true
-      type: object
-      title: TargetBackground
-      description: 'Target background - used in create/update API requests and stored in DB/GCS.
-
-
-        Required fields for activation:
-
-        - industry (string, required)
-
-        - use_case (string, required)
-
-
-        Optional field:
-
-        - competitors (list of strings)
-
-        '
+      title: BasicAuthAuthConfigRedact
+    red_team_shared__schemas__auth_config__AuthType:
+      type: string
+      enum:
+      - HEADERS
+      - BASIC_AUTH
+      - OAUTH2
+      - CUSTOM_TARGET_ADAPTER
+      title: AuthType
+      description: Authentication method for target API access.
+    AdapterVarType:
+      type: string
+      enum:
+      - VAR
+      - SECRET
+      title: AdapterVarType
+      description: Whether a configuration variable is a plain var or a sensitive secret.
     StreamingConnectionParamsBase-Output:
       properties:
         api_endpoint:
@@ -3089,805 +3526,7 @@ components:
       - response_stop_value
       title: StreamingConnectionParamsBase
       description: Base streaming connection parameters without generated fields.
-    MSCopilotStudioTokenResponseSchema:
-      properties:
-        token_json_uuid:
-          type: string
-          format: uuid
-          title: Token Json Uuid
-          description: UUID referencing MSAL token cache in GSM
-      type: object
-      required:
-      - token_json_uuid
-      title: MSCopilotStudioTokenResponseSchema
-      description: Response after successful token exchange (POST/PUT /token).
-    AiItemTag:
-      properties:
-        value:
-          type: string
-          title: Value
-        is_ai_generated:
-          type: boolean
-          title: Is Ai Generated
-      type: object
-      required:
-      - value
-      - is_ai_generated
-      title: AiItemTag
-      description: Single item with AI tracking tag. FE renders directly.
-    MSCopilotStudioTokenRequestSchema:
-      properties:
-        auth_response:
-          additionalProperties:
-            type: string
-          type: object
-          title: Auth Response
-          description: Full redirect query params from Microsoft (code, state, session_state, etc.)
-        token_json_uuid:
-          type: string
-          format: uuid
-          title: Token Json Uuid
-          description: UUID from POST /auth-url response
-        client_id:
-          type: string
-          title: Client Id
-          description: Azure App Registration Client ID
-        client_secret:
-          type: string
-          title: Client Secret
-          description: Azure App Registration Client Secret
-        tenant_id:
-          type: string
-          title: Tenant Id
-          description: Azure AD Tenant ID
-        target_uuid:
-          anyOf:
-          - type: string
-            format: uuid
-          - type: 'null'
-          title: Target Uuid
-          description: Existing target UUID for resolving redacted client_secret on re-auth.
-      additionalProperties: false
-      type: object
-      required:
-      - auth_response
-      - token_json_uuid
-      - client_id
-      - client_secret
-      - tenant_id
-      title: MSCopilotStudioTokenRequestSchema
-      description: Request body for exchanging auth code for tokens (POST /token).
-    AdapterVarBase:
-      properties:
-        key:
-          type: string
-          maxLength: 255
-          title: Key
-          description: Variable key
-        value:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Value
-          description: Variable value. On update, null means 'keep the existing value' — used for unchanged secrets, whose values are never returned.
-        type:
-          $ref: '#/components/schemas/AdapterVarType'
-          description: VAR (non-sensitive) or SECRET (sensitive)
-      type: object
-      required:
-      - key
-      - type
-      title: AdapterVarBase
-      description: A single adapter configuration variable (also the GSM-stored shape).
-    AiGeneratedListFieldInfo:
-      properties:
-        ai_discovered_items:
-          items:
-            type: string
-          type: array
-          title: Ai Discovered Items
-        current_items:
-          items:
-            $ref: '#/components/schemas/AiItemTag'
-          type: array
-          title: Current Items
-        ai_count:
-          type: integer
-          title: Ai Count
-          default: 0
-        user_count:
-          type: integer
-          title: User Count
-          default: 0
-      type: object
-      required:
-      - ai_discovered_items
-      - current_items
-      title: AiGeneratedListFieldInfo
-      description: AI tracking for a list field (tools, keywords, competitors).
-    NativeConnectionParamsRedactBase:
-      properties:
-        target_connection_config:
-          anyOf:
-          - $ref: '#/components/schemas/OpenAIConnectionRedactParams'
-          - $ref: '#/components/schemas/HuggingfaceConnectionRedactParams'
-          - $ref: '#/components/schemas/DatabricksConnectionRedactParams'
-          - $ref: '#/components/schemas/BedrockAccessConnectionRedactParams'
-          - $ref: '#/components/schemas/MSCopilotStudioConnectionRedactParams'
-          - type: 'null'
-          title: Target Connection Config
-          description: Provider-specific connection config (redacted)
-        multi_turn_config:
-          anyOf:
-          - oneOf:
-            - $ref: '#/components/schemas/MultiTurnStatefulConfig'
-            - $ref: '#/components/schemas/MultiTurnStatelessConfig'
-            discriminator:
-              propertyName: type
-              mapping:
-                stateful: '#/components/schemas/MultiTurnStatefulConfig'
-                stateless: '#/components/schemas/MultiTurnStatelessConfig'
-          - type: 'null'
-          title: Multi Turn Config
-          description: Multi-turn config for stateful or stateless target
-        multi_turn_supported:
-          type: boolean
-          title: Multi Turn Supported
-          description: Whether a native target that drives multi-turn internally supports it. Currently consumed only by custom target adapters, which have no multi_turn_config to infer it from; gates the multi-turn validation probe.
-          default: false
-      type: object
-      title: NativeConnectionParamsRedactBase
-      description: Redacted version of NativeConnectionParamsBase.
-    AdapterVarResponseSchema:
-      properties:
-        key:
-          type: string
-          maxLength: 255
-          title: Key
-          description: Variable key
-        value:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Value
-          description: Variable value. On update, null means 'keep the existing value' — used for unchanged secrets, whose values are never returned.
-        type:
-          $ref: '#/components/schemas/AdapterVarType'
-          description: VAR (non-sensitive) or SECRET (sensitive)
-        is_redacted:
-          type: boolean
-          title: Is Redacted
-          description: True when the value is hidden (secrets). Redacted values are returned as null.
-          default: false
-      type: object
-      required:
-      - key
-      - type
-      title: AdapterVarResponseSchema
-      description: 'A variable returned in adapter responses.
-
-
-        Secrets are masked: value is returned as null with is_redacted=true.
-
-        '
-    StreamingConnectionParamsRedactBase:
-      properties:
-        api_endpoint:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Api Endpoint
-          description: API endpoint URL
-          examples:
-          - https://api.openai.com/v1/responses
-        request_headers:
-          additionalProperties: true
-          type: object
-          title: Request Headers
-          description: Request headers
-          default: {}
-          examples:
-          - Authorization: Bearer sk-xxx
-            Content-Type: application/json
-        request_json:
-          additionalProperties: true
-          type: object
-          title: Request Json
-          description: Request JSON
-          default: {}
-          examples:
-          - input:
-            - content:
-              - text: '{INPUT}'
-                type: input_text
-              role: user
-            model: gpt-4.1-nano
-        response_json:
-          additionalProperties: true
-          type: object
-          title: Response Json
-          description: Response JSON
-          default: {}
-          examples:
-          - content: '{RESPONSE}'
-        response_key:
-          type: string
-          title: Response Key
-          description: Response key
-          default: null
-          examples:
-          - content
-        target_connection_config:
-          anyOf:
-          - $ref: '#/components/schemas/OpenAIConnectionRedactParams'
-          - $ref: '#/components/schemas/HuggingfaceConnectionRedactParams'
-          - $ref: '#/components/schemas/DatabricksConnectionRedactParams'
-          - $ref: '#/components/schemas/BedrockAccessConnectionRedactParams'
-          - $ref: '#/components/schemas/MSCopilotStudioConnectionRedactParams'
-          - type: 'null'
-          title: Target Connection Config
-          description: Target Connection config of type openai/huggingface ..
-        curl:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Curl
-          description: Generated cURL command ready to use (redacted for security)
-          examples:
-          - 'curl "https://api.openai.com/v1/chat/completions" -H "Content-Type: application/json" -H "Authorization: Bearer ***" -d ''{"model":"gpt-4","messages":[{"role":"user","content":"{INPUT}"}]}'''
-        multi_turn_config:
-          anyOf:
-          - oneOf:
-            - $ref: '#/components/schemas/MultiTurnStatefulConfig'
-            - $ref: '#/components/schemas/MultiTurnStatelessConfig'
-            discriminator:
-              propertyName: type
-              mapping:
-                stateful: '#/components/schemas/MultiTurnStatefulConfig'
-                stateless: '#/components/schemas/MultiTurnStatelessConfig'
-          - type: 'null'
-          title: Multi Turn Config
-          description: Multi turn config for stateful or stateless target
-          examples:
-          - 'assistant_role: assistant'
-        response_stop_key:
-          type: string
-          title: Response Stop Key
-        response_stop_value:
-          type: string
-          title: Response Stop Value
-      type: object
-      required:
-      - response_stop_key
-      - response_stop_value
-      title: StreamingConnectionParamsRedactBase
-    HuggingfaceConnectionParams:
-      properties:
-        api_key:
-          type: string
-          title: Api Key
-          description: Huggingface API key for authentication
-          examples:
-          - sk-abxx
-        model_name:
-          type: string
-          title: Model Name
-          description: Huggingface model name for API requests
-          examples:
-          - gpt-4.1-nano
-      type: object
-      required:
-      - api_key
-      - model_name
-      title: HuggingfaceConnectionParams
-      description: Connection parameters specific to huggingface targets
-    OpenAIConnectionParams:
-      properties:
-        api_key:
-          type: string
-          title: Api Key
-          description: OpenAI API key for authentication
-          examples:
-          - sk-abxx
-        model_name:
-          type: string
-          title: Model Name
-          description: OpenAI model name for API requests
-          examples:
-          - gpt-4.1-nano
-      type: object
-      required:
-      - api_key
-      - model_name
-      title: OpenAIConnectionParams
-      description: Connection parameters specific to OpenAI targets
-    TargetListItemSchema:
-      properties:
-        uuid:
-          type: string
-          format: uuid
-          title: Uuid
-        tsg_id:
-          type: string
-          title: Tsg Id
-        name:
-          type: string
-          title: Name
-          description: Target name
-          examples:
-          - GPT 4.1 Nano
-        description:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Description
-          description: Optional target description
-          default: null
-          examples:
-          - AI model for testing
-        target_type:
-          anyOf:
-          - $ref: '#/components/schemas/TargetType'
-          - type: 'null'
-          description: Type of target
-        connection_type:
-          anyOf:
-          - $ref: '#/components/schemas/TargetConnectionType'
-          - type: 'null'
-          description: Connection type/provider for the target
-          examples:
-          - CUSTOM
-          - OPENAI
-          - BEDROCK
-        api_endpoint_type:
-          anyOf:
-          - $ref: '#/components/schemas/ApiEndpointType'
-          - type: 'null'
-          description: Accessibility type of the API endpoint
-          examples:
-          - PUBLIC
-          - PRIVATE
-          - NETWORK_BROKER
-        response_mode:
-          anyOf:
-          - $ref: '#/components/schemas/ResponseMode'
-          - type: 'null'
-          description: Response mode for API interactions
-          examples:
-          - REST
-          - STREAMING
-          - WEBSOCKET
-        auth_type:
-          anyOf:
-          - $ref: '#/components/schemas/red_team_shared__schemas__auth_config__AuthType'
-          - type: 'null'
-          description: Authentication method for target API access
-          examples:
-          - HEADERS
-          - BASIC_AUTH
-          - OAUTH2
-        session_supported:
-          type: boolean
-          title: Session Supported
-          description: Whether target supports session for multi-turn conversations
-          default: false
-        extra_info:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Extra Info
-          description: Additional configuration or metadata for the target
-          default: {}
-          examples:
-          - custom_key: custom_value
-        adapter_uuid:
-          anyOf:
-          - type: string
-            format: uuid
-          - type: 'null'
-          title: Adapter Uuid
-          description: Custom adapter this target uses. Required when connection_type is CUSTOM_TARGET_ADAPTER; must be null for every other connection type.
-        status:
-          $ref: '#/components/schemas/TargetStatus'
-          description: Target status
-        active:
-          type: boolean
-          title: Active
-          description: Whether target is active
-        validated:
-          type: boolean
-          title: Validated
-          description: Whether target is validated
-        version:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Version
-          description: Configuration version
-        secret_version:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Secret Version
-          description: Secret Manager version for connection_params. When present, sensitive connection data is stored in Secret Manager. When None, connection_params are stored in GCS (legacy).
-        created_by_user_id:
-          anyOf:
-          - type: string
-            format: uuid
-          - type: 'null'
-          title: Created By User Id
-          description: User ID of target creator
-        updated_by_user_id:
-          anyOf:
-          - type: string
-            format: uuid
-          - type: 'null'
-          title: Updated By User Id
-          description: User ID of last target updater
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-          description: Creation timestamp
-        updated_at:
-          type: string
-          format: date-time
-          title: Updated At
-          description: Last update timestamp
-        profiling_status:
-          anyOf:
-          - $ref: '#/components/schemas/ProfilingStatus'
-          - type: 'null'
-          description: Status of the profiling workflow
-        canonical_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Canonical Id
-          description: Partner-supplied stable identifier. Null for targets without partner integration metadata (most targets).
-      type: object
-      required:
-      - uuid
-      - tsg_id
-      - name
-      - status
-      - active
-      - validated
-      - created_at
-      - updated_at
-      title: TargetListItemSchema
-    MSCopilotStudioAuthUrlRequestSchema:
-      properties:
-        client_id:
-          type: string
-          title: Client Id
-          description: Azure App Registration Client ID
-        client_secret:
-          type: string
-          title: Client Secret
-          description: Azure App Registration Client Secret
-        tenant_id:
-          type: string
-          title: Tenant Id
-          description: Azure AD Tenant ID
-        target_uuid:
-          anyOf:
-          - type: string
-            format: uuid
-          - type: 'null'
-          title: Target Uuid
-          description: Existing target UUID for resolving redacted client_secret on re-auth.
-        token_json_uuid:
-          anyOf:
-          - type: string
-            format: uuid
-          - type: 'null'
-          title: Token Json Uuid
-          description: Existing token_json_uuid for re-auth. If omitted, a new UUID is generated.
-      additionalProperties: false
-      type: object
-      required:
-      - client_id
-      - client_secret
-      - tenant_id
-      title: MSCopilotStudioAuthUrlRequestSchema
-      description: 'Request body for generating MS Copilot Studio OAuth auth URL (POST /auth-url).
-
-
-        If token_json_uuid is provided, reuses existing UUID (re-auth).
-
-        If omitted, generates a new UUID (new target).
-
-        '
-    MultiTurnStatefulConfig:
-      properties:
-        type:
-          type: string
-          const: stateful
-          title: Type
-          default: stateful
-        response_id_field:
-          type: string
-          title: Response Id Field
-          description: JSON path to extract session ID from target response (e.g., 'id' for OpenAI responses API)
-          examples:
-          - id
-          - conversation_id
-          - session.id
-        request_id_field:
-          type: string
-          title: Request Id Field
-          description: JSON path to inject session ID in next request (e.g., 'previous_response_id' for OpenAI)
-          examples:
-          - previous_response_id
-          - conversation_id
-          - session_id
-      type: object
-      required:
-      - response_id_field
-      - request_id_field
-      title: MultiTurnStatefulConfig
-      description: 'Configuration for stateful multi-turn targets (session_supported=true).
-
-
-        Stateful targets maintain conversation state on the server side using session IDs.
-
-        The session ID is extracted from responses and injected into subsequent requests.
-
-        '
-    AiGeneratedLanguageListFieldInfo:
-      properties:
-        ai_discovered_items:
-          items:
-            type: string
-          type: array
-          title: Ai Discovered Items
-        current_items:
-          items:
-            $ref: '#/components/schemas/AiLanguageItemTag'
-          type: array
-          title: Current Items
-        ai_count:
-          type: integer
-          title: Ai Count
-          default: 0
-        user_count:
-          type: integer
-          title: User Count
-          default: 0
-      type: object
-      required:
-      - ai_discovered_items
-      - current_items
-      title: AiGeneratedLanguageListFieldInfo
-      description: AI tracking for the languages_supported list field.
-    TargetConnectionType:
-      type: string
-      enum:
-      - DATABRICKS
-      - BEDROCK
-      - OPENAI
-      - HUGGING_FACE
-      - CUSTOM
-      - REST
-      - STREAMING
-      - WEBSOCKET
-      - WEBSOCKET_STREAMING
-      - MS_COPILOT_STUDIO
-      - CUSTOM_TARGET_ADAPTER
-      title: TargetConnectionType
-      description: Connection type/provider for the target.
-    TargetProfileResponse:
-      properties:
-        target_id:
-          type: string
-          format: uuid
-          title: Target Id
-        target_version:
-          type: integer
-          title: Target Version
-        status:
-          type: string
-          title: Status
-        target_background:
-          anyOf:
-          - $ref: '#/components/schemas/TargetBackground'
-          - type: 'null'
-        additional_context:
-          anyOf:
-          - $ref: '#/components/schemas/TargetAdditionalContext'
-          - type: 'null'
-        other_details:
-          anyOf:
-          - $ref: '#/components/schemas/OtherDetails'
-          - type: 'null'
-        other_details_prettified:
-          anyOf:
-          - $ref: '#/components/schemas/OtherDetailsPrettified'
-          - type: 'null'
-        ai_generated_fields:
-          anyOf:
-          - items:
-              type: string
-            type: array
-          - type: 'null'
-          title: Ai Generated Fields
-          description: Field names populated by AI profiler (e.g., competitors, base_model, system_prompt)
-        ai_generated_items:
-          anyOf:
-          - $ref: '#/components/schemas/AiGeneratedItems'
-          - type: 'null'
-        profiling_completed_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Profiling Completed At
-          description: When profiling finished
-        profiling_status:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Profiling Status
-          description: Status of the profiling workflow
-        profiling_progress:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Profiling Progress
-          description: Profiling progress percentage (0–100)
-      type: object
-      required:
-      - target_id
-      - target_version
-      - status
-      title: TargetProfileResponse
-      description: Combined response for profile view.
-    MSCopilotStudioConnectionRedactParams:
-      properties:
-        client_id:
-          type: string
-          title: Client Id
-          description: Azure App Registration Client ID
-        client_secret:
-          type: string
-          format: password
-          title: Client Secret
-          description: Azure App Registration Client Secret
-          writeOnly: true
-        tenant_id:
-          type: string
-          title: Tenant Id
-          description: Azure AD Tenant ID
-        schema_name:
-          type: string
-          title: Schema Name
-          description: Copilot Agent schema/identifier
-        environment_id:
-          type: string
-          title: Environment Id
-          description: Power Platform Environment ID
-        token_json_uuid:
-          anyOf:
-          - type: string
-            format: uuid
-          - type: 'null'
-          title: Token Json Uuid
-          description: UUID referencing MSAL token cache in GSM. Set after POST /ms-copilot-studio/token.
-      type: object
-      required:
-      - client_id
-      - client_secret
-      - tenant_id
-      - schema_name
-      - environment_id
-      title: MSCopilotStudioConnectionRedactParams
-      description: Redacted version with SecretStr for sensitive fields.
-    HuggingfaceConnectionRedactParams:
-      properties:
-        api_key:
-          type: string
-          format: password
-          title: Api Key
-          description: Huggingface API key for authentication
-          writeOnly: true
-          examples:
-          - sk-abxx
-        model_name:
-          type: string
-          title: Model Name
-          description: Huggingface model name for API requests
-          examples:
-          - gpt-4.1-nano
-      type: object
-      required:
-      - api_key
-      - model_name
-      title: HuggingfaceConnectionRedactParams
-      description: Connection parameters specific to huggingface targets
-    MSCopilotStudioConnectionParams:
-      properties:
-        client_id:
-          type: string
-          title: Client Id
-          description: Azure App Registration Client ID
-        client_secret:
-          type: string
-          title: Client Secret
-          description: Azure App Registration Client Secret
-        tenant_id:
-          type: string
-          title: Tenant Id
-          description: Azure AD Tenant ID
-        schema_name:
-          type: string
-          title: Schema Name
-          description: Copilot Agent schema/identifier
-        environment_id:
-          type: string
-          title: Environment Id
-          description: Power Platform Environment ID
-        token_json_uuid:
-          anyOf:
-          - type: string
-            format: uuid
-          - type: 'null'
-          title: Token Json Uuid
-          description: UUID referencing MSAL token cache in GSM. Set after POST /ms-copilot-studio/token.
-        token_cache_json:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Token Cache Json
-          description: Serialized MSAL token cache. Injected at POST/PUT /target time from standalone GSM record.
-      type: object
-      required:
-      - client_id
-      - client_secret
-      - tenant_id
-      - schema_name
-      - environment_id
-      title: MSCopilotStudioConnectionParams
-      description: Microsoft Copilot Studio Agent connection parameters.
-    TargetType:
-      type: string
-      enum:
-      - APPLICATION
-      - AGENT
-      - MODEL
-      title: TargetType
-      description: Target Types Available
-    OpenAIConnectionRedactParams:
-      properties:
-        api_key:
-          type: string
-          format: password
-          title: Api Key
-          description: OpenAI API key for authentication
-          writeOnly: true
-          examples:
-          - sk-abxx
-        model_name:
-          type: string
-          title: Model Name
-          description: OpenAI model name for API requests
-          examples:
-          - gpt-4.1-nano
-      type: object
-      required:
-      - api_key
-      - model_name
-      title: OpenAIConnectionRedactParams
-      description: Connection parameters specific to OpenAI targets
-    AdapterVarType:
-      type: string
-      enum:
-      - VAR
-      - SECRET
-      title: AdapterVarType
-      description: Whether a configuration variable is a plain var or a sensitive secret.
-    TargetCreateRequestSchema:
+    TargetProbeRequest:
       properties:
         connection_params:
           anyOf:
@@ -4037,86 +3676,152 @@ components:
           - type: 'null'
           title: Adapter Variable Overrides
           description: Target-level overrides for the adapter's variables and secrets, by key. A value wins over the adapter's base value; a null secret value keeps the existing override on update. Only valid when connection_type is CUSTOM_TARGET_ADAPTER.
+        uuid:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Uuid
+          description: Target UUID. If provided, will be returned in response.
+        probe_fields:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Probe Fields
+          description: 'Specific probes to run. If None, runs all probes. Valid: industry, use_case, competitors, base_model, core_architecture, languages_supported, tools_accessible, system_prompt, banned_keywords'
       additionalProperties: false
       type: object
       required:
       - name
-      title: TargetCreateRequestSchema
-      description: Target create request schema for validating and defining target creation parameters.
-    TargetStatusFilter:
+      title: TargetProbeRequest
+      description: 'Request to run profiling probes on a target.
+
+
+        Inherits all target creation fields (connection params, metadata, etc.)
+
+        If probe_fields is None, runs all 9 probes. Otherwise runs only specified probes.
+
+        '
+    TargetAdditionalContext:
+      properties:
+        base_model:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Base Model
+          description: Base model name (e.g., GPT-4, Claude)
+        core_architecture:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Core Architecture
+          description: Core architecture details
+        system_prompt:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: System Prompt
+          description: System prompt
+        languages_supported:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Languages Supported
+          description: Supported languages
+        banned_keywords:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Banned Keywords
+          description: Banned keywords/phrases
+        tools_accessible:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Tools Accessible
+          description: Accessible tools/capabilities
+      type: object
+      title: TargetAdditionalContext
+      description: 'Additional context - used in create/update API requests and stored in DB/GCS.
+
+
+        Single value fields are strings.
+
+        List fields are lists of strings.
+
+        '
+    TargetListSchema:
+      properties:
+        pagination:
+          $ref: '#/components/schemas/PaginationSchema'
+        data:
+          items:
+            $ref: '#/components/schemas/TargetListItemSchema'
+          type: array
+          title: Data
+          description: List of targets
+      type: object
+      required:
+      - pagination
+      title: TargetListSchema
+      description: Schema returned by API for list target operations.
+    BedrockAccessConnectionParams:
+      properties:
+        access_id:
+          type: string
+          title: Access Id
+          description: AWS access key ID
+        access_secret:
+          type: string
+          title: Access Secret
+          description: AWS secret access key
+        session_token:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Token
+          description: AWS session token (optional)
+        region:
+          type: string
+          title: Region
+          description: AWS region
+        model_id:
+          type: string
+          title: Model Id
+          description: Bedrock model ID
+      type: object
+      required:
+      - access_id
+      - access_secret
+      - region
+      - model_id
+      title: BedrockAccessConnectionParams
+      description: AWS Bedrock access parameters stored in target_metadata.
+    TargetConnectionType:
       type: string
       enum:
-      - DRAFT
-      - ACTIVE
-      - FAILED
-      - QUEUED
-      - IN_PROGRESS
-      - COMPLETED
-      - PARTIALLY_COMPLETE
-      title: TargetStatusFilter
-      description: 'Status values accepted by the list-targets ``status`` filter.
-
-
-        Unions the target status and profiling status values so a single ``status``
-
-        filter can match on either. A supplied value matches a target whose target
-
-        status or profiling status equals it.
-
-
-        Note (internal): keep members in sync with :class:`TargetStatus` and
-
-        :class:`ProfilingStatus`. ``FAILED`` is shared by both and defined once.
-
-        '
-    NativeConnectionParamsBase-Output:
-      properties:
-        target_connection_config:
-          anyOf:
-          - $ref: '#/components/schemas/OpenAIConnectionParams'
-          - $ref: '#/components/schemas/HuggingfaceConnectionParams'
-          - $ref: '#/components/schemas/DatabricksConnectionParams'
-          - $ref: '#/components/schemas/BedrockAccessConnectionParams'
-          - $ref: '#/components/schemas/MSCopilotStudioConnectionParams'
-          - type: 'null'
-          title: Target Connection Config
-          description: Provider-specific connection config
-        multi_turn_config:
-          anyOf:
-          - oneOf:
-            - $ref: '#/components/schemas/MultiTurnStatefulConfig'
-            - $ref: '#/components/schemas/MultiTurnStatelessConfig'
-            discriminator:
-              propertyName: type
-              mapping:
-                stateful: '#/components/schemas/MultiTurnStatefulConfig'
-                stateless: '#/components/schemas/MultiTurnStatelessConfig'
-          - type: 'null'
-          title: Multi Turn Config
-          description: Multi-turn config for stateful or stateless target
-        multi_turn_supported:
-          type: boolean
-          title: Multi Turn Supported
-          description: Whether a native target that drives multi-turn internally supports it. Currently consumed only by custom target adapters, which have no multi_turn_config to infer it from; gates the multi-turn validation probe.
-          default: false
-      type: object
-      title: NativeConnectionParamsBase
-      description: 'Base connection parameters for native/SDK-based targets (no HTTP endpoint).
-
-
-        Used for no-code agent platforms like Microsoft Copilot Studio where
-
-        interaction is via a provider''s client library, not HTTP REST/streaming.
-
-
-        # TODO: Consider refactoring RestConnectionParamsBase and StreamingConnectionParamsBase
-
-        # to share a common base with this class (e.g., extract target_connection_config and
-
-        # multi_turn_config into a shared parent).
-
-        '
-    HeadersAuthConfig:
+      - DATABRICKS
+      - BEDROCK
+      - OPENAI
+      - HUGGING_FACE
+      - CUSTOM
+      - REST
+      - STREAMING
+      - WEBSOCKET
+      - WEBSOCKET_STREAMING
+      - MS_COPILOT_STUDIO
+      - CUSTOM_TARGET_ADAPTER
+      title: TargetConnectionType
+      description: Connection type/provider for the target.
+    HeadersAuthConfigRedact:
       properties:
         auth_header:
           additionalProperties:
@@ -4130,8 +3835,303 @@ components:
       type: object
       required:
       - auth_header
-      title: HeadersAuthConfig
-      description: Static header injection (API keys, bearer tokens).
+      title: HeadersAuthConfigRedact
+    AiGeneratedListFieldInfo:
+      properties:
+        ai_discovered_items:
+          items:
+            type: string
+          type: array
+          title: Ai Discovered Items
+        current_items:
+          items:
+            $ref: '#/components/schemas/AiItemTag'
+          type: array
+          title: Current Items
+        ai_count:
+          type: integer
+          title: Ai Count
+          default: 0
+        user_count:
+          type: integer
+          title: User Count
+          default: 0
+      type: object
+      required:
+      - ai_discovered_items
+      - current_items
+      title: AiGeneratedListFieldInfo
+      description: AI tracking for a list field (tools, keywords, competitors).
+    TargetBackground:
+      properties:
+        industry:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Industry
+          description: Target's industry (e.g., Healthcare, Finance)
+        use_case:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Use Case
+          description: Primary use case (e.g., Customer Support, Code Assistant)
+        competitors:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Competitors
+          description: Known competitor products
+        agentic_profiling_enabled:
+          type: boolean
+          title: Agentic Profiling Enabled
+          description: Whether agentic profiling is enabled for this target
+          default: true
+      type: object
+      title: TargetBackground
+      description: 'Target background - used in create/update API requests and stored in DB/GCS.
+
+
+        Required fields for activation:
+
+        - industry (string, required)
+
+        - use_case (string, required)
+
+
+        Optional field:
+
+        - competitors (list of strings)
+
+        '
+    TargetType:
+      type: string
+      enum:
+      - APPLICATION
+      - AGENT
+      - MODEL
+      title: TargetType
+      description: Target Types Available
+    RestConnectionParamsBase-Input:
+      properties:
+        api_endpoint:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Api Endpoint
+          description: API endpoint URL
+          examples:
+          - https://api.openai.com/v1/responses
+        request_headers:
+          additionalProperties: true
+          type: object
+          title: Request Headers
+          description: Request headers
+          default: {}
+          examples:
+          - Authorization: Bearer sk-xxx
+            Content-Type: application/json
+        request_json:
+          additionalProperties: true
+          type: object
+          title: Request Json
+          description: Request JSON
+          default: {}
+          examples:
+          - input:
+            - content:
+              - text: '{INPUT}'
+                type: input_text
+              role: user
+            model: gpt-4.1-nano
+        response_json:
+          additionalProperties: true
+          type: object
+          title: Response Json
+          description: Response JSON
+          default: {}
+          examples:
+          - content: '{RESPONSE}'
+        response_key:
+          type: string
+          title: Response Key
+          description: Response key
+          default: null
+          examples:
+          - content
+        target_connection_config:
+          anyOf:
+          - $ref: '#/components/schemas/OpenAIConnectionParams'
+          - $ref: '#/components/schemas/HuggingfaceConnectionParams'
+          - $ref: '#/components/schemas/DatabricksConnectionParams'
+          - $ref: '#/components/schemas/BedrockAccessConnectionParams'
+          - $ref: '#/components/schemas/MSCopilotStudioConnectionParams'
+          - type: 'null'
+          title: Target Connection Config
+          description: Target Connection config of type openai/huggingface ..
+        curl:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Curl
+          description: Generated cURL command ready to use (redacted for security)
+          examples:
+          - 'curl "https://api.openai.com/v1/chat/completions" -H "Content-Type: application/json" -H "Authorization: Bearer ***" -d ''{"model":"gpt-4","messages":[{"role":"user","content":"{INPUT}"}]}'''
+        multi_turn_config:
+          anyOf:
+          - oneOf:
+            - $ref: '#/components/schemas/MultiTurnStatefulConfig'
+            - $ref: '#/components/schemas/MultiTurnStatelessConfig'
+            discriminator:
+              propertyName: type
+              mapping:
+                stateful: '#/components/schemas/MultiTurnStatefulConfig'
+                stateless: '#/components/schemas/MultiTurnStatelessConfig'
+          - type: 'null'
+          title: Multi Turn Config
+          description: Multi turn config for stateful or stateless target
+          examples:
+          - 'assistant_role: assistant'
+      type: object
+      title: RestConnectionParamsBase
+      description: Base connection parameters without generated fields.
+    MSCopilotStudioConnectionParams:
+      properties:
+        client_id:
+          type: string
+          title: Client Id
+          description: Azure App Registration Client ID
+        client_secret:
+          type: string
+          title: Client Secret
+          description: Azure App Registration Client Secret
+        tenant_id:
+          type: string
+          title: Tenant Id
+          description: Azure AD Tenant ID
+        schema_name:
+          type: string
+          title: Schema Name
+          description: Copilot Agent schema/identifier
+        environment_id:
+          type: string
+          title: Environment Id
+          description: Power Platform Environment ID
+        token_json_uuid:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Token Json Uuid
+          description: UUID referencing MSAL token cache in GSM. Set after POST /ms-copilot-studio/token.
+        token_cache_json:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token Cache Json
+          description: Serialized MSAL token cache. Injected at POST/PUT /target time from standalone GSM record.
+      type: object
+      required:
+      - client_id
+      - client_secret
+      - tenant_id
+      - schema_name
+      - environment_id
+      title: MSCopilotStudioConnectionParams
+      description: Microsoft Copilot Studio Agent connection parameters.
+    BasicAuthLocation:
+      type: string
+      enum:
+      - HEADER
+      - PAYLOAD
+      title: BasicAuthLocation
+      description: Where Basic Auth credentials are sent.
+    MSCopilotStudioAuthUrlRequestSchema:
+      properties:
+        client_id:
+          type: string
+          title: Client Id
+          description: Azure App Registration Client ID
+        client_secret:
+          type: string
+          title: Client Secret
+          description: Azure App Registration Client Secret
+        tenant_id:
+          type: string
+          title: Tenant Id
+          description: Azure AD Tenant ID
+        target_uuid:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Target Uuid
+          description: Existing target UUID for resolving redacted client_secret on re-auth.
+        token_json_uuid:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Token Json Uuid
+          description: Existing token_json_uuid for re-auth. If omitted, a new UUID is generated.
+      additionalProperties: false
+      type: object
+      required:
+      - client_id
+      - client_secret
+      - tenant_id
+      title: MSCopilotStudioAuthUrlRequestSchema
+      description: 'Request body for generating MS Copilot Studio OAuth auth URL (POST /auth-url).
+
+
+        If token_json_uuid is provided, reuses existing UUID (re-auth).
+
+        If omitted, generates a new UUID (new target).
+
+        '
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    TargetStatus:
+      type: string
+      enum:
+      - DRAFT
+      - VALIDATING
+      - VALIDATED
+      - ACTIVE
+      - INACTIVE
+      - FAILED
+      - PENDING_AUTH
+      title: TargetStatus
+      description: Status enumeration for scan targets.
+    ApiEndpointType:
+      type: string
+      enum:
+      - PUBLIC
+      - PRIVATE
+      - NETWORK_BROKER
+      title: ApiEndpointType
+      description: API endpoint accessibility type.
   securitySchemes:
     bearerAuth:
       type: http

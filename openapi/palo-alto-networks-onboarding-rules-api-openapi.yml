@@ -282,89 +282,24 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 components:
-  responses:
-    Conflict:
-      description: Conflict
-      content:
-        application/json:
-          schema:
-            type: object
-            required:
-            - status
-            - error
-            properties:
-              status:
-                type: string
-                enum:
-                - error
-              data:
-                type: array
-                items:
-                  $ref: '#/components/schemas/resource_validation_result'
-              error:
-                type: string
-                description: Error message
-    BadRequest:
-      description: Bad Request
-      content:
-        application/json:
-          schema:
-            type: object
-            required:
-            - status
-            - error
-            properties:
-              status:
-                type: string
-                enum:
-                - error
-              data:
-                type: array
-                items:
-                  $ref: '#/components/schemas/resource_validation_result'
-              error:
-                type: string
-                description: Error message
-    InternalServerError:
-      description: Internal Server Error
-      content:
-        application/json:
-          schema:
-            type: object
-            required:
-            - status
-            - error
-            properties:
-              status:
-                type: string
-                enum:
-                - error
-              error:
-                type: string
-                description: Error message
-    NotFound:
-      description: Not Found
-      content:
-        application/json:
-          schema:
-            type: object
-            required:
-            - status
-            - error
-            properties:
-              status:
-                type: string
-                enum:
-                - error
-              error:
-                type: string
-                description: Error message
   schemas:
-    onboard_match_criteria:
+    model_criteria:
       type: object
       properties:
-        models:
-          $ref: '#/components/schemas/model_criteria'
+        include_models:
+          type: array
+          items:
+            $ref: '#/components/schemas/device_model'
+        exclude_models:
+          type: array
+          items:
+            $ref: '#/components/schemas/device_model'
+    device_model:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Device model name
     resource_validation_error:
       type: object
       required:
@@ -389,14 +324,102 @@ components:
         message:
           type: string
           description: Detailed error message
-    resolution_rule:
+    onboard_match_criteria:
+      type: object
+      properties:
+        models:
+          $ref: '#/components/schemas/model_criteria'
+    update_onboarding_rule_request:
       type: object
       required:
-      - expression
+      - name
+      - enable
+      - rule_type
+      - site_group
+      - match_criteria
+      - actions
       properties:
-        expression:
+        id:
           type: string
-          description: Expression to resolve the variable (can reference properties with ${property_name})
+          format: uuid
+        tenant_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        enable:
+          type: boolean
+        rule_type:
+          type: string
+        site_group:
+          type: string
+        match_criteria:
+          $ref: '#/components/schemas/onboard_match_criteria'
+        actions:
+          $ref: '#/components/schemas/onboard_actions'
+        variables:
+          type: array
+          items:
+            $ref: '#/components/schemas/variable'
+    resolved_onboarding_rule:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        enabled:
+          type: boolean
+        rule_type:
+          type: string
+        site_group:
+          type: string
+        match_criteria:
+          type: object
+          additionalProperties: true
+        actions:
+          type: object
+          additionalProperties: true
+        variables:
+          type: array
+          items:
+            $ref: '#/components/schemas/variable'
+          description: Original variables with resolution expression
+        resolved_variables:
+          type: array
+          items:
+            $ref: '#/components/schemas/resolved_variable'
+          description: Variables resolved to their actual values
+        resolution_errors:
+          type: array
+          items:
+            type: string
+          description: Errors encountered during variable resolution
+        generated_at:
+          type: string
+    move_onboarding_rule_request:
+      type: object
+      required:
+      - position
+      properties:
+        position:
+          type: string
+          enum:
+          - before
+          - after
+          - top
+          - bottom
+          description: Position to move the rule to
+        reference:
+          type: string
+          format: uuid
+          description: UUID of reference rule (required for before/after positions)
     onboard_rule_entry:
       type: object
       required:
@@ -450,6 +473,47 @@ components:
           description: Variable name
         resolution_rule:
           $ref: '#/components/schemas/resolution_rule'
+    resolved_variable:
+      type: object
+      required:
+      - name
+      - type
+      - value
+      properties:
+        name:
+          type: string
+          description: Variable name
+        type:
+          type: string
+          description: Variable type
+        value:
+          description: Resolved value (type varies)
+    resolution_rule:
+      type: object
+      required:
+      - expression
+      properties:
+        expression:
+          type: string
+          description: Expression to resolve the variable (can reference properties with ${property_name})
+    onboard_actions:
+      type: object
+      additionalProperties: true
+      description: Actions to perform during onboarding
+    resource_validation_result:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Resource UUID
+        name:
+          type: string
+          description: Resource name
+        validation_errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/resource_validation_error'
     create_onboarding_rule_request:
       type: object
       required:
@@ -478,147 +542,83 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/variable'
-    move_onboarding_rule_request:
-      type: object
-      required:
-      - position
-      properties:
-        position:
-          type: string
-          enum:
-          - before
-          - after
-          - top
-          - bottom
-          description: Position to move the rule to
-        reference:
-          type: string
-          format: uuid
-          description: UUID of reference rule (required for before/after positions)
-    device_model:
-      type: object
-      properties:
-        name:
-          type: string
-          description: Device model name
-    onboard_actions:
-      type: object
-      additionalProperties: true
-      description: Actions to perform during onboarding
-    model_criteria:
-      type: object
-      properties:
-        include_models:
-          type: array
-          items:
-            $ref: '#/components/schemas/device_model'
-        exclude_models:
-          type: array
-          items:
-            $ref: '#/components/schemas/device_model'
-    resource_validation_result:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-          description: Resource UUID
-        name:
-          type: string
-          description: Resource name
-        validation_errors:
-          type: array
-          items:
-            $ref: '#/components/schemas/resource_validation_error'
-    resolved_variable:
-      type: object
-      required:
-      - name
-      - type
-      - value
-      properties:
-        name:
-          type: string
-          description: Variable name
-        type:
-          type: string
-          description: Variable type
-        value:
-          description: Resolved value (type varies)
-    resolved_onboarding_rule:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        tenant_id:
-          type: string
-        name:
-          type: string
-        description:
-          type: string
-        enabled:
-          type: boolean
-        rule_type:
-          type: string
-        site_group:
-          type: string
-        match_criteria:
-          type: object
-          additionalProperties: true
-        actions:
-          type: object
-          additionalProperties: true
-        variables:
-          type: array
-          items:
-            $ref: '#/components/schemas/variable'
-          description: Original variables with resolution expression
-        resolved_variables:
-          type: array
-          items:
-            $ref: '#/components/schemas/resolved_variable'
-          description: Variables resolved to their actual values
-        resolution_errors:
-          type: array
-          items:
-            type: string
-          description: Errors encountered during variable resolution
-        generated_at:
-          type: string
-    update_onboarding_rule_request:
-      type: object
-      required:
-      - name
-      - enable
-      - rule_type
-      - site_group
-      - match_criteria
-      - actions
-      properties:
-        id:
-          type: string
-          format: uuid
-        tenant_id:
-          type: string
-        name:
-          type: string
-        description:
-          type: string
-        enable:
-          type: boolean
-        rule_type:
-          type: string
-        site_group:
-          type: string
-        match_criteria:
-          $ref: '#/components/schemas/onboard_match_criteria'
-        actions:
-          $ref: '#/components/schemas/onboard_actions'
-        variables:
-          type: array
-          items:
-            $ref: '#/components/schemas/variable'
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - status
+            - error
+            properties:
+              status:
+                type: string
+                enum:
+                - error
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/resource_validation_result'
+              error:
+                type: string
+                description: Error message
+    NotFound:
+      description: Not Found
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - status
+            - error
+            properties:
+              status:
+                type: string
+                enum:
+                - error
+              error:
+                type: string
+                description: Error message
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - status
+            - error
+            properties:
+              status:
+                type: string
+                enum:
+                - error
+              error:
+                type: string
+                description: Error message
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - status
+            - error
+            properties:
+              status:
+                type: string
+                enum:
+                - error
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/resource_validation_result'
+              error:
+                type: string
+                description: Error message
   parameters:
     onboarding_rule_id:
       name: id

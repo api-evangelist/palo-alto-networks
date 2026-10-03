@@ -265,17 +265,46 @@ paths:
     - url: https://api.fr.prismacloud.io
 components:
   schemas:
-    WidgetRelativeTimeRangeConfig:
+    MeanResolutionTimeMetric:
       type: object
       properties:
-        type:
-          description: 'Type of time ranges supported: [relative]'
+        severity:
+          description: Severity name
           type: string
-        value:
-          description: 'Relative time supporting past 24 hour, 7 days, 1 month, 3 months, 6 months and 1 year. '
+        numberOfDays:
+          format: double
+          description: Mean resolution time in days
+          type: number
+    WidgetRelativeTimeDuration:
+      type: object
+      properties:
+        unit:
+          $ref: '#/components/schemas/WidgetTimeUnit'
+        amount:
+          format: int32
+          type: integer
+    WidgetTimeUnit:
+      enum:
+      - hour
+      - week
+      - month
+      - year
+      type: string
+    WidgetApiRequestResolutionReasonFilterRequest:
+      required:
+      - timeRange
+      type: object
+      properties:
+        filters:
+          description: List of filters that can be applied for the API
+          type: array
+          items:
+            $ref: '#/components/schemas/ResolutionReasonFilterRequest'
+        timeRange:
+          description: Time range for which the API is requested
           type: object
           allOf:
-          - $ref: '#/components/schemas/WidgetRelativeTimeDuration'
+          - $ref: '#/components/schemas/WidgetRelativeTimeRangeConfig'
     ResolutionReasonFilter:
       enum:
       - alert.resolutionReason
@@ -288,6 +317,21 @@ components:
       - policy.category
       - cloud.accountId
       type: string
+    WidgetApiRequestMeanResolutionTimeFilterRequest:
+      required:
+      - timeRange
+      type: object
+      properties:
+        filters:
+          description: List of filters that can be applied for the API
+          type: array
+          items:
+            $ref: '#/components/schemas/MeanResolutionTimeFilterRequest'
+        timeRange:
+          description: Time range for which the API is requested
+          type: object
+          allOf:
+          - $ref: '#/components/schemas/WidgetRelativeTimeRangeConfig'
     MeanResolutionTimeFilterRequest:
       type: object
       properties:
@@ -302,36 +346,17 @@ components:
         value:
           description: Filter value.
           type: string
-    MeanResolutionTimeFilter:
-      enum:
-      - policy.severity
-      - account.groupId
-      - policy.complianceStandardId
-      - cloud.type
-      - policy.type
-      - policy.id
-      - policy.category
-      - cloud.accountId
-      type: string
-    MeanResolutionTimeMetric:
+    WidgetRelativeTimeRangeConfig:
       type: object
       properties:
-        severity:
-          description: Severity name
+        type:
+          description: 'Type of time ranges supported: [relative]'
           type: string
-        numberOfDays:
-          format: double
-          description: Mean resolution time in days
-          type: number
-    Error:
-      type: object
-      properties:
-        code:
-          type: string
-        message:
-          type: string
-        target:
-          type: string
+        value:
+          description: 'Relative time supporting past 24 hour, 7 days, 1 month, 3 months, 6 months and 1 year. '
+          type: object
+          allOf:
+          - $ref: '#/components/schemas/WidgetRelativeTimeDuration'
     ResolutionReasonResponse:
       type: object
       properties:
@@ -366,28 +391,45 @@ components:
           format: int32
           description: Alert count for the resolution reason
           type: integer
-    WidgetTimeUnit:
-      enum:
-      - hour
-      - week
-      - month
-      - year
-      type: string
-    WidgetApiRequestMeanResolutionTimeFilterRequest:
-      required:
-      - timeRange
+    Error:
       type: object
       properties:
-        filters:
-          description: List of filters that can be applied for the API
-          type: array
-          items:
-            $ref: '#/components/schemas/MeanResolutionTimeFilterRequest'
-        timeRange:
-          description: Time range for which the API is requested
-          type: object
+        code:
+          type: string
+        message:
+          type: string
+        target:
+          type: string
+    ResolutionReasonFilterRequest:
+      type: object
+      properties:
+        name:
+          description: Filter name.
+          type: string
           allOf:
-          - $ref: '#/components/schemas/WidgetRelativeTimeRangeConfig'
+          - $ref: '#/components/schemas/ResolutionReasonFilter'
+        operator:
+          description: Only operator allowed for this filter is '='.
+          type: string
+        value:
+          description: Filter value.
+          type: string
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          $ref: '#/components/schemas/Error'
+    MeanResolutionTimeFilter:
+      enum:
+      - policy.severity
+      - account.groupId
+      - policy.complianceStandardId
+      - cloud.type
+      - policy.type
+      - policy.id
+      - policy.category
+      - cloud.accountId
+      type: string
     MeanResolutionResponse:
       type: object
       properties:
@@ -412,48 +454,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MeanResolutionTimeMetric'
-    ErrorResponse:
-      type: object
-      properties:
-        error:
-          $ref: '#/components/schemas/Error'
-    WidgetApiRequestResolutionReasonFilterRequest:
-      required:
-      - timeRange
-      type: object
-      properties:
-        filters:
-          description: List of filters that can be applied for the API
-          type: array
-          items:
-            $ref: '#/components/schemas/ResolutionReasonFilterRequest'
-        timeRange:
-          description: Time range for which the API is requested
-          type: object
-          allOf:
-          - $ref: '#/components/schemas/WidgetRelativeTimeRangeConfig'
-    ResolutionReasonFilterRequest:
-      type: object
-      properties:
-        name:
-          description: Filter name.
-          type: string
-          allOf:
-          - $ref: '#/components/schemas/ResolutionReasonFilter'
-        operator:
-          description: Only operator allowed for this filter is '='.
-          type: string
-        value:
-          description: Filter value.
-          type: string
-    WidgetRelativeTimeDuration:
-      type: object
-      properties:
-        unit:
-          $ref: '#/components/schemas/WidgetTimeUnit'
-        amount:
-          format: int32
-          type: integer
     CWPWidgetRequestModel:
       description: Model for Discovered vs Secured and Vulnerabilities Trend
       properties:
@@ -462,86 +462,93 @@ components:
           - $ref: '#/components/schemas/TimeRangeConfigModel'
           - description: Time range
       type: object
-    AssetsWithAlertsFilter:
+    ToNowTimeRangeConfigModel:
+      allOf:
+      - $ref: '#/components/schemas/TimeRangeConfigModel'
+      - description: Model for ToNowTimeRangeConfig
+        properties:
+          value:
+            description: Time range object
+            enum:
+            - MINUTE
+            - HOUR
+            - DAY
+            - WEEK
+            - MONTH
+            - YEAR
+            - EPOCH
+            - LOGIN
+            type: string
+        type: object
+    RelativeTimeDurationModel:
+      description: Model for RelativeTimeDuration
       properties:
-        name:
-          description: Name of the allowed Filter types.
-          enum:
-          - CLOUD_TYPE
-          - ALERT_SEVERITY
-          type: string
-        operator:
-          description: Only allowed operator for the filter is '='
-          type: string
-        value:
-          description: Value for the applied filter
-          type: string
-      type: object
-    DiscoverVsSecured:
-      description: cloud type and alerts count
-      properties:
-        critical:
-          description: critical
-          format: int64
-          type: integer
-        high:
-          description: high
-          format: int64
-          type: integer
-        informational:
-          description: informational
-          format: int64
-          type: integer
-        low:
-          description: low
-          format: int64
-          type: integer
-        medium:
-          description: medium
-          format: int64
-          type: integer
-        type:
-          description: cloudType
-          type: string
-      type: object
-    AssetsWithAlertsRequestModel:
-      description: Model for Assets With Alerts Request
-      properties:
-        filters:
-          description: List of filters that can be applied for the API
-          items:
-            $ref: '#/components/schemas/AssetsWithAlertsFilter'
-          type: array
-        timeRange:
-          allOf:
-          - $ref: '#/components/schemas/TimeRangeConfigModel'
-          - description: Time range
-      type: object
-    DiscoverVsSecuredResponse:
-      description: Model for Discover vs Secured Widget Response
-      properties:
-        privilege:
-          description: privilege
-          type: string
-        rowCount:
-          description: Row count
+        amount:
+          description: Number of time units
           format: int32
           type: integer
-        rows:
-          description: List of vulnerabilities trend data
+        unit:
+          description: Time unit
+          enum:
+          - minute
+          - hour
+          - day
+          - week
+          - month
+          - year
+          type: string
+      type: object
+    TimeRangeConfigModel:
+      description: 'See the [Time Range Model](/prisma-cloud/api/cspm/api-time-range-model) for details.
+
+        '
+      discriminator:
+        mapping:
+          absolute: '#/components/schemas/AbsoluteTimeRangeConfigModel'
+          relative: '#/components/schemas/RelativeTimeRangeConfigModel'
+          to_now: '#/components/schemas/ToNowTimeRangeConfigModel'
+        propertyName: type
+      oneOf:
+      - $ref: '#/components/schemas/RelativeTimeRangeConfigModel'
+      - $ref: '#/components/schemas/AbsoluteTimeRangeConfigModel'
+      - $ref: '#/components/schemas/ToNowTimeRangeConfigModel'
+      properties:
+        type:
+          description: Time type
+          type: string
+      required:
+      - type
+      type: object
+    DailyAssetWithUrgentAlerts:
+      description: Model for daily Assets With Urgent Alerts
+      properties:
+        alertsByCloudType:
+          description: alerts
           items:
             $ref: '#/components/schemas/DiscoverVsSecured'
           type: array
-      type: object
-    TimeModel:
-      description: Model for Time
-      properties:
-        endTime:
-          description: End timestamp
+        criticalAssets:
+          description: criticalAssets
           format: int64
           type: integer
-        startTime:
-          description: Start timestamp
+        highAssets:
+          description: highAssets
+          format: int64
+          type: integer
+        informationalAssets:
+          description: informationalAssets
+          format: int64
+          type: integer
+        insertTs:
+          description: insertTs
+          format: int64
+          type: integer
+        lowAssets:
+          description: lowAssets
+          format: int64
+          type: integer
+        mediumAssets:
+          description: mediumAssets
           format: int64
           type: integer
       type: object
@@ -617,59 +624,91 @@ components:
           format: int64
           type: integer
       type: object
-    DailyAssetWithUrgentAlerts:
-      description: Model for daily Assets With Urgent Alerts
+    AbsoluteTimeRangeConfigModel:
+      allOf:
+      - $ref: '#/components/schemas/TimeRangeConfigModel'
+      - description: Model for AbsoluteTimeRangeConfig
+        properties:
+          type:
+            example: absolute
+            type: string
+          value:
+            allOf:
+            - $ref: '#/components/schemas/TimeModel'
+            - description: Time range object
+        required:
+        - value
+        type: object
+    TimeModel:
+      description: Model for Time
       properties:
-        alertsByCloudType:
-          description: alerts
-          items:
-            $ref: '#/components/schemas/DiscoverVsSecured'
-          type: array
-        criticalAssets:
-          description: criticalAssets
+        endTime:
+          description: End timestamp
           format: int64
           type: integer
-        highAssets:
-          description: highAssets
-          format: int64
-          type: integer
-        informationalAssets:
-          description: informationalAssets
-          format: int64
-          type: integer
-        insertTs:
-          description: insertTs
-          format: int64
-          type: integer
-        lowAssets:
-          description: lowAssets
-          format: int64
-          type: integer
-        mediumAssets:
-          description: mediumAssets
+        startTime:
+          description: Start timestamp
           format: int64
           type: integer
       type: object
-    TimeRangeConfigModel:
-      description: 'See the [Time Range Model](/prisma-cloud/api/cspm/api-time-range-model) for details.
-
-        '
-      discriminator:
-        mapping:
-          absolute: '#/components/schemas/AbsoluteTimeRangeConfigModel'
-          relative: '#/components/schemas/RelativeTimeRangeConfigModel'
-          to_now: '#/components/schemas/ToNowTimeRangeConfigModel'
-        propertyName: type
-      oneOf:
-      - $ref: '#/components/schemas/RelativeTimeRangeConfigModel'
-      - $ref: '#/components/schemas/AbsoluteTimeRangeConfigModel'
-      - $ref: '#/components/schemas/ToNowTimeRangeConfigModel'
+    VulnerabilitiesTrendResponse:
+      description: Model for Vulnerabilities Trend Response
       properties:
-        type:
-          description: Time type
+        privilege:
+          description: privilege
           type: string
-      required:
-      - type
+        rowCount:
+          description: Row count
+          format: int32
+          type: integer
+        rows:
+          description: List of vulnerabilities trend data
+          items:
+            $ref: '#/components/schemas/VulnerabilitiesTrend'
+          type: array
+      type: object
+    DiscoverVsSecured:
+      description: cloud type and alerts count
+      properties:
+        critical:
+          description: critical
+          format: int64
+          type: integer
+        high:
+          description: high
+          format: int64
+          type: integer
+        informational:
+          description: informational
+          format: int64
+          type: integer
+        low:
+          description: low
+          format: int64
+          type: integer
+        medium:
+          description: medium
+          format: int64
+          type: integer
+        type:
+          description: cloudType
+          type: string
+      type: object
+    DiscoverVsSecuredResponse:
+      description: Model for Discover vs Secured Widget Response
+      properties:
+        privilege:
+          description: privilege
+          type: string
+        rowCount:
+          description: Row count
+          format: int32
+          type: integer
+        rows:
+          description: List of vulnerabilities trend data
+          items:
+            $ref: '#/components/schemas/DiscoverVsSecured'
+          type: array
       type: object
     AssetsWithUrgentAlerts:
       description: Model for Assets With Urgent Alerts Widget api response
@@ -687,39 +726,33 @@ components:
           format: int32
           type: integer
       type: object
-    ToNowTimeRangeConfigModel:
-      allOf:
-      - $ref: '#/components/schemas/TimeRangeConfigModel'
-      - description: Model for ToNowTimeRangeConfig
-        properties:
-          value:
-            description: Time range object
-            enum:
-            - MINUTE
-            - HOUR
-            - DAY
-            - WEEK
-            - MONTH
-            - YEAR
-            - EPOCH
-            - LOGIN
-            type: string
-        type: object
-    VulnerabilitiesTrendResponse:
-      description: Model for Vulnerabilities Trend Response
+    AssetsWithAlertsFilter:
       properties:
-        privilege:
-          description: privilege
+        name:
+          description: Name of the allowed Filter types.
+          enum:
+          - CLOUD_TYPE
+          - ALERT_SEVERITY
           type: string
-        rowCount:
-          description: Row count
-          format: int32
-          type: integer
-        rows:
-          description: List of vulnerabilities trend data
+        operator:
+          description: Only allowed operator for the filter is '='
+          type: string
+        value:
+          description: Value for the applied filter
+          type: string
+      type: object
+    AssetsWithAlertsRequestModel:
+      description: Model for Assets With Alerts Request
+      properties:
+        filters:
+          description: List of filters that can be applied for the API
           items:
-            $ref: '#/components/schemas/VulnerabilitiesTrend'
+            $ref: '#/components/schemas/AssetsWithAlertsFilter'
           type: array
+        timeRange:
+          allOf:
+          - $ref: '#/components/schemas/TimeRangeConfigModel'
+          - description: Time range
       type: object
     RelativeTimeRangeConfigModel:
       allOf:
@@ -742,39 +775,6 @@ components:
         required:
         - value
         type: object
-    AbsoluteTimeRangeConfigModel:
-      allOf:
-      - $ref: '#/components/schemas/TimeRangeConfigModel'
-      - description: Model for AbsoluteTimeRangeConfig
-        properties:
-          type:
-            example: absolute
-            type: string
-          value:
-            allOf:
-            - $ref: '#/components/schemas/TimeModel'
-            - description: Time range object
-        required:
-        - value
-        type: object
-    RelativeTimeDurationModel:
-      description: Model for RelativeTimeDuration
-      properties:
-        amount:
-          description: Number of time units
-          format: int32
-          type: integer
-        unit:
-          description: Time unit
-          enum:
-          - minute
-          - hour
-          - day
-          - week
-          - month
-          - year
-          type: string
-      type: object
   securitySchemes:
     x-redlock-auth:
       description: The x-redlock-auth value is a JSON Web Token (JWT).

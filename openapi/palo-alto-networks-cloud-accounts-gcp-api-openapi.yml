@@ -589,26 +589,41 @@ paths:
     - url: https://api.fr.prismacloud.io
 components:
   schemas:
-    Feature:
+    GcpCloudAccountRequestModelCloudAccount:
       type: object
+      required:
+      - accountId
+      - accountType
+      - name
       properties:
+        accountId:
+          type: string
+          description: "Organization resource ID if `accountType` is **organization**.\n\n Project ID if `accountType` is **account** or **masterServiceAccount**.\n\nWorkspace domain name if `accountType` is **workspace_domain**."
+        accountType:
+          type: string
+          description: "Cloud Account Type.\n\n**account**: GCP Project \n\n**organization**: GCP Organization\n\n**masterServiceAccount**: Onboards all GCP projects that are accessible by the service account\n\n**workspace_domain**: GCP Workspace."
+          enum:
+          - account
+          - masterServiceAccount
+          - organization
+          - workspace_domain
+        enabled:
+          type: boolean
+          description: "Enable or disable this account on Prisma Cloud.\n\n Default value: **false**"
         name:
           type: string
-          example: Remediation
-          description: Feature name obtained from **[Fetch Supported Features endpoint](/prisma-cloud/api/cspm/fetch-supported-features)**
-        state:
+          description: Account name for the GCP account that will be onboarded on Prisma Cloud. (must be unique)
+        projectId:
           type: string
-          description: Feature state. Whether to be enabled or disabled
-          enum:
-          - enabled
-          - disabled
-        defaultMemberState:
-          type: string
-          description: Enable or disable the feature for all the member accounts linked to this organization. You can enable or disable the defaultMemberState only if the feature state is enabled for the organization. Applicable only for Serverless Function Scanning and Agentless Workload Scanning features.
-          enum:
-          - enabled
-          - disabled
-      description: Model for Feature
+          description: 'ID of the project.
+
+
+            Get the project ID from the credentials json file that is generated from the GCP Terraform template. '
+        groupIds:
+          type: array
+          description: List of Account Groups that must be mapped to this account. To get the account group ids,call **[List Account Groups](/prisma-cloud/api/cspm/get-account-groups/)** API
+          items:
+            type: string
     GcpResourceControllerRequestModelCloudAccount:
       type: object
       properties:
@@ -629,6 +644,37 @@ components:
         credentials:
           $ref: '#/components/schemas/Credentials'
       description: Model containing the request for GCP Resources
+    HierarchySelection:
+      type: object
+      properties:
+        resourceId:
+          type: string
+          example: root
+          description: "To get the list of resource IDs and its details, Refer List Children of Parent. \n\n **aws**: [List Children of Parent (AWS)](/prisma-cloud/api/cspm/get-list-of-children-under-parent-aws/) \n\n **gcp**: [List Children of Parent (GCP)](/prisma-cloud/api/cspm/get-list-of-children-under-parent/) \n\n**azure**: [List Children of Parent (Azure)](/prisma-cloud/api/cspm/list-children-under-parent/)"
+        displayName:
+          type: string
+          example: Root
+          description: "To get the display name of resource, Refer List Children of Parent. \n\n **aws**: [List Children of Parent (AWS)](/prisma-cloud/api/cspm/get-list-of-children-under-parent-aws/) \n\n **gcp**: [List Children of Parent (GCP)](/prisma-cloud/api/cspm/get-list-of-children-under-parent/). Display name is the organization name if `nodeType` is **ORG**\n\n**azure**: [List Children of Parent (Azure)](/prisma-cloud/api/cspm/list-children-under-parent/)"
+        nodeType:
+          type: string
+          description: "Member account node type. Supported values based on cloud type: \n\n**aws**:  ORG, OU, or ACCOUNT\n\n **gcp**: ORG, FOLDER, or PROJECT\n\n**azure**: SUBSCRIPTION, MANAGEMENT_GROUP, or TENANT"
+          enum:
+          - ORG
+          - FOLDER
+          - PROJECT
+          - SUBSCRIPTION
+          - MANAGEMENT_GROUP
+          - TENANT
+          - ACCOUNT
+          - OU
+        selectionType:
+          type: string
+          description: "Organization Member accounts Selection type. \n\n**ALL**: Include the resource and all its children \n\n**INCLUDE**: Include the specified resource\n\n**EXCLUDE**: Exclude the specified resource"
+          enum:
+          - ALL
+          - INCLUDE
+          - EXCLUDE
+      description: Model for HierarchySelection
     GcpNodeModel:
       type: object
       properties:
@@ -658,29 +704,42 @@ components:
           description: true = Has child
           readOnly: true
       description: Model for GcpNode
-    RestApiResponseModel:
+    GcpHierarchySelectionModel:
       type: object
       properties:
-        response:
+        resourceId:
+          type: string
+          example: root
+          description: 'To get the list of resource IDs and its details, Refer [List Children of Parent (GCP)](/prisma-cloud/api/cspm/get-list-of-children-under-parent/) '
+        displayName:
+          type: string
+          example: Root
+          description: To get the display name of resource, Refer [List Children of Parent (GCP)](/prisma-cloud/api/cspm/get-list-of-children-under-parent/). Display name is the organization name if `nodeType` is **ORG**
+        nodeType:
+          type: string
+          description: Member account node type. Supported values are ORG, FOLDER, or PROJECT
+        selectionType:
+          type: string
+          description: "Organization Member accounts Selection type. \n\n**ALL**: Include the resource and all its children \n\n**INCLUDE**: Include the specified resource\n\n**EXCLUDE**: Exclude the specified resource"
+          enum:
+          - ALL
+          - INCLUDE
+          - EXCLUDE
+      description: Model for HierarchySelection for GCP
+    GcpAncestorRequestModel:
+      type: object
+      required:
+      - resourceIds
+      properties:
+        resourceIds:
           type: array
-          description: Response
+          description: Array of resource IDs (project IDs and/or folder IDs)
+          uniqueItems: true
           items:
-            $ref: '#/components/schemas/GcpNodeModel'
-        nextPageToken:
-          type: string
-          description: Next page token
-      description: Model for RestApiResponse
-    CloudAccountStatus:
-      type: object
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-        status:
-          type: string
-        statusMessage:
-          $ref: '#/components/schemas/AccountStatusMessage'
+            type: string
+        credentials:
+          $ref: '#/components/schemas/Credentials'
+      description: Model containing the request for GCP Ancestors
     GcpCloudAccountRequestModel:
       type: object
       required:
@@ -753,63 +812,17 @@ components:
           items:
             $ref: '#/components/schemas/Feature'
       description: Model containing the request for GCP Standalone, Organization, Master Service Account and Workspace Domain
-    GcpHierarchySelectionModel:
+    CloudAccountStatus:
       type: object
       properties:
-        resourceId:
+        id:
           type: string
-          example: root
-          description: 'To get the list of resource IDs and its details, Refer [List Children of Parent (GCP)](/prisma-cloud/api/cspm/get-list-of-children-under-parent/) '
-        displayName:
-          type: string
-          example: Root
-          description: To get the display name of resource, Refer [List Children of Parent (GCP)](/prisma-cloud/api/cspm/get-list-of-children-under-parent/). Display name is the organization name if `nodeType` is **ORG**
-        nodeType:
-          type: string
-          description: Member account node type. Supported values are ORG, FOLDER, or PROJECT
-        selectionType:
-          type: string
-          description: "Organization Member accounts Selection type. \n\n**ALL**: Include the resource and all its children \n\n**INCLUDE**: Include the specified resource\n\n**EXCLUDE**: Exclude the specified resource"
-          enum:
-          - ALL
-          - INCLUDE
-          - EXCLUDE
-      description: Model for HierarchySelection for GCP
-    GcpCloudAccountRequestModelCloudAccount:
-      type: object
-      required:
-      - accountId
-      - accountType
-      - name
-      properties:
-        accountId:
-          type: string
-          description: "Organization resource ID if `accountType` is **organization**.\n\n Project ID if `accountType` is **account** or **masterServiceAccount**.\n\nWorkspace domain name if `accountType` is **workspace_domain**."
-        accountType:
-          type: string
-          description: "Cloud Account Type.\n\n**account**: GCP Project \n\n**organization**: GCP Organization\n\n**masterServiceAccount**: Onboards all GCP projects that are accessible by the service account\n\n**workspace_domain**: GCP Workspace."
-          enum:
-          - account
-          - masterServiceAccount
-          - organization
-          - workspace_domain
-        enabled:
-          type: boolean
-          description: "Enable or disable this account on Prisma Cloud.\n\n Default value: **false**"
         name:
           type: string
-          description: Account name for the GCP account that will be onboarded on Prisma Cloud. (must be unique)
-        projectId:
+        status:
           type: string
-          description: 'ID of the project.
-
-
-            Get the project ID from the credentials json file that is generated from the GCP Terraform template. '
-        groupIds:
-          type: array
-          description: List of Account Groups that must be mapped to this account. To get the account group ids,call **[List Account Groups](/prisma-cloud/api/cspm/get-account-groups/)** API
-          items:
-            type: string
+        statusMessage:
+          $ref: '#/components/schemas/AccountStatusMessage'
     ListChildrenApiResponseModel:
       type: object
       properties:
@@ -828,6 +841,25 @@ components:
           type: string
           description: Organization name
       description: Model for ListChildrenApiResponse
+    AccountStatusMessage:
+      type: object
+      properties:
+        message:
+          type: string
+        staticMessage:
+          type: boolean
+    RestApiResponseModel:
+      type: object
+      properties:
+        response:
+          type: array
+          description: Response
+          items:
+            $ref: '#/components/schemas/GcpNodeModel'
+        nextPageToken:
+          type: string
+          description: Next page token
+      description: Model for RestApiResponse
     Credentials:
       type: object
       properties:
@@ -852,131 +884,26 @@ components:
         client_id:
           type: string
       description: The content of the credentials object is the Service Account Key for your Google Cloud service account
-    GcpAncestorRequestModel:
-      type: object
-      required:
-      - resourceIds
-      properties:
-        resourceIds:
-          type: array
-          description: Array of resource IDs (project IDs and/or folder IDs)
-          uniqueItems: true
-          items:
-            type: string
-        credentials:
-          $ref: '#/components/schemas/Credentials'
-      description: Model containing the request for GCP Ancestors
-    HierarchySelection:
+    Feature:
       type: object
       properties:
-        resourceId:
+        name:
           type: string
-          example: root
-          description: "To get the list of resource IDs and its details, Refer List Children of Parent. \n\n **aws**: [List Children of Parent (AWS)](/prisma-cloud/api/cspm/get-list-of-children-under-parent-aws/) \n\n **gcp**: [List Children of Parent (GCP)](/prisma-cloud/api/cspm/get-list-of-children-under-parent/) \n\n**azure**: [List Children of Parent (Azure)](/prisma-cloud/api/cspm/list-children-under-parent/)"
-        displayName:
+          example: Remediation
+          description: Feature name obtained from **[Fetch Supported Features endpoint](/prisma-cloud/api/cspm/fetch-supported-features)**
+        state:
           type: string
-          example: Root
-          description: "To get the display name of resource, Refer List Children of Parent. \n\n **aws**: [List Children of Parent (AWS)](/prisma-cloud/api/cspm/get-list-of-children-under-parent-aws/) \n\n **gcp**: [List Children of Parent (GCP)](/prisma-cloud/api/cspm/get-list-of-children-under-parent/). Display name is the organization name if `nodeType` is **ORG**\n\n**azure**: [List Children of Parent (Azure)](/prisma-cloud/api/cspm/list-children-under-parent/)"
-        nodeType:
-          type: string
-          description: "Member account node type. Supported values based on cloud type: \n\n**aws**:  ORG, OU, or ACCOUNT\n\n **gcp**: ORG, FOLDER, or PROJECT\n\n**azure**: SUBSCRIPTION, MANAGEMENT_GROUP, or TENANT"
+          description: Feature state. Whether to be enabled or disabled
           enum:
-          - ORG
-          - FOLDER
-          - PROJECT
-          - SUBSCRIPTION
-          - MANAGEMENT_GROUP
-          - TENANT
-          - ACCOUNT
-          - OU
-        selectionType:
+          - enabled
+          - disabled
+        defaultMemberState:
           type: string
-          description: "Organization Member accounts Selection type. \n\n**ALL**: Include the resource and all its children \n\n**INCLUDE**: Include the specified resource\n\n**EXCLUDE**: Exclude the specified resource"
+          description: Enable or disable the feature for all the member accounts linked to this organization. You can enable or disable the defaultMemberState only if the feature state is enabled for the organization. Applicable only for Serverless Function Scanning and Agentless Workload Scanning features.
           enum:
-          - ALL
-          - INCLUDE
-          - EXCLUDE
-      description: Model for HierarchySelection
-    AccountStatusMessage:
-      type: object
-      properties:
-        message:
-          type: string
-        staticMessage:
-          type: boolean
-    GCPTemplateGenRequest:
-      required:
-      - accountType
-      - authenticationType
-      - orgId
-      - projectId
-      type: object
-      properties:
-        accountType:
-          type: string
-          description: 'Cloud Account Type
-
-
-            **account**: GCP Project
-
-
-            **organization**: GCP Organization
-
-
-            **masterServiceAccount**: Onboards all GCP projects that are accessible by the service account'
-          example: null
-          enum:
-          - account
-          - organization
-          - masterServiceAccount
-        projectId:
-          type: string
-          description: 'ID of your GCP project that must be onboarded.
-
-
-            Applicable only if `accountType` is **account** or **masterServiceAccount**.'
-          example: null
-        orgId:
-          type: string
-          description: 'ID of the GCP organization to be onboarded.
-
-
-            Applicable only if the `accountType` is **organization**'
-          example: null
-        flowLogBucket:
-          type: string
-          description: 'Cloud Storage Bucket name that stores the flow logs.
-
-
-            Required only if you want to enable flow logs and associate required permissions for the flow logs bucket'
-          example: null
-        authenticationType:
-          type: string
-          description: '**service_account**: Service Account Key
-
-
-            **Default value**: service_account
-
-
-            Authentication mode used by Prisma Cloud to authenticate with GCP.'
-          example: null
-          enum:
-          - service_account
-        features:
-          uniqueItems: true
-          type: array
-          description: 'Features for which the permissions should be generated and included in the template.
-
-            To get a list of all the supported features, see **[Get Supported Features](/prisma-cloud/api/cspm/fetch-supported-features)** endpoint'
-          example:
-          - Remediation
-          items:
-            type: string
-            description: 'Features for which the permissions should be generated and included in the template.
-
-              To get a list of all the supported features, see **[Get Supported Features](/prisma-cloud/api/cspm/fetch-supported-features)** endpoint'
-            example: '["Remediation"]'
-      example: null
+          - enabled
+          - disabled
+      description: Model for Feature
     ApiError:
       type: object
       properties:
@@ -1062,6 +989,79 @@ components:
         debugMessage:
           type: string
           example: null
+      example: null
+    GCPTemplateGenRequest:
+      required:
+      - accountType
+      - authenticationType
+      - orgId
+      - projectId
+      type: object
+      properties:
+        accountType:
+          type: string
+          description: 'Cloud Account Type
+
+
+            **account**: GCP Project
+
+
+            **organization**: GCP Organization
+
+
+            **masterServiceAccount**: Onboards all GCP projects that are accessible by the service account'
+          example: null
+          enum:
+          - account
+          - organization
+          - masterServiceAccount
+        projectId:
+          type: string
+          description: 'ID of your GCP project that must be onboarded.
+
+
+            Applicable only if `accountType` is **account** or **masterServiceAccount**.'
+          example: null
+        orgId:
+          type: string
+          description: 'ID of the GCP organization to be onboarded.
+
+
+            Applicable only if the `accountType` is **organization**'
+          example: null
+        flowLogBucket:
+          type: string
+          description: 'Cloud Storage Bucket name that stores the flow logs.
+
+
+            Required only if you want to enable flow logs and associate required permissions for the flow logs bucket'
+          example: null
+        authenticationType:
+          type: string
+          description: '**service_account**: Service Account Key
+
+
+            **Default value**: service_account
+
+
+            Authentication mode used by Prisma Cloud to authenticate with GCP.'
+          example: null
+          enum:
+          - service_account
+        features:
+          uniqueItems: true
+          type: array
+          description: 'Features for which the permissions should be generated and included in the template.
+
+            To get a list of all the supported features, see **[Get Supported Features](/prisma-cloud/api/cspm/fetch-supported-features)** endpoint'
+          example:
+          - Remediation
+          items:
+            type: string
+            description: 'Features for which the permissions should be generated and included in the template.
+
+              To get a list of all the supported features, see **[Get Supported Features](/prisma-cloud/api/cspm/fetch-supported-features)** endpoint'
+            example: '["Remediation"]'
       example: null
   requestBodies:
     GcpCloudAccountRequestModel:

@@ -200,21 +200,75 @@ paths:
       - Certificate Revocation Approvals
 components:
   schemas:
-    CertificateRevocationApprovalExceptionsFilterRuleInformation:
+    CertificateRevocationApprovalRulesRequest:
       properties:
-        applicationIds:
-          description: A collection of application ids the rule won't be applied to
-          format: uuid
-          items:
-            format: uuid
-            type: string
-          type: array
-        requestors:
-          description: A collection of approvers, specified by type and id, for which the rule won't be applied
+        approvers:
+          description: A collection of approvers specified by type and id
           items:
             $ref: '#/components/schemas/ApproverProperty'
+          minItems: 1
           type: array
           uniqueItems: true
+        atLeast:
+          description: If the type of the approval is AT_LEAST then specify how many people have to approve
+          example: 2
+          format: int32
+          minimum: 1
+          type: integer
+        autoRejectionThreshold:
+          description: Auto rejection threshold. After the defined number of days since revocation request creation, the request is automatically rejected, if it is not approved
+          example: 5
+          maximum: 99
+          minimum: 1
+          type: number
+        conditions:
+          $ref: '#/components/schemas/CertificateRevocationApprovalConditionsFilterRuleInformation'
+        continueProcessingOnException:
+          default: false
+          description: Continue with next approval rules when match an approval rule exception condition
+          type: boolean
+        exceptions:
+          $ref: '#/components/schemas/CertificateRevocationApprovalExceptionsFilterRuleInformation'
+        finalApprover:
+          description: UUID of the final approver
+          example: 8268d820-a08d-11ed-bbc0-252385d6d390
+          format: uuid
+          type: string
+        name:
+          description: Approval rule name
+          example: Approval rule for built in CA
+          maxLength: 64
+          type: string
+        type:
+          description: The type of the approval rule
+          enum:
+          - ALL
+          - AT_LEAST
+          example: AT_LEAST
+          type: string
+      required:
+      - approvers
+      - conditions
+      - name
+      - type
+      type: object
+    ApproverProperty:
+      properties:
+        id:
+          format: uuid
+          type: string
+        type:
+          enum:
+          - USER
+          - TEAM
+          type: string
+      type: object
+    ErrorResponse2:
+      properties:
+        errors:
+          items:
+            $ref: '#/components/schemas/ErrorInformation2'
+          type: array
       type: object
     CertificateRevocationApprovalRulesUpdateRequest:
       properties:
@@ -273,98 +327,37 @@ components:
       - name
       - type
       type: object
-    CertificateRevocationApprovalRuleDeleteResponseOpenApi:
+    ApproverPropertyOpenApi:
+      description: Approver with id that can be only user type
       properties:
         id:
-          description: Approval rule `id`
+          description: UUID specific to the approver user/team
+          example: 8268d820-a08d-11ed-bbc0-252385d6d389
           format: uuid
           type: string
-        name:
-          description: Approval rule name
+        type:
+          description: Approver type
+          example: USER
           type: string
       type: object
-    CertificateRevocationApprovalRulesRequest:
+    ErrorInformation2:
       properties:
-        approvers:
-          description: A collection of approvers specified by type and id
+        args:
           items:
-            $ref: '#/components/schemas/ApproverProperty'
-          minItems: 1
+            $ref: '#/components/schemas/AnyValue2'
           type: array
-          uniqueItems: true
-        atLeast:
-          description: If the type of the approval is AT_LEAST then specify how many people have to approve
-          example: 2
+        code:
           format: int32
-          minimum: 1
           type: integer
-        autoRejectionThreshold:
-          description: Auto rejection threshold. After the defined number of days since revocation request creation, the request is automatically rejected, if it is not approved
-          example: 5
-          maximum: 99
-          minimum: 1
-          type: number
-        conditions:
-          $ref: '#/components/schemas/CertificateRevocationApprovalConditionsFilterRuleInformation'
-        continueProcessingOnException:
-          default: false
-          description: Continue with next approval rules when match an approval rule exception condition
-          type: boolean
-        exceptions:
-          $ref: '#/components/schemas/CertificateRevocationApprovalExceptionsFilterRuleInformation'
-        finalApprover:
-          description: UUID of the final approver
-          example: 8268d820-a08d-11ed-bbc0-252385d6d390
-          format: uuid
+        message:
           type: string
-        name:
-          description: Approval rule name
-          example: Approval rule for built in CA
-          maxLength: 64
-          type: string
-        type:
-          description: The type of the approval rule
-          enum:
-          - ALL
-          - AT_LEAST
-          example: AT_LEAST
-          type: string
-      required:
-      - approvers
-      - conditions
-      - name
-      - type
       type: object
-    ErrorResponse2:
+    CertificateRevocationApprovalRulesResponseOpenApi:
       properties:
-        errors:
+        approvalRules:
           items:
-            $ref: '#/components/schemas/ErrorInformation2'
+            $ref: '#/components/schemas/CertificateRevocationApprovalRuleOpenApi'
           type: array
-      type: object
-    CertificateRevocationApprovalConditionsFilterRuleInformation:
-      properties:
-        certificateAuthorityAccountIds:
-          description: A collection of certificate authority account ids the rule will be applicable to
-          format: uuid
-          items:
-            format: uuid
-            type: string
-          minItems: 1
-          type: array
-      required:
-      - certificateAuthorityAccountIds
-      type: object
-    ApproverProperty:
-      properties:
-        id:
-          format: uuid
-          type: string
-        type:
-          enum:
-          - USER
-          - TEAM
-          type: string
       type: object
     CertificateRevocationApprovalRuleOpenApi:
       properties:
@@ -415,39 +408,46 @@ components:
           description: The type of the approval rule
           type: string
       type: object
-    ApproverPropertyOpenApi:
-      description: Approver with id that can be only user type
+    CertificateRevocationApprovalRuleDeleteResponseOpenApi:
       properties:
         id:
-          description: UUID specific to the approver user/team
-          example: 8268d820-a08d-11ed-bbc0-252385d6d389
+          description: Approval rule `id`
           format: uuid
           type: string
-        type:
-          description: Approver type
-          example: USER
+        name:
+          description: Approval rule name
           type: string
       type: object
-    CertificateRevocationApprovalRulesResponseOpenApi:
+    CertificateRevocationApprovalConditionsFilterRuleInformation:
       properties:
-        approvalRules:
+        certificateAuthorityAccountIds:
+          description: A collection of certificate authority account ids the rule will be applicable to
+          format: uuid
           items:
-            $ref: '#/components/schemas/CertificateRevocationApprovalRuleOpenApi'
+            format: uuid
+            type: string
+          minItems: 1
           type: array
+      required:
+      - certificateAuthorityAccountIds
       type: object
     AnyValue2:
       description: Can be any value - string, number, boolean, array or object.
-    ErrorInformation2:
+    CertificateRevocationApprovalExceptionsFilterRuleInformation:
       properties:
-        args:
+        applicationIds:
+          description: A collection of application ids the rule won't be applied to
+          format: uuid
           items:
-            $ref: '#/components/schemas/AnyValue2'
+            format: uuid
+            type: string
           type: array
-        code:
-          format: int32
-          type: integer
-        message:
-          type: string
+        requestors:
+          description: A collection of approvers, specified by type and id, for which the rule won't be applied
+          items:
+            $ref: '#/components/schemas/ApproverProperty'
+          type: array
+          uniqueItems: true
       type: object
   securitySchemes:
     scmOAuth:
