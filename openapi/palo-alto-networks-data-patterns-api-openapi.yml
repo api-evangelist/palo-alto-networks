@@ -333,6 +333,20 @@ paths:
         dispatcher: FALLBACK
 components:
   schemas:
+    WeightedRegex:
+      description: Weighted regular expressions used for detection
+      properties:
+        regex:
+          maxLength: 2147483647
+          minLength: 1
+          type: string
+        weight:
+          format: int32
+          type: integer
+      required:
+      - regex
+      - weight
+      type: object
     JsonNullableDataPatternMatchingRules:
       description: New matching rules
       properties:
@@ -341,25 +355,58 @@ components:
         undefined:
           type: boolean
       type: object
-    DataPatternPatchRequest:
-      description: Request payload for partially updating a data pattern (JSON Merge Patch)
+    PageableObject:
       properties:
-        description:
-          $ref: '#/components/schemas/JsonNullableString'
-        detection_config:
-          $ref: '#/components/schemas/JsonNullableDataPatternDetectionConfig'
-        matching_rules:
-          $ref: '#/components/schemas/JsonNullableDataPatternMatchingRules'
-        name:
-          $ref: '#/components/schemas/JsonNullableString'
-        tags:
-          $ref: '#/components/schemas/JsonNullableDataPatternTags'
-        type:
-          $ref: '#/components/schemas/JsonNullableDataPatternType'
-      required:
-      - detection_config
-      - name
-      - type
+        offset:
+          format: int64
+          type: integer
+        pageNumber:
+          format: int32
+          type: integer
+        pageSize:
+          format: int32
+          type: integer
+        paged:
+          type: boolean
+        sort:
+          $ref: '#/components/schemas/SortObject'
+        unpaged:
+          type: boolean
+      type: object
+    JsonNullableDataPatternDetectionConfig:
+      description: New detection configuration
+      properties:
+        present:
+          type: boolean
+        undefined:
+          type: boolean
+      type: object
+    SortObject:
+      properties:
+        empty:
+          type: boolean
+        sorted:
+          type: boolean
+        unsorted:
+          type: boolean
+      type: object
+    AuditResponse:
+      description: Audit metadata tracking creation and last-update information
+      properties:
+        created_at:
+          description: Timestamp when the resource was created
+          format: date-time
+          type: string
+        created_by:
+          description: Username or service that created the resource
+          type: string
+        updated_at:
+          description: Timestamp when the resource was last updated
+          format: date-time
+          type: string
+        updated_by:
+          description: Username or service that last updated the resource
+          type: string
       type: object
     DataPatternDetectionConfig:
       description: Detection configuration specifying the technique and supported confidence levels
@@ -412,23 +459,120 @@ components:
         value:
           type: string
       type: object
-    AuditResponse:
-      description: Audit metadata tracking creation and last-update information
+    PageDataPatternResponse:
       properties:
-        created_at:
-          description: Timestamp when the resource was created
-          format: date-time
+        content:
+          items:
+            $ref: '#/components/schemas/DataPatternResponse'
+          type: array
+        empty:
+          type: boolean
+        first:
+          type: boolean
+        last:
+          type: boolean
+        number:
+          format: int32
+          type: integer
+        numberOfElements:
+          format: int32
+          type: integer
+        pageable:
+          $ref: '#/components/schemas/PageableObject'
+        size:
+          format: int32
+          type: integer
+        sort:
+          $ref: '#/components/schemas/SortObject'
+        totalElements:
+          format: int64
+          type: integer
+        totalPages:
+          format: int32
+          type: integer
+      type: object
+    JsonNullableDataPatternType:
+      description: New pattern type
+      properties:
+        present:
+          type: boolean
+        undefined:
+          type: boolean
+      type: object
+    JsonNullableString:
+      description: New description (set to null to clear)
+      properties:
+        present:
+          type: boolean
+        undefined:
+          type: boolean
+      type: object
+    JsonNullableDataPatternTags:
+      description: New metadata tags
+      properties:
+        present:
+          type: boolean
+        undefined:
+          type: boolean
+      type: object
+    DataPatternMatchingRules:
+      description: Optional matching rules controlling how the data pattern detects sensitive content
+      properties:
+        delimiter:
+          description: Delimiter character used to separate tokens
           type: string
-        created_by:
-          description: Username or service that created the resource
+        metadata_criteria:
+          description: Metadata criteria for additional filtering
+          items:
+            $ref: '#/components/schemas/MetadataCriterion'
+          type: array
+        proximity_distance:
+          description: Proximity distance for keyword matching (2-1000)
+          format: int32
+          maximum: 1000
+          minimum: 2
+          type: integer
+        proximity_keywords:
+          description: List of keywords that must appear within the proximity distance
+          items:
+            description: List of keywords that must appear within the proximity distance
+            type: string
+          type: array
+        regexes:
+          description: Weighted regular expressions used for detection
+          items:
+            $ref: '#/components/schemas/WeightedRegex'
+          type: array
+      type: object
+    DataPatternRequest:
+      description: Request payload for creating or updating a data pattern
+      properties:
+        description:
+          description: Optional human-readable description
           type: string
-        updated_at:
-          description: Timestamp when the resource was last updated
-          format: date-time
+        detection_config:
+          $ref: '#/components/schemas/DataPatternDetectionConfig'
+        matching_rules:
+          $ref: '#/components/schemas/DataPatternMatchingRules'
+        name:
+          description: Display name of the data pattern
+          example: SSN Pattern
+          maxLength: 64
+          minLength: 1
           type: string
-        updated_by:
-          description: Username or service that last updated the resource
+        tags:
+          $ref: '#/components/schemas/DataPatternTags'
+        type:
+          description: Pattern type (e.g. regex, ml_based)
+          enum:
+          - predefined
+          - custom
+          - file_property
           type: string
+      required:
+      - detection_config
+      - name
+      - type
       type: object
     DataPatternTags:
       description: Metadata tags
@@ -446,32 +590,25 @@ components:
             type: string
           type: array
       type: object
-    SortObject:
+    DataPatternPatchRequest:
+      description: Request payload for partially updating a data pattern (JSON Merge Patch)
       properties:
-        empty:
-          type: boolean
-        sorted:
-          type: boolean
-        unsorted:
-          type: boolean
-      type: object
-    PageableObject:
-      properties:
-        offset:
-          format: int64
-          type: integer
-        pageNumber:
-          format: int32
-          type: integer
-        pageSize:
-          format: int32
-          type: integer
-        paged:
-          type: boolean
-        sort:
-          $ref: '#/components/schemas/SortObject'
-        unpaged:
-          type: boolean
+        description:
+          $ref: '#/components/schemas/JsonNullableString'
+        detection_config:
+          $ref: '#/components/schemas/JsonNullableDataPatternDetectionConfig'
+        matching_rules:
+          $ref: '#/components/schemas/JsonNullableDataPatternMatchingRules'
+        name:
+          $ref: '#/components/schemas/JsonNullableString'
+        tags:
+          $ref: '#/components/schemas/JsonNullableDataPatternTags'
+        type:
+          $ref: '#/components/schemas/JsonNullableDataPatternType'
+      required:
+      - detection_config
+      - name
+      - type
       type: object
     DataPatternResponse:
       description: Data pattern resource returned by the API
@@ -527,154 +664,6 @@ components:
           format: int32
           type: integer
       type: object
-    WeightedRegex:
-      description: Weighted regular expressions used for detection
-      properties:
-        regex:
-          maxLength: 2147483647
-          minLength: 1
-          type: string
-        weight:
-          format: int32
-          type: integer
-      required:
-      - regex
-      - weight
-      type: object
-    JsonNullableString:
-      description: New description (set to null to clear)
-      properties:
-        present:
-          type: boolean
-        undefined:
-          type: boolean
-      type: object
-    DataPatternRequest:
-      description: Request payload for creating or updating a data pattern
-      properties:
-        description:
-          description: Optional human-readable description
-          type: string
-        detection_config:
-          $ref: '#/components/schemas/DataPatternDetectionConfig'
-        matching_rules:
-          $ref: '#/components/schemas/DataPatternMatchingRules'
-        name:
-          description: Display name of the data pattern
-          example: SSN Pattern
-          maxLength: 64
-          minLength: 1
-          type: string
-        tags:
-          $ref: '#/components/schemas/DataPatternTags'
-        type:
-          description: Pattern type (e.g. regex, ml_based)
-          enum:
-          - predefined
-          - custom
-          - file_property
-          type: string
-      required:
-      - detection_config
-      - name
-      - type
-      type: object
-    DataPatternMatchingRules:
-      description: Optional matching rules controlling how the data pattern detects sensitive content
-      properties:
-        delimiter:
-          description: Delimiter character used to separate tokens
-          type: string
-        metadata_criteria:
-          description: Metadata criteria for additional filtering
-          items:
-            $ref: '#/components/schemas/MetadataCriterion'
-          type: array
-        proximity_distance:
-          description: Proximity distance for keyword matching (2-1000)
-          format: int32
-          maximum: 1000
-          minimum: 2
-          type: integer
-        proximity_keywords:
-          description: List of keywords that must appear within the proximity distance
-          items:
-            description: List of keywords that must appear within the proximity distance
-            type: string
-          type: array
-        regexes:
-          description: Weighted regular expressions used for detection
-          items:
-            $ref: '#/components/schemas/WeightedRegex'
-          type: array
-      type: object
-    JsonNullableDataPatternDetectionConfig:
-      description: New detection configuration
-      properties:
-        present:
-          type: boolean
-        undefined:
-          type: boolean
-      type: object
-    JsonNullableDataPatternTags:
-      description: New metadata tags
-      properties:
-        present:
-          type: boolean
-        undefined:
-          type: boolean
-      type: object
-    JsonNullableDataPatternType:
-      description: New pattern type
-      properties:
-        present:
-          type: boolean
-        undefined:
-          type: boolean
-      type: object
-    PageDataPatternResponse:
-      properties:
-        content:
-          items:
-            $ref: '#/components/schemas/DataPatternResponse'
-          type: array
-        empty:
-          type: boolean
-        first:
-          type: boolean
-        last:
-          type: boolean
-        number:
-          format: int32
-          type: integer
-        numberOfElements:
-          format: int32
-          type: integer
-        pageable:
-          $ref: '#/components/schemas/PageableObject'
-        size:
-          format: int32
-          type: integer
-        sort:
-          $ref: '#/components/schemas/SortObject'
-        totalElements:
-          format: int64
-          type: integer
-        totalPages:
-          format: int32
-          type: integer
-      type: object
-    ErrorResponse:
-      type: object
-      properties:
-        error:
-          type: string
-          description: Error code or type.
-          example: example-error
-        message:
-          type: string
-          description: Human-readable error message.
-          example: Policy blocked rule alert configured traffic Security activity.
     DataPattern:
       type: object
       properties:
@@ -744,6 +733,17 @@ components:
           type: integer
           description: Total number of incidents triggered by this pattern.
           example: 23
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code or type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable error message.
+          example: Policy blocked rule alert configured traffic Security activity.
   securitySchemes:
     Bearer:
       scheme: bearer
@@ -754,6 +754,12 @@ components:
       bearerFormat: JWT
       description: OAuth 2.0 bearer token obtained from the Palo Alto Networks SASE authentication service using the client credentials flow.
   responses:
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     Unauthorized:
       description: Invalid or expired bearer token.
       content:
@@ -762,12 +768,6 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
     InternalServerError:
       description: Internal server error.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    NotFound:
-      description: The requested resource was not found.
       content:
         application/json:
           schema:
