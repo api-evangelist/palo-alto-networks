@@ -78,7 +78,234 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 components:
+  responses:
+    NotFound:
+      description: Not Found - Resource is not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Resource is not found
+    BadRequest:
+      description: Bad Request - Request data is invalid or malformed
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Request data is invalid or malformed
+    Forbidden:
+      description: Forbidden - Invalid API Key
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Invalid API Key
+    TooManyRequests:
+      description: Too Many Requests - Request exceeds limit
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Request exceeds limit
+                  retry_after:
+                    type: object
+                    properties:
+                      interval:
+                        type: integer
+                        example: 5
+                      unit:
+                        type: string
+                        example: minute
+    RequestTooLarge:
+      description: Request Too Large - The request body is too large
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: The request body is too large
+    MethodNotAllowed:
+      description: Method Not Allowed - The method is not allowed
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: The method is not allowed
+    Unauthenticated:
+      description: Unauthenticated - Not Authenticated
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Not Authenticated
+    UnsupportedMediaType:
+      description: Unsupported Media Type - The media type is not supported
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: The media type is not supported
   schemas:
+    DetectionServiceResultObject:
+      type: object
+      properties:
+        data_type:
+          type: string
+          description: Content type such as "prompt", "response" or "tool_event"
+        detection_service:
+          type: string
+          description: Detection service name generating the results such as "urlf", "dlp", and "prompt injection"
+        verdict:
+          type: string
+          description: Detection service verdict such as "malicious" or "benign"
+        action:
+          type: string
+          description: The action is set to "block" or "allow" based on AI security profile used for scanning
+        metadata:
+          $ref: '#/components/schemas/DSResultMetadata'
+        result_detail:
+          $ref: '#/components/schemas/DSDetailResultObject'
+    DlpReportObject:
+      type: object
+      properties:
+        dlp_report_id:
+          type: string
+          description: Unique identifier for the DLP report
+        dlp_profile_name:
+          type: string
+          description: DLP profile name used for the scan
+        dlp_profile_id:
+          type: string
+          description: Unique identifier for the DLP profile used for the scan
+        dlp_profile_version:
+          type: integer
+          format: int32
+          description: Version of the DLP profile used for the scan
+        data_pattern_rule1_verdict:
+          type: string
+          description: Indicates whether there was a content match for this rule such as "MATCHED" or "NOT MATCHED"
+        data_pattern_rule2_verdict:
+          type: string
+          description: Indicates whether there was a content match for this rule such as "MATCHED" or "NOT MATCHED"
+        data_pattern_detection_offsets:
+          type: array
+          description: Matched patterns and their byte locations
+          items:
+            $ref: '#/components/schemas/DlpPatternDetectionsObject'
+    MalwareReportObject:
+      type: object
+      properties:
+        verdict:
+          type: string
+          description: Detection service verdict such as "malicious" or "benign"
+    ThreatScanReportObjects:
+      type: array
+      items:
+        $ref: '#/components/schemas/ThreatScanReportObject'
+    McReportObject:
+      type: object
+      properties:
+        all_code_blocks:
+          type: array
+          items:
+            type: string
+            description: Code blocks extracted from prompt or response content
+        code_analysis_by_type:
+          type: array
+          items:
+            $ref: '#/components/schemas/McEntryObject'
+        verdict:
+          type: string
+          description: Detection service verdict such as "malicious" or "benign"
+        malware_script_report:
+          $ref: '#/components/schemas/MalwareReportObject'
+          description: Malware script scanning report details
+        command_injection_report:
+          $ref: '#/components/schemas/CmdInjectReportObject'
+          description: Command injection scanning report details
+    CmdInjectReportObject:
+      type: array
+      items:
+        $ref: '#/components/schemas/CmdEntryObject'
+    DSResultMetadata:
+      type: object
+      properties:
+        ecosystem:
+          type: string
+          example: mcp
+        method:
+          type: string
+          example: tools/call
+        server_name:
+          type: string
+          example: MCP server
+        tool_invoked:
+          type: string
+          example: get_file
+        direction:
+          type: string
+          enum:
+          - input
+          - output
+          description: Indicates the direction of data flow, either input to or output from a tool or service
+    DbsReportObject:
+      type: array
+      items:
+        $ref: '#/components/schemas/DbsEntryObject'
+    OffsetObject:
+      type: array
+      description: Array of start, end offsets
+      items:
+        type: array
+        items:
+          type: integer
     ThreatScanReportObject:
       type: object
       properties:
@@ -105,25 +332,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DetectionServiceResultObject'
-    TgReportObject:
-      type: object
-      properties:
-        allowed_topic_list:
-          type: string
-          description: Indicates whether there was a content match for the topic allow list such as "MATCHED" or "NOT MATCHED"
-        blocked_topic_list:
-          type: string
-          description: Indicates whether there was a content match for the topic block list such as "MATCHED" or "NOT MATCHED"
-        allowedTopics:
-          type: array
-          items:
-            type: string
-          description: Indicates the list of allowed topics if there was a content match for the topic allow list
-        blockedTopics:
-          type: array
-          items:
-            type: string
-          description: Indicates the list of blocked topics if there was a content match for the topic allow list
     TcReportObject:
       type: object
       properties:
@@ -138,26 +346,6 @@ components:
           items:
             type: string
           description: Indicates the list of topics that is detected
-    ThreatScanReportObjects:
-      type: array
-      items:
-        $ref: '#/components/schemas/ThreatScanReportObject'
-    Snippets:
-      type: array
-      maxItems: 10
-      description: Up to 10 content snippets; each item must be <= 1000 characters.
-      items:
-        type: string
-        maxLength: 1000
-    AgentEntryObject:
-      type: object
-      properties:
-        category_type:
-          type: string
-          description: Agent threat category type, such as "tools misuse", "memory manipulation" and others
-        verdict:
-          type: string
-          description: Verdict associated with the Agent threat Category, such as "malicious" or "benign"
     DlpPatternDetectionsObject:
       type: object
       properties:
@@ -176,29 +364,71 @@ components:
           $ref: '#/components/schemas/OffsetObject'
         low_confidence_detections:
           $ref: '#/components/schemas/OffsetObject'
-    DlpSnippetObject:
+    CmdEntryObject:
       type: object
       properties:
-        meta:
-          $ref: '#/components/schemas/DlpSnippetMeta'
-        snippets:
-          $ref: '#/components/schemas/Snippets'
-      required:
-      - meta
-      - snippets
-    AgentReportObject:
-      type: object
-      properties:
-        model_verdict:
+        code_block:
+          type: string
+          description: Code block extracted from prompt or response content
+        verdict:
           type: string
           description: Detection service verdict such as "malicious" or "benign"
-        agent_framework:
+    DbsEntryObject:
+      type: object
+      properties:
+        sub_type:
           type: string
-          description: Agent builder framework used to build Agents such as "AWS_Agent_Builder", "Microsoft_copilot_studio" and others
-        agent_patterns:
-          type: array
-          items:
-            $ref: '#/components/schemas/AgentEntryObject'
+          description: Database security sql query sub-type, such as "create", "read", "update", or "delete"
+        verdict:
+          type: string
+          description: Detection service verdict such as "malicious" or "benign"
+        action:
+          type: string
+          description: The action is set to "block" or "allow" based on AI security profile used for scanning
+    McEntryObject:
+      type: object
+      properties:
+        file_type:
+          type: string
+          description: code file type, such as "javascript", "Python", "VBScript" and others
+        code_sha256:
+          type: string
+          description: SHA256 of the code file that was analyzed, such as a code snippet containing the potentially malicious code
+    Snippets:
+      type: array
+      maxItems: 10
+      description: Up to 10 content snippets; each item must be <= 1000 characters.
+      items:
+        type: string
+        maxLength: 1000
+    PiReportObject:
+      type: object
+      properties:
+        verdict:
+          type: string
+          description: Detection service verdict such as "malicious" or "benign"
+    Error:
+      type: object
+      properties:
+        status_code:
+          type: integer
+          format: int32
+          description: The HTTP status code for the error
+        message:
+          type: string
+          description: The error message
+      required:
+      - status_code
+      - message
+    AgentEntryObject:
+      type: object
+      properties:
+        category_type:
+          type: string
+          description: Agent threat category type, such as "tools misuse", "memory manipulation" and others
+        verdict:
+          type: string
+          description: Verdict associated with the Agent threat Category, such as "malicious" or "benign"
     DlpSnippetMeta:
       type: object
       properties:
@@ -221,52 +451,19 @@ components:
       - data_pattern
       - confidence_level
       - occurrence
-    UrlFilterReportObject:
-      type: array
-      items:
-        $ref: '#/components/schemas/UrlfEntryObject'
-    McReportObject:
+    AgentReportObject:
       type: object
       properties:
-        all_code_blocks:
-          type: array
-          items:
-            type: string
-            description: Code blocks extracted from prompt or response content
-        code_analysis_by_type:
-          type: array
-          items:
-            $ref: '#/components/schemas/McEntryObject'
-        verdict:
+        model_verdict:
           type: string
           description: Detection service verdict such as "malicious" or "benign"
-        malware_script_report:
-          $ref: '#/components/schemas/MalwareReportObject'
-          description: Malware script scanning report details
-        command_injection_report:
-          $ref: '#/components/schemas/CmdInjectReportObject'
-          description: Command injection scanning report details
-    DSResultMetadata:
-      type: object
-      properties:
-        ecosystem:
+        agent_framework:
           type: string
-          example: mcp
-        method:
-          type: string
-          example: tools/call
-        server_name:
-          type: string
-          example: MCP server
-        tool_invoked:
-          type: string
-          example: get_file
-        direction:
-          type: string
-          enum:
-          - input
-          - output
-          description: Indicates the direction of data flow, either input to or output from a tool or service
+          description: Agent builder framework used to build Agents such as "AWS_Agent_Builder", "Microsoft_copilot_studio" and others
+        agent_patterns:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentEntryObject'
     DSDetailResultObject:
       type: object
       properties:
@@ -308,101 +505,16 @@ components:
         category:
           type: string
           description: Indicates the predefined category of contextual grounding results
-    MalwareReportObject:
+    DlpSnippetObject:
       type: object
       properties:
-        verdict:
-          type: string
-          description: Detection service verdict such as "malicious" or "benign"
-    DlpReportObject:
-      type: object
-      properties:
-        dlp_report_id:
-          type: string
-          description: Unique identifier for the DLP report
-        dlp_profile_name:
-          type: string
-          description: DLP profile name used for the scan
-        dlp_profile_id:
-          type: string
-          description: Unique identifier for the DLP profile used for the scan
-        dlp_profile_version:
-          type: integer
-          format: int32
-          description: Version of the DLP profile used for the scan
-        data_pattern_rule1_verdict:
-          type: string
-          description: Indicates whether there was a content match for this rule such as "MATCHED" or "NOT MATCHED"
-        data_pattern_rule2_verdict:
-          type: string
-          description: Indicates whether there was a content match for this rule such as "MATCHED" or "NOT MATCHED"
-        data_pattern_detection_offsets:
-          type: array
-          description: Matched patterns and their byte locations
-          items:
-            $ref: '#/components/schemas/DlpPatternDetectionsObject'
-    OffsetObject:
-      type: array
-      description: Array of start, end offsets
-      items:
-        type: array
-        items:
-          type: integer
-    CmdEntryObject:
-      type: object
-      properties:
-        code_block:
-          type: string
-          description: Code block extracted from prompt or response content
-        verdict:
-          type: string
-          description: Detection service verdict such as "malicious" or "benign"
-    PiReportObject:
-      type: object
-      properties:
-        verdict:
-          type: string
-          description: Detection service verdict such as "malicious" or "benign"
-    DetectionServiceResultObject:
-      type: object
-      properties:
-        data_type:
-          type: string
-          description: Content type such as "prompt", "response" or "tool_event"
-        detection_service:
-          type: string
-          description: Detection service name generating the results such as "urlf", "dlp", and "prompt injection"
-        verdict:
-          type: string
-          description: Detection service verdict such as "malicious" or "benign"
-        action:
-          type: string
-          description: The action is set to "block" or "allow" based on AI security profile used for scanning
-        metadata:
-          $ref: '#/components/schemas/DSResultMetadata'
-        result_detail:
-          $ref: '#/components/schemas/DSDetailResultObject'
-    McEntryObject:
-      type: object
-      properties:
-        file_type:
-          type: string
-          description: code file type, such as "javascript", "Python", "VBScript" and others
-        code_sha256:
-          type: string
-          description: SHA256 of the code file that was analyzed, such as a code snippet containing the potentially malicious code
-    DbsEntryObject:
-      type: object
-      properties:
-        sub_type:
-          type: string
-          description: Database security sql query sub-type, such as "create", "read", "update", or "delete"
-        verdict:
-          type: string
-          description: Detection service verdict such as "malicious" or "benign"
-        action:
-          type: string
-          description: The action is set to "block" or "allow" based on AI security profile used for scanning
+        meta:
+          $ref: '#/components/schemas/DlpSnippetMeta'
+        snippets:
+          $ref: '#/components/schemas/Snippets'
+      required:
+      - meta
+      - snippets
     UrlfEntryObject:
       type: object
       properties:
@@ -420,141 +532,29 @@ components:
           description: Categories associated with the URL
           items:
             type: string
-    Error:
+    TgReportObject:
       type: object
       properties:
-        status_code:
-          type: integer
-          format: int32
-          description: The HTTP status code for the error
-        message:
+        allowed_topic_list:
           type: string
-          description: The error message
-      required:
-      - status_code
-      - message
-    DbsReportObject:
+          description: Indicates whether there was a content match for the topic allow list such as "MATCHED" or "NOT MATCHED"
+        blocked_topic_list:
+          type: string
+          description: Indicates whether there was a content match for the topic block list such as "MATCHED" or "NOT MATCHED"
+        allowedTopics:
+          type: array
+          items:
+            type: string
+          description: Indicates the list of allowed topics if there was a content match for the topic allow list
+        blockedTopics:
+          type: array
+          items:
+            type: string
+          description: Indicates the list of blocked topics if there was a content match for the topic allow list
+    UrlFilterReportObject:
       type: array
       items:
-        $ref: '#/components/schemas/DbsEntryObject'
-    CmdInjectReportObject:
-      type: array
-      items:
-        $ref: '#/components/schemas/CmdEntryObject'
-  responses:
-    BadRequest:
-      description: Bad Request - Request data is invalid or malformed
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              error:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: Request data is invalid or malformed
-    RequestTooLarge:
-      description: Request Too Large - The request body is too large
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              error:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: The request body is too large
-    MethodNotAllowed:
-      description: Method Not Allowed - The method is not allowed
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              error:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: The method is not allowed
-    UnsupportedMediaType:
-      description: Unsupported Media Type - The media type is not supported
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              error:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: The media type is not supported
-    NotFound:
-      description: Not Found - Resource is not found
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              error:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: Resource is not found
-    Unauthenticated:
-      description: Unauthenticated - Not Authenticated
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              error:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: Not Authenticated
-    Forbidden:
-      description: Forbidden - Invalid API Key
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              error:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: Invalid API Key
-    TooManyRequests:
-      description: Too Many Requests - Request exceeds limit
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              error:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: Request exceeds limit
-                  retry_after:
-                    type: object
-                    properties:
-                      interval:
-                        type: integer
-                        example: 5
-                      unit:
-                        type: string
-                        example: minute
+        $ref: '#/components/schemas/UrlfEntryObject'
   examples:
     ExampleMultipleThreatScanReports:
       summary: Example response with multiple threat scan report entries

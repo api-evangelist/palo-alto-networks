@@ -154,41 +154,10 @@ paths:
         source: "curl --request GET \\\n  --url http://undefinedundefined/code/api/v1/ci-inventory \\\n  --header 'authorization: REPLACE_KEY_VALUE'"
 components:
   schemas:
-    IScan:
-      properties:
-        id:
-          type: string
-        lastCleared:
-          format: double
-          type: number
-        lastScan:
-          format: double
-          type: number
-        lastUpdated:
-          format: double
-          type: number
-        results:
-          items:
-            $ref: '#/components/schemas/IResolvedCatalog'
-          type: array
-      required:
-      - results
-      - lastUpdated
-      - lastScan
-      - id
-      type: object
-    SourceName:
+    DataStatus:
       enum:
-      - VCS Webhooks
-      - VCS App
-      - VCS DeployKey
-      - CI Credentials
-      - CI Plugins
-      - CI Files
-      - VCS Credentials
-      - Pipeline Configurations
-      - Pipeline Tools
-      - Integrations
+      - ok
+      - empty
       type: string
     IVCSInstalledApp:
       additionalProperties: false
@@ -255,20 +224,82 @@ components:
       - repositorySelection
       - htmlUrl
       type: object
-    Labels:
+    ParsedInventory:
       additionalProperties: false
       properties:
-        id:
-          format: double
-          type: number
-        name:
+        appName:
+          description: Pipeline tool name
           type: string
-        tooltip:
+        description:
+          description: Pipeline tool description
+          type: string
+        executables:
+          description: Pipeline tool executables
+          items:
+            $ref: '#/components/schemas/Executable'
+          type: array
+        link:
+          description: Pipeline tool link
+          type: string
+        logo:
+          type: string
+        sources:
+          description: Pipeline tool sources
+          items:
+            properties:
+              arguments:
+                anyOf:
+                - items:
+                    type: string
+                  type: array
+                - items:
+                    properties:
+                      command:
+                        type: string
+                      name:
+                        type: string
+                    required:
+                    - command
+                    - name
+                    type: object
+                  type: array
+                description: Pipeline tool arguments
+              casId:
+                type: string
+              filePath:
+                description: Pipeline tool CI file path
+                type: string
+              lineNumber:
+                description: Pipeline tool line number in CI file
+                format: double
+                type: number
+              name:
+                description: Pipeline tool name
+                type: string
+              repoId:
+                description: VCS repository ID
+                type: string
+              workspaceId:
+                description: VCS workspace/integration ID
+                type: string
+            required:
+            - lineNumber
+            - filePath
+            - workspaceId
+            - casId
+            - repoId
+            - name
+            type: object
+          type: array
+        vendor:
           type: string
       required:
-      - id
-      - name
-      - tooltip
+      - appName
+      - vendor
+      - description
+      - link
+      - logo
+      - sources
       type: object
     Insight:
       additionalProperties: false
@@ -292,151 +323,6 @@ components:
       - stars
       - usage
       - owner
-      type: object
-    IVCSWebhook:
-      additionalProperties: false
-      properties:
-        createdAt:
-          description: Webhook creation date
-          format: double
-          type: number
-        customerName:
-          description: Customer Prisma ID
-          type: string
-        domain:
-          description: Webhook URL domain
-          type: string
-        id:
-          description: VCS App ID
-          type: string
-        isSSLVerificationEnabled:
-          description: Webhook SSL verification enabled/disabled
-          type: boolean
-        name:
-          description: VCS App name
-          type: string
-        nodeCreatedTimestamp:
-          format: double
-          type: number
-        timestamp:
-          format: double
-          type: number
-        triggers:
-          description: Webhook events triggers
-          items:
-            type: string
-          type: array
-        type:
-          enum:
-          - VCSWebhook
-          type: string
-        url:
-          description: Webhook URL
-          type: string
-        vendorCreatedTimestamp:
-          description: Webhook creation date
-          format: double
-          type: number
-        webhookType:
-          description: Webhook type
-          type: string
-        workspaceId:
-          description: VCS workspace/integration ID
-          type: string
-      required:
-      - id
-      - type
-      - customerName
-      - name
-      - timestamp
-      - url
-      - domain
-      - webhookType
-      - triggers
-      type: object
-    EvidanceData:
-      additionalProperties: {}
-      properties:
-        firstSeen:
-          format: double
-          type: number
-        id:
-          type: string
-        lastSeen:
-          format: double
-          type: number
-        lastUpdated:
-          format: double
-          type: number
-      required:
-      - id
-      - firstSeen
-      - lastUpdated
-      - lastSeen
-      type: object
-    IResolvedCatalog:
-      additionalProperties: false
-      properties:
-        category:
-          $ref: '#/components/schemas/CatalogCategory'
-        description:
-          type: string
-        firstSeen:
-          format: double
-          type: number
-        group:
-          $ref: '#/components/schemas/CatalogGroup'
-        lastSeen:
-          format: double
-          type: number
-        lastUpdated:
-          format: double
-          type: number
-        name:
-          $ref: '#/components/schemas/CatalogName'
-        sources:
-          items:
-            $ref: '#/components/schemas/IResolvedSource'
-          type: array
-      required:
-      - name
-      - description
-      - group
-      - category
-      - firstSeen
-      - lastSeen
-      - lastUpdated
-      - sources
-      type: object
-    DataStatus:
-      enum:
-      - ok
-      - empty
-      type: string
-    IResolvedSource:
-      additionalProperties: false
-      properties:
-        evidanceData:
-          items:
-            $ref: '#/components/schemas/EvidanceData'
-          type: array
-        firstSeen:
-          format: double
-          type: number
-        lastSeen:
-          format: double
-          type: number
-        lastUpdated:
-          format: double
-          type: number
-        name:
-          $ref: '#/components/schemas/SourceName'
-      required:
-      - name
-      - firstSeen
-      - lastSeen
-      - lastUpdated
-      - evidanceData
       type: object
     CatalogName:
       enum:
@@ -546,83 +432,13 @@ components:
       - Build
       - Deploy
       type: string
-    ParsedInventory:
-      additionalProperties: false
-      properties:
-        appName:
-          description: Pipeline tool name
-          type: string
-        description:
-          description: Pipeline tool description
-          type: string
-        executables:
-          description: Pipeline tool executables
-          items:
-            $ref: '#/components/schemas/Executable'
-          type: array
-        link:
-          description: Pipeline tool link
-          type: string
-        logo:
-          type: string
-        sources:
-          description: Pipeline tool sources
-          items:
-            properties:
-              arguments:
-                anyOf:
-                - items:
-                    type: string
-                  type: array
-                - items:
-                    properties:
-                      command:
-                        type: string
-                      name:
-                        type: string
-                    required:
-                    - command
-                    - name
-                    type: object
-                  type: array
-                description: Pipeline tool arguments
-              casId:
-                type: string
-              filePath:
-                description: Pipeline tool CI file path
-                type: string
-              lineNumber:
-                description: Pipeline tool line number in CI file
-                format: double
-                type: number
-              name:
-                description: Pipeline tool name
-                type: string
-              repoId:
-                description: VCS repository ID
-                type: string
-              workspaceId:
-                description: VCS workspace/integration ID
-                type: string
-            required:
-            - lineNumber
-            - filePath
-            - workspaceId
-            - casId
-            - repoId
-            - name
-            type: object
-          type: array
-        vendor:
-          type: string
-      required:
-      - appName
-      - vendor
-      - description
-      - link
-      - logo
-      - sources
-      type: object
+    CatalogCategory:
+      enum:
+      - VCS
+      - CI/CD
+      - Registries
+      - Production
+      type: string
     GetResponse:
       additionalProperties: false
       properties:
@@ -633,6 +449,75 @@ components:
       required:
       - status
       - data
+      type: object
+    EvidanceData:
+      additionalProperties: {}
+      properties:
+        firstSeen:
+          format: double
+          type: number
+        id:
+          type: string
+        lastSeen:
+          format: double
+          type: number
+        lastUpdated:
+          format: double
+          type: number
+      required:
+      - id
+      - firstSeen
+      - lastUpdated
+      - lastSeen
+      type: object
+    IResolvedCatalog:
+      additionalProperties: false
+      properties:
+        category:
+          $ref: '#/components/schemas/CatalogCategory'
+        description:
+          type: string
+        firstSeen:
+          format: double
+          type: number
+        group:
+          $ref: '#/components/schemas/CatalogGroup'
+        lastSeen:
+          format: double
+          type: number
+        lastUpdated:
+          format: double
+          type: number
+        name:
+          $ref: '#/components/schemas/CatalogName'
+        sources:
+          items:
+            $ref: '#/components/schemas/IResolvedSource'
+          type: array
+      required:
+      - name
+      - description
+      - group
+      - category
+      - firstSeen
+      - lastSeen
+      - lastUpdated
+      - sources
+      type: object
+    Labels:
+      additionalProperties: false
+      properties:
+        id:
+          format: double
+          type: number
+        name:
+          type: string
+        tooltip:
+          type: string
+      required:
+      - id
+      - name
+      - tooltip
       type: object
     Executable:
       additionalProperties: false
@@ -645,13 +530,128 @@ components:
       - name
       - insight
       type: object
-    CatalogCategory:
+    IVCSWebhook:
+      additionalProperties: false
+      properties:
+        createdAt:
+          description: Webhook creation date
+          format: double
+          type: number
+        customerName:
+          description: Customer Prisma ID
+          type: string
+        domain:
+          description: Webhook URL domain
+          type: string
+        id:
+          description: VCS App ID
+          type: string
+        isSSLVerificationEnabled:
+          description: Webhook SSL verification enabled/disabled
+          type: boolean
+        name:
+          description: VCS App name
+          type: string
+        nodeCreatedTimestamp:
+          format: double
+          type: number
+        timestamp:
+          format: double
+          type: number
+        triggers:
+          description: Webhook events triggers
+          items:
+            type: string
+          type: array
+        type:
+          enum:
+          - VCSWebhook
+          type: string
+        url:
+          description: Webhook URL
+          type: string
+        vendorCreatedTimestamp:
+          description: Webhook creation date
+          format: double
+          type: number
+        webhookType:
+          description: Webhook type
+          type: string
+        workspaceId:
+          description: VCS workspace/integration ID
+          type: string
+      required:
+      - id
+      - type
+      - customerName
+      - name
+      - timestamp
+      - url
+      - domain
+      - webhookType
+      - triggers
+      type: object
+    IResolvedSource:
+      additionalProperties: false
+      properties:
+        evidanceData:
+          items:
+            $ref: '#/components/schemas/EvidanceData'
+          type: array
+        firstSeen:
+          format: double
+          type: number
+        lastSeen:
+          format: double
+          type: number
+        lastUpdated:
+          format: double
+          type: number
+        name:
+          $ref: '#/components/schemas/SourceName'
+      required:
+      - name
+      - firstSeen
+      - lastSeen
+      - lastUpdated
+      - evidanceData
+      type: object
+    SourceName:
       enum:
-      - VCS
-      - CI/CD
-      - Registries
-      - Production
+      - VCS Webhooks
+      - VCS App
+      - VCS DeployKey
+      - CI Credentials
+      - CI Plugins
+      - CI Files
+      - VCS Credentials
+      - Pipeline Configurations
+      - Pipeline Tools
+      - Integrations
       type: string
+    IScan:
+      properties:
+        id:
+          type: string
+        lastCleared:
+          format: double
+          type: number
+        lastScan:
+          format: double
+          type: number
+        lastUpdated:
+          format: double
+          type: number
+        results:
+          items:
+            $ref: '#/components/schemas/IResolvedCatalog'
+          type: array
+      required:
+      - results
+      - lastUpdated
+      - lastScan
+      - id
+      type: object
   securitySchemes:
     CustomAuthorizer:
       in: header

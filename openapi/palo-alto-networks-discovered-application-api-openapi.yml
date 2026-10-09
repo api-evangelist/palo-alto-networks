@@ -68,105 +68,19 @@ paths:
       - Discovered-Application
       operationId: list.discovered_application.filters.v2
 components:
-  parameters:
-    query.filters:
-      name: filters
-      description: String to filter list results by searching one specified field of an object. Multiple filters can be specified.
-      in: query
-      schema:
-        type: string
-      examples:
-        freeFormFilter:
-          value: '{"field":"name","search":"abc"}'
-          summary: A free form filter on the field name searching for a substring match of abc.
-        staticFilter:
-          value: '{"field":"connector_group","filter":"abc"}'
-          summary: A static filter on the field connector_group searching for an exact match of abc.
-    query.field:
-      name: field
-      description: String that represents a static filter field. Call any of the /filters endpoints without specifying a field to get a list of all available fields.
-      in: query
-      schema:
-        type: string
-        example: connector_group
-    pagination.limit:
-      name: limit
-      in: query
-      required: false
-      schema:
-        type: integer
-        minimum: 0
-      description: The max count in result entry (count per page)
-    query.search:
-      name: search
-      description: String to filter list results by. Is searched over multiple fields in each object. Multiple searches can be specified.
-      in: query
-      schema:
-        type: string
-        example: connector1
-    pagination.offset:
-      name: offset
-      description: 'A 0-based offset into the collection.
-
-        It is the index of the starting entry of the page
-
-        '
-      in: query
-      required: false
-      schema:
-        type: integer
-        minimum: 0
-    x-panw-region:
-      name: x-panw-region
-      description: The region of the tenant
-      in: header
-      schema:
-        type: string
-        enum:
-        - ae
-        - americas
-        - au
-        - br
-        - ca
-        - ch
-        - cn
-        - de
-        - es
-        - europe
-        - fr
-        - id
-        - il
-        - in
-        - it
-        - jp
-        - kr
-        - pl
-        - qa
-        - sa
-        - sg
-        - tw
-        - uk
-        - za
-    query.sort:
-      name: sort
-      description: List of fields from item response to sort by.
-      in: query
-      schema:
-        type: string
-      examples:
-        threeItems:
-          value: A[asc],B[desc],C
-          summary: An example sort list that sorts first by A in ascending order, then B in descending order, and finally C in ascending order.
-  examples:
-    filter-empty:
-      summary: when no filter value is available
-      value: []
-    filter:
-      summary: common scenario
-      value:
-      - value 1
-      - value 2
   responses:
+    error-400:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/error_response'
+    error-401:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/error_response'
     http.202_retry_after:
       x-summary: Accepted - Retry After
       description: '[202 Accepted](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202)
@@ -187,42 +101,21 @@ components:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/error_response'
-    error-401:
-      description: Unauthorized
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/error_response'
-    error-400:
-      description: Bad Request
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/error_response'
   schemas:
-    error_detail:
+    pagination.limit:
+      type: integer
+      title: The manimum number of objects to return
+    pagination.total:
+      type: integer
+      title: The total number of objects
+    error_response:
       type: object
-      description: Error detail information following Google Cloud API CauseInfo format
+      description: Error response payload
       properties:
-        '@type':
-          type: string
-          description: Type identifier for the detail object
-          example: google-cloud-api/CauseInfo
-        message:
-          type: string
-          description: Detailed error message
-        causes:
-          type: array
-          description: Array of cause information objects
-          items:
-            type: object
-            properties:
-              message:
-                type: string
-                description: Cause message
-              module:
-                type: string
-                description: Module where the cause originated
+        error:
+          $ref: '#/components/schemas/error_object'
+      required:
+      - error
     error_object:
       type: object
       description: Error object following Google Cloud API error format
@@ -240,9 +133,13 @@ components:
           description: Additional error details
           items:
             $ref: '#/components/schemas/error_detail'
-    pagination.limit:
+    pagination.offset:
       type: integer
-      title: The manimum number of objects to return
+      title: The offset into the total number of objects
+    filters:
+      type: array
+      items:
+        type: string
     discovered_application.list:
       type: object
       properties:
@@ -296,24 +193,127 @@ components:
       - total
       - offset
       - limit
-    pagination.offset:
-      type: integer
-      title: The offset into the total number of objects
-    error_response:
+    error_detail:
       type: object
-      description: Error response payload
+      description: Error detail information following Google Cloud API CauseInfo format
       properties:
-        error:
-          $ref: '#/components/schemas/error_object'
-      required:
-      - error
-    pagination.total:
-      type: integer
-      title: The total number of objects
-    filters:
-      type: array
-      items:
+        '@type':
+          type: string
+          description: Type identifier for the detail object
+          example: google-cloud-api/CauseInfo
+        message:
+          type: string
+          description: Detailed error message
+        causes:
+          type: array
+          description: Array of cause information objects
+          items:
+            type: object
+            properties:
+              message:
+                type: string
+                description: Cause message
+              module:
+                type: string
+                description: Module where the cause originated
+  parameters:
+    pagination.limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+      description: The max count in result entry (count per page)
+    query.field:
+      name: field
+      description: String that represents a static filter field. Call any of the /filters endpoints without specifying a field to get a list of all available fields.
+      in: query
+      schema:
         type: string
+        example: connector_group
+    query.sort:
+      name: sort
+      description: List of fields from item response to sort by.
+      in: query
+      schema:
+        type: string
+      examples:
+        threeItems:
+          value: A[asc],B[desc],C
+          summary: An example sort list that sorts first by A in ascending order, then B in descending order, and finally C in ascending order.
+    query.filters:
+      name: filters
+      description: String to filter list results by searching one specified field of an object. Multiple filters can be specified.
+      in: query
+      schema:
+        type: string
+      examples:
+        freeFormFilter:
+          value: '{"field":"name","search":"abc"}'
+          summary: A free form filter on the field name searching for a substring match of abc.
+        staticFilter:
+          value: '{"field":"connector_group","filter":"abc"}'
+          summary: A static filter on the field connector_group searching for an exact match of abc.
+    query.search:
+      name: search
+      description: String to filter list results by. Is searched over multiple fields in each object. Multiple searches can be specified.
+      in: query
+      schema:
+        type: string
+        example: connector1
+    pagination.offset:
+      name: offset
+      description: 'A 0-based offset into the collection.
+
+        It is the index of the starting entry of the page
+
+        '
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+    x-panw-region:
+      name: x-panw-region
+      description: The region of the tenant
+      in: header
+      schema:
+        type: string
+        enum:
+        - ae
+        - americas
+        - au
+        - br
+        - ca
+        - ch
+        - cn
+        - de
+        - es
+        - europe
+        - fr
+        - id
+        - il
+        - in
+        - it
+        - jp
+        - kr
+        - pl
+        - qa
+        - sa
+        - sg
+        - tw
+        - uk
+        - za
+  examples:
+    filter-empty:
+      summary: when no filter value is available
+      value: []
+    filter:
+      summary: common scenario
+      value:
+      - value 1
+      - value 2
   securitySchemes:
     bearerAuth:
       type: http

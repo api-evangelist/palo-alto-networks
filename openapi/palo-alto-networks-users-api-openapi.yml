@@ -975,18 +975,43 @@ paths:
       description: AIOps for NGFW BPA API production server.
 components:
   schemas:
-    UserSuspendResponse:
+    ErrorResponse:
       type: object
+      required:
+      - message
       properties:
+        error:
+          type: string
         message:
           type: string
-          example: Users suspended successfully
+        missingDeviceIds:
+          type: array
+          items:
+            type: string
+          description: List of device IDs that were not found (only present for device not found errors)
+        missingUserIds:
+          type: array
+          items:
+            type: string
+          description: List of user IDs that were not found (only present for user not found errors)
     UserStatus:
       type: string
       description: User status
       enum:
       - active
       - suspended
+    UserSuspendResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Users suspended successfully
+    UserForceReauthResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Force re-authentication initiated for 2 users
     UserGroup:
       type: object
       properties:
@@ -1013,24 +1038,29 @@ components:
       required:
       - id
       - name
-    Order:
-      type: string
-      description: The sort order
-      enum:
-      - asc
-      - desc
     UserResumeResponse:
       type: object
       properties:
         message:
           type: string
           example: Users resumed successfully
-    UserForceReauthResponse:
+    UserStatusChangeRequest:
       type: object
       properties:
-        message:
-          type: string
-          example: Force re-authentication initiated for 2 users
+        userIds:
+          type: array
+          items:
+            type: string
+          description: List of user IDs
+          minItems: 1
+      required:
+      - userIds
+    Order:
+      type: string
+      description: The sort order
+      enum:
+      - asc
+      - desc
     User:
       type: object
       properties:
@@ -1093,36 +1123,6 @@ components:
       - status
       - provider
       - externalId
-    ErrorResponse:
-      type: object
-      required:
-      - message
-      properties:
-        error:
-          type: string
-        message:
-          type: string
-        missingDeviceIds:
-          type: array
-          items:
-            type: string
-          description: List of device IDs that were not found (only present for device not found errors)
-        missingUserIds:
-          type: array
-          items:
-            type: string
-          description: List of user IDs that were not found (only present for user not found errors)
-    UserStatusChangeRequest:
-      type: object
-      properties:
-        userIds:
-          type: array
-          items:
-            type: string
-          description: List of user IDs
-          minItems: 1
-      required:
-      - userIds
     PageInfo:
       type: object
       properties:
@@ -1157,35 +1157,6 @@ components:
             '
           type: string
       type: object
-    api.Permission:
-      description: 'Permission represents a user or group''s permission to access a specific resource.
-
-        Currently supported resources are:
-
-        - Project - Access to a specific project (if empty, the Master Project by default)
-
-        - Collection - The set of collections in the project that may be accessed (all if empty)
-
-        If no permissions are assigned, all projects and collections may be accessed'
-      properties:
-        collections:
-          description: 'List of collections the user can access.
-
-            '
-          items:
-            $ref: '#/components/schemas/string'
-          type: array
-        project:
-          description: 'Names of projects which the user can access.
-
-            '
-          type: string
-      type: object
-    api.UserList:
-      description: UserList represents a list of users
-      items:
-        $ref: '#/components/schemas/api.User'
-      type: array
     api.User:
       description: User represents a user in Twistlock
       properties:
@@ -1220,6 +1191,11 @@ components:
             '
           type: string
       type: object
+    api.UserList:
+      description: UserList represents a list of users
+      items:
+        $ref: '#/components/schemas/api.User'
+      type: array
     api.AuthType:
       description: AuthType is the user authentication type
       enum:
@@ -1229,6 +1205,70 @@ components:
         - oauth
         - oidc
       type: string
+    api.Permission:
+      description: 'Permission represents a user or group''s permission to access a specific resource.
+
+        Currently supported resources are:
+
+        - Project - Access to a specific project (if empty, the Master Project by default)
+
+        - Collection - The set of collections in the project that may be accessed (all if empty)
+
+        If no permissions are assigned, all projects and collections may be accessed'
+      properties:
+        collections:
+          description: 'List of collections the user can access.
+
+            '
+          items:
+            $ref: '#/components/schemas/string'
+          type: array
+        project:
+          description: 'Names of projects which the user can access.
+
+            '
+          type: string
+      type: object
+    UserActivity:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique activity record identifier.
+          example: example-id
+        user_id:
+          type: string
+          description: ID of the user who performed the action.
+          example: '269446'
+        app_id:
+          type: string
+          description: SaaS application where the activity occurred.
+          example: '356501'
+        action:
+          type: string
+          description: Type of action performed (e.g., file_download, share_external).
+          example: drop
+        asset_id:
+          type: string
+          description: ID of the asset involved in the activity.
+          example: '505071'
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp when the activity occurred.
+          example: '2026-12-27T04:51:36Z'
+        ip_address:
+          type: string
+          description: Source IP address of the activity.
+          example: 10.201.17.66
+        risk_level:
+          type: string
+          enum:
+          - low
+          - medium
+          - high
+          description: Risk level assigned to this activity.
+          example: low
     BrowserSession:
       type: object
       properties:
@@ -1271,21 +1311,6 @@ components:
           type: string
           format: date-time
           example: '2026-07-09T16:25:54Z'
-    ErrorResponse_2:
-      type: object
-      properties:
-        error:
-          type: string
-          description: Error code identifying the error type.
-          example: example-error
-        message:
-          type: string
-          description: Human-readable description of the error.
-          example: Configured monitoring network blocked investigation applied activity.
-        request_id:
-          type: string
-          description: Request identifier for support correlation.
-          example: 5cc3d66e-5479-4e15-bd64-849adde3cb60
     BrowserUser:
       type: object
       properties:
@@ -1314,46 +1339,21 @@ components:
           type: string
           format: date-time
           example: '2024-12-26T17:43:03Z'
-    UserActivity:
+    ErrorResponse_2:
       type: object
       properties:
-        id:
+        error:
           type: string
-          description: Unique activity record identifier.
-          example: example-id
-        user_id:
+          description: Error code identifying the error type.
+          example: example-error
+        message:
           type: string
-          description: ID of the user who performed the action.
-          example: '269446'
-        app_id:
+          description: Human-readable description of the error.
+          example: Configured monitoring network blocked investigation applied activity.
+        request_id:
           type: string
-          description: SaaS application where the activity occurred.
-          example: '356501'
-        action:
-          type: string
-          description: Type of action performed (e.g., file_download, share_external).
-          example: drop
-        asset_id:
-          type: string
-          description: ID of the asset involved in the activity.
-          example: '505071'
-        timestamp:
-          type: string
-          format: date-time
-          description: Timestamp when the activity occurred.
-          example: '2026-12-27T04:51:36Z'
-        ip_address:
-          type: string
-          description: Source IP address of the activity.
-          example: 10.201.17.66
-        risk_level:
-          type: string
-          enum:
-          - low
-          - medium
-          - high
-          description: Risk level assigned to this activity.
-          example: low
+          description: Request identifier for support correlation.
+          example: 5cc3d66e-5479-4e15-bd64-849adde3cb60
     User_2:
       type: object
       properties:
@@ -1417,21 +1417,6 @@ components:
           type: string
           description: Request identifier for support correlation.
           example: a6ecb027-74a1-4efb-9882-cb98e9bab4bf
-    ErrorResponse_5:
-      type: object
-      properties:
-        error:
-          type: string
-          description: Error code identifying the error type.
-          example: example-error
-        message:
-          type: string
-          description: Human-readable description of the error.
-          example: Configured monitoring network blocked investigation applied activity.
-        request_id:
-          type: string
-          description: Request identifier for support correlation.
-          example: 5cc3d66e-5479-4e15-bd64-849adde3cb60
     User_3:
       type: object
       properties:
@@ -1465,6 +1450,21 @@ components:
           format: date-time
           description: Timestamp of the user's most recent activity.
           example: '2025-01-07T13:18:09Z'
+    ErrorResponse_5:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code identifying the error type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable description of the error.
+          example: Configured monitoring network blocked investigation applied activity.
+        request_id:
+          type: string
+          description: Request identifier for support correlation.
+          example: 5cc3d66e-5479-4e15-bd64-849adde3cb60
   securitySchemes:
     BearerAuth:
       type: http

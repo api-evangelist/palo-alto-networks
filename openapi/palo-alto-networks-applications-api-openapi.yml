@@ -3120,38 +3120,29 @@ paths:
       description: Legacy
 components:
   schemas:
-    LocalDesktopApplication:
-      description: Local Desktop Application
+    CustomTypeInput:
+      type: string
+      description: Discriminator field, must be 'custom'.
+      enum:
+      - custom
+    BaseApplicationInput:
       type: object
-      allOf:
-      - $ref: '#/components/schemas/BaseApplication'
-      - type: object
-        properties:
-          executables:
-            type: object
-            description: Local Desktop Application Executables
-            properties:
-              data:
-                type: array
-                description: List of executables for the local desktop application
-                items:
-                  type: object
-                  description: Local Desktop Application Executable
-                  properties:
-                    originalFileName:
-                      type: string
-                      description: The original executable file name
-                  required:
-                  - originalFileName
-            required:
-            - data
-          type:
-            type: string
-            description: Discriminator field, must be 'localdesktopcustom'.
-            enum:
-            - localdesktopcustom
-        required:
-        - executables
+      properties:
+        name:
+          type: string
+          format: string
+          description: Name of the application
+        description:
+          type: string
+          format: string
+          description: Description of the application
+          maxLength: 2500
+        type:
+          $ref: '#/components/schemas/ApplicationTypeInput'
+      required:
+      - name
+      - urls
+      - type
     metadata:
       type: object
       properties:
@@ -3174,18 +3165,38 @@ components:
       required:
       - createdTime
       - lastUpdatedTime
-    ApplicationTypeInput:
-      type: string
-      enum:
-      - custom
-      - private
-      - non-web
-      - localdesktopcustom
-    CustomTypeInput:
-      type: string
-      description: Discriminator field, must be 'custom'.
-      enum:
-      - custom
+    NonWebApplication:
+      description: Non-Web Application
+      type: object
+      allOf:
+      - $ref: '#/components/schemas/BaseApplicationWithUrls'
+      - type: object
+        properties:
+          protocol:
+            type: string
+            format: string
+          port:
+            type: string
+          routeToPrisma:
+            type: boolean
+          type:
+            type: string
+            description: Discriminator field, must be 'non-web'.
+            enum:
+            - non-web
+    BaseApplicationWithUrls:
+      description: Base Application with URLs (for URL-based application types)
+      allOf:
+      - $ref: '#/components/schemas/BaseApplication'
+      - type: object
+        properties:
+          urls:
+            type: array
+            description: URL patterns for the application
+            items:
+              type: string
+        required:
+        - urls
     MetadataConfigurationVersion:
       type:
       - object
@@ -3213,41 +3224,23 @@ components:
           type: integer
           format: int32
           description: Configuration version number
-    LocalDesktopAppExecutablesInput:
+    PrivateTypeInput:
+      type: string
+      description: Discriminator field, must be 'private'.
+      enum:
+      - private
+    UrlInput:
       type: object
       properties:
-        data:
-          type: array
-          description: List of executables for the local desktop application
-          items:
-            $ref: '#/components/schemas/LocalDesktopAppExecutableInput'
-          minItems: 1
-      required:
-      - data
-    ApplicationItem:
-      type: object
-      oneOf:
-      - $ref: '#/components/schemas/CustomApplication'
-      - $ref: '#/components/schemas/PrivateApplication'
-      - $ref: '#/components/schemas/NonWebApplication'
-      - $ref: '#/components/schemas/CatalogApplication'
-      - $ref: '#/components/schemas/LocalDesktopApplication'
-      discriminator:
-        propertyName: type
-        mapping:
-          custom: '#/components/schemas/CustomApplication'
-          private: '#/components/schemas/PrivateApplication'
-          non-web: '#/components/schemas/NonWebApplication'
-          catalog: '#/components/schemas/CatalogApplication'
-          localdesktopcustom: '#/components/schemas/LocalDesktopApplication'
-    LocalDesktopAppExecutableInput:
-      type: object
-      properties:
-        originalFileName:
+        url:
           type: string
-          description: The original executable file name
+          description: URL pattern expression
+        strict_mode:
+          type: boolean
+          default: false
+          description: "If `true`, the URL is saved exactly as entered. \nIf `false` (default), the system automatically normalizes the URL based on the App Type:\n\n**Custom Apps:**\n* **Protocol:** Defaults to `*://` if omitted.\n* **Subdomain:** Defaults to `www` logic (hidden).\n* **Path:** Appends `/*` if no path is specified.\n\n**Private Apps:**\n* **Protocol:** Defaults to `https://`. Wildcards (`*`) are **NOT** allowed.\n* **Subdomain:** No automatic `www` handling; `www` is treated as a unique prefix.\n* **Domain:** Supports IPv4 and Port numbers (e.g., `:8080`).\n* **Path:** Automatically adds a trailing `*` to all paths.\n"
       required:
-      - originalFileName
+      - url
     BaseApplication:
       type: object
       properties:
@@ -3281,8 +3274,8 @@ components:
       - name
       - type
       - metadata
-    CatalogApplication:
-      description: Catalog Application
+    CustomApplication:
+      description: Custom Application
       type: object
       allOf:
       - $ref: '#/components/schemas/BaseApplicationWithUrls'
@@ -3290,27 +3283,55 @@ components:
         properties:
           type:
             type: string
-            description: Discriminator field, must be 'catalog'.
+            description: Discriminator field, must be 'custom'.
             enum:
-            - catalog
-          catalog_name:
-            type: string
-            description: The name in the application catalog
-          catalog_attributes:
-            $ref: '#/components/schemas/CatalogAttributes'
-    CreateOrReplaceAppInput:
+            - custom
+    PatchUrls:
       oneOf:
-      - $ref: '#/components/schemas/CustomApplicationInput'
-      - $ref: '#/components/schemas/PrivateApplicationInput'
-      - $ref: '#/components/schemas/NonWebApplicationInput'
-      - $ref: '#/components/schemas/LocalDesktopApplicationInput'
+      - $ref: '#/components/schemas/UrlsInput'
+      - $ref: '#/components/schemas/AddRemoveUrls'
+    BulkCreatedResponse:
+      type: array
+      items:
+        $ref: '#/components/schemas/BulkCreatedItem'
+    CustomApplicationInput:
+      allOf:
+      - $ref: '#/components/schemas/BaseApplicationInput'
+      - type: object
+        properties:
+          urls:
+            $ref: '#/components/schemas/UrlsInput'
+          type:
+            $ref: '#/components/schemas/CustomTypeInput'
+          category:
+            type: string
+            format: string
+    ApplicationTypeInput:
+      type: string
+      enum:
+      - custom
+      - private
+      - non-web
+      - localdesktopcustom
+    PatchAppInput:
+      oneOf:
+      - $ref: '#/components/schemas/CustomPatchApplicationInput'
+      - $ref: '#/components/schemas/PrivatePatchApplicationInput'
+      - $ref: '#/components/schemas/NonWebPatchApplicationInput'
+      - $ref: '#/components/schemas/LocalDesktopPatchApplicationInput'
       discriminator:
         propertyName: type
         mapping:
-          custom: '#/components/schemas/CustomApplicationInput'
-          private: '#/components/schemas/PrivateApplicationInput'
-          non-web: '#/components/schemas/NonWebApplicationInput'
-          localdesktopcustom: '#/components/schemas/LocalDesktopApplicationInput'
+          custom: '#/components/schemas/CustomPatchApplicationInput'
+          private: '#/components/schemas/PrivatePatchApplicationInput'
+          non-web: '#/components/schemas/NonWebPatchApplicationInput'
+          localdesktopcustom: '#/components/schemas/LocalDesktopPatchApplicationInput'
+    Order:
+      type: string
+      description: The sort order
+      enum:
+      - asc
+      - desc
     PrivatePatchApplicationInput:
       allOf:
       - $ref: '#/components/schemas/BasePatchApplicationInput'
@@ -3330,31 +3351,7 @@ components:
             format: string
         required:
         - type
-    CustomApplication:
-      description: Custom Application
-      type: object
-      allOf:
-      - $ref: '#/components/schemas/BaseApplicationWithUrls'
-      - type: object
-        properties:
-          type:
-            type: string
-            description: Discriminator field, must be 'custom'.
-            enum:
-            - custom
-    UrlInput:
-      type: object
-      properties:
-        url:
-          type: string
-          description: URL pattern expression
-        strict_mode:
-          type: boolean
-          default: false
-          description: "If `true`, the URL is saved exactly as entered. \nIf `false` (default), the system automatically normalizes the URL based on the App Type:\n\n**Custom Apps:**\n* **Protocol:** Defaults to `*://` if omitted.\n* **Subdomain:** Defaults to `www` logic (hidden).\n* **Path:** Appends `/*` if no path is specified.\n\n**Private Apps:**\n* **Protocol:** Defaults to `https://`. Wildcards (`*`) are **NOT** allowed.\n* **Subdomain:** No automatic `www` handling; `www` is treated as a unique prefix.\n* **Domain:** Supports IPv4 and Port numbers (e.g., `:8080`).\n* **Path:** Automatically adds a trailing `*` to all paths.\n"
-      required:
-      - url
-    BasePatchApplicationInput:
+    LocalDesktopPatchApplicationInput:
       type: object
       properties:
         name:
@@ -3367,58 +3364,44 @@ components:
           description: Description of the application
           maxLength: 2500
         type:
-          $ref: '#/components/schemas/ApplicationTypeInput'
+          $ref: '#/components/schemas/LocalDesktopTypeInput'
+        executables:
+          $ref: '#/components/schemas/LocalDesktopAppExecutablesInput'
+        category:
+          type: string
+          format: string
       required:
       - type
-    PatchAppInput:
+    NonwebTypeInput:
+      type: string
+      description: Discriminator field, must be 'non-web'.
+      enum:
+      - non-web
+    CreateOrReplaceAppInput:
       oneOf:
-      - $ref: '#/components/schemas/CustomPatchApplicationInput'
-      - $ref: '#/components/schemas/PrivatePatchApplicationInput'
-      - $ref: '#/components/schemas/NonWebPatchApplicationInput'
-      - $ref: '#/components/schemas/LocalDesktopPatchApplicationInput'
+      - $ref: '#/components/schemas/CustomApplicationInput'
+      - $ref: '#/components/schemas/PrivateApplicationInput'
+      - $ref: '#/components/schemas/NonWebApplicationInput'
+      - $ref: '#/components/schemas/LocalDesktopApplicationInput'
       discriminator:
         propertyName: type
         mapping:
-          custom: '#/components/schemas/CustomPatchApplicationInput'
-          private: '#/components/schemas/PrivatePatchApplicationInput'
-          non-web: '#/components/schemas/NonWebPatchApplicationInput'
-          localdesktopcustom: '#/components/schemas/LocalDesktopPatchApplicationInput'
-    NonWebPatchApplicationInput:
-      allOf:
-      - $ref: '#/components/schemas/BasePatchApplicationInput'
-      - type: object
-        properties:
-          type:
-            $ref: '#/components/schemas/NonwebTypeInput'
-          address:
-            type: string
-            format: string
-          protocol:
-            type: string
-            format: string
-          port:
-            type: string
-          routeToPrisma:
-            type: boolean
-        required:
-        - type
-    PrivateTypeInput:
-      type: string
-      description: Discriminator field, must be 'private'.
-      enum:
-      - private
-    CustomPatchApplicationInput:
-      allOf:
-      - $ref: '#/components/schemas/BasePatchApplicationInput'
-      - type: object
-        properties:
-          urls:
-            $ref: '#/components/schemas/PatchUrls'
-          type:
-            $ref: '#/components/schemas/CustomTypeInput'
-          category:
-            type: string
-            format: string
+          custom: '#/components/schemas/CustomApplicationInput'
+          private: '#/components/schemas/PrivateApplicationInput'
+          non-web: '#/components/schemas/NonWebApplicationInput'
+          localdesktopcustom: '#/components/schemas/LocalDesktopApplicationInput'
+    BulkCreatedItem:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The ID of the newly created resource
+        name:
+          type: string
+          description: The name of the newly created resource
+      required:
+      - id
+      - name
     LocalDesktopApplicationInput:
       type: object
       properties:
@@ -3442,33 +3425,7 @@ components:
       - name
       - type
       - executables
-    UrlsInput:
-      type: array
-      description: URL patterns for the application. Maximum 100 URLs allowed.
-      items:
-        $ref: '#/components/schemas/UrlInput'
-      maxItems: 100
-      minItems: 1
-    PageInfo:
-      type: object
-      properties:
-        hasNextPage:
-          type: boolean
-          description: When paginating forwards, are there more items?
-        cursor:
-          type:
-          - string
-          - 'null'
-          description: When paginating forwards, the cursor to continue.
-      required:
-      - hasNextPage
-    ResponseMetadata:
-      type: object
-      description: Response-level metadata
-      properties:
-        configurationVersion:
-          $ref: '#/components/schemas/MetadataConfigurationVersion'
-    BaseApplicationInput:
+    BasePatchApplicationInput:
       type: object
       properties:
         name:
@@ -3483,82 +3440,163 @@ components:
         type:
           $ref: '#/components/schemas/ApplicationTypeInput'
       required:
-      - name
-      - urls
       - type
-    PatchUrls:
-      oneOf:
-      - $ref: '#/components/schemas/UrlsInput'
-      - $ref: '#/components/schemas/AddRemoveUrls'
-    BaseApplicationWithUrls:
-      description: Base Application with URLs (for URL-based application types)
+    NonWebPatchApplicationInput:
       allOf:
-      - $ref: '#/components/schemas/BaseApplication'
+      - $ref: '#/components/schemas/BasePatchApplicationInput'
       - type: object
         properties:
-          urls:
-            type: array
-            description: URL patterns for the application
-            items:
-              type: string
+          type:
+            $ref: '#/components/schemas/NonwebTypeInput'
+          address:
+            type: string
+            format: string
+          protocol:
+            type: string
+            format: string
+          port:
+            type: string
+          routeToPrisma:
+            type: boolean
         required:
-        - urls
-    Order:
-      type: string
-      description: The sort order
-      enum:
-      - asc
-      - desc
-    LocalDesktopPatchApplicationInput:
+        - type
+    LocalDesktopAppExecutablesInput:
       type: object
       properties:
-        name:
-          type: string
-          format: string
-          description: Name of the application
-        description:
-          type: string
-          format: string
-          description: Description of the application
-          maxLength: 2500
-        type:
-          $ref: '#/components/schemas/LocalDesktopTypeInput'
-        executables:
-          $ref: '#/components/schemas/LocalDesktopAppExecutablesInput'
-        category:
-          type: string
-          format: string
+        data:
+          type: array
+          description: List of executables for the local desktop application
+          items:
+            $ref: '#/components/schemas/LocalDesktopAppExecutableInput'
+          minItems: 1
       required:
-      - type
-    CustomApplicationInput:
+      - data
+    LocalDesktopAppExecutableInput:
+      type: object
+      properties:
+        originalFileName:
+          type: string
+          description: The original executable file name
+      required:
+      - originalFileName
+    PrivateApplication:
+      description: Private Application
+      type: object
+      allOf:
+      - $ref: '#/components/schemas/BaseApplicationWithUrls'
+      - type: object
+        properties:
+          primaryUrl:
+            type: string
+            format: string
+          routeToPrisma:
+            type: boolean
+          type:
+            type: string
+            description: Discriminator field, must be 'private'.
+            enum:
+            - private
+    NonWebApplicationInput:
       allOf:
       - $ref: '#/components/schemas/BaseApplicationInput'
       - type: object
         properties:
-          urls:
-            $ref: '#/components/schemas/UrlsInput'
           type:
-            $ref: '#/components/schemas/CustomTypeInput'
-          category:
+            $ref: '#/components/schemas/NonwebTypeInput'
+          address:
             type: string
             format: string
-    AddRemoveUrls:
+          protocol:
+            type: string
+            format: string
+          port:
+            type: string
+          routeToPrisma:
+            type: boolean
+        required:
+        - protocol
+        - port
+        - address
+    ErrorResponse:
       type: object
-      description: Add or remove URLs from an application. The total URL count after modification cannot exceed 100.
+      required:
+      - message
       properties:
-        add:
+        error:
+          type: string
+        message:
+          type: string
+        missingDeviceIds:
           type: array
           items:
-            $ref: '#/components/schemas/UrlInput'
-          maxItems: 100
-        remove:
+            type: string
+          description: List of device IDs that were not found (only present for device not found errors)
+        missingUserIds:
           type: array
           items:
-            $ref: '#/components/schemas/UrlInput'
-    BulkCreatedResponse:
+            type: string
+          description: List of user IDs that were not found (only present for user not found errors)
+    LocalDesktopTypeInput:
+      type: string
+      description: Discriminator field, must be 'localdesktopcustom'.
+      enum:
+      - localdesktopcustom
+    UrlsInput:
       type: array
+      description: URL patterns for the application. Maximum 100 URLs allowed.
       items:
-        $ref: '#/components/schemas/BulkCreatedItem'
+        $ref: '#/components/schemas/UrlInput'
+      maxItems: 100
+      minItems: 1
+    CatalogApplication:
+      description: Catalog Application
+      type: object
+      allOf:
+      - $ref: '#/components/schemas/BaseApplicationWithUrls'
+      - type: object
+        properties:
+          type:
+            type: string
+            description: Discriminator field, must be 'catalog'.
+            enum:
+            - catalog
+          catalog_name:
+            type: string
+            description: The name in the application catalog
+          catalog_attributes:
+            $ref: '#/components/schemas/CatalogAttributes'
+    LocalDesktopApplication:
+      description: Local Desktop Application
+      type: object
+      allOf:
+      - $ref: '#/components/schemas/BaseApplication'
+      - type: object
+        properties:
+          executables:
+            type: object
+            description: Local Desktop Application Executables
+            properties:
+              data:
+                type: array
+                description: List of executables for the local desktop application
+                items:
+                  type: object
+                  description: Local Desktop Application Executable
+                  properties:
+                    originalFileName:
+                      type: string
+                      description: The original executable file name
+                  required:
+                  - originalFileName
+            required:
+            - data
+          type:
+            type: string
+            description: Discriminator field, must be 'localdesktopcustom'.
+            enum:
+            - localdesktopcustom
+        required:
+        - executables
     CatalogAttributes:
       description: Catalog application attributes sourced from the Universal Application Directory (UAD)
       type: object
@@ -3843,27 +3881,6 @@ components:
           - 'null'
           items:
             type: string
-    NonWebApplicationInput:
-      allOf:
-      - $ref: '#/components/schemas/BaseApplicationInput'
-      - type: object
-        properties:
-          type:
-            $ref: '#/components/schemas/NonwebTypeInput'
-          address:
-            type: string
-            format: string
-          protocol:
-            type: string
-            format: string
-          port:
-            type: string
-          routeToPrisma:
-            type: boolean
-        required:
-        - protocol
-        - port
-        - address
     PrivateApplicationInput:
       allOf:
       - $ref: '#/components/schemas/BaseApplicationInput'
@@ -3885,87 +3902,78 @@ components:
         - primaryUrl
         - routeToPrisma
         - type
-    NonwebTypeInput:
-      type: string
-      description: Discriminator field, must be 'non-web'.
-      enum:
-      - non-web
-    PrivateApplication:
-      description: Private Application
-      type: object
+    CustomPatchApplicationInput:
       allOf:
-      - $ref: '#/components/schemas/BaseApplicationWithUrls'
+      - $ref: '#/components/schemas/BasePatchApplicationInput'
       - type: object
         properties:
-          primaryUrl:
+          urls:
+            $ref: '#/components/schemas/PatchUrls'
+          type:
+            $ref: '#/components/schemas/CustomTypeInput'
+          category:
             type: string
             format: string
-          routeToPrisma:
-            type: boolean
+    ResponseMetadata:
+      type: object
+      description: Response-level metadata
+      properties:
+        configurationVersion:
+          $ref: '#/components/schemas/MetadataConfigurationVersion'
+    ApplicationItem:
+      type: object
+      oneOf:
+      - $ref: '#/components/schemas/CustomApplication'
+      - $ref: '#/components/schemas/PrivateApplication'
+      - $ref: '#/components/schemas/NonWebApplication'
+      - $ref: '#/components/schemas/CatalogApplication'
+      - $ref: '#/components/schemas/LocalDesktopApplication'
+      discriminator:
+        propertyName: type
+        mapping:
+          custom: '#/components/schemas/CustomApplication'
+          private: '#/components/schemas/PrivateApplication'
+          non-web: '#/components/schemas/NonWebApplication'
+          catalog: '#/components/schemas/CatalogApplication'
+          localdesktopcustom: '#/components/schemas/LocalDesktopApplication'
+    AddRemoveUrls:
+      type: object
+      description: Add or remove URLs from an application. The total URL count after modification cannot exceed 100.
+      properties:
+        add:
+          type: array
+          items:
+            $ref: '#/components/schemas/UrlInput'
+          maxItems: 100
+        remove:
+          type: array
+          items:
+            $ref: '#/components/schemas/UrlInput'
+    PageInfo:
+      type: object
+      properties:
+        hasNextPage:
+          type: boolean
+          description: When paginating forwards, are there more items?
+        cursor:
           type:
-            type: string
-            description: Discriminator field, must be 'private'.
-            enum:
-            - private
-    LocalDesktopTypeInput:
-      type: string
-      description: Discriminator field, must be 'localdesktopcustom'.
-      enum:
-      - localdesktopcustom
-    BulkCreatedItem:
-      type: object
-      properties:
-        id:
-          type: string
-          description: The ID of the newly created resource
-        name:
-          type: string
-          description: The name of the newly created resource
+          - string
+          - 'null'
+          description: When paginating forwards, the cursor to continue.
       required:
-      - id
-      - name
-    ErrorResponse:
-      type: object
-      required:
-      - message
+      - hasNextPage
+    error_detail_cause_info:
       properties:
-        error:
+        code:
+          type: string
+        details:
+          type: object
+        help:
           type: string
         message:
           type: string
-        missingDeviceIds:
-          type: array
-          items:
-            type: string
-          description: List of device IDs that were not found (only present for device not found errors)
-        missingUserIds:
-          type: array
-          items:
-            type: string
-          description: List of user IDs that were not found (only present for user not found errors)
-    NonWebApplication:
-      description: Non-Web Application
+      title: Cause Info
       type: object
-      allOf:
-      - $ref: '#/components/schemas/BaseApplicationWithUrls'
-      - type: object
-        properties:
-          protocol:
-            type: string
-            format: string
-          port:
-            type: string
-          routeToPrisma:
-            type: boolean
-          type:
-            type: string
-            description: Discriminator field, must be 'non-web'.
-            enum:
-            - non-web
-    error_detail_cause_infos:
-      items:
-        $ref: '#/components/schemas/error_detail_cause_info'
-      type: array
     generic_error:
       properties:
         _errors:
@@ -3973,6 +3981,10 @@ components:
         _request_id:
           type: string
       type: object
+    error_detail_cause_infos:
+      items:
+        $ref: '#/components/schemas/error_detail_cause_info'
+      type: array
     objects-applications:
       properties:
         able_to_transfer_file:
@@ -4304,18 +4316,6 @@ components:
       - technology
       - risk
       type: object
-    error_detail_cause_info:
-      properties:
-        code:
-          type: string
-        details:
-          type: object
-        help:
-          type: string
-        message:
-          type: string
-      title: Cause Info
-      type: object
     MonitoredApplication:
       type: object
       properties:
@@ -4390,21 +4390,6 @@ components:
           type: string
         environment:
           type: string
-    ErrorResponse_3:
-      type: object
-      properties:
-        error:
-          $ref: '#/components/schemas/Error'
-    Error:
-      required:
-      - code
-      - message
-      type: object
-      properties:
-        code:
-          type: string
-        message:
-          type: string
     AppCriteriaRequest:
       required:
       - app
@@ -4422,115 +4407,39 @@ components:
           type: object
           additionalProperties:
             type: object
-    Vulnerability:
-      type: object
-      properties:
-        id:
-          type: string
-        score:
-          type: number
-        severity:
-          type: string
+    Error:
       required:
-      - id
-    SearchRequestRisk:
+      - code
+      - message
       type: object
       properties:
-        query:
+        code:
           type: string
-        applicationId:
+        message:
           type: string
-    V2ApplicationWithAssets:
+    ErrorResponse_3:
       type: object
       properties:
-        id:
+        error:
+          $ref: '#/components/schemas/Error'
+    Alert:
+      type: object
+      properties:
+        unifiedAssetId:
           type: string
-        createdAt:
-          type: integer
-        metadata:
+        alertId:
+          type: string
+        policy:
           type: object
-          additionalProperties:
-            type: array
-            items:
+          properties:
+            policyId:
               type: string
-        assets:
-          type: array
-          items:
-            $ref: '#/components/schemas/AssetWithRisks'
-        summary:
-          $ref: '#/components/schemas/V2ApplicationSummary'
-    SearchRequest:
-      type: object
-      properties:
-        filters:
-          type: array
-          items:
-            $ref: '#/components/schemas/Filter'
-        nextPageToken:
-          type: string
-    ListAppsResponseV2:
-      type: object
-      properties:
-        apps:
-          type: array
-          items:
-            $ref: '#/components/schemas/V2ApplicationWithoutAssets'
-    V2ApplicationWithoutAssets:
-      type: object
-      properties:
-        id:
-          type: string
-        createdAt:
-          type: integer
-        metadata:
-          type: object
-          additionalProperties:
-            type: array
-            items:
+            name:
               type: string
-        summary:
-          $ref: '#/components/schemas/V2ApplicationSummary'
-    V2ApplicationSummary:
-      type: object
-      properties:
-        cloudTypes:
-          type: array
-          items:
-            type: string
-        assetCount:
-          $ref: '#/components/schemas/AssetCount'
-        alertCountByPolicyType:
-          $ref: '#/components/schemas/CountsByKey'
-        alertCountBySeverity:
-          $ref: '#/components/schemas/AlertCountBySeverity'
-        vulnCountBySeverity:
-          $ref: '#/components/schemas/VulnCountBySeverity'
-        findingCountByType:
-          $ref: '#/components/schemas/CountsByKey'
-    SummaryOfApps:
-      type: object
-      properties:
-        totalAssets:
-          type: integer
-        totalApps:
-          type: integer
-        appsWithVuln:
-          type: integer
-        appsWithCriticalAlerts:
-          type: integer
-        newlyDiscoveredApps:
-          type: integer
-    VulnCountBySeverity:
-      type: object
-      properties:
-        critical:
-          type: integer
-        high:
-          type: integer
-        medium:
-          type: integer
-        low:
-          type: integer
+            severity:
+              type: string
+            policyType:
+              type: string
     ListAppsRequest:
       type: object
       properties:
@@ -4564,28 +4473,6 @@ components:
               type: string
             cardinalityField:
               type: string
-    Alert:
-      type: object
-      properties:
-        unifiedAssetId:
-          type: string
-        alertId:
-          type: string
-        policy:
-          type: object
-          properties:
-            policyId:
-              type: string
-            name:
-              type: string
-            severity:
-              type: string
-            policyType:
-              type: string
-    CountsByKey:
-      type: array
-      items:
-        $ref: '#/components/schemas/CountByKey'
     AssetWithRisks:
       type: object
       properties:
@@ -4624,6 +4511,123 @@ components:
       required:
       - unifiedId
       - type
+    V2ApplicationWithoutAssets:
+      type: object
+      properties:
+        id:
+          type: string
+        createdAt:
+          type: integer
+        metadata:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        summary:
+          $ref: '#/components/schemas/V2ApplicationSummary'
+    SummaryOfApps:
+      type: object
+      properties:
+        totalAssets:
+          type: integer
+        totalApps:
+          type: integer
+        appsWithVuln:
+          type: integer
+        appsWithCriticalAlerts:
+          type: integer
+        newlyDiscoveredApps:
+          type: integer
+    SearchRequestRisk:
+      type: object
+      properties:
+        query:
+          type: string
+        applicationId:
+          type: string
+    ListAppsResponseV2:
+      type: object
+      properties:
+        apps:
+          type: array
+          items:
+            $ref: '#/components/schemas/V2ApplicationWithoutAssets'
+    Vulnerability:
+      type: object
+      properties:
+        id:
+          type: string
+        score:
+          type: number
+        severity:
+          type: string
+      required:
+      - id
+    VulnCountBySeverity:
+      type: object
+      properties:
+        critical:
+          type: integer
+        high:
+          type: integer
+        medium:
+          type: integer
+        low:
+          type: integer
+    SearchRequestGroupedCount:
+      type: object
+      properties:
+        filters:
+          type: array
+          items:
+            $ref: '#/components/schemas/Filter'
+    Filter:
+      type: object
+      properties:
+        op:
+          type: string
+          example: =, >, <, in, >=, <=
+        attribute:
+          type: string
+        value:
+          type: object
+          example: string, int
+    Finding:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        findingTypes:
+          type: array
+          items:
+            type: string
+    GetTagsResponse:
+      type: object
+      properties:
+        tags:
+          type: array
+          items:
+            type: string
+    V2ApplicationSummary:
+      type: object
+      properties:
+        cloudTypes:
+          type: array
+          items:
+            type: string
+        assetCount:
+          $ref: '#/components/schemas/AssetCount'
+        alertCountByPolicyType:
+          $ref: '#/components/schemas/CountsByKey'
+        alertCountBySeverity:
+          $ref: '#/components/schemas/AlertCountBySeverity'
+        vulnCountBySeverity:
+          $ref: '#/components/schemas/VulnCountBySeverity'
+        findingCountByType:
+          $ref: '#/components/schemas/CountsByKey'
     AlertCountBySeverity:
       type: object
       properties:
@@ -4637,31 +4641,38 @@ components:
           type: integer
         informational:
           type: integer
-    GetTagsResponse:
-      type: object
-      properties:
-        tags:
-          type: array
-          items:
-            type: string
-    Finding:
+    CountsByKey:
+      type: array
+      items:
+        $ref: '#/components/schemas/CountByKey'
+    V2ApplicationWithAssets:
       type: object
       properties:
         id:
           type: string
-        name:
-          type: string
-        findingTypes:
+        createdAt:
+          type: integer
+        metadata:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        assets:
           type: array
           items:
-            type: string
-    SearchRequestGroupedCount:
+            $ref: '#/components/schemas/AssetWithRisks'
+        summary:
+          $ref: '#/components/schemas/V2ApplicationSummary'
+    SearchRequest:
       type: object
       properties:
         filters:
           type: array
           items:
             $ref: '#/components/schemas/Filter'
+        nextPageToken:
+          type: string
     AssetCount:
       type: object
       properties:
@@ -4671,93 +4682,42 @@ components:
           $ref: '#/components/schemas/AlertCountBySeverity'
         byVulnSeverity:
           $ref: '#/components/schemas/VulnCountBySeverity'
-    Filter:
+    Application:
       type: object
       properties:
-        op:
+        id:
           type: string
-          example: =, >, <, in, >=, <=
-        attribute:
-          type: string
-        value:
-          type: object
-          example: string, int
-    ErrorResponse_3_2:
-      type: object
-      properties:
-        error:
-          type: string
-          description: Error code identifying the error type.
-          example: example-error
-        message:
-          type: string
-          description: Human-readable description of the error.
-          example: Security firewall network configured traffic blocked threat.
-        request_id:
-          type: string
-          description: Request identifier for support correlation.
-          example: 709c60bb-8234-4bc4-938b-d0835224c350
-    ErrorResponse_2_2:
-      type: object
-      properties:
-        error:
-          type: string
-          description: Error code identifying the error type.
-          example: example-error
-        message:
-          type: string
-          description: Human-readable description of the error.
-          example: Configured monitoring network blocked investigation applied activity.
-        request_id:
-          type: string
-          description: Request identifier for support correlation.
-          example: 5cc3d66e-5479-4e15-bd64-849adde3cb60
-    ZTNAApplicationRequest:
-      type: object
-      required:
-      - name
-      - group_id
-      - fqdn
-      properties:
+          description: Unique application identifier.
+          example: example-id
         name:
           type: string
-          description: Display name for the ZTNA application.
-          example: Branch Agent 75
-        description:
+          description: SaaS application name (e.g., Google Drive, Microsoft SharePoint).
+          example: Primary Agent 80
+        type:
           type: string
-          description: Optional description of the application.
-          example: Incident suspicious firewall Security suspicious policy threat suspicious.
-        group_id:
+          description: Application type or category.
+          example: advanced
+        status:
           type: string
-          description: Connector group ID to use for accessing the application.
-          example: '376339'
-        fqdn:
+          enum:
+          - connected
+          - disconnected
+          - error
+          description: Current connection status.
+          example: connected
+        asset_count:
+          type: integer
+          description: Number of assets scanned for this application.
+          example: 752
+        incident_count:
+          type: integer
+          description: Number of active incidents for this application.
+          example: 54
+        connected_at:
           type: string
-          description: Fully qualified domain name of the private application.
-          example: login.test-corp.net
-        ports:
-          type: array
-          items:
-            type: integer
-          description: TCP/UDP ports to expose through ZTNA.
-          example:
-          - 28
-        protocols:
-          type: array
-          items:
-            type: string
-            enum:
-            - TCP
-            - UDP
-          description: Network protocols to allow.
-          example:
-          - TCP
-          - UDP
-        enabled:
-          type: boolean
-          default: true
-          description: Whether to enable ZTNA access immediately after creation.
-          example: true
+          format: date-time
+          description: Timestamp when the application was connected.
+          example: '2025-07-22T17:44:41Z'
     ZTNAApplication:
       type: object
       properties:
@@ -4807,6 +4767,82 @@ components:
           type: string
           format: date-time
           example: '2024-05-17T06:02:30Z'
+    ErrorResponse_3_2:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code identifying the error type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable description of the error.
+          example: Security firewall network configured traffic blocked threat.
+        request_id:
+          type: string
+          description: Request identifier for support correlation.
+          example: 709c60bb-8234-4bc4-938b-d0835224c350
+    ZTNAApplicationRequest:
+      type: object
+      required:
+      - name
+      - group_id
+      - fqdn
+      properties:
+        name:
+          type: string
+          description: Display name for the ZTNA application.
+          example: Branch Agent 75
+        description:
+          type: string
+          description: Optional description of the application.
+          example: Incident suspicious firewall Security suspicious policy threat suspicious.
+        group_id:
+          type: string
+          description: Connector group ID to use for accessing the application.
+          example: '376339'
+        fqdn:
+          type: string
+          description: Fully qualified domain name of the private application.
+          example: login.test-corp.net
+        ports:
+          type: array
+          items:
+            type: integer
+          description: TCP/UDP ports to expose through ZTNA.
+          example:
+          - 28
+        protocols:
+          type: array
+          items:
+            type: string
+            enum:
+            - TCP
+            - UDP
+          description: Network protocols to allow.
+          example:
+          - TCP
+          - UDP
+        enabled:
+          type: boolean
+          default: true
+          description: Whether to enable ZTNA access immediately after creation.
+          example: true
+    ErrorResponse_2_2:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code identifying the error type.
+          example: example-error
+        message:
+          type: string
+          description: Human-readable description of the error.
+          example: Configured monitoring network blocked investigation applied activity.
+        request_id:
+          type: string
+          description: Request identifier for support correlation.
+          example: 5cc3d66e-5479-4e15-bd64-849adde3cb60
     ErrorResponse_4:
       type: object
       properties:
@@ -4831,42 +4867,6 @@ components:
         _request_id:
           type: string
           example: '921009'
-    Application:
-      type: object
-      properties:
-        id:
-          type: string
-          description: Unique application identifier.
-          example: example-id
-        name:
-          type: string
-          description: SaaS application name (e.g., Google Drive, Microsoft SharePoint).
-          example: Primary Agent 80
-        type:
-          type: string
-          description: Application type or category.
-          example: advanced
-        status:
-          type: string
-          enum:
-          - connected
-          - disconnected
-          - error
-          description: Current connection status.
-          example: connected
-        asset_count:
-          type: integer
-          description: Number of assets scanned for this application.
-          example: 752
-        incident_count:
-          type: integer
-          description: Number of active incidents for this application.
-          example: 54
-        connected_at:
-          type: string
-          format: date-time
-          description: Timestamp when the application was connected.
-          example: '2025-07-22T17:44:41Z'
     ErrorResponse_5:
       type: object
       properties:
@@ -4882,6 +4882,28 @@ components:
           type: string
           description: Request identifier for support correlation.
           example: 5cc3d66e-5479-4e15-bd64-849adde3cb60
+    error_detail_cause_info_2:
+      type: object
+      title: Cause Info
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          oneOf:
+          - type: string
+          - type: object
+        help:
+          type: string
+    generic_error_2:
+      type: object
+      properties:
+        _errors:
+          $ref: '#/components/schemas/error_detail_cause_infos_2'
+        _request_id:
+          type: string
+      x-examples: {}
     error_detail_cause_infos_2:
       type: array
       items:
@@ -5256,28 +5278,6 @@ components:
             example: My Device
         required:
         - device
-    generic_error_2:
-      type: object
-      properties:
-        _errors:
-          $ref: '#/components/schemas/error_detail_cause_infos_2'
-        _request_id:
-          type: string
-      x-examples: {}
-    error_detail_cause_info_2:
-      type: object
-      title: Cause Info
-      properties:
-        code:
-          type: string
-        message:
-          type: string
-        details:
-          oneOf:
-          - type: string
-          - type: object
-        help:
-          type: string
     ErrorResponse_6:
       type: object
       properties:
@@ -5294,85 +5294,13 @@ components:
           description: Request identifier for support correlation.
           example: 709c60bb-8234-4bc4-938b-d0835224c350
   examples:
-    json_400_panui_restapi_missing_body:
-      summary: Missing Body
+    json_409_panui_mgmt_name_not_unique:
+      summary: Name Not Unique
       value:
         _errors:
-        - code: E003
+        - code: E006
           details: {}
-          message: Missing Body
-        _request_id: abcd-1234
-    json_401_panui_auth_need_password_change:
-      summary: Need Password Change
-      value:
-        _errors:
-        - code: E016
-          details: {}
-          message: The password needs to be changed.
-        _request_id: abcd-1234
-    json_504_panui_mgmt_session_timeout:
-      summary: Session Timeout
-      value:
-        _errors:
-        - code: 4
-          details: {}
-          message: Session Timeout
-        _request_id: abcd-1234
-    json_409_panui_mgmt_object_not_unique:
-      summary: Object Not Unique
-      value:
-        _errors:
-        - code: E016
-          details: {}
-          message: Object Not Unique
-        _request_id: abcd-1234
-    json_400_panui_mgmt_malformed_command:
-      summary: Malformed Command
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: Malformed Command
-        _request_id: abcd-1234
-    json_400_panui_restapi_input_format_mismatch:
-      summary: Input Format Mismatch
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: 'Input Format Mismatch: input-format=json'
-        _request_id: abcd-1234
-    json_501_panui_restapi_version_not_supported:
-      summary: Version Not Supported
-      value:
-        _errors:
-        - code: E012
-          details: {}
-          message: Version Not Supported
-        _request_id: abcd-1234
-    json_400_panui_mgmt_bad_xpath:
-      summary: Bad XPath
-      value:
-        _errors:
-        - code: E013
-          details: {}
-          message: Bad XPath
-        _request_id: abcd-1234
-    json_400_panui_mgmt_invalid_object:
-      summary: Invalid Object
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: Invalid Object
-        _request_id: abcd-1234
-    json_400_panui_restapi_missing_query_parameter:
-      summary: Missing Query Parameter
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: 'Missing Query Parameter: name'
+          message: Name Not Unique
         _request_id: abcd-1234
     json_401_panui_auth_not_authenticated:
       summary: Not Authenticated
@@ -5382,69 +5310,13 @@ components:
           details: {}
           message: Not Authenticated
         _request_id: abcd-1234
-    json_401_panui_auth_key_expired:
-      summary: Key Expired
-      value:
-        _errors:
-        - code: E016
-          details: {}
-          message: Key Expired
-        _request_id: abcd-1234
-    json_409_panui_mgmt_name_not_unique:
-      summary: Name Not Unique
-      value:
-        _errors:
-        - code: E006
-          details: {}
-          message: Name Not Unique
-        _request_id: abcd-1234
-    json_400_panui_restapi_invalid_query_parameter:
-      summary: Invalid Query Parameter
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: 'Invalid Query Parameter: location=invalid'
-        _request_id: abcd-1234
-    json_405_panui_restapi_action_not_supported:
-      summary: Action Not Supported
+    json_501_panui_restapi_version_not_supported:
+      summary: Version Not Supported
       value:
         _errors:
         - code: E012
           details: {}
-          message: 'Action Not Supported: move'
-        _request_id: abcd-1234
-    json_401_panui_auth_invalid_credential:
-      summary: Invalid Credential
-      value:
-        _errors:
-        - code: E016
-          details: {}
-          message: Invalid Credential
-        _request_id: abcd-1234
-    json_501_panui_restapi_method_not_supported:
-      summary: Method Not Supported
-      value:
-        _errors:
-        - code: E012
-          details: {}
-          message: Method Not Supported
-        _request_id: abcd-1234
-    json_401_panui_auth_key_too_long:
-      summary: Key Too Long
-      value:
-        _errors:
-        - code: E016
-          details: {}
-          message: Key Too Long
-        _request_id: abcd-1234
-    json_400_panui_mgmt_invalid_command:
-      summary: Invalid Command
-      value:
-        _errors:
-        - code: E003
-          details: {}
-          message: Invalid Command
+          message: Version Not Supported
         _request_id: abcd-1234
     json_403_panui_auth_unauthorized:
       summary: Unauthorized
@@ -5454,13 +5326,29 @@ components:
           details: {}
           message: Unauthorized
         _request_id: abcd-1234
-    json_400_panui_restapi_output_format_mismatch:
-      summary: Output Format Mismatch
+    json_400_panui_mgmt_malformed_command:
+      summary: Malformed Command
       value:
         _errors:
         - code: E003
           details: {}
-          message: 'Output Format Mismatch: output-format=json Accept=xml'
+          message: Malformed Command
+        _request_id: abcd-1234
+    json_400_panui_restapi_missing_query_parameter:
+      summary: Missing Query Parameter
+      value:
+        _errors:
+        - code: E003
+          details: {}
+          message: 'Missing Query Parameter: name'
+        _request_id: abcd-1234
+    json_401_panui_auth_invalid_credential:
+      summary: Invalid Credential
+      value:
+        _errors:
+        - code: E016
+          details: {}
+          message: Invalid Credential
         _request_id: abcd-1234
     json_404_panui_mgmt_object_not_present:
       summary: Object Not Present
@@ -5478,84 +5366,124 @@ components:
           details: {}
           message: Reference Not Zero
         _request_id: abcd-1234
-    json_400_panui_restapi_missing_body_2:
-      summary: Missing Body
+    json_401_panui_auth_key_expired:
+      summary: Key Expired
+      value:
+        _errors:
+        - code: E016
+          details: {}
+          message: Key Expired
+        _request_id: abcd-1234
+    json_400_panui_restapi_invalid_query_parameter:
+      summary: Invalid Query Parameter
       value:
         _errors:
         - code: E003
-          message: Missing Body
           details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_401_panui_auth_need_password_change_2:
+          message: 'Invalid Query Parameter: location=invalid'
+        _request_id: abcd-1234
+    json_401_panui_auth_need_password_change:
       summary: Need Password Change
       value:
         _errors:
         - code: E016
+          details: {}
           message: The password needs to be changed.
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_504_panui_mgmt_session_timeout_2:
-      summary: Session Timeout
-      value:
-        _errors:
-        - code: '4'
-          message: Session Timeout
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_409_panui_mgmt_object_not_unique_2:
-      summary: Object Not Unique
-      value:
-        _errors:
-        - code: E016
-          message: Object Not Unique
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_mgmt_malformed_command_2:
-      summary: Malformed Command
-      value:
-        _errors:
-        - code: E003
-          message: Malformed Command
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_restapi_input_format_mismatch_2:
+        _request_id: abcd-1234
+    json_400_panui_restapi_input_format_mismatch:
       summary: Input Format Mismatch
       value:
         _errors:
         - code: E003
+          details: {}
           message: 'Input Format Mismatch: input-format=json'
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_501_panui_restapi_version_not_supported_2:
-      summary: Version Not Supported
+        _request_id: abcd-1234
+    json_400_panui_mgmt_invalid_command:
+      summary: Invalid Command
       value:
         _errors:
-        - code: E012
-          message: Version Not Supported
+        - code: E003
           details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_mgmt_bad_xpath_2:
-      summary: Bad XPath
+          message: Invalid Command
+        _request_id: abcd-1234
+    json_401_panui_auth_key_too_long:
+      summary: Key Too Long
       value:
         _errors:
-        - code: E013
-          message: Bad XPath
+        - code: E016
           details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_mgmt_invalid_object_2:
+          message: Key Too Long
+        _request_id: abcd-1234
+    json_400_panui_mgmt_invalid_object:
       summary: Invalid Object
       value:
         _errors:
         - code: E003
-          message: Invalid Object
           details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_restapi_missing_query_parameter_2:
-      summary: Missing Query Parameter
+          message: Invalid Object
+        _request_id: abcd-1234
+    json_400_panui_restapi_output_format_mismatch:
+      summary: Output Format Mismatch
       value:
         _errors:
         - code: E003
-          message: 'Missing Query Parameter: name'
+          details: {}
+          message: 'Output Format Mismatch: output-format=json Accept=xml'
+        _request_id: abcd-1234
+    json_409_panui_mgmt_object_not_unique:
+      summary: Object Not Unique
+      value:
+        _errors:
+        - code: E016
+          details: {}
+          message: Object Not Unique
+        _request_id: abcd-1234
+    json_504_panui_mgmt_session_timeout:
+      summary: Session Timeout
+      value:
+        _errors:
+        - code: 4
+          details: {}
+          message: Session Timeout
+        _request_id: abcd-1234
+    json_400_panui_mgmt_bad_xpath:
+      summary: Bad XPath
+      value:
+        _errors:
+        - code: E013
+          details: {}
+          message: Bad XPath
+        _request_id: abcd-1234
+    json_405_panui_restapi_action_not_supported:
+      summary: Action Not Supported
+      value:
+        _errors:
+        - code: E012
+          details: {}
+          message: 'Action Not Supported: move'
+        _request_id: abcd-1234
+    json_501_panui_restapi_method_not_supported:
+      summary: Method Not Supported
+      value:
+        _errors:
+        - code: E012
+          details: {}
+          message: Method Not Supported
+        _request_id: abcd-1234
+    json_400_panui_restapi_missing_body:
+      summary: Missing Body
+      value:
+        _errors:
+        - code: E003
+          details: {}
+          message: Missing Body
+        _request_id: abcd-1234
+    json_409_panui_mgmt_name_not_unique_2:
+      summary: Name Not Unique
+      value:
+        _errors:
+        - code: E006
+          message: Name Not Unique
           details: {}
         _request_id: 123e4567-e89b-12d3-a456-426655440000
     json_401_panui_auth_not_authenticated_2:
@@ -5566,68 +5494,12 @@ components:
           message: Not Authenticated
           details: {}
         _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_401_panui_auth_key_expired_2:
-      summary: Key Expired
-      value:
-        _errors:
-        - code: E016
-          message: Key Expired
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_409_panui_mgmt_name_not_unique_2:
-      summary: Name Not Unique
-      value:
-        _errors:
-        - code: E006
-          message: Name Not Unique
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_restapi_invalid_query_parameter_2:
-      summary: Invalid Query Parameter
-      value:
-        _errors:
-        - code: E003
-          message: 'Invalid Query Parameter: location=invalid'
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_405_panui_restapi_action_not_supported_2:
-      summary: Action Not Supported
+    json_501_panui_restapi_version_not_supported_2:
+      summary: Version Not Supported
       value:
         _errors:
         - code: E012
-          message: 'Action Not Supported: move'
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_401_panui_auth_invalid_credential_2:
-      summary: Invalid Credential
-      value:
-        _errors:
-        - code: E016
-          message: Invalid Credential
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_501_panui_restapi_method_not_supported_2:
-      summary: Method Not Supported
-      value:
-        _errors:
-        - code: E012
-          message: Method Not Supported
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_401_panui_auth_key_too_long_2:
-      summary: Key Too Long
-      value:
-        _errors:
-        - code: E016
-          message: Key Too Long
-          details: {}
-        _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_mgmt_invalid_command_2:
-      summary: Invalid Command
-      value:
-        _errors:
-        - code: E003
-          message: Invalid Command
+          message: Version Not Supported
           details: {}
         _request_id: 123e4567-e89b-12d3-a456-426655440000
     json_403_panui_auth_unauthorized_2:
@@ -5638,12 +5510,28 @@ components:
           message: Unauthorized
           details: {}
         _request_id: 123e4567-e89b-12d3-a456-426655440000
-    json_400_panui_restapi_output_format_mismatch_2:
-      summary: Output Format Mismatch
+    json_400_panui_mgmt_malformed_command_2:
+      summary: Malformed Command
       value:
         _errors:
         - code: E003
-          message: 'Output Format Mismatch: output-format=json Accept=xml'
+          message: Malformed Command
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_400_panui_restapi_missing_query_parameter_2:
+      summary: Missing Query Parameter
+      value:
+        _errors:
+        - code: E003
+          message: 'Missing Query Parameter: name'
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_401_panui_auth_invalid_credential_2:
+      summary: Invalid Credential
+      value:
+        _errors:
+        - code: E016
+          message: Invalid Credential
           details: {}
         _request_id: 123e4567-e89b-12d3-a456-426655440000
     json_404_panui_mgmt_object_not_present_2:
@@ -5662,119 +5550,118 @@ components:
           message: Reference Not Zero
           details: {}
         _request_id: 123e4567-e89b-12d3-a456-426655440000
-  parameters:
-    uuid-required:
-      description: 'The resource''s unique identifier.
-
-        '
-      in: path
-      name: id
-      required: true
-      schema:
-        type: string
-    offset-optional:
-      description: 'The offset of the result entry.
-
-        '
-      in: query
-      name: offset
-      required: false
-      schema:
-        type: number
-    folder:
-      description: 'The folder on which you want to perform this operation.
-
-        '
-      in: query
-      name: folder
-      required: true
-      schema:
-        enum:
-        - Shared
-        - Mobile Users
-        - Remote Networks
-        - Service Connections
-        - Mobile Users Container
-        - Mobile Users Explicit Proxy
-        pattern: ^[0-9a-zA-Z._-\s]{1,}$
-        type: string
-    name-optional:
-      description: 'The name of the entry.
-
-        '
-      in: query
-      name: name
-      required: false
-      schema:
-        type: string
-    limit-optional:
-      description: 'The maximum number of result objects to return per page.
-
-        '
-      in: query
-      name: limit
-      required: false
-      schema:
-        type: number
-    uuid:
-      name: id
-      in: path
-      description: The UUID of the configuration resource
-      required: true
-      schema:
-        type: string
-        format: uuid
-        example: 123e4567-e89b-12d3-a456-426655440000
-    limit:
-      name: limit
-      in: query
-      description: The maximum number of results per page
-      required: false
-      schema:
-        type: integer
-        default: 200
-    folder_2:
-      name: folder
-      in: query
-      description: 'The folder in which the resource is defined
-
-        '
-      required: false
-      schema:
-        type: string
-    snippet:
-      name: snippet
-      in: query
-      description: 'The snippet in which the resource is defined
-
-        '
-      required: false
-      schema:
-        type: string
-    device:
-      name: device
-      in: query
-      description: 'The device in which the resource is defined
-
-        '
-      required: false
-      schema:
-        type: string
-    name:
-      name: name
-      in: query
-      description: The name of the configuration resource
-      required: false
-      schema:
-        type: string
-    offset:
-      name: offset
-      in: query
-      description: The offset into the list of results returned
-      required: false
-      schema:
-        type: integer
-        default: 0
+    json_401_panui_auth_key_expired_2:
+      summary: Key Expired
+      value:
+        _errors:
+        - code: E016
+          message: Key Expired
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_400_panui_restapi_invalid_query_parameter_2:
+      summary: Invalid Query Parameter
+      value:
+        _errors:
+        - code: E003
+          message: 'Invalid Query Parameter: location=invalid'
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_401_panui_auth_need_password_change_2:
+      summary: Need Password Change
+      value:
+        _errors:
+        - code: E016
+          message: The password needs to be changed.
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_400_panui_restapi_input_format_mismatch_2:
+      summary: Input Format Mismatch
+      value:
+        _errors:
+        - code: E003
+          message: 'Input Format Mismatch: input-format=json'
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_400_panui_mgmt_invalid_command_2:
+      summary: Invalid Command
+      value:
+        _errors:
+        - code: E003
+          message: Invalid Command
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_401_panui_auth_key_too_long_2:
+      summary: Key Too Long
+      value:
+        _errors:
+        - code: E016
+          message: Key Too Long
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_400_panui_mgmt_invalid_object_2:
+      summary: Invalid Object
+      value:
+        _errors:
+        - code: E003
+          message: Invalid Object
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_400_panui_restapi_output_format_mismatch_2:
+      summary: Output Format Mismatch
+      value:
+        _errors:
+        - code: E003
+          message: 'Output Format Mismatch: output-format=json Accept=xml'
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_409_panui_mgmt_object_not_unique_2:
+      summary: Object Not Unique
+      value:
+        _errors:
+        - code: E016
+          message: Object Not Unique
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_504_panui_mgmt_session_timeout_2:
+      summary: Session Timeout
+      value:
+        _errors:
+        - code: '4'
+          message: Session Timeout
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_400_panui_mgmt_bad_xpath_2:
+      summary: Bad XPath
+      value:
+        _errors:
+        - code: E013
+          message: Bad XPath
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_405_panui_restapi_action_not_supported_2:
+      summary: Action Not Supported
+      value:
+        _errors:
+        - code: E012
+          message: 'Action Not Supported: move'
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_501_panui_restapi_method_not_supported_2:
+      summary: Method Not Supported
+      value:
+        _errors:
+        - code: E012
+          message: Method Not Supported
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
+    json_400_panui_restapi_missing_body_2:
+      summary: Missing Body
+      value:
+        _errors:
+        - code: E003
+          message: Missing Body
+          details: {}
+        _request_id: 123e4567-e89b-12d3-a456-426655440000
   responses:
     default_errors:
       content:
@@ -5797,15 +5684,17 @@ components:
           schema:
             $ref: '#/components/schemas/generic_error'
       description: General Errors
-    access_errors:
+    http_ok:
+      description: Ok
+    not_found:
       content:
         application/json:
           examples:
-            auth_unauthorized:
-              $ref: '#/components/examples/json_403_panui_auth_unauthorized'
+            object_not_present:
+              $ref: '#/components/examples/json_404_panui_mgmt_object_not_present'
           schema:
             $ref: '#/components/schemas/generic_error'
-      description: Forbidden
+      description: Not Found
     auth_errors:
       content:
         application/json:
@@ -5823,6 +5712,30 @@ components:
           schema:
             $ref: '#/components/schemas/generic_error'
       description: Unauthorized
+    conflict_errors:
+      content:
+        application/json:
+          examples:
+            name_not_unique:
+              $ref: '#/components/examples/json_409_panui_mgmt_name_not_unique'
+            object_not_unique:
+              $ref: '#/components/examples/json_409_panui_mgmt_object_not_unique'
+            reference_not_zero:
+              $ref: '#/components/examples/json_409_panui_mgmt_reference_not_zero'
+          schema:
+            $ref: '#/components/schemas/generic_error'
+      description: Conflict
+    access_errors:
+      content:
+        application/json:
+          examples:
+            auth_unauthorized:
+              $ref: '#/components/examples/json_403_panui_auth_unauthorized'
+          schema:
+            $ref: '#/components/schemas/generic_error'
+      description: Forbidden
+    http_created:
+      description: Created
     bad_request_errors_basic_with_body:
       content:
         application/json:
@@ -5842,8 +5755,6 @@ components:
           schema:
             $ref: '#/components/schemas/generic_error'
       description: Bad Request
-    http_created:
-      description: Created
     bad_request_errors_basic:
       content:
         application/json:
@@ -5859,38 +5770,8 @@ components:
           schema:
             $ref: '#/components/schemas/generic_error'
       description: Bad Request
-    conflict_errors:
-      content:
-        application/json:
-          examples:
-            name_not_unique:
-              $ref: '#/components/examples/json_409_panui_mgmt_name_not_unique'
-            object_not_unique:
-              $ref: '#/components/examples/json_409_panui_mgmt_object_not_unique'
-            reference_not_zero:
-              $ref: '#/components/examples/json_409_panui_mgmt_reference_not_zero'
-          schema:
-            $ref: '#/components/schemas/generic_error'
-      description: Conflict
-    not_found:
-      content:
-        application/json:
-          examples:
-            object_not_present:
-              $ref: '#/components/examples/json_404_panui_mgmt_object_not_present'
-          schema:
-            $ref: '#/components/schemas/generic_error'
-      description: Not Found
-    http_ok:
-      description: Ok
     Unauthorized:
       description: Missing or invalid OAuth2 access token.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse_2'
-    Forbidden:
-      description: Insufficient permissions for this operation.
       content:
         application/json:
           schema:
@@ -5901,12 +5782,12 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse_2'
-    Forbidden_2:
+    Forbidden:
       description: Insufficient permissions for this operation.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorResponse_4'
+            $ref: '#/components/schemas/ErrorResponse_2'
     Unauthorized_2:
       description: Missing or invalid OAuth2 access token.
       content:
@@ -5919,8 +5800,127 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse_4'
+    Forbidden_2:
+      description: Insufficient permissions for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse_4'
     http_ok_2:
       description: OK
+  parameters:
+    uuid-required:
+      description: 'The resource''s unique identifier.
+
+        '
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    name-optional:
+      description: 'The name of the entry.
+
+        '
+      in: query
+      name: name
+      required: false
+      schema:
+        type: string
+    offset-optional:
+      description: 'The offset of the result entry.
+
+        '
+      in: query
+      name: offset
+      required: false
+      schema:
+        type: number
+    limit-optional:
+      description: 'The maximum number of result objects to return per page.
+
+        '
+      in: query
+      name: limit
+      required: false
+      schema:
+        type: number
+    folder:
+      description: 'The folder on which you want to perform this operation.
+
+        '
+      in: query
+      name: folder
+      required: true
+      schema:
+        enum:
+        - Shared
+        - Mobile Users
+        - Remote Networks
+        - Service Connections
+        - Mobile Users Container
+        - Mobile Users Explicit Proxy
+        pattern: ^[0-9a-zA-Z._-\s]{1,}$
+        type: string
+    snippet:
+      name: snippet
+      in: query
+      description: 'The snippet in which the resource is defined
+
+        '
+      required: false
+      schema:
+        type: string
+    name:
+      name: name
+      in: query
+      description: The name of the configuration resource
+      required: false
+      schema:
+        type: string
+    limit:
+      name: limit
+      in: query
+      description: The maximum number of results per page
+      required: false
+      schema:
+        type: integer
+        default: 200
+    offset:
+      name: offset
+      in: query
+      description: The offset into the list of results returned
+      required: false
+      schema:
+        type: integer
+        default: 0
+    device:
+      name: device
+      in: query
+      description: 'The device in which the resource is defined
+
+        '
+      required: false
+      schema:
+        type: string
+    folder_2:
+      name: folder
+      in: query
+      description: 'The folder in which the resource is defined
+
+        '
+      required: false
+      schema:
+        type: string
+    uuid:
+      name: id
+      in: path
+      description: The UUID of the configuration resource
+      required: true
+      schema:
+        type: string
+        format: uuid
+        example: 123e4567-e89b-12d3-a456-426655440000
   securitySchemes:
     BearerAuth:
       type: http
