@@ -1,0 +1,184 @@
+# harvested from https://github.com/PaloAltoNetworks/openapi/blob/659339799ae30a06c3bf1859507a4a6c131814fc/.spectral.yaml on 2026-10-09 — a Spectral ruleset published in the provider's own GitHub repository (PaloAltoNetworks/openapi); found by GitHub code search, fetched verbatim
+x-method: harvested
+x-stamped: 2026-10-09
+x-source-url: https://github.com/PaloAltoNetworks/openapi/blob/659339799ae30a06c3bf1859507a4a6c131814fc/.spectral.yaml
+# Spectral ruleset for the Prisma AIRS AI Gateway API.
+#
+# Two things make this ruleset unusual, and both follow from the grounding
+# model rather than from taste:
+#
+#   1. The stock OpenAPI style guide wants a description on everything. This
+#      repository wants them EMPTY until an accepted KB claim supports them, so
+#      those rules are turned off and replaced by a rule asserting the opposite.
+#      An empty description renders as a visible gap; a plausible invented one
+#      does not.
+#
+#   2. Genuine defects inherited from the base specification are NOT silenced
+#      here. They keep their real severity and are held at their current count
+#      by .spectral-baseline.json, so existing debt is visible and new debt
+#      fails CI. See scripts/lint.py.
+
+extends: ["spectral:oas"]
+
+rules:
+  # --- inverted for grounding -------------------------------------------
+  # Not style preferences. Writing prose here would bypass the grounding gate,
+  # which is the one review that makes the spec safe to publish.
+  operation-description: off
+  info-description: off
+  info-contact: off        # dropped deliberately; the base pointed at Portkey
+
+  # --- the grounding gate, as lint --------------------------------------
+  # This rule used to assert that prose in openapi.yaml was *empty*, because
+  # prose lived in overlays/docs-prose.yaml and was applied downstream. It is
+  # applied upstream now -- openapi.yaml is the published document and carries
+  # the resolved prose -- so "empty" would fail the moment the first description
+  # was written, and would have been silenced rather than fixed.
+  #
+  # The assertion underneath it survives the move, and gets sharper: prose may
+  # be here, but not without the claim that supports it. Written summary or
+  # description, empty `claims`, is the failure the split exists to prevent, and
+  # on the resolved document it is checkable in one place.
+  #
+  # scripts/check.py enforces the other half -- that the prose in openapi.yaml
+  # is byte-for-byte what the overlay produces, so it cannot be typed in here
+  # and cannot bypass review. Spectral cannot see the overlay, and info and tag
+  # descriptions have no provenance block to point at, so they are checked
+  # there rather than here.
+  airs-prose-is-grounded:
+    description: >-
+      Every published description is an assertion about the API. It ships with
+      the accepted claim that supports it or it does not ship.
+    message: "prose without an accepted claim -- see overlays/docs-prose.yaml"
+    severity: error
+    given: $.paths[*][get,put,post,delete,options,head,patch,trace]
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          type: object
+          allOf:
+            - if:
+                required: [summary]
+                properties:
+                  summary: { type: string, minLength: 1 }
+              then:
+                required: [x-airs-provenance]
+                properties:
+                  x-airs-provenance:
+                    type: object
+                    required: [claims]
+                    properties:
+                      claims: { type: array, minItems: 1 }
+            - if:
+                required: [description]
+                properties:
+                  description: { type: string, minLength: 1 }
+              then:
+                required: [x-airs-provenance]
+                properties:
+                  x-airs-provenance:
+                    type: object
+                    required: [claims]
+                    properties:
+                      claims: { type: array, minItems: 1 }
+
+  # --- the docs URL contract ---------------------------------------------
+  # A published page address. scripts/check.py owns uniqueness, tag consistency
+  # and the comparison against _project/hrefs.yaml; presence is here so a
+  # Spectral run on its own still catches an operation that would generate a
+  # page nothing can link to.
+  airs-mint-href-present:
+    description: >-
+      Without x-mint.href an operation's page has no stable URL: Mintlify
+      derives the slug from prose, so it moves when prose lands.
+    message: "operation is missing x-mint.href"
+    severity: error
+    given: $.paths[*][get,put,post,delete,options,head,patch,trace]
+    then:
+      field: x-mint.href
+      function: truthy
+
+  # --- provenance, the drift join key -----------------------------------
+  airs-provenance-present:
+    description: >-
+      Without a claim reference on an operation, nothing can tell that the KB
+      moved and the specification did not.
+    message: "operation is missing x-airs-provenance"
+    severity: error
+    given: $.paths[*][get,put,post,delete,options,head,patch,trace]
+    then:
+      field: x-airs-provenance
+      function: truthy
+
+  airs-provenance-well-formed:
+    description: >-
+      The shape goes in before there is anything to put in it. Retrofitting it
+      means reconstructing which claim supported a description after the fact,
+      which is indistinguishable from inventing it.
+    severity: error
+    given: $.paths[*][get,put,post,delete,options,head,patch,trace].x-airs-provenance
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          type: object
+          required: [claims, origin_kind, text_digest]
+          properties:
+            claims:
+              type: array
+              items:
+                type: object
+                required: [id]
+                properties:
+                  id: { type: string }
+                  revision: { type: [string, "null"] }
+            origin_kind:
+              enum: [human, generated, mixed]
+            text_digest:
+              type: string
+
+  # --- naming ------------------------------------------------------------
+  airs-tag-naming:
+    description: >-
+      Tag names are simultaneously navigation display text and reference keys.
+      Title Case, spaces not hyphens, initialisms uppercased, "Parent > Child"
+      for genuine sub-resources. See tags-map.yaml.
+    message: "tag name '{{value}}' does not match the agreed information architecture"
+    severity: error
+    given: $.tags[*].name
+    then:
+      function: pattern
+      functionOptions:
+        # Word = capitalised, optionally hyphen-joined to further capitalised
+        # words, so "Fine-Tuning" passes and "Virtual-keys" does not.
+        match: "^[A-Z][A-Za-z0-9]*(?:-[A-Z][A-Za-z0-9]*)*(?: [A-Z][A-Za-z0-9]*(?:-[A-Z][A-Za-z0-9]*)*)*(?: > [A-Z][A-Za-z0-9]*(?:-[A-Z][A-Za-z0-9]*)*(?: [A-Z][A-Za-z0-9]*(?:-[A-Z][A-Za-z0-9]*)*)*)*$"
+
+  airs-tag-initialisms:
+    description: >-
+      Casing alone cannot tell that "Api" should be "API". These are the
+      initialisms the inherited specification got wrong.
+    message: "tag name '{{value}}' contains a lowercased initialism"
+    severity: error
+    given: $.tags[*].name
+    then:
+      function: pattern
+      functionOptions:
+        notMatch: "\\b(Api|Mcp|Ocr|Sdk|Url|Uri|Http|Https|Json|Yaml|Ai|Llm|Id)\\b"
+
+  airs-tag-no-camel-case:
+    description: >-
+      Compound tag names are separated by spaces, not run together.
+      "PromptPartials" is "Prompt Partials".
+    message: "tag name '{{value}}' runs words together; separate them with a space"
+    severity: error
+    given: $.tags[*].name
+    then:
+      function: pattern
+      functionOptions:
+        notMatch: "[a-z][A-Z]"
+
+  # --- inherited debt, held at its current count by the baseline ---------
+  # Left at real severity on purpose. Silencing them would lose the signal that
+  # these are defects someone should eventually fix.
+  operation-operationId: warn
